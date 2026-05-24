@@ -314,6 +314,17 @@
     .turn-card:hover { transform: translateY(-3px); box-shadow: 3px 3px 0 rgba(168,155,128,.3); }
     .turn-lbl { font-family: var(--font-en); font-size: .6rem; letter-spacing: .18em; color: var(--earth-dk); }
 
+    /* Story photo (thay turn-grid SVG) */
+    .story-visual { width: 100%; border-radius: 8px; overflow: hidden; display: block; }
+    .story-visual img { width: 100%; display: block; border-radius: 8px; max-height: 540px; object-fit: cover; object-position: top; }
+
+    /* Sticker photos */
+    .stk-badge.stk-photo { padding: 0; overflow: hidden; }
+    .stk-img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; display: block; }
+
+    /* Merch photos */
+    .merch-photo { width: 100%; height: 100%; object-fit: contain; display: block; }
+
     /* ============================= */
     /* MENU SECTION                  */
     /* ============================= */
@@ -659,64 +670,8 @@
         <p class="story-p reveal d4"><em>すべての一杯に、「おかえりなさい」を。</em><br>Mỗi ly là một chuyến trở về.</p>
       </div>
 
-      <div class="reveal d2">
-        <!-- Character turnaround 2×2 -->
-        <div class="turn-grid">
-          <!-- FRONT -->
-          <div class="turn-card">
-            <svg viewBox="0 0 90 110" width="68" height="83">
-              <circle cx="45" cy="44" r="24" fill="#7A8C4F"/>
-              <ellipse cx="45" cy="85" rx="22" ry="24" fill="#2D5F6B"/>
-              <rect x="34" y="80" width="22" height="6" rx="2" fill="#F5F0E8" opacity=".85"/>
-              <circle cx="37" cy="43" r="7" fill="white"/><circle cx="53" cy="43" r="7" fill="white"/>
-              <circle cx="38" cy="43" r="3.5" fill="#1a2e35"/><circle cx="54" cy="43" r="3.5" fill="#1a2e35"/>
-              <path d="M38,54 Q45,60 52,54" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
-              <ellipse cx="45" cy="23" rx="30" ry="7" fill="#C4A872"/>
-              <path d="M15,23 Q45,5 75,23" fill="#C4A872"/>
-              <ellipse cx="33" cy="52" rx="8" ry="4" fill="rgba(235,98,74,.2)"/>
-              <ellipse cx="57" cy="52" rx="8" ry="4" fill="rgba(235,98,74,.2)"/>
-            </svg>
-            <span class="turn-lbl">TRƯỚC / 正面</span>
-          </div>
-          <!-- 3/4 VIEW -->
-          <div class="turn-card">
-            <svg viewBox="0 0 90 110" width="68" height="83">
-              <circle cx="47" cy="44" r="24" fill="#7A8C4F"/>
-              <ellipse cx="47" cy="85" rx="22" ry="24" fill="#2D5F6B"/>
-              <rect x="36" y="80" width="22" height="6" rx="2" fill="#F5F0E8" opacity=".85"/>
-              <circle cx="39" cy="42" r="8" fill="white"/><circle cx="56" cy="44" r="6" fill="white"/>
-              <circle cx="40" cy="42" r="4" fill="#1a2e35"/><circle cx="57" cy="44" r="3" fill="#1a2e35"/>
-              <path d="M39,54 Q48,61 55,57" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
-              <ellipse cx="47" cy="23" rx="30" ry="7" fill="#C4A872"/>
-              <path d="M17,23 Q47,5 77,23" fill="#C4A872"/>
-            </svg>
-            <span class="turn-lbl">GÓC 3/4 / 斜め</span>
-          </div>
-          <!-- SIDE -->
-          <div class="turn-card">
-            <svg viewBox="0 0 90 110" width="68" height="83">
-              <ellipse cx="48" cy="44" rx="20" ry="24" fill="#7A8C4F"/>
-              <ellipse cx="48" cy="85" rx="20" ry="24" fill="#2D5F6B"/>
-              <circle cx="57" cy="41" r="8" fill="white"/>
-              <circle cx="58" cy="41" r="4" fill="#1a2e35"/>
-              <path d="M52,55 Q58,62 64,57" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
-              <ellipse cx="48" cy="23" rx="28" ry="6" fill="#C4A872"/>
-              <path d="M20,23 Q48,6 76,23" fill="#C4A872"/>
-            </svg>
-            <span class="turn-lbl">NGANG / 側面</span>
-          </div>
-          <!-- BACK -->
-          <div class="turn-card">
-            <svg viewBox="0 0 90 110" width="68" height="83">
-              <circle cx="45" cy="44" r="24" fill="#6a7a44"/>
-              <ellipse cx="45" cy="85" rx="22" ry="24" fill="#264f5a"/>
-              <ellipse cx="45" cy="44" rx="10" ry="12" fill="rgba(255,255,255,.07)"/>
-              <ellipse cx="45" cy="23" rx="30" ry="7" fill="#B89660"/>
-              <path d="M15,23 Q45,5 75,23" fill="#B89660"/>
-            </svg>
-            <span class="turn-lbl">SAU / 背面</span>
-          </div>
-        </div>
+      <div class="reveal d2 story-visual">
+        <img src="img/story-visual.jpg" alt="かえるの物語 — Hành trình của Kaeru">
       </div>
     </div>
   </div>
@@ -872,121 +827,48 @@
     <div class="stk-grid">
       <!-- 集中 DETERMINED -->
       <div class="stk-item reveal d1">
-        <div class="stk-badge" style="background:linear-gradient(135deg,#e6eed4,var(--cream))">
-          <svg viewBox="0 0 80 80" width="52" height="52">
-            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
-            <circle cx="30" cy="38" r="9" fill="white"/><circle cx="50" cy="38" r="9" fill="white"/>
-            <circle cx="30" cy="38" r="4.5" fill="#1a2e35"/><circle cx="50" cy="38" r="4.5" fill="#1a2e35"/>
-            <!-- determined mouth: straight -->
-            <path d="M32,52 L48,52" stroke="#1a2e35" stroke-width="2.8" stroke-linecap="round"/>
-            <!-- stern brows -->
-            <path d="M23,28 L35,31" stroke="#1a2e35" stroke-width="2" stroke-linecap="round"/>
-            <path d="M45,31 L57,28" stroke="#1a2e35" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span class="stk-jp">集中！</span>
+        <div class="stk-badge stk-photo">
+          <img src="img/stk-quyet-tam.jpg" alt="集中 — Quyết Tâm" class="stk-img">
         </div>
         <span class="stk-en">QUYẾT TÂM</span>
       </div>
 
       <!-- 乾杯 JOYFUL -->
       <div class="stk-item reveal d2">
-        <div class="stk-badge" style="background:linear-gradient(135deg,#fce6d5,var(--cream))">
-          <svg viewBox="0 0 80 80" width="52" height="52">
-            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
-            <circle cx="29" cy="36" r="9" fill="white"/><circle cx="51" cy="36" r="9" fill="white"/>
-            <circle cx="29" cy="36" r="4.5" fill="#1a2e35"/><circle cx="51" cy="36" r="4.5" fill="#1a2e35"/>
-            <!-- big joyful smile -->
-            <path d="M28,50 Q40,64 52,50" stroke="#1a2e35" stroke-width="2.5" fill="rgba(30,45,50,.08)"/>
-            <!-- blush -->
-            <ellipse cx="20" cy="47" rx="8" ry="4.5" fill="rgba(235,98,74,.22)"/>
-            <ellipse cx="60" cy="47" rx="8" ry="4.5" fill="rgba(235,98,74,.22)"/>
-            <!-- raised brows happy -->
-            <path d="M22,27 C26,22 36,23 38,27" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
-            <path d="M42,27 C44,23 54,22 58,27" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
-          </svg>
-          <span class="stk-jp">乾杯！</span>
+        <div class="stk-badge stk-photo">
+          <img src="img/stk-vui-ve.jpg" alt="乾杯 — Vui Vẻ" class="stk-img">
         </div>
         <span class="stk-en">VUI VẺ</span>
       </div>
 
       <!-- びっくり SURPRISED -->
       <div class="stk-item reveal d3">
-        <div class="stk-badge" style="background:linear-gradient(135deg,#ede6f5,var(--cream))">
-          <svg viewBox="0 0 80 80" width="52" height="52">
-            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
-            <!-- big round surprised eyes -->
-            <circle cx="29" cy="38" r="12" fill="white"/><circle cx="51" cy="38" r="12" fill="white"/>
-            <circle cx="29" cy="38" r="6.5" fill="#1a2e35"/><circle cx="51" cy="38" r="6.5" fill="#1a2e35"/>
-            <circle cx="31" cy="36" r="2.2" fill="white"/><circle cx="53" cy="36" r="2.2" fill="white"/>
-            <!-- O mouth -->
-            <ellipse cx="40" cy="57" rx="6.5" ry="5.5" fill="#1a2e35"/>
-            <ellipse cx="40" cy="57" rx="4.5" ry="4" fill="#7a2020"/>
-            <!-- exclamation marks -->
-            <text x="10" y="18" font-size="13" fill="#EB624A" font-weight="bold" font-family="sans-serif">!!</text>
-          </svg>
-          <span class="stk-jp">びっくり！</span>
+        <div class="stk-badge stk-photo">
+          <img src="img/stk-ngac-nhien.jpg" alt="びっくり — Ngạc Nhiên" class="stk-img">
         </div>
         <span class="stk-en">NGẠC NHIÊN</span>
       </div>
 
       <!-- ねむい SLEEPY -->
       <div class="stk-item reveal d4">
-        <div class="stk-badge" style="background:linear-gradient(135deg,#e5eaed,var(--cream))">
-          <svg viewBox="0 0 80 80" width="52" height="52">
-            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
-            <!-- half-closed eyes -->
-            <ellipse cx="30" cy="40" rx="9" ry="5.5" fill="white"/>
-            <ellipse cx="50" cy="40" rx="9" ry="5.5" fill="white"/>
-            <ellipse cx="30" cy="42" rx="5.5" ry="3.5" fill="#1a2e35"/>
-            <ellipse cx="50" cy="42" rx="5.5" ry="3.5" fill="#1a2e35"/>
-            <!-- droopy eyelids -->
-            <path d="M21,39 Q30,33 39,39" fill="rgba(100,120,55,.72)"/>
-            <path d="M41,39 Q50,33 59,39" fill="rgba(100,120,55,.72)"/>
-            <path d="M33,52 Q40,57 47,52" stroke="#1a2e35" stroke-width="2" fill="none"/>
-            <!-- Z Z Z -->
-            <text x="58" y="22" font-size="11" fill="#A89B80" font-family="sans-serif">z</text>
-            <text x="63" y="13" font-size="9" fill="#A89B80" font-family="sans-serif">z</text>
-          </svg>
-          <span class="stk-jp">ねむい…</span>
+        <div class="stk-badge stk-photo">
+          <img src="img/stk-buon-ngu.jpg" alt="ねむい — Buồn Ngủ" class="stk-img">
         </div>
         <span class="stk-en">BUỒN NGỦ</span>
       </div>
 
       <!-- 自慢げ PROUD -->
       <div class="stk-item reveal d3">
-        <div class="stk-badge" style="background:linear-gradient(135deg,#f5eedc,var(--cream))">
-          <svg viewBox="0 0 80 80" width="52" height="52">
-            <circle cx="40" cy="42" r="28" fill="#7A8C4F"/>
-            <circle cx="29" cy="40" r="9" fill="white"/><circle cx="51" cy="40" r="9" fill="white"/>
-            <circle cx="30" cy="39" r="4.5" fill="#1a2e35"/><circle cx="52" cy="39" r="4.5" fill="#1a2e35"/>
-            <!-- smug smile -->
-            <path d="M29,53 Q40,65 51,53" stroke="#1a2e35" stroke-width="2.5" fill="rgba(30,45,50,.08)"/>
-            <!-- proud raised single brow -->
-            <path d="M22,29 C27,24 36,26 38,30" stroke="#1a2e35" stroke-width="2" fill="none"/>
-            <path d="M42,30 C44,26 53,24 58,29" stroke="#1a2e35" stroke-width="2" fill="none"/>
-            <!-- sparkles -->
-            <text x="58" y="24" font-size="11">✨</text>
-          </svg>
-          <span class="stk-jp">自慢げ！</span>
+        <div class="stk-badge stk-photo">
+          <img src="img/stk-tu-hao.jpg" alt="自慢げ — Tự Hào" class="stk-img">
         </div>
         <span class="stk-en">TỰ HÀO</span>
       </div>
 
       <!-- またね SEE YOU -->
       <div class="stk-item reveal d4">
-        <div class="stk-badge" style="background:linear-gradient(135deg,#d5ece7,var(--cream))">
-          <svg viewBox="0 0 80 80" width="52" height="52">
-            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
-            <circle cx="29" cy="37" r="9" fill="white"/><circle cx="51" cy="37" r="9" fill="white"/>
-            <circle cx="29" cy="37" r="4.5" fill="#1a2e35"/><circle cx="51" cy="37" r="4.5" fill="#1a2e35"/>
-            <path d="M28,51 Q40,63 52,51" stroke="#1a2e35" stroke-width="2.5" fill="none"/>
-            <!-- waving hand -->
-            <path d="M60,26 C65,20 72,19 70,27 C74,15 80,18 75,27 C76,17 82,22 75,30" stroke="#5A7A3A" stroke-width="3" fill="none" stroke-linecap="round"/>
-            <!-- blush -->
-            <ellipse cx="20" cy="47" rx="8" ry="4.5" fill="rgba(235,98,74,.2)"/>
-            <ellipse cx="60" cy="47" rx="8" ry="4.5" fill="rgba(235,98,74,.2)"/>
-          </svg>
-          <span class="stk-jp">またね！</span>
+        <div class="stk-badge stk-photo">
+          <img src="img/stk-tam-biet.jpg" alt="またね — Hẹn Gặp Lại" class="stk-img">
         </div>
         <span class="stk-en">HẸN GẶP LẠI!</span>
       </div>
@@ -1015,20 +897,7 @@
       <!-- TOTE BAG -->
       <div class="merch-card">
         <div class="merch-img reveal d1">
-          <svg viewBox="0 0 150 190" width="110" height="140">
-            <path d="M28,56 Q23,58 20,64 L13,175 Q12,185 23,185 L127,185 Q138,185 137,175 L130,64 Q127,58 122,56 Z" fill="#E8E0CC" stroke="#A89B80" stroke-width="2"/>
-            <path d="M52,56 Q52,22 75,22 Q98,22 98,56" stroke="#A89B80" stroke-width="5" fill="none" stroke-linecap="round"/>
-            <!-- frog logo print on bag -->
-            <circle cx="75" cy="126" r="36" fill="none" stroke="#2D5F6B" stroke-width="2"/>
-            <circle cx="75" cy="116" r="17" fill="#7A8C4F"/>
-            <circle cx="68" cy="114" r="5" fill="white"/><circle cx="82" cy="114" r="5" fill="white"/>
-            <circle cx="68" cy="114" r="2.5" fill="#1a2e35"/><circle cx="82" cy="114" r="2.5" fill="#1a2e35"/>
-            <path d="M69,122 Q75,128 81,122" stroke="#1a2e35" stroke-width="1.5" fill="none"/>
-            <ellipse cx="75" cy="101" rx="19" ry="4" fill="#C4A872"/>
-            <path d="M56,101 Q75,88 94,101" fill="#C4A872"/>
-            <text x="75" y="152" text-anchor="middle" font-size="8" fill="#2D5F6B" font-family="serif" letter-spacing="2">かえる</text>
-            <text x="75" y="161" text-anchor="middle" font-size="5" fill="#A89B80" font-family="sans-serif" letter-spacing="2">BUBBLE TEA</text>
-          </svg>
+          <img src="img/merch-tote.jpg" alt="Túi Tote かえる" class="merch-photo">
         </div>
         <div class="merch-name reveal d1">トートバッグ</div>
         <div class="merch-name-en reveal d2">TÚI TOTE</div>
@@ -1037,28 +906,7 @@
       <!-- ENAMEL PIN -->
       <div class="merch-card">
         <div class="merch-img reveal d2">
-          <svg viewBox="0 0 140 160" width="110" height="126">
-            <!-- pin shadow -->
-            <circle cx="72" cy="82" r="50" fill="rgba(168,155,128,.18)"/>
-            <circle cx="70" cy="78" r="48" fill="#2D5F6B" stroke="#A89B80" stroke-width="2.5"/>
-            <circle cx="70" cy="78" r="42" fill="none" stroke="rgba(245,240,232,.22)" stroke-width="1"/>
-            <!-- Torii on pin -->
-            <path d="M30,52 C37,44 50,46 70,50 C90,46 103,44 110,52" stroke="#EB624A" stroke-width="2.5" fill="none"/>
-            <rect x="36" y="54" width="68" height="4" fill="#EB624A" rx="1"/>
-            <rect x="46" y="46" width="4" height="34" fill="#EB624A" rx="1"/>
-            <rect x="90" y="46" width="4" height="34" fill="#EB624A" rx="1"/>
-            <!-- frog head on pin -->
-            <circle cx="70" cy="75" r="18" fill="#7A8C4F"/>
-            <circle cx="63" cy="73" r="6" fill="white"/><circle cx="77" cy="73" r="6" fill="white"/>
-            <circle cx="63" cy="73" r="3" fill="#1a2e35"/><circle cx="77" cy="73" r="3" fill="#1a2e35"/>
-            <path d="M63,82 Q70,88 77,82" stroke="#1a2e35" stroke-width="1.5" fill="none"/>
-            <ellipse cx="70" cy="59" rx="19" ry="4" fill="#C4A872"/>
-            <path d="M51,59 Q70,47 89,59" fill="#C4A872"/>
-            <text x="70" y="108" text-anchor="middle" font-size="9" fill="#F5F0E8" font-family="serif" letter-spacing="2">かえる</text>
-            <!-- clip -->
-            <rect x="64" y="26" width="12" height="6" rx="3" fill="#A89B80"/>
-            <rect x="69" y="20" width="4" height="10" rx="2" fill="#A89B80"/>
-          </svg>
+          <img src="img/merch-pin.jpg" alt="Huy hiệu エナメルピン" class="merch-photo">
         </div>
         <div class="merch-name reveal d2">エナメルピン</div>
         <div class="merch-name-en reveal d3">HUY HIỆU</div>
@@ -1067,32 +915,7 @@
       <!-- MINI VINYL FIGURE -->
       <div class="merch-card">
         <div class="merch-img reveal d3">
-          <svg viewBox="0 0 140 200" width="98" height="140">
-            <!-- base -->
-            <rect x="34" y="178" width="72" height="11" rx="5.5" fill="#DDD5C0" stroke="#A89B80" stroke-width="1.5"/>
-            <rect x="44" y="174" width="52" height="7" rx="3.5" fill="#CEC6B0"/>
-            <!-- body -->
-            <path d="M48,96 Q38,108 38,138 Q38,165 70,168 Q102,165 102,138 Q102,108 92,96 Z" fill="#2D5F6B"/>
-            <!-- obi belt -->
-            <path d="M48,128 Q70,133 92,128" stroke="rgba(245,240,232,.4)" stroke-width="4" fill="none" stroke-linecap="round"/>
-            <!-- collar -->
-            <path d="M65,96 L70,113 L75,96" fill="#F5F0E8" opacity=".9"/>
-            <!-- arms + pole -->
-            <path d="M44,108 Q26,104 14,108" stroke="#5A7A3A" stroke-width="10" fill="none" stroke-linecap="round"/>
-            <path d="M96,108 Q114,104 126,108" stroke="#5A7A3A" stroke-width="10" fill="none" stroke-linecap="round"/>
-            <line x1="12" y1="107" x2="128" y2="107" stroke="#C4A872" stroke-width="4" stroke-linecap="round"/>
-            <ellipse cx="12" cy="116" rx="9" ry="5" fill="#C4A872" opacity=".8"/>
-            <ellipse cx="128" cy="116" rx="9" ry="5" fill="#C4A872" opacity=".8"/>
-            <!-- head -->
-            <circle cx="70" cy="80" r="26" fill="#7A8C4F"/>
-            <circle cx="62" cy="78" r="7.5" fill="white"/><circle cx="78" cy="78" r="7.5" fill="white"/>
-            <circle cx="62" cy="78" r="3.8" fill="#1a2e35"/><circle cx="78" cy="78" r="3.8" fill="#1a2e35"/>
-            <circle cx="63" cy="77" r="1.5" fill="white"/><circle cx="79" cy="77" r="1.5" fill="white"/>
-            <path d="M63,91 Q70,97 77,91" stroke="#1a2e35" stroke-width="2" fill="none"/>
-            <!-- hat -->
-            <ellipse cx="70" cy="57" rx="33" ry="7.5" fill="#C4A872" stroke="#A07840" stroke-width="1.5"/>
-            <path d="M37,57 Q70,29 103,57" fill="#C4A872" stroke="#A07840" stroke-width="1.5"/>
-          </svg>
+          <img src="img/merch-figure.jpg" alt="Mô hình mini ミニフィギュア" class="merch-photo">
         </div>
         <div class="merch-name reveal d3">ミニフィギュア</div>
         <div class="merch-name-en reveal d4">MÔ HÌNH MINI</div>
