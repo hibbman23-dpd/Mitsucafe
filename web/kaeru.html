@@ -318,12 +318,12 @@
     .story-visual { width: 100%; border-radius: 8px; overflow: hidden; display: block; }
     .story-visual img { width: 100%; height: auto; display: block; border-radius: 8px; }
 
-    /* Sticker photos — hình vuông crop sẵn, hiển thị trong vòng tròn */
+    /* Sticker photos — hình vuông 500×500 có padding, hiển thị trong vòng tròn */
     .stk-badge.stk-photo { padding: 0; overflow: hidden; }
-    .stk-img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
+    .stk-img { width: 100%; height: 100%; object-fit: cover; object-position: center center; display: block; }
 
-    /* Merch photos — object-fit cover, container 320px */
-    .merch-photo { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+    /* Merch photos — 420×560 (3:4), container dùng aspect-ratio khớp */
+    .merch-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
 
     /* ============================= */
     /* MENU SECTION                  */
@@ -398,7 +398,7 @@
     .merch-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; }
     .merch-card { text-align: center; }
     .merch-img {
-      height: 320px; background: var(--cream-dk); border-radius: 4px;
+      aspect-ratio: 3/4; height: auto; background: var(--cream-dk); border-radius: 4px;
       display: flex; align-items: center; justify-content: center;
       border: 1px solid rgba(168,155,128,.2); margin-bottom: 14px;
       transition: transform .3s, box-shadow .3s;
