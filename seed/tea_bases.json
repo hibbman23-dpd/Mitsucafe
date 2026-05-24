@@ -1,0 +1,95 @@
+[
+  {
+    "base_id": "base_01",
+    "name": "Cốt Hồng Trà",
+    "ingredients": "Trà đen 135g + nước sôi 90°C 1L",
+    "method": "Đậy kín ủ 12 phút · khuấy mỗi 5 phút · đậm hơn: dầm 40 cái sau ủ",
+    "yield_ml": 950,
+    "hsd_hours_room": 6,
+    "hsd_hours_fridge": 24,
+    "uses_skus": ["DR010", "DR012", "DR014", "DR017"],
+    "min_batch_per_day": 1
+  },
+  {
+    "base_id": "base_02",
+    "name": "Cốt Trà Ô Long",
+    "ingredients": "Trà ô long 50g + nước sôi 90°C 2L",
+    "method": "Ủ 20 phút · dầm 10 lần để chiết max hương",
+    "yield_ml": 1900,
+    "hsd_hours_room": 6,
+    "hsd_hours_fridge": 24,
+    "uses_skus": ["DR011", "DR015"],
+    "min_batch_per_day": 1
+  },
+  {
+    "base_id": "base_03",
+    "name": "Cốt Trà Nhài",
+    "ingredients": "Trà nhài 100g + nước sôi 85°C 1L",
+    "method": "Ủ 10 phút (KHÔNG quá lâu sẽ đắng)",
+    "yield_ml": 950,
+    "hsd_hours_room": 6,
+    "hsd_hours_fridge": 12,
+    "uses_skus": ["DR013", "DR016"],
+    "min_batch_per_day": 1
+  },
+  {
+    "base_id": "base_04",
+    "name": "Espresso (on-demand)",
+    "ingredients": "Arabica Lâm Hà rang vừa 18g / shot",
+    "method": "Pull double shot 36ml / 25s · nước 92-94°C · áp 9 bar",
+    "yield_ml": 36,
+    "hsd_hours_room": 0,
+    "uses_skus": ["DR007", "DR008", "DR009"],
+    "min_batch_per_day": 0
+  },
+  {
+    "base_id": "base_05",
+    "name": "Cốt phin (on-demand)",
+    "ingredients": "Robusta Lâm Đồng phin xay vừa 25g + nước sôi 95°C 50ml",
+    "method": "Đậy phin nhỏ giọt 5-7 phút (KHÔNG ép) → ra ~40ml cốt",
+    "yield_ml": 40,
+    "hsd_minutes_room": 30,
+    "uses_skus": ["DR001", "DR002", "DR003", "DR004", "DR005", "DR006"],
+    "min_batch_per_day": 0
+  },
+  {
+    "base_id": "base_06",
+    "name": "Milk Foam",
+    "ingredients": "Whipping cream 100ml + topping cream 50ml + muối 1 nhúm",
+    "method": "Đánh máy 2 phút đến đặc",
+    "yield_ml": 150,
+    "hsd_hours_fridge": 4,
+    "uses_skus": ["DR015", "DR018", "DR019"],
+    "min_batch_per_day": 1
+  },
+  {
+    "base_id": "base_07",
+    "name": "Hạt sen luộc",
+    "ingredients": "Hạt sen khô 200g + nước",
+    "method": "Luộc 30 phút đến mềm",
+    "yield_g": 200,
+    "hsd_hours_fridge": 24,
+    "uses_skus": ["DR015"],
+    "min_batch_per_day": 1
+  },
+  {
+    "base_id": "base_08",
+    "name": "Củ năng hạt lựu",
+    "ingredients": "Củ năng tươi 200g",
+    "method": "Gọt vỏ, cắt hạt lựu, chần qua nước sôi 30 giây",
+    "yield_g": 200,
+    "hsd_hours_fridge": 24,
+    "uses_skus": ["DR015"],
+    "min_batch_per_day": 1
+  },
+  {
+    "base_id": "base_09",
+    "name": "Trân châu đường đen",
+    "ingredients": "Trân châu hoàng kim 300g + đường đen 100g",
+    "method": "Luộc 25 phút · ngâm đường đen 15 phút",
+    "yield_g": 300,
+    "hsd_hours_room": 8,
+    "uses_skus": ["DR012"],
+    "min_batch_per_day": 1
+  }
+]

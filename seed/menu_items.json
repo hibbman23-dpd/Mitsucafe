@@ -1,0 +1,734 @@
+[
+  {
+    "sku": "DR001",
+    "name": "Cà phê đen đá",
+    "name_jp": "ベトナム式ブラックコーヒー",
+    "category": "beverage",
+    "subcategory": "phin_coffee",
+    "role": "leader",
+    "price_m": 22000,
+    "price_l": 27000,
+    "cost_nl": 4500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.33,
+    "base_id": "base_05",
+    "recipe_id": "R001",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "robusta_phin", "amount_g": 25, "cost": 4500 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["pha phin nhỏ giọt 5-7 phút", "đổ vào ly đá"]
+    },
+    "allergens": [],
+    "customizations": { "sugar": ["0%"], "ice": ["full", "less", "none"] },
+    "prep_time_sec": 360,
+    "available": true,
+    "sort_order": 1,
+    "story_telling": "Arabica Lâm Hà — hạt từ chính vùng đất quanh quán"
+  },
+  {
+    "sku": "DR002",
+    "name": "Cà phê sữa đá phin",
+    "name_jp": "コンデンスミルク・コーヒー",
+    "category": "beverage",
+    "subcategory": "phin_coffee",
+    "role": "leader",
+    "price_m": 25000,
+    "price_l": 30000,
+    "cost_nl": 8300,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.44,
+    "base_id": "base_05",
+    "recipe_id": "R002",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "robusta_phin", "amount_g": 25, "cost": 4500 },
+        { "item": "condensed_milk", "amount_ml": 25, "cost": 3750 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["rót sữa đặc trước", "ra cốt phin", "khuấy đều", "đổ vào ly đá"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["100%", "70%", "50%", "30%"], "ice": ["full", "less", "none"] },
+    "prep_time_sec": 360,
+    "available": true,
+    "sort_order": 2
+  },
+  {
+    "sku": "DR003",
+    "name": "Bạc xỉu",
+    "category": "beverage",
+    "subcategory": "phin_coffee",
+    "role": "hero",
+    "price_m": 28000,
+    "price_l": 33000,
+    "cost_nl": 9500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.44,
+    "base_id": "base_05",
+    "recipe_id": "R003",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "robusta_phin", "amount_g": 20, "cost": 3600 },
+        { "item": "condensed_milk", "amount_ml": 30, "cost": 4500 },
+        { "item": "fresh_milk", "amount_ml": 50, "cost": 1500 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["sữa đặc + sữa tươi", "cốt phin nhẹ", "shake với đá"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["100%", "70%", "50%", "30%"], "ice": ["full", "less", "none"] },
+    "prep_time_sec": 300,
+    "available": true,
+    "sort_order": 3
+  },
+  {
+    "sku": "DR004",
+    "name": "Cà phê dừa",
+    "category": "beverage",
+    "subcategory": "phin_coffee",
+    "role": "hero",
+    "price_m": 32000,
+    "price_l": 38000,
+    "cost_nl": 10200,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.40,
+    "base_id": "base_05",
+    "recipe_id": "R004",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "robusta_phin", "amount_g": 18, "cost": 3240 },
+        { "item": "condensed_milk", "amount_ml": 15, "cost": 2250 },
+        { "item": "coconut_cream", "amount_ml": 50, "cost": 3750 },
+        { "item": "ice_blended", "amount_g": 200, "cost": 500 }
+      ],
+      "method": ["xay đá + cốt dừa + sữa đặc", "rót cốt phin lên mặt"]
+    },
+    "allergens": ["milk", "coconut"],
+    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["blended"] },
+    "prep_time_sec": 240,
+    "available": true,
+    "sort_order": 4
+  },
+  {
+    "sku": "DR005",
+    "name": "Cà phê muối",
+    "category": "beverage",
+    "subcategory": "phin_coffee",
+    "role": "trend",
+    "price_m": 30000,
+    "price_l": 35000,
+    "cost_nl": 10800,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.45,
+    "base_id": "base_05",
+    "recipe_id": "R005",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "robusta_phin", "amount_g": 25, "cost": 4500 },
+        { "item": "condensed_milk", "amount_ml": 20, "cost": 3000 },
+        { "item": "salt_cream", "amount_ml": 60, "cost": 3000 },
+        { "item": "ice", "amount_g": 200, "cost": 300 }
+      ],
+      "method": ["đá + sữa đặc + cốt phin → khuấy", "topping kem muối lên trên"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
+    "prep_time_sec": 360,
+    "available": true,
+    "sort_order": 5
+  },
+  {
+    "sku": "DR006",
+    "name": "Cà phê kem trứng (Egg Coffee)",
+    "category": "beverage",
+    "subcategory": "phin_coffee",
+    "role": "signature",
+    "price_m": 35000,
+    "price_l": 42000,
+    "cost_nl": 13500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.46,
+    "base_id": "base_05",
+    "recipe_id": "R006",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "robusta_phin_hot", "amount_g": 25, "cost": 4500 },
+        { "item": "egg_yolk", "amount_unit": 1, "cost": 5000 },
+        { "item": "condensed_milk", "amount_ml": 20, "cost": 3000 },
+        { "item": "vanilla", "amount_drop": 2, "cost": 1000 }
+      ],
+      "method": ["đánh trứng + sữa đặc + vani bồng 3 phút", "đổ cốt phin nóng từ từ lên kem trứng"]
+    },
+    "allergens": ["egg", "milk"],
+    "customizations": { "sugar": ["100%", "70%"], "ice": ["none"], "temp": ["hot"] },
+    "prep_time_sec": 420,
+    "available": true,
+    "sort_order": 6,
+    "story_telling": "Egg coffee Hà Nội — đánh tay 3 phút mỗi ly"
+  },
+  {
+    "sku": "DR007",
+    "name": "Americano",
+    "category": "beverage",
+    "subcategory": "machine_coffee",
+    "role": "leader",
+    "price_m": 35000,
+    "price_l": 40000,
+    "cost_nl": 7500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.29,
+    "base_id": "base_04",
+    "recipe_id": "R007",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "espresso_shot_arabica", "amount_ml": 36, "cost": 6300 },
+        { "item": "hot_water", "amount_ml": 150, "cost": 0 }
+      ],
+      "method": ["pull double shot 25s", "thêm nước nóng"]
+    },
+    "allergens": [],
+    "customizations": { "sugar": ["0%", "30%"], "ice": ["full", "less", "none"], "temp": ["hot", "iced"] },
+    "prep_time_sec": 90,
+    "available": true,
+    "sort_order": 7
+  },
+  {
+    "sku": "DR008",
+    "name": "Latte",
+    "category": "beverage",
+    "subcategory": "machine_coffee",
+    "role": "hero",
+    "price_m": 42000,
+    "price_l": 48000,
+    "cost_nl": 12000,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.35,
+    "base_id": "base_04",
+    "recipe_id": "R008",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "espresso_shot_arabica", "amount_ml": 36, "cost": 6300 },
+        { "item": "fresh_milk_steamed", "amount_ml": 150, "cost": 4500 },
+        { "item": "sugar_syrup", "amount_ml": 10, "cost": 250 }
+      ],
+      "method": ["pull double shot", "đánh sữa 65°C", "latte art rót đều"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["0%", "30%", "70%"], "ice": ["none", "less"], "temp": ["hot", "iced"] },
+    "prep_time_sec": 180,
+    "available": true,
+    "sort_order": 8
+  },
+  {
+    "sku": "DR009",
+    "name": "Cappuccino / Caramel Macchiato",
+    "category": "beverage",
+    "subcategory": "machine_coffee",
+    "role": "hero",
+    "price_m": 45000,
+    "price_l": 52000,
+    "cost_nl": 13000,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.35,
+    "base_id": "base_04",
+    "recipe_id": "R009",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "espresso_shot_arabica", "amount_ml": 36, "cost": 6300 },
+        { "item": "fresh_milk_steamed", "amount_ml": 120, "cost": 3600 },
+        { "item": "caramel_syrup", "amount_ml": 15, "cost": 3000 }
+      ],
+      "method": ["caramel + sữa đánh + espresso", "topping vân caramel"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["50%", "70%", "100%"], "ice": ["none", "less", "full"], "temp": ["hot", "iced"] },
+    "prep_time_sec": 200,
+    "available": true,
+    "sort_order": 9
+  },
+  {
+    "sku": "DR010",
+    "name": "Trà sữa truyền thống",
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "role": "hero",
+    "price_m": 32000,
+    "price_l": 38000,
+    "cost_nl": 10500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.41,
+    "base_id": "base_01",
+    "recipe_id": "R010",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "black_tea_base", "amount_ml": 80, "cost": 800 },
+        { "item": "non_dairy_creamer", "amount_g": 10, "cost": 800 },
+        { "item": "condensed_milk", "amount_ml": 50, "cost": 7500 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["khuấy đều cốt trà + bột sữa + sữa đặc", "sục nóng 5s", "shake với đá"]
+    },
+    "allergens": ["milk"],
+    "customizations": {
+      "sugar": ["100%", "70%", "50%", "30%"],
+      "ice": ["full", "less", "none"],
+      "toppings": [
+        { "id": "pearl", "name": "trân châu trắng", "price": 5000 },
+        { "id": "boba_brown", "name": "trân châu đường đen", "price": 6000 },
+        { "id": "coconut_jelly", "name": "thạch dừa", "price": 5000 },
+        { "id": "lotus_seed", "name": "hạt sen", "price": 8000 }
+      ]
+    },
+    "prep_time_sec": 180,
+    "available": true,
+    "sort_order": 10
+  },
+  {
+    "sku": "DR011",
+    "name": "Trà sữa Ô Long Lâm Đồng",
+    "name_jp": "ラムドン烏龍ミルクティー",
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "role": "signature",
+    "price_m": 38000,
+    "price_l": 45000,
+    "cost_nl": 12500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.40,
+    "base_id": "base_02",
+    "recipe_id": "R011",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "oolong_tea_base", "amount_ml": 100, "cost": 1400 },
+        { "item": "non_dairy_creamer", "amount_g": 25, "cost": 2000 },
+        { "item": "condensed_milk", "amount_ml": 25, "cost": 3750 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["khuấy đều", "sục nóng 5s", "shake với đá", "ít sữa đặc để giữ vị trà"]
+    },
+    "allergens": ["milk"],
+    "customizations": {
+      "sugar": ["100%", "70%", "50%", "30%"],
+      "ice": ["full", "less", "none"],
+      "toppings": [
+        { "id": "pearl", "name": "trân châu trắng", "price": 5000 },
+        { "id": "boba_brown", "name": "trân châu đường đen", "price": 6000 }
+      ]
+    },
+    "prep_time_sec": 180,
+    "available": true,
+    "sort_order": 11,
+    "story_telling": "Ô Long từ vườn trà Bảo Lộc cách quán 80km — Lâm Đồng special edition"
+  },
+  {
+    "sku": "DR012",
+    "name": "Trà sữa trân châu đường đen",
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "role": "hero",
+    "price_m": 38000,
+    "price_l": 45000,
+    "cost_nl": 13800,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.43,
+    "base_id": "base_01",
+    "recipe_id": "R012",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "black_tea_base", "amount_ml": 80, "cost": 800 },
+        { "item": "non_dairy_creamer", "amount_g": 10, "cost": 800 },
+        { "item": "fresh_milk", "amount_ml": 80, "cost": 2400 },
+        { "item": "brown_sugar_pearls", "amount_g": 60, "cost": 1800 },
+        { "item": "brown_sugar_syrup", "amount_ml": 20, "cost": 1500 },
+        { "item": "ice", "amount_g": 200, "cost": 400 }
+      ],
+      "method": ["lăn đường đen quanh ly", "thả trân châu", "rót trà sữa", "đá lên trên"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
+    "prep_time_sec": 180,
+    "available": true,
+    "sort_order": 12
+  },
+  {
+    "sku": "DR013",
+    "name": "Trà sữa nhài Chặng 2",
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "role": "hero",
+    "price_m": 35000,
+    "price_l": 40000,
+    "cost_nl": 11000,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.39,
+    "base_id": "base_03",
+    "recipe_id": "R013",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "jasmine_tea_base", "amount_ml": 90, "cost": 900 },
+        { "item": "non_dairy_creamer", "amount_g": 20, "cost": 1600 },
+        { "item": "condensed_milk", "amount_ml": 30, "cost": 4500 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["cân bằng trà-sữa 50/50", "shake với đá"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["100%", "70%", "50%", "30%"], "ice": ["full", "less", "none"] },
+    "prep_time_sec": 180,
+    "available": true,
+    "sort_order": 13
+  },
+  {
+    "sku": "DR014",
+    "name": "Trà đào cam sả",
+    "category": "beverage",
+    "subcategory": "fruit_tea",
+    "role": "hero",
+    "price_m": 32000,
+    "price_l": 38000,
+    "cost_nl": 10800,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.42,
+    "base_id": "base_01",
+    "recipe_id": "R014",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "black_tea_base", "amount_ml": 120, "cost": 1200 },
+        { "item": "peach_sensini", "amount_g": 30, "cost": 2750 },
+        { "item": "peach_syrup", "amount_ml": 20, "cost": 1800 },
+        { "item": "fresh_orange", "amount_g": 30, "cost": 1800 },
+        { "item": "lemongrass", "amount_g": 10, "cost": 200 },
+        { "item": "sugar_syrup", "amount_ml": 20, "cost": 500 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["shake tất cả với đá", "đào và cam để nguyên trang trí"]
+    },
+    "allergens": [],
+    "customizations": { "sugar": ["100%", "70%", "50%", "30%"], "ice": ["full", "less"] },
+    "prep_time_sec": 180,
+    "available": true,
+    "sort_order": 14
+  },
+  {
+    "sku": "DR015",
+    "name": "Trà sen vàng",
+    "category": "beverage",
+    "subcategory": "fruit_tea",
+    "role": "hero",
+    "price_m": 35000,
+    "price_l": 42000,
+    "cost_nl": 12200,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.43,
+    "base_id": "base_02",
+    "recipe_id": "R015",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "oolong_tea_base", "amount_ml": 150, "cost": 2100 },
+        { "item": "lotus_seed_cooked", "amount_g": 25, "cost": 2500 },
+        { "item": "water_chestnut", "amount_g": 20, "cost": 600 },
+        { "item": "sugar_syrup", "amount_ml": 40, "cost": 1000 },
+        { "item": "milk_foam", "amount_ml": 65, "cost": 4500 },
+        { "item": "ice", "amount_g": 200, "cost": 400 }
+      ],
+      "method": ["đá → hạt sen + củ năng → cốt trà + đường", "milk foam lên trên"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
+    "prep_time_sec": 240,
+    "available": true,
+    "sort_order": 15
+  },
+  {
+    "sku": "DR016",
+    "name": "Trà vải / Trà thơm",
+    "category": "beverage",
+    "subcategory": "fruit_tea",
+    "role": "seasonal",
+    "price_m": 32000,
+    "price_l": 38000,
+    "cost_nl": 10500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.41,
+    "base_id": "base_03",
+    "recipe_id": "R016",
+    "seasonal_months": [5, 6, 7, 8],
+    "recipe_json": {
+      "ingredients": [
+        { "item": "jasmine_tea_base", "amount_ml": 120, "cost": 1200 },
+        { "item": "lychee_syrup_fruit", "amount_g": 40, "cost": 3500 },
+        { "item": "sugar_syrup", "amount_ml": 25, "cost": 625 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["shake với đá"]
+    },
+    "allergens": [],
+    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
+    "prep_time_sec": 150,
+    "available": true,
+    "sort_order": 16
+  },
+  {
+    "sku": "DR017",
+    "name": "Trà chanh giã tay",
+    "category": "beverage",
+    "subcategory": "fruit_tea",
+    "role": "leader",
+    "price_m": 22000,
+    "price_l": 27000,
+    "cost_nl": 6000,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.40,
+    "base_id": "base_01",
+    "recipe_id": "R017",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "black_tea_base", "amount_ml": 100, "cost": 1000 },
+        { "item": "fresh_lime", "amount_unit": 1, "cost": 1500 },
+        { "item": "lime_leaf", "amount_g": 3, "cost": 300 },
+        { "item": "sugar_syrup", "amount_ml": 30, "cost": 750 },
+        { "item": "ice", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["giã tay chanh + lá chanh", "shake với cốt trà + đường + đá"]
+    },
+    "allergens": [],
+    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
+    "prep_time_sec": 180,
+    "available": true,
+    "sort_order": 17
+  },
+  {
+    "sku": "DR018",
+    "name": "Freeze trà xanh đá xay",
+    "category": "beverage",
+    "subcategory": "blended",
+    "role": "hero",
+    "price_m": 42000,
+    "price_l": 48000,
+    "cost_nl": 13000,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.37,
+    "recipe_id": "R018",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "matcha_powder", "amount_g": 5, "cost": 6000 },
+        { "item": "fresh_milk", "amount_ml": 120, "cost": 3600 },
+        { "item": "condensed_milk", "amount_ml": 30, "cost": 4500 },
+        { "item": "sugar_syrup", "amount_ml": 20, "cost": 500 },
+        { "item": "ice_blended", "amount_g": 250, "cost": 500 },
+        { "item": "whipping_cream_topping", "amount_ml": 30, "cost": 5400 }
+      ],
+      "method": ["xay tất cả thành sinh tố mịn", "topping whipping + rắc bột matcha"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["blended"] },
+    "prep_time_sec": 240,
+    "available": true,
+    "sort_order": 18
+  },
+  {
+    "sku": "DR019",
+    "name": "Cookies & Cream đá xay",
+    "category": "beverage",
+    "subcategory": "blended",
+    "role": "hero",
+    "price_m": 42000,
+    "price_l": 48000,
+    "cost_nl": 13500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.39,
+    "recipe_id": "R019",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "oreo_cookies", "amount_g": 30, "cost": 4500 },
+        { "item": "fresh_milk", "amount_ml": 150, "cost": 4500 },
+        { "item": "condensed_milk", "amount_ml": 30, "cost": 4500 },
+        { "item": "ice_blended", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["xay nhuyễn cookies + sữa + đá", "topping whipping + bánh quy"]
+    },
+    "allergens": ["milk", "gluten"],
+    "customizations": { "sugar": ["100%", "70%"], "ice": ["blended"] },
+    "prep_time_sec": 240,
+    "available": true,
+    "sort_order": 19
+  },
+  {
+    "sku": "DR020",
+    "name": "Matcha đá xay",
+    "category": "beverage",
+    "subcategory": "blended",
+    "role": "signature",
+    "price_m": 45000,
+    "price_l": 52000,
+    "cost_nl": 13500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.36,
+    "recipe_id": "R020",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "matcha_uji_culinary", "amount_g": 6, "cost": 7200 },
+        { "item": "fresh_milk", "amount_ml": 120, "cost": 3600 },
+        { "item": "sugar_syrup", "amount_ml": 25, "cost": 625 },
+        { "item": "ice_blended", "amount_g": 250, "cost": 500 }
+      ],
+      "method": ["đánh matcha với chasen", "xay với sữa + đá", "rắc matcha lên mặt"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["blended"] },
+    "prep_time_sec": 240,
+    "available": true,
+    "sort_order": 20
+  },
+  {
+    "sku": "DR021",
+    "name": "Hojicha Latte",
+    "name_jp": "ほうじ茶ラテ",
+    "category": "beverage",
+    "subcategory": "kissaten",
+    "role": "signature",
+    "price_m": 48000,
+    "price_l": 55000,
+    "cost_nl": 11500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.30,
+    "recipe_id": "R021",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "hojicha_powder", "amount_g": 5, "cost": 3000 },
+        { "item": "hot_water", "amount_ml": 30, "cost": 0 },
+        { "item": "fresh_milk_steamed", "amount_ml": 180, "cost": 5400 },
+        { "item": "sugar_syrup", "amount_ml": 15, "cost": 375 }
+      ],
+      "method": ["hòa hojicha với nước nóng", "đổ sữa đánh bọt 60°C", "rót đều"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["0%", "30%", "70%"], "ice": ["none", "iced"], "temp": ["hot", "iced"] },
+    "prep_time_sec": 240,
+    "available": true,
+    "sort_order": 21,
+    "story_telling": "Vị trà sao vàng của Kyoto, ngọt khói nhẹ — không đắng như matcha"
+  },
+  {
+    "sku": "DR022",
+    "name": "Matcha Latte",
+    "name_jp": "抹茶ラテ",
+    "category": "beverage",
+    "subcategory": "kissaten",
+    "role": "signature",
+    "price_m": 52000,
+    "price_l": 60000,
+    "cost_nl": 14500,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.33,
+    "recipe_id": "R022",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "matcha_uji_culinary", "amount_g": 5, "cost": 6000 },
+        { "item": "hot_water", "amount_ml": 30, "cost": 0 },
+        { "item": "fresh_milk_steamed", "amount_ml": 180, "cost": 5400 },
+        { "item": "sugar_syrup", "amount_ml": 15, "cost": 375 }
+      ],
+      "method": ["đánh matcha bằng chasen 30s tạo bọt mịn", "đổ sữa đánh bọt 60°C"]
+    },
+    "allergens": ["milk"],
+    "customizations": { "sugar": ["0%", "30%", "70%"], "ice": ["none", "iced"], "temp": ["hot", "iced"] },
+    "prep_time_sec": 300,
+    "available": true,
+    "sort_order": 22,
+    "story_telling": "Uji matcha — vùng trồng matcha cổ truyền Kyoto"
+  },
+  {
+    "sku": "DR023",
+    "name": "Yuzu Honey Tea",
+    "name_jp": "柚子蜂蜜茶",
+    "category": "beverage",
+    "subcategory": "kissaten",
+    "role": "seasonal",
+    "price_m": 45000,
+    "price_l": 52000,
+    "cost_nl": 14000,
+    "cost_packaging": 2700,
+    "cogs_percent": 0.37,
+    "seasonal_months": [5, 6, 7, 8],
+    "recipe_id": "R023",
+    "recipe_json": {
+      "ingredients": [
+        { "item": "yuzu_marmalade", "amount_g": 25, "cost": 8000 },
+        { "item": "honey", "amount_ml": 15, "cost": 2000 },
+        { "item": "hot_water_or_ice", "amount_ml": 200, "cost": 0 }
+      ],
+      "method": ["yuzu + mật ong + nước nóng hoặc shake với đá"]
+    },
+    "allergens": [],
+    "customizations": { "sugar": ["100%", "70%"], "ice": ["full", "less", "none"], "temp": ["hot", "iced"] },
+    "prep_time_sec": 120,
+    "available": true,
+    "sort_order": 23,
+    "story_telling": "Yuzu — quả citrus đặc trưng Nhật, vị thanh nhẹ"
+  },
+  {
+    "sku": "BK001",
+    "name": "Bánh croissant bơ Pháp",
+    "category": "pastry",
+    "subcategory": "pastry",
+    "role": "pairing",
+    "price_m": 28000,
+    "cost_nl": 12000,
+    "cost_packaging": 800,
+    "cogs_percent": 0.46,
+    "recipe_id": "R024",
+    "allergens": ["milk", "gluten", "egg"],
+    "available": true,
+    "sort_order": 24
+  },
+  {
+    "sku": "BK002",
+    "name": "Tiramisu",
+    "category": "pastry",
+    "subcategory": "pastry",
+    "role": "pairing",
+    "price_m": 42000,
+    "cost_nl": 18000,
+    "cost_packaging": 1200,
+    "cogs_percent": 0.46,
+    "recipe_id": "R025",
+    "allergens": ["milk", "gluten", "egg"],
+    "available": true,
+    "sort_order": 25
+  },
+  {
+    "sku": "BK003",
+    "name": "Bánh mì pate Hà Nội",
+    "category": "pastry",
+    "subcategory": "pastry",
+    "role": "breakfast",
+    "price_m": 25000,
+    "cost_nl": 10000,
+    "cost_packaging": 800,
+    "cogs_percent": 0.43,
+    "recipe_id": "R026",
+    "allergens": ["gluten", "egg"],
+    "available": true,
+    "sort_order": 26
+  },
+  {
+    "sku": "BK004",
+    "name": "Wagashi (theo mùa)",
+    "name_jp": "和菓子",
+    "category": "pastry",
+    "subcategory": "kissaten",
+    "role": "signature",
+    "price_m": 35000,
+    "cost_nl": 14000,
+    "cost_packaging": 1200,
+    "cogs_percent": 0.43,
+    "recipe_id": "R027",
+    "allergens": ["gluten"],
+    "available": true,
+    "sort_order": 27,
+    "story_telling": "Wagashi — bánh ngọt truyền thống Nhật theo mùa"
+  }
+]

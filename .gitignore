@@ -1,0 +1,52 @@
+# Claude session memory
+.claude/
+
+# Glide (replaced by web PWA)
+glide/
+
+# Secrets — không bao giờ commit
+.env
+.env.*
+*.local
+secrets.json
+config.local.json
+print-server/config.local.py
+
+# clasp local credentials
+.clasprc.json
+.clasp.json.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+.python-version
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+node_modules/
+dist/
+build/
+
+# QR generated labels (regenerate from script)
+qr/labels/*.pdf
+qr/labels/*.png
+
+# Logs
+*.log
+logs/
+
+# Test data
+seed/test_order_*.json.local

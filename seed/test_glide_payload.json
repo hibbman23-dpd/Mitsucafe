@@ -1,0 +1,30 @@
+{
+  "channel": "web",
+  "utm_source": "glide",
+  "table_id": "TABLE_03",
+  "customer_id": "0901234567",
+  "items": [
+    {
+      "sku": "DR003",
+      "name": "Bạc xỉu",
+      "qty": 2,
+      "price": 28000,
+      "modifiers": { "sugar": "50%", "ice": "less", "size": "M" }
+    },
+    {
+      "sku": "BK001",
+      "name": "Bánh croissant bơ Pháp",
+      "qty": 1,
+      "price": 28000,
+      "modifiers": {}
+    }
+  ],
+  "total": 84000,
+  "payment": { "method": "vietqr", "total": 84000, "status": "PENDING" },
+  "metadata": {
+    "delivery_type": "dine_in",
+    "business_line": "kissaten",
+    "category_type": "beverage",
+    "notes": "test từ Glide smoke 2026-05-19"
+  }
+}

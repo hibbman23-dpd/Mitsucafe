@@ -1,0 +1,32 @@
+{
+  "channel": "qr",
+  "utm_source": "qr",
+  "table_id": "TABLE_03",
+  "staff_id": "S001",
+  "customer_id": "0901234567",
+  "items": [
+    {
+      "sku": "DR003",
+      "name": "Bạc xỉu",
+      "qty": 2,
+      "price": 28000,
+      "modifiers": { "sugar": "50%", "ice": "less" },
+      "recipe_id": "R003"
+    },
+    {
+      "sku": "BK001",
+      "name": "Bánh croissant bơ Pháp",
+      "qty": 1,
+      "price": 28000,
+      "recipe_id": "R024"
+    }
+  ],
+  "total": 84000,
+  "payment": { "method": "vietqr", "total": 84000, "status": "PENDING" },
+  "metadata": {
+    "delivery_type": "dine_in",
+    "business_line": "kissaten",
+    "category_type": "beverage",
+    "notes": "ít ngọt cảm ơn"
+  }
+}

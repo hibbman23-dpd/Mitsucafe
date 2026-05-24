@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>かえる BUBBLE TEA — お茶の心を、ふるさとへ。</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=IM+Fell+English+SC&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================= */
+    /* RESET & CUSTOM PROPERTIES     */
+    /* ============================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --teal:       #2D5F6B;
+      --teal-mid:   #3a7688;
+      --moss:       #7A8C4F;
+      --coral:      #EB624A;
+      --coral-dk:   #c94f3a;
+      --cream:      #F5F0E8;
+      --cream-dk:   #EDE5D0;
+      --earth:      #A89B80;
+      --earth-dk:   #8a7d64;
+      --ink:        #1E2D32;
+      --ink-lt:     #2D4048;
+      --frog:       #7A8C4F;
+      --straw:      #C4A872;
+
+      --font-jp:    'Noto Serif JP', serif;
+      --font-en:    'IM Fell English SC', serif;
+      --font-body:  'Lora', serif;
+      --sp:         clamp(60px, 8vw, 110px);
+      --wrap:       min(1180px, 92vw);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-jp);
+      background: var(--cream);
+      color: var(--ink);
+      overflow-x: hidden;
+    }
+
+    /* ============================= */
+    /* WASHI PAPER TEXTURE           */
+    /* ============================= */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      z-index: 9997; pointer-events: none;
+      opacity: 0.035;
+      background-image:
+        repeating-linear-gradient(0deg,   transparent, transparent 3px, rgba(90,60,20,.4) 3px, rgba(90,60,20,.4) 4px),
+        repeating-linear-gradient(90deg,  transparent, transparent 9px, rgba(90,60,20,.2) 9px, rgba(90,60,20,.2) 10px);
+    }
+
+    body::after {
+      content: '';
+      position: fixed; inset: -50%; width: 200%; height: 200%;
+      z-index: 9998; pointer-events: none; opacity: .022;
+      background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>") repeat;
+      mix-blend-mode: multiply;
+    }
+
+    /* ============================= */
+    /* UTILS                         */
+    /* ============================= */
+    .wrap { width: var(--wrap); margin: 0 auto; }
+
+    .label {
+      font-family: var(--font-en);
+      font-size: .72rem; letter-spacing: .25em;
+      color: var(--earth); display: flex; align-items: center; gap: 12px;
+    }
+    .label::after { content: ''; flex: 1; height: 1px; background: var(--earth); opacity: .35; }
+
+    .reveal { opacity: 0; transform: translateY(22px); transition: opacity .65s ease, transform .65s ease; }
+    .reveal.up { opacity: 1; transform: none; }
+    .d1 { transition-delay: .1s; } .d2 { transition-delay: .2s; }
+    .d3 { transition-delay: .3s; } .d4 { transition-delay: .4s; }
+    .d5 { transition-delay: .5s; }
+
+    /* ============================= */
+    /* NAV                           */
+    /* ============================= */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      padding: 14px 0;
+      background: rgba(245,240,232,.93);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(168,155,128,.18);
+      transition: padding .3s, box-shadow .3s;
+    }
+    nav.scrolled { padding: 9px 0; box-shadow: 0 3px 24px rgba(30,45,50,.08); }
+
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; }
+
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo-text { line-height: 1; }
+    .nav-logo-jp { font-family: var(--font-jp); font-weight: 700; font-size: 1.25rem; color: var(--teal); display: block; }
+    .nav-logo-en { font-family: var(--font-en); font-size: .54rem; letter-spacing: .22em; color: var(--earth); display: block; }
+
+    .nav-links { display: flex; list-style: none; gap: 28px; align-items: center; }
+    .nav-links a {
+      font-family: var(--font-en); font-size: .78rem; letter-spacing: .1em;
+      text-decoration: none; color: var(--ink-lt); position: relative; transition: color .2s;
+    }
+    .nav-links a::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 1px; background: var(--coral); transition: width .3s; }
+    .nav-links a:hover { color: var(--coral); }
+    .nav-links a:hover::after { width: 100%; }
+    .nav-cta { background: var(--coral) !important; color: #fff !important; padding: 8px 22px; border-radius: 2px; transition: background .2s !important; }
+    .nav-cta:hover { background: var(--coral-dk) !important; }
+    .nav-cta::after { display: none !important; }
+
+    /* ============================= */
+    /* HERO — mobile-first           */
+    /* ============================= */
+    .hero {
+      height: 100dvh;
+      min-height: 560px;
+      padding-top: 50px; /* nav height */
+      display: flex;
+      flex-direction: column;
+      justify-content: center; /* center mascot+content group vertically */
+      position: relative; overflow: hidden;
+    }
+
+    /* Soft coral sun */
+    .hero-sun {
+      position: absolute; width: 260px; height: 260px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(235,98,74,.12) 0%, rgba(235,98,74,.04) 55%, transparent 70%);
+      top: 6%; right: 4%; pointer-events: none; z-index: 0;
+    }
+    .hero-sun::after { content: ''; position: absolute; inset: 18px; border-radius: 50%; border: 1.5px solid rgba(235,98,74,.2); }
+
+    .hero-mascot {
+      order: 1;
+      flex-shrink: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative; z-index: 1;
+    }
+    .mascot-img {
+      width: min(85vw, 54dvh);
+      height: min(85vw, 54dvh);
+      max-width: 460px;
+      max-height: 460px;
+      object-fit: contain;
+      display: block;
+      clip-path: inset(9% 0% 1% 0% round 4px);
+      animation: mascot-in .8s .3s both, float 4.5s 1.1s ease-in-out infinite;
+    }
+
+    /* ── Content block sits below mascot ── */
+    .hero-content {
+      order: 2;
+      flex-shrink: 0;
+      padding: 4px 24px 16px;
+      position: relative; z-index: 1;
+      text-align: center;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font-en); font-size: .62rem; letter-spacing: .28em; color: var(--coral);
+      margin-bottom: 4px;
+      animation: fade-up .6s .2s both;
+    }
+    .hero-eyebrow::before { content: ''; display: inline-block; width: 16px; height: 1px; background: var(--coral); }
+
+    .hero-h1 {
+      font-size: clamp(2.6rem, 13vw, 9.5rem); font-weight: 700; color: var(--teal);
+      line-height: .88; letter-spacing: -.02em; margin-bottom: 2px;
+      text-shadow: 3px 3px 0 rgba(45,95,107,.09);
+      animation: fade-up .65s .3s both;
+    }
+    .hero-sub {
+      font-family: var(--font-en); font-size: clamp(.78rem, 3.2vw, 1.7rem);
+      color: var(--earth-dk); letter-spacing: .2em; margin-bottom: 6px;
+      animation: fade-up .6s .42s both;
+    }
+    .hero-tag {
+      font-size: clamp(.75rem, 2.8vw, 1.05rem); color: var(--teal); font-weight: 300;
+      letter-spacing: .08em; margin-bottom: 3px;
+      animation: fade-up .6s .52s both;
+    }
+    .hero-tag-en {
+      font-family: var(--font-body); font-style: italic; font-size: .8rem; color: var(--earth);
+      margin-bottom: 14px;
+      animation: fade-up .6s .6s both;
+    }
+
+    .hero-btns {
+      display: flex; gap: 10px; align-items: center;
+      flex-direction: column;
+      animation: fade-up .6s .68s both;
+    }
+
+    .btn-primary {
+      background: var(--coral); color: #fff;
+      padding: 14px 32px; width: 100%; text-align: center;
+      border: none; border-radius: 3px;
+      font-family: var(--font-en); font-size: .88rem; letter-spacing: .14em;
+      cursor: pointer; text-decoration: none; display: block;
+      box-shadow: 0 4px 18px rgba(235,98,74,.38), 3px 3px 0 rgba(168,155,128,.3);
+      transition: transform .22s, box-shadow .22s, background .2s;
+      position: relative; overflow: hidden;
+    }
+    .btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 0 6px 22px rgba(235,98,74,.45), 5px 5px 0 rgba(168,155,128,.35); background: var(--coral-dk); }
+
+    /* ── Ripple chuyển trang ── */
+    .order-ink {
+      position: absolute; border-radius: 50%;
+      background: rgba(255,255,255,.38);
+      transform: scale(0); pointer-events: none;
+      animation: order-ink .52s ease-out forwards;
+    }
+    @keyframes order-ink {
+      to { transform: scale(2.8); opacity: 0; }
+    }
+    .order-wave {
+      position: fixed; border-radius: 50%;
+      background: var(--teal);
+      transform: scale(0); pointer-events: none;
+      z-index: 9999;
+      transition: none;
+    }
+    .order-wave.open {
+      transform: scale(1);
+      transition: transform .62s cubic-bezier(.4,0,.18,1);
+    }
+
+    /* Social platform buttons — hero */
+    .hero-social {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+      margin-top: 10px;
+      animation: fade-up .6s .82s both;
+    }
+    .hero-soc-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 13px; border-radius: 20px;
+      text-decoration: none; border: 1.5px solid rgba(45,95,107,.2);
+      font-family: var(--font-en); font-size: .66rem; letter-spacing: .07em; font-weight: 600;
+      color: var(--ink-lt); background: rgba(245,240,232,.82);
+      transition: border-color .2s, color .2s, background .2s;
+      backdrop-filter: blur(6px);
+    }
+    .hero-soc-btn:hover { border-color: var(--coral); color: var(--coral); background: rgba(235,98,74,.06); }
+    .hero-soc-btn svg { flex-shrink: 0; }
+    .hero-soc-btn.maps { border-color: rgba(45,95,107,.3); }
+    .hero-soc-btn.maps:hover { border-color: #4285f4; color: #4285f4; background: rgba(66,133,244,.06); }
+
+    /* Menu section divider for Kaphe */
+    .menu-divider {
+      grid-column: 1/-1; padding: 28px 0 8px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .menu-divider-line { flex: 1; height: 1px; background: rgba(245,240,232,.18); }
+    .menu-divider-txt {
+      font-family: var(--font-en); font-size: .7rem; letter-spacing: .22em;
+      color: rgba(245,240,232,.52); white-space: nowrap;
+    }
+
+    .btn-ghost {
+      font-family: var(--font-en); font-size: .78rem; letter-spacing: .1em;
+      color: var(--earth-dk); text-decoration: none;
+      border-bottom: 1px solid var(--earth); padding-bottom: 2px;
+      transition: color .2s, border-color .2s;
+    }
+    .btn-ghost:hover { color: var(--coral); border-color: var(--coral); }
+
+    /* Hero background waves */
+    .hero-wave-bg {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 140px; z-index: 0; pointer-events: none;
+    }
+
+    /* ============================= */
+    /* WAVE DIVIDERS                 */
+    /* ============================= */
+    .wave { width: 100%; overflow: hidden; line-height: 0; display: block; }
+    .wave svg { display: block; width: 100%; }
+
+    /* ============================= */
+    /* STORY                         */
+    /* ============================= */
+    .sec-story { padding: var(--sp) 0; background: var(--cream); }
+
+    .story-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(40px,6vw,90px); align-items: center; }
+
+    .story-kana {
+      font-size: clamp(1.9rem,3.8vw,3rem); font-weight: 300; color: var(--teal);
+      line-height: 1.5; border-left: 3px solid var(--coral);
+      padding-left: 20px; margin: 18px 0 22px;
+    }
+    .story-title { font-family: var(--font-en); font-size: clamp(1.5rem,2.8vw,2.6rem); color: var(--teal); margin-bottom: 18px; }
+    .story-p { font-size: .95rem; color: var(--ink-lt); line-height: 2; font-weight: 300; margin-bottom: 14px; }
+    .story-p strong { color: var(--teal); font-weight: 500; }
+
+    /* Turnaround grid */
+    .turn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .turn-card {
+      background: var(--cream-dk); border: 1px solid rgba(168,155,128,.3);
+      border-radius: 4px; aspect-ratio: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; padding: 14px;
+      transition: transform .2s, box-shadow .2s; cursor: default;
+    }
+    .turn-card:hover { transform: translateY(-3px); box-shadow: 3px 3px 0 rgba(168,155,128,.3); }
+    .turn-lbl { font-family: var(--font-en); font-size: .6rem; letter-spacing: .18em; color: var(--earth-dk); }
+
+    /* ============================= */
+    /* MENU SECTION                  */
+    /* ============================= */
+    .sec-menu {
+      padding: var(--sp) 0; background: var(--teal); color: var(--cream);
+      position: relative; overflow: hidden;
+    }
+    .sec-menu::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      opacity: .035;
+      background-image: repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(255,255,255,.6) 28px, rgba(255,255,255,.6) 29px);
+    }
+
+    .menu-head { text-align: center; margin-bottom: clamp(36px,5vw,56px); }
+    .menu-head .label { color: rgba(245,240,232,.55); justify-content: center; }
+    .menu-head .label::after { background: rgba(245,240,232,.25); }
+    .menu-head h2 { font-size: clamp(1.9rem,4vw,3.2rem); color: var(--cream); margin-top: 10px; }
+    .menu-head p { font-family: var(--font-en); font-size: .78rem; letter-spacing: .16em; color: rgba(245,240,232,.55); margin-top: 6px; }
+
+    .menu-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+
+    .menu-card {
+      background: rgba(245,240,232,.055); border: 1px solid rgba(245,240,232,.14);
+      border-radius: 4px; overflow: hidden; cursor: pointer;
+      transition: transform .3s, box-shadow .3s, background .3s, border-color .3s;
+    }
+    .menu-card:hover { background: rgba(245,240,232,.11); transform: translateY(-5px); box-shadow: 0 10px 32px rgba(0,0,0,.22); border-color: rgba(235,98,74,.3); }
+
+    .mc-img {
+      height: 190px; display: flex; align-items: center; justify-content: center;
+      font-size: 3.8rem; position: relative;
+    }
+    .mc-body { padding: 15px 18px 18px; }
+    .mc-cat { font-family: var(--font-en); font-size: .62rem; letter-spacing: .22em; color: var(--coral); margin-bottom: 5px; }
+    .mc-jp  { font-size: 1.05rem; font-weight: 500; color: var(--cream); margin-bottom: 3px; }
+    .mc-en  { font-family: var(--font-body); font-style: italic; font-size: .78rem; color: rgba(245,240,232,.55); margin-bottom: 11px; }
+    .mc-foot { display: flex; align-items: center; justify-content: space-between; }
+    .mc-price { font-family: var(--font-en); font-size: .98rem; color: var(--coral); }
+    .mc-tag { font-family: var(--font-en); font-size: .58rem; letter-spacing: .1em; background: rgba(235,98,74,.18); color: var(--coral); padding: 3px 7px; border-radius: 2px; }
+
+    /* ============================= */
+    /* STICKERS                      */
+    /* ============================= */
+    .sec-stickers { padding: var(--sp) 0; background: var(--cream-dk); }
+    .stk-head { text-align: center; margin-bottom: clamp(36px,5vw,56px); }
+    .stk-head h2 { font-size: clamp(1.9rem,3.5vw,2.8rem); color: var(--teal); margin-top: 10px; }
+    .stk-head p { font-family: var(--font-en); font-size: .78rem; letter-spacing: .16em; color: var(--earth); margin-top: 6px; }
+
+    .stk-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 14px; }
+
+    .stk-item { display: flex; flex-direction: column; align-items: center; gap: 9px; cursor: pointer; }
+    .stk-item:hover .stk-badge { transform: scale(1.08) rotate(-3deg); box-shadow: 5px 5px 0 rgba(45,95,107,.25); border-color: var(--coral); }
+
+    .stk-badge {
+      width: 100%; aspect-ratio: 1; border-radius: 50%;
+      background: var(--cream); border: 2.5px solid var(--teal);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 10px; box-shadow: 3px 3px 0 rgba(45,95,107,.18);
+      transition: all .22s ease;
+    }
+    .stk-jp { font-size: .68rem; font-weight: 700; color: var(--teal); text-align: center; margin-top: 2px; }
+    .stk-en { font-family: var(--font-en); font-size: .62rem; letter-spacing: .08em; color: var(--earth-dk); text-align: center; }
+
+    /* ============================= */
+    /* MERCH                         */
+    /* ============================= */
+    .sec-merch { padding: var(--sp) 0; background: var(--cream); }
+    .merch-head { text-align: center; margin-bottom: clamp(36px,5vw,56px); }
+    .merch-head h2 { font-size: clamp(1.9rem,3.5vw,2.8rem); color: var(--teal); margin-top: 10px; }
+
+    .merch-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; }
+    .merch-card { text-align: center; }
+    .merch-img {
+      height: 240px; background: var(--cream-dk); border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(168,155,128,.2); margin-bottom: 14px;
+      transition: transform .3s, box-shadow .3s;
+      overflow: hidden;
+    }
+    .merch-card:hover .merch-img { transform: translateY(-6px); box-shadow: 6px 6px 0 rgba(168,155,128,.28); }
+    .merch-name { font-size: .98rem; color: var(--ink); margin-bottom: 3px; }
+    .merch-name-en { font-family: var(--font-en); font-size: .68rem; letter-spacing: .16em; color: var(--earth); }
+
+    /* ============================= */
+    /* FINISHING BANNER              */
+    /* ============================= */
+    .sec-finish {
+      padding: 64px 0; background: var(--cream-dk);
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .finish-leaf-l, .finish-leaf-r {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      opacity: .12; pointer-events: none;
+    }
+    .finish-leaf-l { left: 7%; }
+    .finish-leaf-r { right: 7%; transform: translateY(-50%) scaleX(-1); }
+    .finish-quote-jp { font-family: var(--font-jp); font-size: clamp(.88rem,1.8vw,1.1rem); color: var(--teal); font-weight: 300; letter-spacing: .12em; margin-bottom: 6px; }
+    .finish-quote-en { font-family: var(--font-body); font-style: italic; font-size: clamp(.78rem,1.4vw,.95rem); color: var(--earth); }
+
+    /* ============================= */
+    /* FOOTER                        */
+    /* ============================= */
+    footer { background: var(--ink); color: rgba(245,240,232,.65); }
+    .footer-body { padding: 56px 0 36px; display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 40px; }
+
+    .foot-brand { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+    .foot-tagline { font-size: .84rem; line-height: 1.9; color: rgba(245,240,232,.55); }
+    .foot-social { display: flex; gap: 10px; }
+    .soc-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(245,240,232,.09); display: flex; align-items: center; justify-content: center;
+      text-decoration: none; font-size: .95rem; transition: background .2s; cursor: pointer;
+    }
+    .soc-btn:hover { background: var(--coral); }
+
+    .foot-col h4 { font-family: var(--font-en); font-size: .68rem; letter-spacing: .22em; color: var(--coral); margin-bottom: 14px; }
+    .foot-col ul { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+    .foot-col a { font-family: var(--font-jp); font-size: .83rem; font-weight: 300; color: rgba(245,240,232,.55); text-decoration: none; transition: color .2s; }
+    .foot-col a:hover { color: var(--coral); }
+
+    .foot-bottom {
+      padding: 18px 0; border-top: 1px solid rgba(245,240,232,.08);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .foot-copy { font-family: var(--font-en); font-size: .62rem; letter-spacing: .14em; color: rgba(245,240,232,.35); }
+    .foot-seal { display: flex; align-items: center; gap: 8px; font-size: .73rem; color: rgba(245,240,232,.35); }
+
+    /* ============================= */
+    /* KEYFRAMES                     */
+    /* ============================= */
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @keyframes mascot-in {
+      from { opacity: 0; transform: scale(.86) translateY(28px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-13px); }
+    }
+
+    /* ============================= */
+    /* NAV — mobile order button     */
+    /* ============================= */
+    .nav-order-btn {
+      display: none; /* shown only on mobile */
+    }
+
+    /* ============================= */
+    /* RESPONSIVE                    */
+    /* ============================= */
+
+    /* ── Desktop: 2-column side-by-side ── */
+    @media (min-width: 768px) {
+      nav { padding: 14px 0; }
+      .nav-links { display: flex; }
+      .nav-order-btn { display: none; }
+
+      .hero {
+        height: 100dvh;
+        flex-direction: row;
+        align-items: stretch;
+        padding-top: 60px;
+      }
+      .hero-content {
+        order: 1; flex: 1;
+        display: flex; flex-direction: column; justify-content: center;
+        text-align: left;
+        padding: clamp(36px,4vw,72px);
+        padding-top: clamp(48px,5vw,80px);
+      }
+      .hero-mascot {
+        order: 2; flex: 1; min-height: 0;
+        align-items: flex-end;
+        padding: 0 20px 24px;
+      }
+      .mascot-img {
+        max-height: 88%;
+        max-width: 100%;
+      }
+      .hero-h1 { font-size: clamp(4rem,9vw,9rem); margin-bottom: 6px; }
+      .hero-sub { font-size: clamp(1rem,1.8vw,1.6rem); margin-bottom: 18px; }
+      .hero-tag { font-size: clamp(.88rem,1.2vw,1rem); margin-bottom: 4px; }
+      .hero-tag-en { font-size: .9rem; margin-bottom: 28px; }
+      .hero-eyebrow { margin-bottom: 16px; }
+      .hero-btns {
+        flex-direction: row; gap: 18px;
+        align-items: center;
+      }
+      .btn-primary {
+        width: auto; display: inline-block;
+        padding: 13px 32px;
+        box-shadow: 4px 4px 0 rgba(168,155,128,.4);
+      }
+    }
+
+    /* ── Tablet and below: hide nav links, show mobile nav order btn ── */
+    @media (max-width: 767px) {
+      .nav-links { display: none; }
+      .nav-order-btn {
+        display: inline-flex; align-items: center;
+        background: var(--coral); color: #fff;
+        font-family: var(--font-en); font-size: .72rem; letter-spacing: .12em;
+        padding: 7px 16px; border-radius: 2px; text-decoration: none;
+        box-shadow: 2px 2px 0 rgba(168,155,128,.3);
+      }
+      .hero-tag-en { font-size: .78rem; margin-bottom: 20px; } /* show Vietnamese tagline */
+    }
+
+    /* ── Sections responsive ── */
+    @media (max-width: 900px) {
+      .story-grid { grid-template-columns: 1fr; }
+      .menu-grid { grid-template-columns: 1fr 1fr; }
+      .stk-grid { grid-template-columns: repeat(3,1fr); }
+      .merch-grid { grid-template-columns: 1fr 1fr; }
+      .footer-body { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 540px) {
+      .menu-grid { grid-template-columns: 1fr; }
+      .stk-grid { grid-template-columns: repeat(2,1fr); }
+      .merch-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ======== NAVIGATION ======== -->
+<nav id="nav">
+  <div class="wrap nav-inner">
+    <a href="kaeru.html" class="nav-logo">
+      <!-- Torii gate icon -->
+      <svg width="34" height="34" viewBox="0 0 50 52">
+        <path d="M5,19 C11,9 22,11 25,14 C28,11 39,9 45,19" stroke="#EB624A" stroke-width="3.8" fill="none" stroke-linecap="round"/>
+        <rect x="9" y="21" width="32" height="3.5" fill="#EB624A" rx="1.2"/>
+        <rect x="16.5" y="13" width="3.5" height="34" fill="#EB624A" rx="1.2"/>
+        <rect x="30" y="13" width="3.5" height="34" fill="#EB624A" rx="1.2"/>
+        <rect x="13.5" y="44" width="10" height="3" fill="#EB624A" rx="1"/>
+        <rect x="26.5" y="44" width="10" height="3" fill="#EB624A" rx="1"/>
+      </svg>
+      <div class="nav-logo-text">
+        <span class="nav-logo-jp">かえる</span>
+        <span class="nav-logo-en">Bubble Tea</span>
+      </div>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#story">Câu chuyện</a></li>
+      <li><a href="#menu">Thực đơn</a></li>
+      <li><a href="#characters">Nhân vật</a></li>
+      <li><a href="#merch">Quà lưu niệm</a></li>
+      <li><a href="index.html?utm_source=landing" class="nav-cta">Đặt ngay</a></li>
+    </ul>
+    <a href="index.html?utm_source=landing" class="nav-order-btn">Đặt ngay</a>
+  </div>
+</nav>
+
+
+<!-- ======== HERO ======== -->
+<section class="hero" id="top">
+  <div class="hero-sun"></div>
+
+  <!-- Background wave hint -->
+  <svg class="hero-wave-bg" viewBox="0 0 1440 180" preserveAspectRatio="none">
+    <path d="M0,120 C180,80 360,150 540,110 C720,70 900,150 1080,120 C1260,90 1380,130 1440,110 L1440,180 L0,180 Z" fill="rgba(45,95,107,.05)"/>
+    <path d="M0,140 C200,110 400,160 600,140 C800,120 1000,160 1200,140 C1340,128 1420,148 1440,140 L1440,180 L0,180 Z" fill="rgba(45,95,107,.03)"/>
+  </svg>
+
+  <div class="hero-content">
+    <div class="hero-eyebrow">KAERU BUBBLE TEA</div>
+    <h1 class="hero-h1">かえる</h1>
+    <div class="hero-sub">BUBBLE TEA</div>
+    <p class="hero-tag">お茶の心を、ふるさとへ。</p>
+    <p class="hero-tag-en">Hương trà từ trái tim, về miền quê hương.</p>
+    <div class="hero-btns">
+      <a href="index.html?utm_source=landing" class="btn-primary">Đặt ngay</a>
+      <a href="#story" class="btn-ghost">Câu chuyện</a>
+    </div>
+    <div class="hero-social">
+      <a href="#" class="hero-soc-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        Facebook
+      </a>
+      <a href="#" class="hero-soc-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+        Instagram
+      </a>
+      <a href="#" class="hero-soc-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+        TikTok
+      </a>
+      <a href="#" class="hero-soc-btn maps">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        Google Maps
+      </a>
+    </div>
+  </div>
+
+  <div class="hero-mascot">
+    <img src="kaeru-mascot.svg" class="mascot-img" alt="かえる">
+  </div>
+</section>
+
+
+<!-- ── Wave: hero → story ── -->
+<div class="wave">
+  <svg viewBox="0 0 1440 70" preserveAspectRatio="none">
+    <path d="M0,0 C240,60 480,20 720,45 C960,70 1200,20 1440,40 L1440,70 L0,70 Z" fill="var(--cream-dk)"/>
+  </svg>
+</div>
+
+
+<!-- ======== OUR STORY ======== -->
+<section class="sec-story" id="story">
+  <div class="wrap">
+    <div class="story-grid">
+      <div>
+        <div class="label reveal">かえる の物語 · CÂU CHUYỆN</div>
+        <div class="story-kana reveal d1">お茶の心を、<br/>ふるさとへ。</div>
+        <h2 class="story-title en-heading reveal d2">Hành trình của Kaeru</h2>
+        <p class="story-p reveal d3"><strong>かえる</strong> là một con ếch.<br>Nhưng かえる cũng có nghĩa là <strong>"trở về nhà."</strong></p>
+        <p class="story-p reveal d3">Hành trình vượt đại dương sang Nhật Bản, tìm kiếm tinh hoa của trà, rồi trở về quê nhà — để chia sẻ hương vị ấy với nơi đã sinh ra mình.</p>
+        <p class="story-p reveal d4"><em>すべての一杯に、「おかえりなさい」を。</em><br>Mỗi ly là một chuyến trở về.</p>
+      </div>
+
+      <div class="reveal d2">
+        <!-- Character turnaround 2×2 -->
+        <div class="turn-grid">
+          <!-- FRONT -->
+          <div class="turn-card">
+            <svg viewBox="0 0 90 110" width="68" height="83">
+              <circle cx="45" cy="44" r="24" fill="#7A8C4F"/>
+              <ellipse cx="45" cy="85" rx="22" ry="24" fill="#2D5F6B"/>
+              <rect x="34" y="80" width="22" height="6" rx="2" fill="#F5F0E8" opacity=".85"/>
+              <circle cx="37" cy="43" r="7" fill="white"/><circle cx="53" cy="43" r="7" fill="white"/>
+              <circle cx="38" cy="43" r="3.5" fill="#1a2e35"/><circle cx="54" cy="43" r="3.5" fill="#1a2e35"/>
+              <path d="M38,54 Q45,60 52,54" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
+              <ellipse cx="45" cy="23" rx="30" ry="7" fill="#C4A872"/>
+              <path d="M15,23 Q45,5 75,23" fill="#C4A872"/>
+              <ellipse cx="33" cy="52" rx="8" ry="4" fill="rgba(235,98,74,.2)"/>
+              <ellipse cx="57" cy="52" rx="8" ry="4" fill="rgba(235,98,74,.2)"/>
+            </svg>
+            <span class="turn-lbl">TRƯỚC / 正面</span>
+          </div>
+          <!-- 3/4 VIEW -->
+          <div class="turn-card">
+            <svg viewBox="0 0 90 110" width="68" height="83">
+              <circle cx="47" cy="44" r="24" fill="#7A8C4F"/>
+              <ellipse cx="47" cy="85" rx="22" ry="24" fill="#2D5F6B"/>
+              <rect x="36" y="80" width="22" height="6" rx="2" fill="#F5F0E8" opacity=".85"/>
+              <circle cx="39" cy="42" r="8" fill="white"/><circle cx="56" cy="44" r="6" fill="white"/>
+              <circle cx="40" cy="42" r="4" fill="#1a2e35"/><circle cx="57" cy="44" r="3" fill="#1a2e35"/>
+              <path d="M39,54 Q48,61 55,57" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
+              <ellipse cx="47" cy="23" rx="30" ry="7" fill="#C4A872"/>
+              <path d="M17,23 Q47,5 77,23" fill="#C4A872"/>
+            </svg>
+            <span class="turn-lbl">GÓC 3/4 / 斜め</span>
+          </div>
+          <!-- SIDE -->
+          <div class="turn-card">
+            <svg viewBox="0 0 90 110" width="68" height="83">
+              <ellipse cx="48" cy="44" rx="20" ry="24" fill="#7A8C4F"/>
+              <ellipse cx="48" cy="85" rx="20" ry="24" fill="#2D5F6B"/>
+              <circle cx="57" cy="41" r="8" fill="white"/>
+              <circle cx="58" cy="41" r="4" fill="#1a2e35"/>
+              <path d="M52,55 Q58,62 64,57" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
+              <ellipse cx="48" cy="23" rx="28" ry="6" fill="#C4A872"/>
+              <path d="M20,23 Q48,6 76,23" fill="#C4A872"/>
+            </svg>
+            <span class="turn-lbl">NGANG / 側面</span>
+          </div>
+          <!-- BACK -->
+          <div class="turn-card">
+            <svg viewBox="0 0 90 110" width="68" height="83">
+              <circle cx="45" cy="44" r="24" fill="#6a7a44"/>
+              <ellipse cx="45" cy="85" rx="22" ry="24" fill="#264f5a"/>
+              <ellipse cx="45" cy="44" rx="10" ry="12" fill="rgba(255,255,255,.07)"/>
+              <ellipse cx="45" cy="23" rx="30" ry="7" fill="#B89660"/>
+              <path d="M15,23 Q45,5 75,23" fill="#B89660"/>
+            </svg>
+            <span class="turn-lbl">SAU / 背面</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── Wave: story → menu ── -->
+<div class="wave">
+  <svg viewBox="0 0 1440 70" preserveAspectRatio="none">
+    <path d="M0,70 C360,10 720,60 1080,25 C1260,8 1380,45 1440,35 L1440,0 L0,0 Z" fill="var(--cream-dk)"/>
+    <path d="M0,70 L1440,70 L1440,35 C1380,45 1260,8 1080,25 C720,60 360,10 0,70 Z" fill="var(--teal)"/>
+  </svg>
+</div>
+
+
+<!-- ======== MENU ======== -->
+<section class="sec-menu" id="menu">
+  <div class="wrap">
+    <div class="menu-head">
+      <div class="label menu-head reveal">メニュー · THỰC ĐƠN</div>
+      <h2 class="reveal d1">季節のお茶メニュー</h2>
+      <p class="reveal d2">Tuyển chọn trà theo mùa</p>
+    </div>
+
+    <div class="menu-grid">
+      <div class="menu-card reveal d1">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(45,95,107,.35),rgba(45,95,107,.1))">🧋</div>
+        <div class="mc-body">
+          <div class="mc-cat">ĐẶC TRƯNG</div>
+          <div class="mc-jp">抹茶タロパール</div>
+          <div class="mc-en">Trân châu Matcha Khoai Môn</div>
+          <div class="mc-foot"><span class="mc-price">55.000đ</span><span class="mc-tag">BÁN CHẠY</span></div>
+        </div>
+      </div>
+
+      <div class="menu-card reveal d2">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(122,140,79,.3),rgba(122,140,79,.1))">🍵</div>
+        <div class="mc-body">
+          <div class="mc-cat">KINH ĐIỂN</div>
+          <div class="mc-jp">ほうじ茶ラテ</div>
+          <div class="mc-en">Sữa Hojicha</div>
+          <div class="mc-foot"><span class="mc-price">50.000đ</span><span class="mc-tag">NÓNG/LẠNH</span></div>
+        </div>
+      </div>
+
+      <div class="menu-card reveal d3">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(235,98,74,.25),rgba(235,98,74,.07))">🍑</div>
+        <div class="mc-body">
+          <div class="mc-cat">THEO MÙA</div>
+          <div class="mc-jp">白桃煎茶ソーダ</div>
+          <div class="mc-en">Soda Sencha Đào Trắng</div>
+          <div class="mc-foot"><span class="mc-price">52.000đ</span><span class="mc-tag">GIỚI HẠN</span></div>
+        </div>
+      </div>
+
+      <div class="menu-card reveal d2">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(168,155,128,.3),rgba(168,155,128,.1))">🥐</div>
+        <div class="mc-body">
+          <div class="mc-cat">BÁNH MỲ</div>
+          <div class="mc-jp">抹茶クロワッサン</div>
+          <div class="mc-en">Bánh Croissant Matcha</div>
+          <div class="mc-foot"><span class="mc-price">38.000đ</span><span class="mc-tag">MỚI NƯỚNG</span></div>
+        </div>
+      </div>
+
+      <div class="menu-card reveal d3">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(122,140,79,.25),rgba(45,95,107,.2))">🍈</div>
+        <div class="mc-body">
+          <div class="mc-cat">ĐẶC BIỆT</div>
+          <div class="mc-jp">ゆずジャスミン</div>
+          <div class="mc-en">Trà Lài Yuzu</div>
+          <div class="mc-foot"><span class="mc-price">48.000đ</span><span class="mc-tag">MỚI</span></div>
+        </div>
+      </div>
+
+      <div class="menu-card reveal d4">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(235,98,74,.2),rgba(168,155,128,.2))">🍮</div>
+        <div class="mc-body">
+          <div class="mc-cat">TRÁNG MIỆNG</div>
+          <div class="mc-jp">黒糖タピオカプリン</div>
+          <div class="mc-en">Bánh Flan Trân Châu Đường Đen</div>
+          <div class="mc-foot"><span class="mc-price">42.000đ</span><span class="mc-tag">YÊU THÍCH</span></div>
+        </div>
+      </div>
+    </div>
+
+      <!-- ── Kaphe divider ── -->
+      <div class="menu-divider reveal">
+        <div class="menu-divider-line"></div>
+        <div class="menu-divider-txt">カフェ · CÀ PHÊ</div>
+        <div class="menu-divider-line"></div>
+      </div>
+
+      <!-- Bạc Xỉu -->
+      <div class="menu-card reveal d1">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(196,168,114,.3),rgba(168,155,128,.15))">☕</div>
+        <div class="mc-body">
+          <div class="mc-cat">ĐẶC SẢN</div>
+          <div class="mc-jp">バクシウ</div>
+          <div class="mc-en">Bạc Xỉu</div>
+          <div class="mc-foot"><span class="mc-price">35.000đ</span><span class="mc-tag">ĐỊA PHƯƠNG</span></div>
+        </div>
+      </div>
+
+      <!-- Cà phê trứng -->
+      <div class="menu-card reveal d2">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(196,168,114,.25),rgba(235,98,74,.12))">🥚</div>
+        <div class="mc-body">
+          <div class="mc-cat">ĐẶC TRƯNG</div>
+          <div class="mc-jp">エッグコーヒー</div>
+          <div class="mc-en">Cà Phê Trứng</div>
+          <div class="mc-foot"><span class="mc-price">45.000đ</span><span class="mc-tag">HÀ NỘI</span></div>
+        </div>
+      </div>
+
+      <!-- Cà phê đá -->
+      <div class="menu-card reveal d3">
+        <div class="mc-img" style="background:linear-gradient(135deg,rgba(30,45,50,.35),rgba(45,95,107,.18))">🧊</div>
+        <div class="mc-body">
+          <div class="mc-cat">KINH ĐIỂN</div>
+          <div class="mc-jp">アイスコーヒー</div>
+          <div class="mc-en">Cà Phê Đá</div>
+          <div class="mc-foot"><span class="mc-price">30.000đ</span><span class="mc-tag">PHIN</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:40px" class="reveal d2">
+      <a href="index.html?utm_source=landing" class="btn-primary">Đặt ngay · オーダー</a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── Wave: menu → stickers ── -->
+<div class="wave" style="background:var(--cream-dk)">
+  <svg viewBox="0 0 1440 70" preserveAspectRatio="none">
+    <path d="M0,0 C480,70 960,0 1440,55 L1440,70 L0,70 Z" fill="var(--teal)"/>
+    <path d="M0,0 C480,70 960,0 1440,55 L1440,0 Z" fill="var(--cream-dk)"/>
+  </svg>
+</div>
+
+
+<!-- ======== STICKERS / EXPRESSIONS ======== -->
+<section class="sec-stickers" id="characters">
+  <div class="wrap">
+    <div class="stk-head">
+      <div class="label reveal" style="justify-content:center">スティッカーパック · BỘ NHÃN DÁN</div>
+      <h2 class="reveal d1">かえる の表情</h2>
+      <p class="reveal d2">Bộ biểu cảm của Kaeru · 6 biểu cảm</p>
+    </div>
+
+    <div class="stk-grid">
+      <!-- 集中 DETERMINED -->
+      <div class="stk-item reveal d1">
+        <div class="stk-badge" style="background:linear-gradient(135deg,#e6eed4,var(--cream))">
+          <svg viewBox="0 0 80 80" width="52" height="52">
+            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
+            <circle cx="30" cy="38" r="9" fill="white"/><circle cx="50" cy="38" r="9" fill="white"/>
+            <circle cx="30" cy="38" r="4.5" fill="#1a2e35"/><circle cx="50" cy="38" r="4.5" fill="#1a2e35"/>
+            <!-- determined mouth: straight -->
+            <path d="M32,52 L48,52" stroke="#1a2e35" stroke-width="2.8" stroke-linecap="round"/>
+            <!-- stern brows -->
+            <path d="M23,28 L35,31" stroke="#1a2e35" stroke-width="2" stroke-linecap="round"/>
+            <path d="M45,31 L57,28" stroke="#1a2e35" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="stk-jp">集中！</span>
+        </div>
+        <span class="stk-en">QUYẾT TÂM</span>
+      </div>
+
+      <!-- 乾杯 JOYFUL -->
+      <div class="stk-item reveal d2">
+        <div class="stk-badge" style="background:linear-gradient(135deg,#fce6d5,var(--cream))">
+          <svg viewBox="0 0 80 80" width="52" height="52">
+            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
+            <circle cx="29" cy="36" r="9" fill="white"/><circle cx="51" cy="36" r="9" fill="white"/>
+            <circle cx="29" cy="36" r="4.5" fill="#1a2e35"/><circle cx="51" cy="36" r="4.5" fill="#1a2e35"/>
+            <!-- big joyful smile -->
+            <path d="M28,50 Q40,64 52,50" stroke="#1a2e35" stroke-width="2.5" fill="rgba(30,45,50,.08)"/>
+            <!-- blush -->
+            <ellipse cx="20" cy="47" rx="8" ry="4.5" fill="rgba(235,98,74,.22)"/>
+            <ellipse cx="60" cy="47" rx="8" ry="4.5" fill="rgba(235,98,74,.22)"/>
+            <!-- raised brows happy -->
+            <path d="M22,27 C26,22 36,23 38,27" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
+            <path d="M42,27 C44,23 54,22 58,27" stroke="#1a2e35" stroke-width="1.8" fill="none"/>
+          </svg>
+          <span class="stk-jp">乾杯！</span>
+        </div>
+        <span class="stk-en">VUI VẺ</span>
+      </div>
+
+      <!-- びっくり SURPRISED -->
+      <div class="stk-item reveal d3">
+        <div class="stk-badge" style="background:linear-gradient(135deg,#ede6f5,var(--cream))">
+          <svg viewBox="0 0 80 80" width="52" height="52">
+            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
+            <!-- big round surprised eyes -->
+            <circle cx="29" cy="38" r="12" fill="white"/><circle cx="51" cy="38" r="12" fill="white"/>
+            <circle cx="29" cy="38" r="6.5" fill="#1a2e35"/><circle cx="51" cy="38" r="6.5" fill="#1a2e35"/>
+            <circle cx="31" cy="36" r="2.2" fill="white"/><circle cx="53" cy="36" r="2.2" fill="white"/>
+            <!-- O mouth -->
+            <ellipse cx="40" cy="57" rx="6.5" ry="5.5" fill="#1a2e35"/>
+            <ellipse cx="40" cy="57" rx="4.5" ry="4" fill="#7a2020"/>
+            <!-- exclamation marks -->
+            <text x="10" y="18" font-size="13" fill="#EB624A" font-weight="bold" font-family="sans-serif">!!</text>
+          </svg>
+          <span class="stk-jp">びっくり！</span>
+        </div>
+        <span class="stk-en">NGẠC NHIÊN</span>
+      </div>
+
+      <!-- ねむい SLEEPY -->
+      <div class="stk-item reveal d4">
+        <div class="stk-badge" style="background:linear-gradient(135deg,#e5eaed,var(--cream))">
+          <svg viewBox="0 0 80 80" width="52" height="52">
+            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
+            <!-- half-closed eyes -->
+            <ellipse cx="30" cy="40" rx="9" ry="5.5" fill="white"/>
+            <ellipse cx="50" cy="40" rx="9" ry="5.5" fill="white"/>
+            <ellipse cx="30" cy="42" rx="5.5" ry="3.5" fill="#1a2e35"/>
+            <ellipse cx="50" cy="42" rx="5.5" ry="3.5" fill="#1a2e35"/>
+            <!-- droopy eyelids -->
+            <path d="M21,39 Q30,33 39,39" fill="rgba(100,120,55,.72)"/>
+            <path d="M41,39 Q50,33 59,39" fill="rgba(100,120,55,.72)"/>
+            <path d="M33,52 Q40,57 47,52" stroke="#1a2e35" stroke-width="2" fill="none"/>
+            <!-- Z Z Z -->
+            <text x="58" y="22" font-size="11" fill="#A89B80" font-family="sans-serif">z</text>
+            <text x="63" y="13" font-size="9" fill="#A89B80" font-family="sans-serif">z</text>
+          </svg>
+          <span class="stk-jp">ねむい…</span>
+        </div>
+        <span class="stk-en">BUỒN NGỦ</span>
+      </div>
+
+      <!-- 自慢げ PROUD -->
+      <div class="stk-item reveal d3">
+        <div class="stk-badge" style="background:linear-gradient(135deg,#f5eedc,var(--cream))">
+          <svg viewBox="0 0 80 80" width="52" height="52">
+            <circle cx="40" cy="42" r="28" fill="#7A8C4F"/>
+            <circle cx="29" cy="40" r="9" fill="white"/><circle cx="51" cy="40" r="9" fill="white"/>
+            <circle cx="30" cy="39" r="4.5" fill="#1a2e35"/><circle cx="52" cy="39" r="4.5" fill="#1a2e35"/>
+            <!-- smug smile -->
+            <path d="M29,53 Q40,65 51,53" stroke="#1a2e35" stroke-width="2.5" fill="rgba(30,45,50,.08)"/>
+            <!-- proud raised single brow -->
+            <path d="M22,29 C27,24 36,26 38,30" stroke="#1a2e35" stroke-width="2" fill="none"/>
+            <path d="M42,30 C44,26 53,24 58,29" stroke="#1a2e35" stroke-width="2" fill="none"/>
+            <!-- sparkles -->
+            <text x="58" y="24" font-size="11">✨</text>
+          </svg>
+          <span class="stk-jp">自慢げ！</span>
+        </div>
+        <span class="stk-en">TỰ HÀO</span>
+      </div>
+
+      <!-- またね SEE YOU -->
+      <div class="stk-item reveal d4">
+        <div class="stk-badge" style="background:linear-gradient(135deg,#d5ece7,var(--cream))">
+          <svg viewBox="0 0 80 80" width="52" height="52">
+            <circle cx="40" cy="40" r="28" fill="#7A8C4F"/>
+            <circle cx="29" cy="37" r="9" fill="white"/><circle cx="51" cy="37" r="9" fill="white"/>
+            <circle cx="29" cy="37" r="4.5" fill="#1a2e35"/><circle cx="51" cy="37" r="4.5" fill="#1a2e35"/>
+            <path d="M28,51 Q40,63 52,51" stroke="#1a2e35" stroke-width="2.5" fill="none"/>
+            <!-- waving hand -->
+            <path d="M60,26 C65,20 72,19 70,27 C74,15 80,18 75,27 C76,17 82,22 75,30" stroke="#5A7A3A" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <!-- blush -->
+            <ellipse cx="20" cy="47" rx="8" ry="4.5" fill="rgba(235,98,74,.2)"/>
+            <ellipse cx="60" cy="47" rx="8" ry="4.5" fill="rgba(235,98,74,.2)"/>
+          </svg>
+          <span class="stk-jp">またね！</span>
+        </div>
+        <span class="stk-en">HẸN GẶP LẠI!</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ── Wave: stickers → merch ── -->
+<div class="wave" style="background:var(--cream-dk)">
+  <svg viewBox="0 0 1440 60" preserveAspectRatio="none">
+    <path d="M0,60 C360,0 720,50 1080,15 C1260,0 1380,40 1440,28 L1440,60 Z" fill="var(--cream)"/>
+  </svg>
+</div>
+
+
+<!-- ======== MERCH ======== -->
+<section class="sec-merch" id="merch">
+  <div class="wrap">
+    <div class="merch-head">
+      <div class="label reveal" style="justify-content:center">グッズ展開 · QUÀ LƯU NIỆM</div>
+      <h2 class="reveal d1">かえるグッズ</h2>
+    </div>
+
+    <div class="merch-grid">
+      <!-- TOTE BAG -->
+      <div class="merch-card">
+        <div class="merch-img reveal d1">
+          <svg viewBox="0 0 150 190" width="110" height="140">
+            <path d="M28,56 Q23,58 20,64 L13,175 Q12,185 23,185 L127,185 Q138,185 137,175 L130,64 Q127,58 122,56 Z" fill="#E8E0CC" stroke="#A89B80" stroke-width="2"/>
+            <path d="M52,56 Q52,22 75,22 Q98,22 98,56" stroke="#A89B80" stroke-width="5" fill="none" stroke-linecap="round"/>
+            <!-- frog logo print on bag -->
+            <circle cx="75" cy="126" r="36" fill="none" stroke="#2D5F6B" stroke-width="2"/>
+            <circle cx="75" cy="116" r="17" fill="#7A8C4F"/>
+            <circle cx="68" cy="114" r="5" fill="white"/><circle cx="82" cy="114" r="5" fill="white"/>
+            <circle cx="68" cy="114" r="2.5" fill="#1a2e35"/><circle cx="82" cy="114" r="2.5" fill="#1a2e35"/>
+            <path d="M69,122 Q75,128 81,122" stroke="#1a2e35" stroke-width="1.5" fill="none"/>
+            <ellipse cx="75" cy="101" rx="19" ry="4" fill="#C4A872"/>
+            <path d="M56,101 Q75,88 94,101" fill="#C4A872"/>
+            <text x="75" y="152" text-anchor="middle" font-size="8" fill="#2D5F6B" font-family="serif" letter-spacing="2">かえる</text>
+            <text x="75" y="161" text-anchor="middle" font-size="5" fill="#A89B80" font-family="sans-serif" letter-spacing="2">BUBBLE TEA</text>
+          </svg>
+        </div>
+        <div class="merch-name reveal d1">トートバッグ</div>
+        <div class="merch-name-en reveal d2">TÚI TOTE</div>
+      </div>
+
+      <!-- ENAMEL PIN -->
+      <div class="merch-card">
+        <div class="merch-img reveal d2">
+          <svg viewBox="0 0 140 160" width="110" height="126">
+            <!-- pin shadow -->
+            <circle cx="72" cy="82" r="50" fill="rgba(168,155,128,.18)"/>
+            <circle cx="70" cy="78" r="48" fill="#2D5F6B" stroke="#A89B80" stroke-width="2.5"/>
+            <circle cx="70" cy="78" r="42" fill="none" stroke="rgba(245,240,232,.22)" stroke-width="1"/>
+            <!-- Torii on pin -->
+            <path d="M30,52 C37,44 50,46 70,50 C90,46 103,44 110,52" stroke="#EB624A" stroke-width="2.5" fill="none"/>
+            <rect x="36" y="54" width="68" height="4" fill="#EB624A" rx="1"/>
+            <rect x="46" y="46" width="4" height="34" fill="#EB624A" rx="1"/>
+            <rect x="90" y="46" width="4" height="34" fill="#EB624A" rx="1"/>
+            <!-- frog head on pin -->
+            <circle cx="70" cy="75" r="18" fill="#7A8C4F"/>
+            <circle cx="63" cy="73" r="6" fill="white"/><circle cx="77" cy="73" r="6" fill="white"/>
+            <circle cx="63" cy="73" r="3" fill="#1a2e35"/><circle cx="77" cy="73" r="3" fill="#1a2e35"/>
+            <path d="M63,82 Q70,88 77,82" stroke="#1a2e35" stroke-width="1.5" fill="none"/>
+            <ellipse cx="70" cy="59" rx="19" ry="4" fill="#C4A872"/>
+            <path d="M51,59 Q70,47 89,59" fill="#C4A872"/>
+            <text x="70" y="108" text-anchor="middle" font-size="9" fill="#F5F0E8" font-family="serif" letter-spacing="2">かえる</text>
+            <!-- clip -->
+            <rect x="64" y="26" width="12" height="6" rx="3" fill="#A89B80"/>
+            <rect x="69" y="20" width="4" height="10" rx="2" fill="#A89B80"/>
+          </svg>
+        </div>
+        <div class="merch-name reveal d2">エナメルピン</div>
+        <div class="merch-name-en reveal d3">HUY HIỆU</div>
+      </div>
+
+      <!-- MINI VINYL FIGURE -->
+      <div class="merch-card">
+        <div class="merch-img reveal d3">
+          <svg viewBox="0 0 140 200" width="98" height="140">
+            <!-- base -->
+            <rect x="34" y="178" width="72" height="11" rx="5.5" fill="#DDD5C0" stroke="#A89B80" stroke-width="1.5"/>
+            <rect x="44" y="174" width="52" height="7" rx="3.5" fill="#CEC6B0"/>
+            <!-- body -->
+            <path d="M48,96 Q38,108 38,138 Q38,165 70,168 Q102,165 102,138 Q102,108 92,96 Z" fill="#2D5F6B"/>
+            <!-- obi belt -->
+            <path d="M48,128 Q70,133 92,128" stroke="rgba(245,240,232,.4)" stroke-width="4" fill="none" stroke-linecap="round"/>
+            <!-- collar -->
+            <path d="M65,96 L70,113 L75,96" fill="#F5F0E8" opacity=".9"/>
+            <!-- arms + pole -->
+            <path d="M44,108 Q26,104 14,108" stroke="#5A7A3A" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <path d="M96,108 Q114,104 126,108" stroke="#5A7A3A" stroke-width="10" fill="none" stroke-linecap="round"/>
+            <line x1="12" y1="107" x2="128" y2="107" stroke="#C4A872" stroke-width="4" stroke-linecap="round"/>
+            <ellipse cx="12" cy="116" rx="9" ry="5" fill="#C4A872" opacity=".8"/>
+            <ellipse cx="128" cy="116" rx="9" ry="5" fill="#C4A872" opacity=".8"/>
+            <!-- head -->
+            <circle cx="70" cy="80" r="26" fill="#7A8C4F"/>
+            <circle cx="62" cy="78" r="7.5" fill="white"/><circle cx="78" cy="78" r="7.5" fill="white"/>
+            <circle cx="62" cy="78" r="3.8" fill="#1a2e35"/><circle cx="78" cy="78" r="3.8" fill="#1a2e35"/>
+            <circle cx="63" cy="77" r="1.5" fill="white"/><circle cx="79" cy="77" r="1.5" fill="white"/>
+            <path d="M63,91 Q70,97 77,91" stroke="#1a2e35" stroke-width="2" fill="none"/>
+            <!-- hat -->
+            <ellipse cx="70" cy="57" rx="33" ry="7.5" fill="#C4A872" stroke="#A07840" stroke-width="1.5"/>
+            <path d="M37,57 Q70,29 103,57" fill="#C4A872" stroke="#A07840" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div class="merch-name reveal d3">ミニフィギュア</div>
+        <div class="merch-name-en reveal d4">MÔ HÌNH MINI</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ======== FINISHING BANNER ======== -->
+<section class="sec-finish">
+  <!-- Tea leaf accents -->
+  <div class="finish-leaf-l">
+    <svg viewBox="0 0 50 90" width="44" height="79">
+      <path d="M25,4 Q36,22 33,50 Q30,72 25,82 Q20,72 17,50 Q14,22 25,4 Z" fill="#7A8C4F"/>
+      <path d="M25,4 L25,82" stroke="#5A6A3A" stroke-width="1.3" fill="none"/>
+      <path d="M18,28 Q25,23 32,28" stroke="#5A6A3A" stroke-width=".9" fill="none"/>
+      <path d="M16,44 Q25,38 34,44" stroke="#5A6A3A" stroke-width=".9" fill="none"/>
+      <path d="M18,60 Q25,55 32,60" stroke="#5A6A3A" stroke-width=".9" fill="none"/>
+    </svg>
+  </div>
+  <div class="finish-leaf-r">
+    <svg viewBox="0 0 50 90" width="44" height="79">
+      <path d="M25,4 Q36,22 33,50 Q30,72 25,82 Q20,72 17,50 Q14,22 25,4 Z" fill="#7A8C4F"/>
+      <path d="M25,4 L25,82" stroke="#5A6A3A" stroke-width="1.3" fill="none"/>
+      <path d="M18,28 Q25,23 32,28" stroke="#5A6A3A" stroke-width=".9" fill="none"/>
+      <path d="M16,44 Q25,38 34,44" stroke="#5A6A3A" stroke-width=".9" fill="none"/>
+      <path d="M18,60 Q25,55 32,60" stroke="#5A6A3A" stroke-width=".9" fill="none"/>
+    </svg>
+  </div>
+
+  <p class="finish-quote-jp reveal">すべての一杯に、「おかえりなさい」を。</p>
+  <p class="finish-quote-en reveal d1">Mỗi ly là một chuyến trở về.</p>
+
+  <div class="reveal d2" style="margin-top:22px">
+    <svg viewBox="0 0 80 80" width="62" height="62" style="display:inline-block">
+      <rect x="3" y="3" width="74" height="74" rx="8" fill="#EB624A" opacity=".88"/>
+      <rect x="9" y="9" width="62" height="62" rx="5" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
+      <text x="40" y="35" text-anchor="middle" font-size="20" fill="white" font-family="serif">茶</text>
+      <text x="40" y="58" text-anchor="middle" font-size="20" fill="white" font-family="serif">帰</text>
+    </svg>
+  </div>
+</section>
+
+
+<!-- ======== FOOTER ======== -->
+<footer>
+  <!-- Ukiyo-e wave header -->
+  <svg viewBox="0 0 1440 110" preserveAspectRatio="none" style="display:block;width:100%;margin-top:-1px">
+    <!-- Main wave -->
+    <path d="M0,55 C80,18 160,78 240,48 C320,18 400,78 480,48 C560,18 640,78 720,48 C800,18 880,78 960,48 C1040,18 1120,78 1200,48 C1280,18 1360,68 1440,42 L1440,110 L0,110 Z" fill="#1E2D32"/>
+    <!-- Wave crest curls (Ukiyo-e detail) -->
+    <path d="M0,53 C18,43 38,56 58,47 C78,38 98,54 118,46" stroke="rgba(245,240,232,.14)" stroke-width="2.2" fill="none"/>
+    <path d="M240,50 C258,40 278,54 298,45 C318,36 338,52 358,44" stroke="rgba(245,240,232,.13)" stroke-width="2" fill="none"/>
+    <path d="M480,50 C498,40 518,55 538,46 C558,37 578,54 598,46" stroke="rgba(245,240,232,.14)" stroke-width="2.2" fill="none"/>
+    <path d="M720,50 C738,40 758,55 778,46 C798,37 818,54 838,46" stroke="rgba(245,240,232,.14)" stroke-width="2.2" fill="none"/>
+    <path d="M960,50 C978,40 998,55 1018,46 C1038,37 1058,54 1078,46" stroke="rgba(245,240,232,.13)" stroke-width="2" fill="none"/>
+    <path d="M1200,48 C1218,38 1238,54 1258,45 C1278,36 1298,52 1318,44" stroke="rgba(245,240,232,.13)" stroke-width="2" fill="none"/>
+    <!-- second shallower wave -->
+    <path d="M0,76 C180,52 360,86 540,68 C720,50 900,86 1080,68 C1220,55 1340,78 1440,64 L1440,110 L0,110 Z" fill="rgba(30,45,50,.55)"/>
+  </svg>
+
+  <div class="wrap">
+    <div class="footer-body">
+      <div class="foot-brand">
+        <!-- Circular logo -->
+        <svg viewBox="0 0 100 100" width="82" height="82">
+          <circle cx="50" cy="50" r="47" fill="none" stroke="#2D5F6B" stroke-width="2"/>
+          <circle cx="50" cy="50" r="43" fill="rgba(245,240,232,.07)"/>
+          <!-- Torii -->
+          <path d="M12,44 C20,34 34,37 50,40 C66,37 80,34 88,44" stroke="#EB624A" stroke-width="2.5" fill="none"/>
+          <rect x="20" y="46" width="60" height="4" fill="#EB624A" rx="1"/>
+          <rect x="30" y="38" width="3.5" height="36" fill="#EB624A" rx="1"/>
+          <rect x="66.5" y="38" width="3.5" height="36" fill="#EB624A" rx="1"/>
+          <!-- frog head -->
+          <circle cx="50" cy="62" r="17" fill="#7A8C4F"/>
+          <circle cx="43" cy="60" r="5.5" fill="white"/><circle cx="57" cy="60" r="5.5" fill="white"/>
+          <circle cx="43" cy="60" r="2.8" fill="#1a2e35"/><circle cx="57" cy="60" r="2.8" fill="#1a2e35"/>
+          <path d="M43,69 Q50,75 57,69" stroke="#1a2e35" stroke-width="1.5" fill="none"/>
+          <ellipse cx="50" cy="47" rx="17" ry="4" fill="#C4A872"/>
+          <path d="M33,47 Q50,35 67,47" fill="#C4A872"/>
+          <text x="50" y="90" text-anchor="middle" font-size="6.5" fill="#F5F0E8" font-family="sans-serif" letter-spacing="2.5" opacity=".7">BUBBLE TEA</text>
+        </svg>
+        <p class="foot-tagline">お茶の心を、ふるさとへ。<br><span style="font-family:var(--font-body);font-style:italic;font-size:.78rem">Hương trà từ trái tim, về miền quê hương.</span></p>
+        <div class="foot-social">
+          <a class="soc-btn" href="#" title="Facebook"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+          <a class="soc-btn" href="#" title="Instagram"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></a>
+          <a class="soc-btn" href="#" title="TikTok"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a>
+          <a class="soc-btn" href="#" title="Google Maps"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></a>
+        </div>
+      </div>
+
+      <div class="foot-col">
+        <h4>Thực đơn · メニュー</h4>
+        <ul>
+          <li><a href="#">Bubble Tea · バブルティー</a></li>
+          <li><a href="#">Cà phê · カフェ</a></li>
+          <li><a href="#">Dòng Matcha · 抹茶</a></li>
+          <li><a href="#">Theo mùa · 季節限定</a></li>
+          <li><a href="#">Bánh · ベーカリー</a></li>
+          <li><a href="#">Quà lưu niệm · グッズ</a></li>
+        </ul>
+      </div>
+
+      <div class="foot-col">
+        <h4>Ghé thăm · ご来店</h4>
+        <ul>
+          <li><a href="#">Lâm Hà, Lâm Đồng · Việt Nam</a></li>
+          <li><a href="#">Giờ mở cửa · 営業時間</a></li>
+          <li><a href="index.html?utm_source=landing">Đặt hàng online · オーダー</a></li>
+          <li><a href="#">Liên hệ · お問い合わせ</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="foot-bottom">
+      <div class="foot-copy">© 2026 かえる BUBBLE TEA · LÂM HÀ · VIỆT NAM</div>
+      <div class="foot-seal">
+        <svg viewBox="0 0 40 40" width="26" height="26">
+          <rect x="2" y="2" width="36" height="36" rx="4" fill="#EB624A" opacity=".65"/>
+          <text x="20" y="26" text-anchor="middle" font-size="17" fill="white" font-family="serif">茶</text>
+        </svg>
+        Mỗi ly là một chuyến trở về
+      </div>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+  // ── Navbar scroll effect ──
+  const nav = document.getElementById('nav');
+  addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 50), {passive:true});
+
+  // ── Scroll reveal ──
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('up'); });
+  }, {threshold: .12, rootMargin: '0px 0px -36px 0px'});
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+  // ── Ripple chuyển trang (nút Đặt ngay) ──
+  function orderRipple(e) {
+    const btn = e.currentTarget;
+    const href = btn.getAttribute('href');
+    if (!href || href === '#') return;
+    e.preventDefault();
+
+    // Lớp 1: ink trắng trong nút
+    const ink = document.createElement('span');
+    ink.className = 'order-ink';
+    const r = btn.getBoundingClientRect();
+    const s = Math.max(r.width, r.height) * 2.4;
+    ink.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX-r.left-s/2}px;top:${e.clientY-r.top-s/2}px`;
+    btn.appendChild(ink);
+
+    // Lớp 2: sóng teal phủ toàn màn hình
+    const cx = e.clientX, cy = e.clientY;
+    const maxR = Math.max(
+      Math.hypot(cx, cy),
+      Math.hypot(innerWidth - cx, cy),
+      Math.hypot(cx, innerHeight - cy),
+      Math.hypot(innerWidth - cx, innerHeight - cy)
+    ) + 10;
+    const d = maxR * 2;
+    const wave = document.createElement('div');
+    wave.className = 'order-wave';
+    wave.style.cssText = `width:${d}px;height:${d}px;left:${cx-d/2}px;top:${cy-d/2}px`;
+    document.body.appendChild(wave);
+
+    // Trigger expand sau 1 frame (cần timeout để CSS transition kích hoạt)
+    requestAnimationFrame(() => requestAnimationFrame(() => wave.classList.add('open')));
+
+    // Chuyển trang sau khi sóng phủ đầy (thêm v= để bypass cache)
+    setTimeout(() => {
+      const dest = href.includes('?') ? href + '&v=20260522' : href + '?v=20260522';
+      location.href = dest;
+    }, 640);
+  }
+
+  // Gắn cho cả btn-primary lẫn nav order buttons
+  document.querySelectorAll('.btn-primary, .nav-cta, .nav-order-btn').forEach(btn => {
+    if (btn.getAttribute('href')?.includes('index.html')) {
+      btn.addEventListener('click', orderRipple);
+    }
+  });
+
+  // ── Menu cards → order page ──
+  document.querySelectorAll('.menu-card').forEach(card => {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', () => {
+      location.href = 'index.html?utm_source=landing&v=20260522';
+    });
+  });
+
+  // ── Sticker click bounce ──
+  document.querySelectorAll('.stk-item').forEach(s => {
+    s.addEventListener('click', () => {
+      const b = s.querySelector('.stk-badge');
+      b.style.transition = 'transform .12s';
+      b.style.transform = 'scale(.88)';
+      setTimeout(() => { b.style.transform = ''; }, 130);
+    });
+  });
+
+  // ── Hero parallax (subtle) ──
+  addEventListener('scroll', () => {
+    const sun = document.querySelector('.hero-sun');
+    if (sun && scrollY < innerHeight) sun.style.transform = `translateY(${scrollY*.14}px)`;
+  }, {passive:true});
+</script>
+</body>
+</html>

@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KDS · KaeruKàphe</title>
+  <script src="menu-data.js?v=20260523"></script>
+  <style>
+    :root {
+      --bg:      #1C3A42;
+      --surface: #243F47;
+      --teal:    #2D5F6B;
+      --coral:   #EB624A;
+      --cream:   #F5F0E8;
+      --gold:    #C8963E;
+      --green:   #4CAF50;
+      --muted:   rgba(245,240,232,.5);
+      --dim:     rgba(245,240,232,.25);
+      --border:  rgba(245,240,232,.12);
+      --radius:  10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { background: var(--bg); color: var(--cream); font-family: -apple-system,'Segoe UI',sans-serif; font-size: 15px; min-height: 100vh; }
+
+    /* ── HEADER ── */
+    .kds-header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 20;
+    }
+    .kds-title { font-size: .95rem; font-weight: 700; letter-spacing: .02em; }
+    .kds-sub   { font-size: .7rem; color: var(--muted); margin-top: 1px; }
+    .btn-sm {
+      background: var(--teal); border: none; color: var(--cream);
+      padding: 7px 14px; border-radius: 20px; cursor: pointer;
+      font-size: .8rem; font-weight: 600;
+    }
+    .btn-sm:active { opacity: .75; }
+
+    /* ── MAIN NAV ── */
+    .main-nav {
+      display: flex; background: var(--surface); border-bottom: 1px solid var(--border);
+      position: sticky; top: 54px; z-index: 19;
+    }
+    .nav-tab {
+      flex: 1; padding: 11px 0; text-align: center;
+      font-size: .88rem; font-weight: 600; color: var(--muted);
+      border: none; background: none; cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    .nav-tab.active { color: var(--cream); border-bottom-color: var(--coral); }
+
+    /* ── TTS BANNER ── */
+    .tts-banner {
+      background: rgba(200,150,62,.1); border: 1px solid rgba(200,150,62,.25);
+      border-radius: var(--radius); margin: 10px 14px 0;
+      padding: 9px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: .82rem; color: var(--gold);
+    }
+    .tts-banner.hidden { display: none; }
+    .btn-tts { background: var(--gold); color: var(--bg); border: none; border-radius: 20px; padding: 5px 14px; font-size: .78rem; font-weight: 700; cursor: pointer; }
+
+    /* ── FILTER BAR ── */
+    .filter-bar { display: flex; gap: 8px; padding: 10px 14px 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .filter-pill {
+      background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+      padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: .8rem; white-space: nowrap; flex-shrink: 0;
+    }
+    .filter-pill.active { background: var(--teal); border-color: var(--teal); color: var(--cream); }
+
+    /* ── ORDER CARDS ── */
+    .orders-list { padding: 8px 14px 120px; display: flex; flex-direction: column; gap: 10px; }
+    .order-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .order-card.pending { border-left: 3px solid var(--coral); }
+    .order-card.paid    { border-left: 3px solid var(--green); opacity: .72; }
+    .card-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 14px 8px; border-bottom: 1px solid var(--border);
+    }
+    .short-code { font-size: 1.75rem; font-weight: 800; font-family: monospace; color: var(--coral); letter-spacing: .1em; line-height: 1; }
+    .order-meta { text-align: right; font-size: .76rem; color: var(--muted); line-height: 1.6; }
+    .order-meta strong { color: var(--cream); }
+    .card-body { padding: 9px 14px; }
+    .items-summary { font-size: .86rem; line-height: 1.5; margin-bottom: 6px; }
+    .total-row { display: flex; align-items: center; justify-content: space-between; }
+    .total-amount { font-size: 1rem; font-weight: 700; color: var(--gold); }
+    .pay-badge { font-size: .7rem; font-weight: 700; letter-spacing: .04em; padding: 3px 10px; border-radius: 20px; }
+    .pay-badge.pending { background: rgba(235,98,74,.18); color: var(--coral); }
+    .pay-badge.paid    { background: rgba(76,175,80,.18);  color: #81C784; }
+    .card-footer { padding: 9px 14px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+    .btn-mark-paid {
+      background: var(--coral); color: #fff; border: none; border-radius: 20px;
+      padding: 9px 22px; font-size: .86rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-mark-paid:active { opacity: .8; }
+    .btn-mark-paid.loading { opacity: .6; pointer-events: none; }
+
+    /* ── STATUS CHIP ── */
+    .status-chip { font-size: .65rem; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 10px; font-weight: 700; margin-left: 6px; }
+    .s-NEW        { background: rgba(200,150,62,.2);  color: var(--gold); }
+    .s-CONFIRMED  { background: rgba(45,95,107,.7);   color: var(--cream); }
+    .s-MAKING     { background: rgba(235,98,74,.2);   color: var(--coral); }
+    .s-READY      { background: rgba(76,175,80,.2);   color: #81C784; }
+    .s-DELIVERING,.s-DELIVERED { background: rgba(245,240,232,.08); color: var(--dim); }
+
+    /* ── MENU VIEW ── */
+    #view-menu { padding-bottom: 100px; }
+    .cat-pills { display: flex; gap: 8px; padding: 10px 14px 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .cat-pill {
+      background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+      padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: .8rem; white-space: nowrap; flex-shrink: 0;
+    }
+    .cat-pill.active { background: var(--teal); border-color: var(--teal); color: var(--cream); }
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 6px 14px; }
+    @media (min-width: 600px) { .menu-grid { grid-template-columns: 1fr 1fr 1fr; } }
+    .menu-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 12px 10px; cursor: pointer; position: relative; user-select: none;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .menu-card:active { opacity: .75; }
+    .menu-card.in-cart { border-color: var(--teal); }
+    .menu-emoji   { font-size: 1.6rem; line-height: 1; margin-bottom: 2px; }
+    .menu-name    { font-size: .86rem; font-weight: 600; line-height: 1.3; }
+    .menu-jp      { font-size: .68rem; color: var(--muted); }
+    .menu-price   { font-size: .82rem; color: var(--gold); margin-top: 2px; font-weight: 600; }
+    .menu-badge   { position: absolute; top: 8px; right: 8px; font-size: .62rem; font-weight: 700; padding: 2px 6px; border-radius: 10px; }
+    .role-hero      { background: rgba(200,150,62,.2);  color: var(--gold); }
+    .role-signature { background: rgba(235,98,74,.2);   color: var(--coral); }
+    .role-trend     { background: rgba(245,240,232,.1); color: var(--cream); }
+    .role-seasonal  { background: rgba(45,95,107,.5);   color: var(--cream); }
+    .cart-qty-badge {
+      position: absolute; bottom: 8px; right: 8px;
+      background: var(--teal); color: var(--cream);
+      font-size: .72rem; font-weight: 700;
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── CART BAR ── */
+    .cart-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+      background: var(--coral); padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; box-shadow: 0 -4px 20px rgba(0,0,0,.3);
+    }
+    .cart-bar.hidden { display: none; }
+    .cart-bar-left  { font-size: .88rem; font-weight: 600; }
+    .cart-bar-right { font-size: .88rem; font-weight: 700; background: #fff; color: var(--coral); padding: 7px 18px; border-radius: 20px; }
+
+    /* ── OVERLAYS ── */
+    .overlay-bg {
+      position: fixed; inset: 0; z-index: 40;
+      background: rgba(0,0,0,.5); display: flex; align-items: flex-end;
+    }
+    .overlay-bg.hidden { display: none; }
+    .bottom-sheet {
+      background: var(--surface); border-radius: 16px 16px 0 0;
+      width: 100%; max-height: 85vh; overflow-y: auto;
+      padding: 0 0 env(safe-area-inset-bottom);
+    }
+    .sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+    .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; border-bottom: 1px solid var(--border); }
+    .sheet-title { font-size: 1rem; font-weight: 700; }
+    .btn-close { background: none; border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; }
+
+    /* Size picker */
+    #size-sheet .size-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 18px; }
+    .size-btn {
+      background: var(--teal); border: 2px solid transparent; border-radius: var(--radius);
+      color: var(--cream); padding: 18px 12px; text-align: center; cursor: pointer; font-size: .9rem;
+    }
+    .size-btn:active { opacity: .8; }
+    .size-btn .size-label { font-size: 1.4rem; font-weight: 800; display: block; margin-bottom: 4px; }
+    .size-btn .size-price { font-size: .82rem; color: var(--gold); }
+
+    /* Cart sheet */
+    .cart-items { padding: 10px 18px; display: flex; flex-direction: column; gap: 8px; }
+    .cart-item-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .cart-item-name { font-size: .88rem; font-weight: 600; }
+    .cart-item-size { font-size: .72rem; color: var(--muted); }
+    .cart-item-price { font-size: .85rem; color: var(--gold); font-weight: 600; margin-top: 2px; }
+    .stepper { display: flex; align-items: center; gap: 10px; }
+    .step-btn {
+      background: var(--teal); border: none; color: var(--cream);
+      width: 30px; height: 30px; border-radius: 50%; font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-weight: 700;
+    }
+    .step-btn:active { opacity: .75; }
+    .qty-val { font-size: .9rem; font-weight: 700; min-width: 20px; text-align: center; }
+
+    /* Order form */
+    .order-form { padding: 12px 18px; }
+    .form-row { margin-bottom: 14px; }
+    .form-label { font-size: .78rem; color: var(--muted); margin-bottom: 6px; display: block; letter-spacing: .04em; text-transform: uppercase; }
+    .mode-btns { display: flex; gap: 8px; }
+    .mode-btn {
+      flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+      padding: 10px 0; border-radius: var(--radius); text-align: center; cursor: pointer; font-size: .86rem;
+    }
+    .mode-btn.active { background: var(--teal); border-color: var(--teal); color: var(--cream); font-weight: 600; }
+    .table-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    @media (min-width: 500px) { .table-grid { grid-template-columns: repeat(8, 1fr); } }
+    .table-btn {
+      background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+      padding: 9px 4px; border-radius: 8px; text-align: center; cursor: pointer;
+      font-size: .82rem; font-weight: 600;
+    }
+    .table-btn.active { background: var(--teal); border-color: var(--teal); color: var(--cream); }
+    .form-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--cream); padding: 10px 14px; font-size: .9rem;
+    }
+    .form-input:focus { outline: none; border-color: var(--teal); }
+    .order-total-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); margin: 4px 0 12px; }
+    .order-total-label { font-size: .88rem; color: var(--muted); }
+    .order-total-amount { font-size: 1.1rem; font-weight: 700; color: var(--gold); }
+    .btn-submit-order {
+      width: 100%; background: var(--coral); border: none; color: #fff;
+      padding: 14px; border-radius: var(--radius); font-size: 1rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-submit-order:active { opacity: .85; }
+    .btn-submit-order:disabled { opacity: .5; pointer-events: none; }
+    .submit-success { text-align: center; padding: 30px 20px; }
+    .submit-success .ok-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .submit-success h3 { font-size: 1.1rem; margin-bottom: 6px; }
+    .submit-success p { font-size: .85rem; color: var(--muted); }
+
+    /* ── EMPTY ── */
+    .empty-state { text-align: center; padding: 50px 24px; color: var(--muted); font-size: .88rem; }
+    .empty-state .icon { font-size: 2.2rem; margin-bottom: 10px; }
+
+    /* ── HIDDEN UTIL ── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="kds-header">
+  <div>
+    <div class="kds-title">☕ KaeruKàphe <small style="font-weight:400;color:var(--muted)">(Lâm Hà)</small></div>
+    <div class="kds-sub" id="refresh-time">Đang tải...</div>
+  </div>
+  <button class="btn-sm" onclick="loadOrders()">↺ Làm mới</button>
+</header>
+
+<!-- MAIN NAV TABS -->
+<nav class="main-nav">
+  <button class="nav-tab active" id="tab-orders" onclick="switchView('orders')">📋 Đơn hôm nay</button>
+  <button class="nav-tab"        id="tab-menu"   onclick="switchView('menu')">➕ Gọi món</button>
+</nav>
+
+<!-- ════════ VIEW: ORDERS ════════ -->
+<div id="view-orders">
+  <div class="tts-banner" id="tts-banner">
+    🔔 Bật thông báo âm thanh khi xác nhận thanh toán
+    <button class="btn-tts" onclick="enableTTS()">Bật loa</button>
+  </div>
+  <div class="filter-bar">
+    <button class="filter-pill active" onclick="setFilter('all',this)">Tất cả</button>
+    <button class="filter-pill"        onclick="setFilter('pending',this)">⚠️ Chờ TT</button>
+    <button class="filter-pill"        onclick="setFilter('active',this)">Đang làm</button>
+    <button class="filter-pill"        onclick="setFilter('paid',this)">✅ Đã TT</button>
+  </div>
+  <div class="orders-list" id="orders-list">
+    <div class="empty-state"><div class="icon">☕</div>Đang tải đơn hàng...</div>
+  </div>
+</div>
+
+<!-- ════════ VIEW: MENU ════════ -->
+<div id="view-menu" class="hidden">
+  <div class="cat-pills" id="cat-pills"></div>
+  <div class="menu-grid" id="menu-grid"></div>
+</div>
+
+<!-- CART BAR (persistent bottom bar khi có món) -->
+<div class="cart-bar hidden" id="cart-bar" onclick="openCartSheet()">
+  <div class="cart-bar-left">
+    🛒 <span id="cart-count">0</span> món &nbsp;·&nbsp; <span id="cart-total-bar">0đ</span>
+  </div>
+  <div class="cart-bar-right">Gửi đơn →</div>
+</div>
+
+<!-- ════════ OVERLAY: SIZE PICKER ════════ -->
+<div class="overlay-bg hidden" id="size-overlay" onclick="closeSizeSheet(event)">
+  <div class="bottom-sheet" id="size-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="size-item-name">Chọn size</div>
+      <button class="btn-close" onclick="closeSizeSheet()">✕</button>
+    </div>
+    <div class="size-btns">
+      <div class="size-btn" onclick="confirmSize('M')">
+        <span class="size-label">M</span>
+        <span class="size-price" id="price-m">—</span>
+      </div>
+      <div class="size-btn" onclick="confirmSize('L')">
+        <span class="size-label">L</span>
+        <span class="size-price" id="price-l">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ OVERLAY: CART + ORDER FORM ════════ -->
+<div class="overlay-bg hidden" id="cart-overlay" onclick="closeCartSheet(event)">
+  <div class="bottom-sheet" id="cart-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title">Giỏ hàng</div>
+      <button class="btn-close" onclick="closeCartSheet()">✕</button>
+    </div>
+
+    <!-- Cart items -->
+    <div class="cart-items" id="cart-items-list"></div>
+
+    <!-- Order form -->
+    <div class="order-form" id="order-form">
+      <div class="form-row">
+        <label class="form-label">Hình thức nhận</label>
+        <div class="mode-btns">
+          <div class="mode-btn active" id="mode-dine" onclick="setMode('dine_in')">🏪 Tại bàn</div>
+          <div class="mode-btn"        id="mode-pickup" onclick="setMode('pickup')">🥡 Mang đi</div>
+        </div>
+      </div>
+      <div class="form-row" id="table-row">
+        <label class="form-label">Số bàn</label>
+        <div class="table-grid" id="table-grid"></div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">SĐT khách <span style="text-transform:none;font-size:.72rem">(không bắt buộc)</span></label>
+        <input class="form-input" id="staff-phone" type="tel" placeholder="09xx xxx xxx" inputmode="numeric">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Ghi chú</label>
+        <input class="form-input" id="staff-notes" type="text" placeholder="Ít đường, không đá...">
+      </div>
+      <div class="order-total-row">
+        <span class="order-total-label">Tổng cộng</span>
+        <span class="order-total-amount" id="order-form-total">0đ</span>
+      </div>
+      <button class="btn-submit-order" id="btn-submit-order" onclick="submitStaffOrder()">
+        Đặt đơn
+      </button>
+    </div>
+
+    <!-- Success state (shown after submit) -->
+    <div class="submit-success hidden" id="submit-success">
+      <div class="ok-icon">✅</div>
+      <h3>Đơn đã gửi!</h3>
+      <p id="submit-success-msg">Mã đơn: —</p>
+      <br>
+      <button class="btn-sm" style="width:100%;padding:12px" onclick="closeCartSheet();resetStaffCart()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const GAS_URL  = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+const POLL_MS  = 15000;
+
+// ─── MENU CONSTANTS ──────────────────────────────────────────────────────────
+const CAT_EMOJI = {
+  phin_coffee:'☕', machine_coffee:'🫗', milk_tea:'🧋',
+  fruit_tea:'🍑', blended:'🧊', kissaten:'🍵', pastry:'🥐',
+};
+const ROLE_BADGE = {
+  hero:      { text:'⭐', cls:'role-hero' },
+  signature: { text:'✦',  cls:'role-signature' },
+  trend:     { text:'🔥', cls:'role-trend' },
+  seasonal:  { text:'🌿', cls:'role-seasonal' },
+};
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let allOrders    = [];
+let activeFilter = 'all';
+let activeView   = 'orders';
+let activeCat    = 'all';
+let ttsReady     = false;
+
+let staffCart    = [];   // [{sku, name, qty, price, size, subtotal}]
+let pendingItem  = null; // item waiting for size selection
+let orderMode    = 'dine_in';
+let selectedTable = '';
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function fmt(n) { return Number(n).toLocaleString('vi-VN') + 'đ'; }
+function fmtSpeak(amount) { return Math.round(amount / 1000) + ' nghìn'; }
+function cartTotal() { return staffCart.reduce((s, i) => s + i.subtotal, 0); }
+function cartCount() { return staffCart.reduce((s, i) => s + i.qty, 0); }
+
+function genStaffCode() {
+  const today = new Date().toLocaleDateString('vi-VN').replace(/\//g,'');
+  const key = 'lhk_seq_' + today;
+  const seq = (parseInt(localStorage.getItem(key) || '0') + 1);
+  localStorage.setItem(key, seq);
+  return String(seq).padStart(3,'0');
+}
+
+function deliveryLabel(type, tableId) {
+  if (type === 'delivery') return '🛵 Giao hàng';
+  if (type === 'dine_in' && tableId) return '🪑 ' + String(tableId).replace('TABLE_','Bàn ');
+  return '🥡 Mang đi';
+}
+
+// ─── TTS ─────────────────────────────────────────────────────────────────────
+function enableTTS() {
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(''); u.volume = 0;
+  window.speechSynthesis.speak(u);
+  ttsReady = true;
+  document.getElementById('tts-banner').classList.add('hidden');
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'vi-VN'; utt.rate = 0.88;
+  window.speechSynthesis.speak(utt);
+}
+
+// ─── VIEW SWITCH ─────────────────────────────────────────────────────────────
+function switchView(v) {
+  activeView = v;
+  document.getElementById('view-orders').classList.toggle('hidden', v !== 'orders');
+  document.getElementById('view-menu').classList.toggle('hidden',   v !== 'menu');
+  document.getElementById('tab-orders').classList.toggle('active',  v === 'orders');
+  document.getElementById('tab-menu').classList.toggle('active',    v === 'menu');
+  updateCartBar();
+  if (v === 'menu') renderMenuView();
+}
+
+// ─── ORDERS VIEW ─────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-pill').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  renderOrders();
+}
+
+function applyFilter(orders) {
+  if (activeFilter === 'pending') return orders.filter(o => o.payment_status !== 'PAID');
+  if (activeFilter === 'active')  return orders.filter(o => ['NEW','CONFIRMED','MAKING','READY'].includes(o.status));
+  if (activeFilter === 'paid')    return orders.filter(o => o.payment_status === 'PAID');
+  return orders;
+}
+
+function renderOrders() {
+  const list     = document.getElementById('orders-list');
+  const filtered = applyFilter(allOrders);
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">🍵</div>
+      ${allOrders.length ? 'Không có đơn nào khớp.' : 'Chưa có đơn nào hôm nay.'}</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(o => {
+    const isPaid    = o.payment_status === 'PAID';
+    const payBadge  = isPaid
+      ? '<span class="pay-badge paid">✅ Đã TT</span>'
+      : '<span class="pay-badge pending">⚠️ Chờ TT</span>';
+    const footer = isPaid ? '' : `
+      <div class="card-footer">
+        <button class="btn-mark-paid" onclick="markPaid('${o.order_id}',${o.total},'${o.short_code}',this)">
+          💳 Đã thanh toán
+        </button>
+      </div>`;
+    return `
+      <div class="order-card ${isPaid?'paid':'pending'}" id="card-${o.order_id}">
+        <div class="card-top">
+          <div class="short-code">${o.short_code||'—'}</div>
+          <div class="order-meta">
+            <strong>${deliveryLabel(o.delivery_type, o.table_id)}</strong><br>
+            ${o.customer_name ? o.customer_name+' · ' : ''}${o.customer_id}<br>
+            ${o.timestamp}<span class="status-chip s-${o.status}">${o.status}</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="items-summary">${o.items_summary||'(không có chi tiết)'}</div>
+          <div class="total-row"><span class="total-amount">${fmt(o.total)}</span>${payBadge}</div>
+        </div>
+        ${footer}
+      </div>`;
+  }).join('');
+}
+
+async function loadOrders() {
+  try {
+    const res  = await fetch(`${GAS_URL}?action=orders`);
+    const data = await res.json();
+    if (data.ok) {
+      allOrders = data.orders;
+      renderOrders();
+      const now = new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      document.getElementById('refresh-time').textContent = 'Cập nhật: ' + now;
+    }
+  } catch(_) {
+    document.getElementById('refresh-time').textContent = '⚠️ Mất kết nối';
+  }
+}
+
+async function markPaid(orderId, total, shortCode, btn) {
+  btn.classList.add('loading'); btn.textContent = 'Đang lưu...';
+  try {
+    await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}`, { mode:'no-cors' });
+    const o = allOrders.find(x => x.order_id === orderId);
+    if (o) o.payment_status = 'PAID';
+    renderOrders();
+    speak(`Nhận tiền ${fmtSpeak(total)} đồng, đơn số ${shortCode || orderId}`);
+  } catch(_) {
+    btn.classList.remove('loading'); btn.textContent = '💳 Đã thanh toán';
+    alert('Lỗi kết nối — thử lại.');
+  }
+}
+
+// ─── MENU VIEW ────────────────────────────────────────────────────────────────
+function renderMenuView() {
+  renderCatPills();
+  renderMenuGrid();
+}
+
+function renderCatPills() {
+  const cats = [{ id:'all', label:'Tất cả', emoji:'🍶' }, ...CATEGORIES];
+  document.getElementById('cat-pills').innerHTML = cats.map(c => `
+    <button class="cat-pill${activeCat===c.id?' active':''}"
+            onclick="setMenuCat('${c.id}')">
+      ${c.emoji} ${c.label}
+    </button>`).join('');
+}
+
+function setMenuCat(cat) {
+  activeCat = cat;
+  renderCatPills();
+  renderMenuGrid();
+}
+
+function renderMenuGrid() {
+  const items = MENU_DATA.filter(i =>
+    i.available && (activeCat === 'all' || i.subcategory === activeCat)
+  ).sort((a,b) => a.sort_order - b.sort_order);
+
+  const inCart = {};
+  staffCart.forEach(c => { inCart[c.sku] = (inCart[c.sku]||0) + c.qty; });
+
+  document.getElementById('menu-grid').innerHTML = items.map(item => {
+    const emoji = CAT_EMOJI[item.subcategory] || '🍶';
+    const badge = ROLE_BADGE[item.role];
+    const qty   = inCart[item.sku] || 0;
+    const priceText = item.price_l
+      ? `${fmt(item.price_m)} / ${fmt(item.price_l)}`
+      : fmt(item.price_m);
+    return `
+      <div class="menu-card${qty?'  in-cart':''}" onclick="tapMenuItem('${item.sku}')">
+        ${badge ? `<div class="menu-badge ${badge.cls}">${badge.text}</div>` : ''}
+        <div class="menu-emoji">${emoji}</div>
+        <div class="menu-name">${item.name}</div>
+        ${item.name_jp ? `<div class="menu-jp">${item.name_jp}</div>` : ''}
+        <div class="menu-price">${priceText}</div>
+        ${qty ? `<div class="cart-qty-badge">${qty}</div>` : ''}
+      </div>`;
+  }).join('') || '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🌿</div>Không có món nào.</div>';
+}
+
+// ─── SIZE PICKER ─────────────────────────────────────────────────────────────
+function tapMenuItem(sku) {
+  const item = MENU_DATA.find(m => m.sku === sku);
+  if (!item) return;
+  if (item.price_l) {
+    pendingItem = item;
+    document.getElementById('size-item-name').textContent = item.name;
+    document.getElementById('price-m').textContent = fmt(item.price_m) + ' (M)';
+    document.getElementById('price-l').textContent = fmt(item.price_l) + ' (L)';
+    document.getElementById('size-overlay').classList.remove('hidden');
+  } else {
+    addToStaffCart(item, 'M', item.price_m);
+  }
+}
+
+function confirmSize(size) {
+  if (!pendingItem) return;
+  const price = size === 'L' ? pendingItem.price_l : pendingItem.price_m;
+  addToStaffCart(pendingItem, size, price);
+  closeSizeSheet();
+}
+
+function closeSizeSheet(e) {
+  if (e && e.target !== document.getElementById('size-overlay')) return;
+  document.getElementById('size-overlay').classList.add('hidden');
+  pendingItem = null;
+}
+
+// ─── STAFF CART ───────────────────────────────────────────────────────────────
+function addToStaffCart(item, size, price) {
+  const key = item.sku + '_' + size;
+  const ex  = staffCart.find(c => c._key === key);
+  if (ex) { ex.qty++; ex.subtotal = ex.qty * ex.price; }
+  else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty:1, price, size, subtotal:price });
+  updateCartBar();
+  renderMenuGrid();
+}
+
+function updateCartItemQty(key, delta) {
+  const idx = staffCart.findIndex(c => c._key === key);
+  if (idx < 0) return;
+  staffCart[idx].qty = Math.max(0, staffCart[idx].qty + delta);
+  if (staffCart[idx].qty === 0) staffCart.splice(idx, 1);
+  else staffCart[idx].subtotal = staffCart[idx].qty * staffCart[idx].price;
+  renderCartItems();
+  updateCartBar();
+  renderMenuGrid();
+}
+
+function updateCartBar() {
+  const bar = document.getElementById('cart-bar');
+  const show = activeView === 'menu' && staffCart.length > 0;
+  bar.classList.toggle('hidden', !show);
+  if (show) {
+    document.getElementById('cart-count').textContent = cartCount();
+    document.getElementById('cart-total-bar').textContent = fmt(cartTotal());
+  }
+}
+
+function resetStaffCart() {
+  staffCart = [];
+  selectedTable = '';
+  orderMode = 'dine_in';
+  document.getElementById('staff-phone').value = '';
+  document.getElementById('staff-notes').value  = '';
+  document.getElementById('submit-success').classList.add('hidden');
+  document.getElementById('order-form').classList.remove('hidden');
+  updateCartBar();
+  renderMenuGrid();
+}
+
+// ─── CART SHEET ───────────────────────────────────────────────────────────────
+function openCartSheet() {
+  renderCartItems();
+  renderTableGrid();
+  document.getElementById('order-form-total').textContent = fmt(cartTotal());
+  document.getElementById('cart-overlay').classList.remove('hidden');
+}
+
+function closeCartSheet(e) {
+  if (e && e.target !== document.getElementById('cart-overlay')) return;
+  document.getElementById('cart-overlay').classList.add('hidden');
+}
+
+function renderCartItems() {
+  const list = document.getElementById('cart-items-list');
+  if (!staffCart.length) { list.innerHTML = '<div class="empty-state" style="padding:20px 0">Giỏ trống</div>'; return; }
+  list.innerHTML = staffCart.map(ci => `
+    <div class="cart-item-row">
+      <div>
+        <div class="cart-item-name">${ci.name}${ci.size ? ` <span class="cart-item-size">(${ci.size})</span>` : ''}</div>
+        <div class="cart-item-price">${fmt(ci.subtotal)}</div>
+      </div>
+      <div class="stepper">
+        <button class="step-btn" onclick="updateCartItemQty('${ci._key}',-1)">−</button>
+        <span class="qty-val">${ci.qty}</span>
+        <button class="step-btn" onclick="updateCartItemQty('${ci._key}',1)">+</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('order-form-total').textContent = fmt(cartTotal());
+}
+
+// ─── ORDER FORM ───────────────────────────────────────────────────────────────
+function setMode(mode) {
+  orderMode = mode;
+  document.getElementById('mode-dine').classList.toggle('active',   mode === 'dine_in');
+  document.getElementById('mode-pickup').classList.toggle('active', mode === 'pickup');
+  document.getElementById('table-row').style.display = mode === 'dine_in' ? '' : 'none';
+}
+
+function renderTableGrid() {
+  const grid = document.getElementById('table-grid');
+  const nums = Array.from({length:12}, (_,i) => String(i+1).padStart(2,'0'));
+  grid.innerHTML = nums.map(n => `
+    <div class="table-btn${selectedTable===n?' active':''}" onclick="selectTable('${n}')">${n}</div>
+  `).join('');
+}
+
+function selectTable(n) {
+  selectedTable = selectedTable === n ? '' : n;
+  renderTableGrid();
+}
+
+async function submitStaffOrder() {
+  if (!staffCart.length) return;
+  const btn = document.getElementById('btn-submit-order');
+  btn.disabled = true; btn.textContent = 'Đang gửi...';
+
+  const phone = document.getElementById('staff-phone').value.trim().replace(/\D/g,'');
+  const notes = document.getElementById('staff-notes').value.trim();
+  const normPhone = phone ? (phone.startsWith('0') ? phone : '0'+phone) : '0000000000';
+  const tbl = orderMode === 'dine_in' && selectedTable ? `TABLE_${selectedTable}` : null;
+  const shortCode = genStaffCode();
+
+  const total = cartTotal();
+  const payload = {
+    channel: 'staff', utm_source: 'kds',
+    table_id: tbl,
+    customer_id: normPhone,
+    items: staffCart.map(ci => ({
+      sku: ci.sku, name: ci.name, qty: ci.qty, price: ci.price,
+      modifiers: ci.size ? { size: ci.size } : {},
+    })),
+    total,
+    payment: { method: 'cash', total, status: 'PENDING' },
+    metadata: {
+      delivery_type: orderMode,
+      business_line: 'kissaten',
+      category_type: 'beverage',
+      notes,
+      short_code: shortCode,
+    },
+  };
+
+  try {
+    await fetch(GAS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) });
+    document.getElementById('order-form').classList.add('hidden');
+    document.getElementById('submit-success').classList.remove('hidden');
+    document.getElementById('submit-success-msg').textContent =
+      `Mã đơn: ${shortCode}${tbl ? '  ·  Bàn ' + selectedTable : ''}  ·  ${fmt(total)}`;
+  } catch(_) {
+    btn.disabled = false;
+    btn.textContent = 'Đặt đơn';
+    alert('Lỗi kết nối — thử lại.');
+  }
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+if (!window.speechSynthesis) document.getElementById('tts-banner').classList.add('hidden');
+
+// Build table-grid on load
+renderTableGrid();
+
+loadOrders();
+setInterval(loadOrders, POLL_MS);
+</script>
+</body>
+</html>
