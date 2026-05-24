@@ -314,16 +314,16 @@
     .turn-card:hover { transform: translateY(-3px); box-shadow: 3px 3px 0 rgba(168,155,128,.3); }
     .turn-lbl { font-family: var(--font-en); font-size: .6rem; letter-spacing: .18em; color: var(--earth-dk); }
 
-    /* Story photo (thay turn-grid SVG) */
+    /* Story photo — hiển thị toàn bộ, không clip */
     .story-visual { width: 100%; border-radius: 8px; overflow: hidden; display: block; }
-    .story-visual img { width: 100%; display: block; border-radius: 8px; max-height: 540px; object-fit: cover; object-position: top; }
+    .story-visual img { width: 100%; height: auto; display: block; border-radius: 8px; }
 
-    /* Sticker photos */
+    /* Sticker photos — hình vuông crop sẵn, hiển thị trong vòng tròn */
     .stk-badge.stk-photo { padding: 0; overflow: hidden; }
-    .stk-img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; display: block; }
+    .stk-img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
 
-    /* Merch photos */
-    .merch-photo { width: 100%; height: 100%; object-fit: contain; display: block; }
+    /* Merch photos — object-fit cover, container 320px */
+    .merch-photo { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
 
     /* ============================= */
     /* MENU SECTION                  */
@@ -398,7 +398,7 @@
     .merch-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 22px; }
     .merch-card { text-align: center; }
     .merch-img {
-      height: 240px; background: var(--cream-dk); border-radius: 4px;
+      height: 320px; background: var(--cream-dk); border-radius: 4px;
       display: flex; align-items: center; justify-content: center;
       border: 1px solid rgba(168,155,128,.2); margin-bottom: 14px;
       transition: transform .3s, box-shadow .3s;
