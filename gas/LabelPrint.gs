@@ -1,28 +1,28 @@
 /**
  * LabelPrint.gs — In tem dán cốc khi đơn CONFIRMED.
  *
- * Máy in: Xprinter XP-365B — die-cut label 40×30mm (203 dpi).
+ * Máy in: Xprinter XP-365B — die-cut label 50×30mm (203 dpi).
  * Quy tắc: mỗi item × qty → in qty tem riêng.
  * Flow: GAS → Flask /print/label → TCP 9100 → XP-365B.
  *
  * Cấu hình printer cần làm 1 lần:
  *   - Kết nối XP-365B vào Xprinter Label Tool (Windows)
- *   - Cài label size: 40mm × 30mm, die-cut
+ *   - Cài label size: 50mm × 30mm, die-cut
  *   - Set code page: UTF-8 (nếu firmware hỗ trợ) hoặc CP1258
  *   - Cài IP tĩnh cho XP-365B trên LAN, điền vào env LABEL_PRINTER_IP
  *
- * Preview tem 40×30mm (24 ký tự/dòng):
- * ┌────────────────────────┐
- * │ #007        Bàn 03     │  ← bold
- * │ ──────────────────────  │
- * │ Bạc xỉu × 1            │  ← double-height
- * │   Vừa · Ít đá          │
- * │   ít ngọt (ghi chú)    │
- * │ 14:32                  │
- * └────────────────────────┘
+ * Preview tem 50×30mm (30 ký tự/dòng):
+ * ┌──────────────────────────────┐
+ * │ #007              Bàn 03    │  ← bold
+ * │ ────────────────────────── │
+ * │ Bạc xỉu × 1                 │  ← double-height
+ * │   Vừa · Ít đá               │
+ * │   ít ngọt (ghi chú)         │
+ * │ 14:32                       │
+ * └──────────────────────────────┘
  */
 
-var LABEL_W = 24; // ký tự/dòng cho 40mm label (203 dpi, font 8×16)
+var LABEL_W = 30; // ký tự/dòng cho 50mm label (203 dpi, font 8×16)
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
