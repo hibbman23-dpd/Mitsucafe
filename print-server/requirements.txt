@@ -1,2 +1,3 @@
 flask>=3.0
-# python-escpos>=3.0  # Optional: chỉ cần nếu kết nối USB trực tiếp thay vì LAN
+# python-escpos>=3.0  # Chỉ cần nếu kết nối USB trực tiếp (không qua LAN)
+# Hiện tại dùng TCP socket thuần → không cần thư viện escpos

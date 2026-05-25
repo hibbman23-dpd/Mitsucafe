@@ -180,9 +180,9 @@ function _runStateSideEffects(order, newStatus) {
         sendZaloNotify(order.customer_id, '🛵 Shipper đang giao đơn ' + order.order_id);
         break;
       case 'DELIVERED':
-        // Tier 1: printThermalReceipt(order)
-        // Tier 1: generatePDFInvoice(order) → sendInvoiceViaZalo
-        // Tier 2: addStamp(order.customer_id)
+        printThermalReceipt(order.order_id);              // Invoice.gs → POS-58L
+        // generatePDFInvoice(order) → sendInvoiceViaZalo // Tier 2
+        // addStamp(order.customer_id)                    // Tier 2
         break;
     }
   } catch (err) {
