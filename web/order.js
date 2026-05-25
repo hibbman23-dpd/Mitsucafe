@@ -4,11 +4,20 @@
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
 
 const BANK_QR = {
-  bank:   'VCB',
-  acct:   '9975087429',
-  name:   'DUONG PHUONG MINH',
-  imgUrl: 'https://img.vietqr.io/image/VCB-9975087429-compact2.png?accountName=DUONG%20PHUONG%20MINH',
+  bank: 'VCB',
+  acct: '9975087429',
+  name: 'DUONG PHUONG MINH',
 };
+
+// VietQR động: amount + addInfo → app ngân hàng tự điền số tiền + nội dung CK
+function buildVietQRUrl(amount, addInfo) {
+  const params = new URLSearchParams({
+    amount:      String(amount || 0),
+    addInfo:     String(addInfo || ''),
+    accountName: BANK_QR.name,
+  });
+  return `https://img.vietqr.io/image/${BANK_QR.bank}-${BANK_QR.acct}-compact2.png?${params}`;
+}
 
 const ICE_LABEL   = { full: 'Nhiều đá', less: 'Ít đá', none: 'Không đá', blended: 'Xay' };
 const SUGAR_LABEL = { '0%':'Không ngọt','30%':'Ít ngọt','50%':'Vừa','70%':'Ngọt','100%':'Rất ngọt' };
@@ -421,19 +430,22 @@ function renderSuccessScreen() {
   const isDelivery = lastOrder.delivery === 'delivery';
   const hasBankInfo = BANK_QR.acct && BANK_QR.bank;
 
+  const qrUrl = hasBankInfo
+    ? buildVietQRUrl(lastOrder.total, lastOrder.shortCode)
+    : null;
+
   const paymentBlock = isDelivery
     ? `<div class="payment-note">💳 Thanh toán khi nhận hàng</div>`
     : hasBankInfo ? `
         <div class="qr-block">
-          <div class="qr-label">Chuyển khoản ngân hàng</div>
-          ${BANK_QR.imgUrl
-            ? `<img class="qr-img" src="${BANK_QR.imgUrl}" alt="QR ngân hàng">`
-            : `<div class="bank-info-text">
-                 <div class="bank-name-badge">${BANK_QR.bank}</div>
-                 <div class="bank-acct">${BANK_QR.acct}</div>
-                 <div class="bank-owner">${BANK_QR.name}</div>
-               </div>`}
-          <div class="ck-instruction">Ghi nội dung chuyển khoản:</div>
+          <div class="qr-label">Quét QR — số tiền & nội dung đã có sẵn</div>
+          <img class="qr-img" src="${qrUrl}" alt="QR ngân hàng ${BANK_QR.bank} · ${fmt(lastOrder.total)}">
+          <div class="bank-info-text">
+            <div class="bank-name-badge">${BANK_QR.bank}</div>
+            <div class="bank-acct">${BANK_QR.acct}</div>
+            <div class="bank-owner">${BANK_QR.name}</div>
+          </div>
+          <div class="ck-instruction">Hoặc CK thủ công với nội dung:</div>
           <div class="ck-code">${lastOrder.shortCode}</div>
           <div class="ck-amount">Số tiền: <strong>${fmt(lastOrder.total)}</strong></div>
         </div>`
