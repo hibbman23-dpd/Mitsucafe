@@ -1,3 +1,2 @@
 flask>=3.0
-# python-escpos>=3.0  # Chỉ cần nếu kết nối USB trực tiếp (không qua LAN)
-# Hiện tại dùng TCP socket thuần → không cần thư viện escpos
+pyserial>=3.5   # Bluetooth serial và USB serial (RPP02N, /dev/cu.*)

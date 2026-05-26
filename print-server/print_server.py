@@ -1,48 +1,68 @@
 """
 print_server.py — Flask server trên Mac Mini/RPi.
 
-Nhận ESC/POS raw bytes từ GAS → forward TCP 9100 tới Xprinter.
+Nhận ESC/POS raw bytes từ GAS → forward tới Xprinter.
 
 Hai endpoint:
-  POST /print/label    → XP-365B  (tem dán cốc 40×30mm)
+  POST /print/label    → XP-365B  (tem dán cốc 50×30mm)
   POST /print/receipt  → POS-58L  (hóa đơn 58mm)
   POST /print          → backward-compat → /print/receipt
   GET  /health         → status cả 2 máy in
 
-ENV vars (set trong launchd plist hoặc .env):
-  LABEL_PRINTER_IP     IP của XP-365B trên LAN   (default: 192.168.1.51)
-  LABEL_PRINTER_PORT   RAW TCP port XP-365B       (default: 9100)
-  RECEIPT_PRINTER_IP   IP của POS-58L trên LAN    (default: 192.168.1.50)
-  RECEIPT_PRINTER_PORT RAW TCP port POS-58L       (default: 9100)
-  SERVER_PORT          Flask listen port          (default: 5000)
-  SOCKET_TIMEOUT       Giây timeout TCP           (default: 5)
+Mỗi printer hỗ trợ 2 mode kết nối — chọn bằng env:
+  MODE=tcp     → TCP socket LAN (mặc định, cần IP)
+  MODE=serial  → Bluetooth hoặc USB serial port
+
+ENV vars:
+  --- POS-58L (receipt) ---
+  RECEIPT_MODE           tcp | serial          (default: tcp)
+  RECEIPT_PRINTER_IP     IP LAN của POS-58L    (tcp mode, default: 192.168.1.50)
+  RECEIPT_PRINTER_PORT   RAW port              (tcp mode, default: 9100)
+  RECEIPT_SERIAL_PORT    /dev/cu.RPP02N        (serial mode)
+  RECEIPT_SERIAL_BAUD    9600                  (serial mode, default: 9600)
+
+  --- XP-365B (label) ---
+  LABEL_MODE             tcp | serial          (default: tcp)
+  LABEL_PRINTER_IP       IP LAN của XP-365B    (tcp mode, default: 192.168.1.51)
+  LABEL_PRINTER_PORT     RAW port              (tcp mode, default: 9100)
+  LABEL_SERIAL_PORT      /dev/cu.XP365B        (serial mode)
+  LABEL_SERIAL_BAUD      9600                  (serial mode, default: 9600)
+
+  --- Server ---
+  SERVER_PORT            Flask listen port     (default: 5001)
+  SOCKET_TIMEOUT         TCP timeout giây      (default: 5)
+  SERIAL_CONNECT_WAIT    Giây chờ BT handshake (default: 1.5)
 
 Chạy thử:
-    python3 print_server.py
-
-Test in tem:
-    curl -X POST http://localhost:5000/print/label \
-         --data-binary @test_label.bin
+    SERVER_PORT=5001 RECEIPT_MODE=serial RECEIPT_SERIAL_PORT=/dev/cu.RPP02N python3 print_server.py
 
 Test health:
-    curl http://localhost:5000/health
+    curl http://localhost:5001/health
 """
 
 import logging
 import os
 import socket
+import time
 
 from flask import Flask, jsonify, request
 
-# ── Config từ env ─────────────────────────────────────────────────────────────
-LABEL_PRINTER_IP   = os.getenv("LABEL_PRINTER_IP",   "192.168.1.51")   # XP-365B
-LABEL_PRINTER_PORT = int(os.getenv("LABEL_PRINTER_PORT",   "9100"))
+# ── Config ────────────────────────────────────────────────────────────────────
+RECEIPT_MODE        = os.getenv("RECEIPT_MODE",        "serial")
+RECEIPT_PRINTER_IP  = os.getenv("RECEIPT_PRINTER_IP",  "192.168.1.50")
+RECEIPT_PRINTER_PORT= int(os.getenv("RECEIPT_PRINTER_PORT", "9100"))
+RECEIPT_SERIAL_PORT = os.getenv("RECEIPT_SERIAL_PORT", "/dev/cu.RPP02N")
+RECEIPT_SERIAL_BAUD = int(os.getenv("RECEIPT_SERIAL_BAUD", "9600"))
 
-RECEIPT_PRINTER_IP   = os.getenv("RECEIPT_PRINTER_IP",   "192.168.1.50") # POS-58L
-RECEIPT_PRINTER_PORT = int(os.getenv("RECEIPT_PRINTER_PORT", "9100"))
+LABEL_MODE          = os.getenv("LABEL_MODE",          "tcp")
+LABEL_PRINTER_IP    = os.getenv("LABEL_PRINTER_IP",    "192.168.1.51")
+LABEL_PRINTER_PORT  = int(os.getenv("LABEL_PRINTER_PORT",   "9100"))
+LABEL_SERIAL_PORT   = os.getenv("LABEL_SERIAL_PORT",   "/dev/cu.XP365B")
+LABEL_SERIAL_BAUD   = int(os.getenv("LABEL_SERIAL_BAUD",   "9600"))
 
-SERVER_PORT    = int(os.getenv("SERVER_PORT",    "5000"))
-SOCKET_TIMEOUT = float(os.getenv("SOCKET_TIMEOUT", "5"))
+SERVER_PORT          = int(os.getenv("SERVER_PORT",          "5001"))
+SOCKET_TIMEOUT       = float(os.getenv("SOCKET_TIMEOUT",      "5"))
+SERIAL_CONNECT_WAIT  = float(os.getenv("SERIAL_CONNECT_WAIT", "1.5"))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,9 +73,8 @@ log = logging.getLogger("print-server")
 app = Flask(__name__)
 
 
-# ── TCP helper ────────────────────────────────────────────────────────────────
-def _send(ip: str, port: int, data: bytes) -> int:
-    """Mở TCP socket tới máy in, gửi data, trả về số bytes."""
+# ── Send helpers ─────────────────────────────────────────────────────────────
+def _send_tcp(ip: str, port: int, data: bytes) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(SOCKET_TIMEOUT)
         sock.connect((ip, port))
@@ -63,8 +82,25 @@ def _send(ip: str, port: int, data: bytes) -> int:
     return len(data)
 
 
-def _ping(ip: str, port: int) -> bool:
-    """Kiểm tra máy in online (không gửi data)."""
+def _send_serial(port: str, baud: int, data: bytes) -> int:
+    import serial  # pyserial — lazy import
+    with serial.Serial(port, baud, timeout=5) as s:
+        time.sleep(SERIAL_CONNECT_WAIT)  # chờ BT handshake ổn định
+        s.write(data)
+        s.flush()
+        time.sleep(0.5)
+    return len(data)
+
+
+def _send(mode: str, ip: str, port: int, serial_port: str, baud: int, data: bytes) -> int:
+    if mode == "serial":
+        return _send_serial(serial_port, baud, data)
+    else:
+        return _send_tcp(ip, port, data)
+
+
+# ── Health helpers ────────────────────────────────────────────────────────────
+def _ping_tcp(ip: str, port: int) -> bool:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(2.0)
@@ -74,88 +110,90 @@ def _ping(ip: str, port: int) -> bool:
         return False
 
 
+def _ping_serial(port: str) -> bool:
+    return os.path.exists(port)
+
+
+def _ping(mode: str, ip: str, port: int, serial_port: str) -> bool:
+    if mode == "serial":
+        return _ping_serial(serial_port)
+    return _ping_tcp(ip, port)
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
-    """Kiểm tra trạng thái cả 2 máy in."""
-    label_ok   = _ping(LABEL_PRINTER_IP,   LABEL_PRINTER_PORT)
-    receipt_ok = _ping(RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT)
+    receipt_ok = _ping(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT, RECEIPT_SERIAL_PORT)
+    label_ok   = _ping(LABEL_MODE,   LABEL_PRINTER_IP,   LABEL_PRINTER_PORT,   LABEL_SERIAL_PORT)
     return jsonify({
         "ok": True,
         "printers": {
-            "label": {
-                "model":  "XP-365B",
-                "usage":  "tem dan coc 40x30mm",
-                "ip":     LABEL_PRINTER_IP,
-                "port":   LABEL_PRINTER_PORT,
-                "online": label_ok,
-            },
             "receipt": {
                 "model":  "POS-58L",
                 "usage":  "hoa don 58mm",
-                "ip":     RECEIPT_PRINTER_IP,
-                "port":   RECEIPT_PRINTER_PORT,
+                "mode":   RECEIPT_MODE,
+                "conn":   RECEIPT_SERIAL_PORT if RECEIPT_MODE == "serial" else f"{RECEIPT_PRINTER_IP}:{RECEIPT_PRINTER_PORT}",
                 "online": receipt_ok,
+            },
+            "label": {
+                "model":  "XP-365B",
+                "usage":  "tem dan coc 50x30mm",
+                "mode":   LABEL_MODE,
+                "conn":   LABEL_SERIAL_PORT if LABEL_MODE == "serial" else f"{LABEL_PRINTER_IP}:{LABEL_PRINTER_PORT}",
+                "online": label_ok,
             },
         },
     }), 200
 
 
-@app.post("/print/label")
-def print_label():
-    """
-    XP-365B — tem dán cốc 40×30mm.
-    Body: ESC/POS raw bytes từ GAS buildLabelEscPos365B().
-    """
-    data = request.get_data()
-    if not data:
-        return jsonify({"ok": False, "error": "empty payload"}), 400
-    try:
-        n = _send(LABEL_PRINTER_IP, LABEL_PRINTER_PORT, data)
-        log.info("LABEL   %d bytes → %s:%d", n, LABEL_PRINTER_IP, LABEL_PRINTER_PORT)
-        return jsonify({"ok": True, "printer": "label", "bytes": n}), 200
-    except socket.timeout:
-        log.error("LABEL   timeout %s:%d", LABEL_PRINTER_IP, LABEL_PRINTER_PORT)
-        return jsonify({"ok": False, "error": "label printer timeout"}), 504
-    except OSError as exc:
-        log.error("LABEL   error: %s", exc)
-        return jsonify({"ok": False, "error": str(exc)}), 502
-
-
 @app.post("/print/receipt")
 def print_receipt():
-    """
-    POS-58L — hóa đơn nhiệt 58mm.
-    Body: ESC/POS raw bytes từ GAS buildReceiptEscPos().
-    """
+    """POS-58L — hóa đơn 58mm."""
     data = request.get_data()
     if not data:
         return jsonify({"ok": False, "error": "empty payload"}), 400
     try:
-        n = _send(RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT, data)
-        log.info("RECEIPT %d bytes → %s:%d", n, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT)
+        n = _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
+                  RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, data)
+        log.info("RECEIPT %d bytes [%s]", n, RECEIPT_MODE)
         return jsonify({"ok": True, "printer": "receipt", "bytes": n}), 200
-    except socket.timeout:
-        log.error("RECEIPT timeout %s:%d", RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT)
-        return jsonify({"ok": False, "error": "receipt printer timeout"}), 504
-    except OSError as exc:
+    except Exception as exc:
         log.error("RECEIPT error: %s", exc)
-        return jsonify({"ok": False, "error": str(exc)}), 502
+        code = 504 if "timeout" in str(exc).lower() else 502
+        return jsonify({"ok": False, "error": str(exc)}), code
+
+
+@app.post("/print/label")
+def print_label():
+    """XP-365B — tem dán cốc 50×30mm."""
+    data = request.get_data()
+    if not data:
+        return jsonify({"ok": False, "error": "empty payload"}), 400
+    try:
+        n = _send(LABEL_MODE, LABEL_PRINTER_IP, LABEL_PRINTER_PORT,
+                  LABEL_SERIAL_PORT, LABEL_SERIAL_BAUD, data)
+        log.info("LABEL   %d bytes [%s]", n, LABEL_MODE)
+        return jsonify({"ok": True, "printer": "label", "bytes": n}), 200
+    except Exception as exc:
+        log.error("LABEL error: %s", exc)
+        code = 504 if "timeout" in str(exc).lower() else 502
+        return jsonify({"ok": False, "error": str(exc)}), code
 
 
 @app.post("/print")
 def print_compat():
-    """Backward-compat: routes tới /print/receipt (POS-58L)."""
-    log.info("COMPAT  /print → /print/receipt")
+    """Backward-compat → /print/receipt."""
     return print_receipt()
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     log.info(
-        "Print server :%d  |  label=%s:%d (XP-365B)  receipt=%s:%d (POS-58L)",
+        "Print server :%d  |  receipt=%s[%s]  label=%s[%s]",
         SERVER_PORT,
-        LABEL_PRINTER_IP, LABEL_PRINTER_PORT,
-        RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
+        RECEIPT_SERIAL_PORT if RECEIPT_MODE == "serial" else f"{RECEIPT_PRINTER_IP}:{RECEIPT_PRINTER_PORT}",
+        RECEIPT_MODE,
+        LABEL_SERIAL_PORT if LABEL_MODE == "serial" else f"{LABEL_PRINTER_IP}:{LABEL_PRINTER_PORT}",
+        LABEL_MODE,
     )
     app.run(host="0.0.0.0", port=SERVER_PORT)
