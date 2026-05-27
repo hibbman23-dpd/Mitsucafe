@@ -98,6 +98,7 @@ _SZ_ADDR    = 16   # địa chỉ
 _SZ_NORMAL  = 20   # nội dung chính
 _SZ_SMALL   = 16   # modifier, ghi chú
 _SZ_TOTAL   = 24   # tổng tiền
+_SZ_ITEM    = 28   # tên món và giá tiền (gần bằng cỡ _SZ_HEADER)
 
 # Font sizes — label (50×30mm)
 _SZ_LBL_HDR  = 18  # header: short_code + location + [cup/total]
@@ -196,6 +197,7 @@ def build_receipt_raster(order: dict) -> bytes:
     f_norm   = _load_font(_SZ_NORMAL)
     f_small  = _load_font(_SZ_SMALL)
     f_total  = _load_font(_SZ_TOTAL)
+    f_item   = _load_font(_SZ_ITEM)
 
     def tw(text, font):
         bb = font.getbbox(text)
@@ -270,19 +272,19 @@ def build_receipt_raster(order: dict) -> bytes:
         price = it.get("price", 0)
 
         right_str = f"x{qty}  {_format_amount(price)}"
-        right_w   = tw(right_str, f_norm)
+        right_w   = tw(right_str, f_item)
         max_name_w = CW - right_w - 6
 
         # Truncate name nếu quá dài
-        while len(name) > 1 and tw(name, f_norm) > max_name_w:
+        while len(name) > 1 and tw(name, f_item) > max_name_w:
             name = name[:-1]
 
         # Vẽ tên (trái) + giá (phải) trên cùng 1 hàng
         name_x  = PAD
         price_x = W - PAD - right_w
-        cmds.append(("text", name_x,  y, name,       f_norm))
-        cmds.append(("text", price_x, y, right_str,  f_norm))
-        y += lh(f_norm)
+        cmds.append(("text", name_x,  y, name,       f_item))
+        cmds.append(("text", price_x, y, right_str,  f_item))
+        y += lh(f_item)
 
         mods = _mods_line(
             {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}
