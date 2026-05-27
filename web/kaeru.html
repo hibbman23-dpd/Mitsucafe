@@ -3,9 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>かえる BUBBLE TEA — お茶の心を、ふるさとへ。</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; frame-src 'self' https://www.facebook.com https://www.instagram.com https://www.tiktok.com;">
+  <meta name="description" content="Khám phá Kaeru Bubble Tea & Cafe tại Lâm Hà, Lâm Đồng. Thưởng thức Trà sữa Matcha Nhật Bản, Hojicha thơm ngon cùng nông sản địa phương trong không gian ấm cúng.">
+  <meta name="theme-color" content="#2D5F6B">
+  <meta property="og:title" content="かえる BUBBLE TEA — Trà sữa & Cà phê Nhật Bản tại Lâm Đồng">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html">
+  <meta property="og:image" content="https://hibbman23-dpd.github.io/kaerukaphe/kaeru-mascot.svg">
+  <meta property="og:description" content="Thưởng thức Trà sữa Matcha Nhật Bản, Hojicha thơm ngon cùng nông sản địa phương tại Kaeru Bubble Tea Lâm Hà, Lâm Đồng.">
+  <meta property="og:locale" content="vi_VN">
+  <meta name="twitter:card" content="summary_large_image">
+  
+  <title>かえる BUBBLE TEA — Trà sữa & Cà phê Nhật Bản tại Lâm Đồng</title>
+  
+  <link rel="canonical" href="https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=IM+Fell+English+SC&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=IM+Fell+English+SC&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=IM+Fell+English+SC&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"></noscript>
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "CafeOrCoffeeShop",
+    "name": "Kaeru Bubble Tea",
+    "image": "https://hibbman23-dpd.github.io/kaerukaphe/kaeru-mascot.svg",
+    "@id": "https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html",
+    "url": "https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html",
+    "telephone": "+84997508742",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Lâm Hà",
+      "addressLocality": "Lâm Đồng",
+      "addressCountry": "VN"
+    },
+    "openingHoursSpecification": {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+      ],
+      "opens": "08:00",
+      "closes": "22:00"
+    }
+  }
+  </script>
 
   <style>
     /* ============================= */
@@ -440,7 +490,30 @@
     }
     .soc-btn:hover { background: var(--coral); }
 
-    .foot-col h4 { font-family: var(--font-en); font-size: .68rem; letter-spacing: .22em; color: var(--coral); margin-bottom: 14px; }
+    .foot-col h3 { font-family: var(--font-en); font-size: .68rem; letter-spacing: .22em; color: var(--coral); margin-bottom: 14px; }
+
+    /* Skip to main content link */
+    .skip-link {
+      position: absolute;
+      top: -100px;
+      left: 10px;
+      background: var(--coral);
+      color: #fff;
+      padding: 10px 20px;
+      z-index: 10000;
+      text-decoration: none;
+      font-family: var(--font-en);
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      border-radius: 2px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: top 0.2s ease;
+    }
+    .skip-link:focus {
+      top: 10px;
+      outline: 2px solid var(--teal);
+    }
     .foot-col ul { list-style: none; display: flex; flex-direction: column; gap: 9px; }
     .foot-col a { font-family: var(--font-jp); font-size: .83rem; font-weight: 300; color: rgba(245,240,232,.55); text-decoration: none; transition: color .2s; }
     .foot-col a:hover { color: var(--coral); }
@@ -568,6 +641,7 @@
   </style>
 </head>
 <body>
+<a href="#main" class="skip-link">Skip to main content</a>
 
 <!-- ======== NAVIGATION ======== -->
 <nav id="nav">
@@ -598,6 +672,7 @@
   </div>
 </nav>
 
+<main id="main">
 
 <!-- ======== HERO ======== -->
 <section class="hero" id="top">
@@ -644,7 +719,7 @@
   </div>
 
   <div class="hero-mascot">
-    <img src="kaeru-mascot.svg" class="mascot-img" alt="かえる">
+    <img src="kaeru-mascot.svg" class="mascot-img" alt="かえる" fetchpriority="high">
   </div>
 </section>
 
@@ -671,7 +746,10 @@
       </div>
 
       <div class="reveal d2 story-visual">
-        <img src="img/story-visual.jpg" alt="かえるの物語 — Hành trình của Kaeru">
+        <picture>
+          <source srcset="img/story-visual.webp" type="image/webp">
+          <img src="img/story-visual.jpg" alt="かえるの物語 — Hành trình của Kaeru" loading="lazy">
+        </picture>
       </div>
     </div>
   </div>
@@ -765,39 +843,40 @@
         <div class="menu-divider-line"></div>
       </div>
 
-      <!-- Bạc Xỉu -->
-      <div class="menu-card reveal d1">
-        <div class="mc-img" style="background:linear-gradient(135deg,rgba(196,168,114,.3),rgba(168,155,128,.15))">☕</div>
-        <div class="mc-body">
-          <div class="mc-cat">ĐẶC SẢN</div>
-          <div class="mc-jp">バクシウ</div>
-          <div class="mc-en">Bạc Xỉu</div>
-          <div class="mc-foot"><span class="mc-price">35.000đ</span><span class="mc-tag">ĐỊA PHƯƠNG</span></div>
+      <div class="menu-grid">
+        <!-- Bạc Xỉu -->
+        <div class="menu-card reveal d1">
+          <div class="mc-img" style="background:linear-gradient(135deg,rgba(196,168,114,.3),rgba(168,155,128,.15))">☕</div>
+          <div class="mc-body">
+            <div class="mc-cat">ĐẶC SẢN</div>
+            <div class="mc-jp">バクシウ</div>
+            <div class="mc-en">Bạc Xỉu</div>
+            <div class="mc-foot"><span class="mc-price">35.000đ</span><span class="mc-tag">ĐỊA PHƯƠNG</span></div>
+          </div>
         </div>
-      </div>
 
-      <!-- Cà phê trứng -->
-      <div class="menu-card reveal d2">
-        <div class="mc-img" style="background:linear-gradient(135deg,rgba(196,168,114,.25),rgba(235,98,74,.12))">🥚</div>
-        <div class="mc-body">
-          <div class="mc-cat">ĐẶC TRƯNG</div>
-          <div class="mc-jp">エッグコーヒー</div>
-          <div class="mc-en">Cà Phê Trứng</div>
-          <div class="mc-foot"><span class="mc-price">45.000đ</span><span class="mc-tag">HÀ NỘI</span></div>
+        <!-- Cà phê trứng -->
+        <div class="menu-card reveal d2">
+          <div class="mc-img" style="background:linear-gradient(135deg,rgba(196,168,114,.25),rgba(235,98,74,.12))">🥚</div>
+          <div class="mc-body">
+            <div class="mc-cat">ĐẶC TRƯNG</div>
+            <div class="mc-jp">エッグコーヒー</div>
+            <div class="mc-en">Cà Phê Trứng</div>
+            <div class="mc-foot"><span class="mc-price">45.000đ</span><span class="mc-tag">HÀ NỘI</span></div>
+          </div>
         </div>
-      </div>
 
-      <!-- Cà phê đá -->
-      <div class="menu-card reveal d3">
-        <div class="mc-img" style="background:linear-gradient(135deg,rgba(30,45,50,.35),rgba(45,95,107,.18))">🧊</div>
-        <div class="mc-body">
-          <div class="mc-cat">KINH ĐIỂN</div>
-          <div class="mc-jp">アイスコーヒー</div>
-          <div class="mc-en">Cà Phê Đá</div>
-          <div class="mc-foot"><span class="mc-price">30.000đ</span><span class="mc-tag">PHIN</span></div>
+        <!-- Cà phê đá -->
+        <div class="menu-card reveal d3">
+          <div class="mc-img" style="background:linear-gradient(135deg,rgba(30,45,50,.35),rgba(45,95,107,.18))">🧊</div>
+          <div class="mc-body">
+            <div class="mc-cat">KINH ĐIỂN</div>
+            <div class="mc-jp">アイスコーヒー</div>
+            <div class="mc-en">Cà Phê Đá</div>
+            <div class="mc-foot"><span class="mc-price">30.000đ</span><span class="mc-tag">PHIN</span></div>
+          </div>
         </div>
       </div>
-    </div>
 
     <div style="text-align:center;margin-top:40px" class="reveal d2">
       <a href="index.html?utm_source=landing" class="btn-primary">Đặt ngay · オーダー</a>
@@ -828,7 +907,10 @@
       <!-- 集中 DETERMINED -->
       <div class="stk-item reveal d1">
         <div class="stk-badge stk-photo">
-          <img src="img/stk-quyet-tam.jpg" alt="集中 — Quyết Tâm" class="stk-img">
+          <picture>
+            <source srcset="img/stk-quyet-tam.webp" type="image/webp">
+            <img src="img/stk-quyet-tam.jpg" alt="集中 — Quyết Tâm" class="stk-img" loading="lazy">
+          </picture>
         </div>
         <span class="stk-en">QUYẾT TÂM</span>
       </div>
@@ -836,7 +918,10 @@
       <!-- 乾杯 JOYFUL -->
       <div class="stk-item reveal d2">
         <div class="stk-badge stk-photo">
-          <img src="img/stk-vui-ve.jpg" alt="乾杯 — Vui Vẻ" class="stk-img">
+          <picture>
+            <source srcset="img/stk-vui-ve.webp" type="image/webp">
+            <img src="img/stk-vui-ve.jpg" alt="乾杯 — Vui Vẻ" class="stk-img" loading="lazy">
+          </picture>
         </div>
         <span class="stk-en">VUI VẺ</span>
       </div>
@@ -844,7 +929,10 @@
       <!-- びっくり SURPRISED -->
       <div class="stk-item reveal d3">
         <div class="stk-badge stk-photo">
-          <img src="img/stk-ngac-nhien.jpg" alt="びっくり — Ngạc Nhiên" class="stk-img">
+          <picture>
+            <source srcset="img/stk-ngac-nhien.webp" type="image/webp">
+            <img src="img/stk-ngac-nhien.jpg" alt="びっくり — Ngạc Nhiên" class="stk-img" loading="lazy">
+          </picture>
         </div>
         <span class="stk-en">NGẠC NHIÊN</span>
       </div>
@@ -852,7 +940,10 @@
       <!-- ねむい SLEEPY -->
       <div class="stk-item reveal d4">
         <div class="stk-badge stk-photo">
-          <img src="img/stk-buon-ngu.jpg" alt="ねむい — Buồn Ngủ" class="stk-img">
+          <picture>
+            <source srcset="img/stk-buon-ngu.webp" type="image/webp">
+            <img src="img/stk-buon-ngu.jpg" alt="ねむい — Buồn Ngủ" class="stk-img" loading="lazy">
+          </picture>
         </div>
         <span class="stk-en">BUỒN NGỦ</span>
       </div>
@@ -860,7 +951,10 @@
       <!-- 自慢げ PROUD -->
       <div class="stk-item reveal d3">
         <div class="stk-badge stk-photo">
-          <img src="img/stk-tu-hao.jpg" alt="自慢げ — Tự Hào" class="stk-img">
+          <picture>
+            <source srcset="img/stk-tu-hao.webp" type="image/webp">
+            <img src="img/stk-tu-hao.jpg" alt="自慢げ — Tự Hào" class="stk-img" loading="lazy">
+          </picture>
         </div>
         <span class="stk-en">TỰ HÀO</span>
       </div>
@@ -868,7 +962,10 @@
       <!-- またね SEE YOU -->
       <div class="stk-item reveal d4">
         <div class="stk-badge stk-photo">
-          <img src="img/stk-tam-biet.jpg" alt="またね — Hẹn Gặp Lại" class="stk-img">
+          <picture>
+            <source srcset="img/stk-tam-biet.webp" type="image/webp">
+            <img src="img/stk-tam-biet.jpg" alt="またね — Hẹn Gặp Lại" class="stk-img" loading="lazy">
+          </picture>
         </div>
         <span class="stk-en">HẸN GẶP LẠI!</span>
       </div>
@@ -897,7 +994,10 @@
       <!-- TOTE BAG -->
       <div class="merch-card">
         <div class="merch-img reveal d1">
-          <img src="img/merch-tote.jpg" alt="Túi Tote かえる" class="merch-photo">
+          <picture>
+            <source srcset="img/merch-tote.webp" type="image/webp">
+            <img src="img/merch-tote.jpg" alt="Túi Tote かえる" class="merch-photo" loading="lazy">
+          </picture>
         </div>
         <div class="merch-name reveal d1">トートバッグ</div>
         <div class="merch-name-en reveal d2">TÚI TOTE</div>
@@ -906,7 +1006,10 @@
       <!-- ENAMEL PIN -->
       <div class="merch-card">
         <div class="merch-img reveal d2">
-          <img src="img/merch-pin.jpg" alt="Huy hiệu エナメルピン" class="merch-photo">
+          <picture>
+            <source srcset="img/merch-pin.webp" type="image/webp">
+            <img src="img/merch-pin.jpg" alt="Huy hiệu エナメルピン" class="merch-photo" loading="lazy">
+          </picture>
         </div>
         <div class="merch-name reveal d2">エナメルピン</div>
         <div class="merch-name-en reveal d3">HUY HIỆU</div>
@@ -915,7 +1018,10 @@
       <!-- MINI VINYL FIGURE -->
       <div class="merch-card">
         <div class="merch-img reveal d3">
-          <img src="img/merch-figure.jpg" alt="Mô hình mini ミニフィギュア" class="merch-photo">
+          <picture>
+            <source srcset="img/merch-figure.webp" type="image/webp">
+            <img src="img/merch-figure.jpg" alt="Mô hình mini ミニフィギュア" class="merch-photo" loading="lazy">
+          </picture>
         </div>
         <div class="merch-name reveal d3">ミニフィギュア</div>
         <div class="merch-name-en reveal d4">MÔ HÌNH MINI</div>
@@ -960,6 +1066,7 @@
   </div>
 </section>
 
+</main>
 
 <!-- ======== FOOTER ======== -->
 <footer>
@@ -982,23 +1089,10 @@
     <div class="footer-body">
       <div class="foot-brand">
         <!-- Circular logo -->
-        <svg viewBox="0 0 100 100" width="82" height="82">
-          <circle cx="50" cy="50" r="47" fill="none" stroke="#2D5F6B" stroke-width="2"/>
-          <circle cx="50" cy="50" r="43" fill="rgba(245,240,232,.07)"/>
-          <!-- Torii -->
-          <path d="M12,44 C20,34 34,37 50,40 C66,37 80,34 88,44" stroke="#EB624A" stroke-width="2.5" fill="none"/>
-          <rect x="20" y="46" width="60" height="4" fill="#EB624A" rx="1"/>
-          <rect x="30" y="38" width="3.5" height="36" fill="#EB624A" rx="1"/>
-          <rect x="66.5" y="38" width="3.5" height="36" fill="#EB624A" rx="1"/>
-          <!-- frog head -->
-          <circle cx="50" cy="62" r="17" fill="#7A8C4F"/>
-          <circle cx="43" cy="60" r="5.5" fill="white"/><circle cx="57" cy="60" r="5.5" fill="white"/>
-          <circle cx="43" cy="60" r="2.8" fill="#1a2e35"/><circle cx="57" cy="60" r="2.8" fill="#1a2e35"/>
-          <path d="M43,69 Q50,75 57,69" stroke="#1a2e35" stroke-width="1.5" fill="none"/>
-          <ellipse cx="50" cy="47" rx="17" ry="4" fill="#C4A872"/>
-          <path d="M33,47 Q50,35 67,47" fill="#C4A872"/>
-          <text x="50" y="90" text-anchor="middle" font-size="6.5" fill="#F5F0E8" font-family="sans-serif" letter-spacing="2.5" opacity=".7">BUBBLE TEA</text>
-        </svg>
+        <picture>
+          <source srcset="img/logo-footer.webp" type="image/webp">
+          <img src="img/logo-footer.jpg" alt="Kaeru Bubble Tea Logo" width="82" height="82" style="border-radius: 50%; border: 2px solid var(--teal); background: rgba(245,240,232,.07); object-fit: cover;">
+        </picture>
         <p class="foot-tagline">お茶の心を、ふるさとへ。<br><span style="font-family:var(--font-body);font-style:italic;font-size:.78rem">Hương trà từ trái tim, về miền quê hương.</span></p>
         <div class="foot-social">
           <a class="soc-btn" href="https://www.facebook.com/profile.php?id=61590071517195" target="_blank" rel="noopener" title="Facebook"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
@@ -1010,7 +1104,7 @@
       </div>
 
       <div class="foot-col">
-        <h4>Thực đơn · メニュー</h4>
+        <h3>Thực đơn · メニュー</h3>
         <ul>
           <li><a href="#">Bubble Tea · バブルティー</a></li>
           <li><a href="#">Cà phê · カフェ</a></li>
@@ -1022,12 +1116,18 @@
       </div>
 
       <div class="foot-col">
-        <h4>Ghé thăm · ご来店</h4>
+        <h3>Ghé thăm · ご来店</h3>
         <ul>
           <li><a href="#">Lâm Hà, Lâm Đồng · Việt Nam</a></li>
           <li><a href="#">Giờ mở cửa · 営業時間</a></li>
           <li><a href="index.html?utm_source=landing">Đặt hàng online · オーダー</a></li>
-          <li><a href="#">Liên hệ · お問い合わせ</a></li>
+          <li>
+            <a href="javascript:void(0)" id="contact-toggle" style="cursor: pointer; transition: color 0.2s;">Liên hệ · お問い合わせ</a>
+            <div id="contact-details" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease, margin-top 0.3s ease; font-size: 0.76rem; line-height: 1.6; color: rgba(245,240,232,.5); margin-top: 0px; padding-left: 5px;">
+              📍 KaeruKàphê 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng, Việt Nam<br>
+              📞 0975087429
+            </div>
+          </li>
         </ul>
       </div>
     </div>
@@ -1126,6 +1226,24 @@
     const sun = document.querySelector('.hero-sun');
     if (sun && scrollY < innerHeight) sun.style.transform = `translateY(${scrollY*.14}px)`;
   }, {passive:true});
+
+  // ── Contact toggle dropdown ──
+  const contactToggle = document.getElementById('contact-toggle');
+  const contactDetails = document.getElementById('contact-details');
+  if (contactToggle && contactDetails) {
+    contactToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (contactDetails.style.maxHeight === '0px' || contactDetails.style.maxHeight === '') {
+        contactDetails.style.maxHeight = contactDetails.scrollHeight + 'px';
+        contactDetails.style.marginTop = '8px';
+        contactToggle.style.color = 'var(--coral)';
+      } else {
+        contactDetails.style.maxHeight = '0px';
+        contactDetails.style.marginTop = '0px';
+        contactToggle.style.color = '';
+      }
+    });
+  }
 </script>
 </body>
 </html>

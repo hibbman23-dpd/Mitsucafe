@@ -200,7 +200,7 @@ function renderMenuScreen() {
 }
 
 // ─── BOTTOM SHEET: ITEM ───────────────────────────────────────────────────────
-function renderItemSheet() {
+function renderItemSheetInner() {
   const item = selItem;
   if (!item) return '';
   const c    = item.customizations || {};
@@ -218,11 +218,13 @@ function renderItemSheet() {
       </div>
     </div>` : '';
 
+  // Sắp xếp đường từ ít đến nhiều
+  const sortedSugar = c.sugar ? [...c.sugar].sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0)) : null;
   const sugarRow = c.sugar ? `
     <div class="opt-group">
       <div class="opt-label">Đường</div>
       <div class="opt-chips">
-        ${c.sugar.map(v => `
+        ${sortedSugar.map(v => `
           <button class="chip${selOpts.sugar===v?' active':''}"
             data-action="opt" data-key="sugar" data-val="${v}">
             ${SUGAR_LABEL[v] || v}
@@ -230,11 +232,14 @@ function renderItemSheet() {
       </div>
     </div>` : '';
 
-  const iceRow = c.ice && c.ice[0] !== 'blended' ? `
+  // Sắp xếp đá từ ít đến nhiều
+  const iceOrder = { 'none': 0, 'less': 1, 'full': 2, 'blended': 3 };
+  const sortedIce = c.ice ? [...c.ice].sort((a, b) => (iceOrder[a] ?? 0) - (iceOrder[b] ?? 0)) : null;
+  const iceRow = c.ice && !c.ice.includes('blended') ? `
     <div class="opt-group">
       <div class="opt-label">Đá</div>
       <div class="opt-chips">
-        ${c.ice.map(v => `
+        ${sortedIce.map(v => `
           <button class="chip${selOpts.ice===v?' active':''}"
             data-action="opt" data-key="ice" data-val="${v}">
             ${ICE_LABEL[v] || v}
@@ -259,8 +264,6 @@ function renderItemSheet() {
   const allergen = allergenText(item.allergens);
 
   return `
-    <div class="sheet-backdrop" data-action="close-sheet"></div>
-    <div class="bottom-sheet" id="item-sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div>
@@ -286,12 +289,19 @@ function renderItemSheet() {
         <button class="btn-primary" data-action="add-to-cart">
           Thêm vào giỏ &nbsp;·&nbsp; ${fmt(price * selOpts.qty)}
         </button>
-      </div>
+      </div>`;
+}
+
+function renderItemSheet() {
+  return `
+    <div class="sheet-backdrop" data-action="close-sheet"></div>
+    <div class="bottom-sheet" id="item-sheet">
+      ${renderItemSheetInner()}
     </div>`;
 }
 
 // ─── BOTTOM SHEET: CART ───────────────────────────────────────────────────────
-function renderCartSheet() {
+function renderCartSheetInner() {
   const empty = cart.length === 0;
   const rows = cart.map((ci, idx) => {
     const mods = Object.entries(ci.modifiers || {})
@@ -320,8 +330,6 @@ function renderCartSheet() {
   }).join('');
 
   return `
-    <div class="sheet-backdrop" data-action="close-sheet"></div>
-    <div class="bottom-sheet sheet-tall" id="cart-sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div class="sheet-title">Giỏ hàng</div>
@@ -341,7 +349,14 @@ function renderCartSheet() {
           <button class="btn-primary" data-action="go-checkout">
             Thanh toán
           </button>
-        </div>` : ''}
+        </div>` : ''}`;
+}
+
+function renderCartSheet() {
+  return `
+    <div class="sheet-backdrop" data-action="close-sheet"></div>
+    <div class="bottom-sheet sheet-tall" id="cart-sheet">
+      ${renderCartSheetInner()}
     </div>`;
 }
 
@@ -474,12 +489,11 @@ function renderSuccessScreen() {
 }
 
 // ─── BOTTOM SHEET: UPSELL BÁNH ───────────────────────────────────────────────
-function renderUpsellSheet() {
+function renderUpsellSheetInner() {
   const pastries = MENU_DATA.filter(i => i.available && i.subcategory === 'pastry');
 
   const cards = pastries.map(item => {
     const inCart = cart.some(c => c.sku === item.sku);
-    const allergen = allergenText(item.allergens);
     return `
       <div class="upsell-card${inCart ? ' in-cart' : ''}"
            data-action="upsell-add" data-sku="${item.sku}">
@@ -502,8 +516,6 @@ function renderUpsellSheet() {
   );
 
   return `
-    <div class="sheet-backdrop" data-action="upsell-skip"></div>
-    <div class="bottom-sheet sheet-tall" id="upsell-sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div>
@@ -524,7 +536,14 @@ function renderUpsellSheet() {
         <button class="btn-secondary upsell-skip-btn" data-action="upsell-skip">
           Chỉ nước thôi
         </button>
-      </div>
+      </div>`;
+}
+
+function renderUpsellSheet() {
+  return `
+    <div class="sheet-backdrop" data-action="upsell-skip"></div>
+    <div class="bottom-sheet sheet-tall" id="upsell-sheet">
+      ${renderUpsellSheetInner()}
     </div>`;
 }
 
@@ -539,6 +558,27 @@ function render() {
   if (screen === 'success') {
     app.innerHTML = renderSuccessScreen();
     return;
+  }
+
+  // Nếu đang ở màn hình menu và các sheet tương ứng đã có sẵn trên DOM, ta chỉ cần cập nhật nội dung
+  // bên trong (innerHTML) để tránh kích hoạt lại hiệu ứng trượt (transition slide-up) gây giật màn hình.
+  if (screen === 'menu') {
+    const existingItemSheet = document.getElementById('item-sheet');
+    const existingCartSheet = document.getElementById('cart-sheet');
+    const existingUpsellSheet = document.getElementById('upsell-sheet');
+
+    if (sheet === 'item' && existingItemSheet) {
+      existingItemSheet.innerHTML = renderItemSheetInner();
+      return;
+    }
+    if (sheet === 'cart' && existingCartSheet) {
+      existingCartSheet.innerHTML = renderCartSheetInner();
+      return;
+    }
+    if (sheet === 'upsell' && existingUpsellSheet) {
+      existingUpsellSheet.innerHTML = renderUpsellSheetInner();
+      return;
+    }
   }
 
   // menu (default)
@@ -724,13 +764,6 @@ document.addEventListener('click', e => {
     case 'opt': {
       const key = el.dataset.key, val = el.dataset.val;
       selOpts[key] = val;
-      // Re-render only the sheet body to reflect new selection + price
-      const sh = document.getElementById('item-sheet');
-      if (sh) {
-        sh.outerHTML = renderItemSheet()
-          .split('<div class="sheet-backdrop"')[1]; // remove backdrop dup
-        // Simpler: full re-render
-      }
       render();
       break;
     }
