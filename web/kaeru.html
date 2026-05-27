@@ -1388,7 +1388,7 @@
   arrangeStickers();
   window.addEventListener('resize', arrangeStickers);
 
-  // ── Three.js Mascot 3D Setup ──
+  // ── Three.js Mascot 3D Setup (Cel-Shaded & Detailed) ──
   function init3DMascot() {
     const canvas = document.getElementById('mascot-3d-canvas');
     const container = document.querySelector('.center-3d-canvas-wrapper');
@@ -1423,33 +1423,70 @@
     const COLOR_BLACK = 0x1E2D32;  // dark ink
     const COLOR_BELLY = 0xD4DFBE;  // light green/yellow belly
 
+    // Cel Shading: Programmatic 3-step toon gradient map
+    const canvasGradient = document.createElement('canvas');
+    canvasGradient.width = 4;
+    canvasGradient.height = 1;
+    const ctxGrad = canvasGradient.getContext('2d');
+    ctxGrad.fillStyle = '#555555'; ctxGrad.fillRect(0, 0, 1, 1); // dark shadow
+    ctxGrad.fillStyle = '#999999'; ctxGrad.fillRect(1, 0, 1, 1); // midtone
+    ctxGrad.fillStyle = '#dddddd'; ctxGrad.fillRect(2, 0, 1, 1); // light
+    ctxGrad.fillStyle = '#ffffff'; ctxGrad.fillRect(3, 0, 1, 1); // highlight
+
+    const gradientMap = new THREE.CanvasTexture(canvasGradient);
+    gradientMap.minFilter = THREE.NearestFilter;
+    gradientMap.magFilter = THREE.NearestFilter;
+    gradientMap.generateMipmaps = false;
+
     // Materials
-    const frogMat = new THREE.MeshPhongMaterial({ color: COLOR_FROG, shininess: 25, specular: 0x111111 });
-    const hatMat = new THREE.MeshPhongMaterial({ color: COLOR_HAT, shininess: 15, specular: 0x111111, side: THREE.DoubleSide });
-    const coralMat = new THREE.MeshPhongMaterial({ color: COLOR_CORAL, shininess: 15 });
-    const whiteMat = new THREE.MeshPhongMaterial({ color: COLOR_WHITE, shininess: 40 });
-    const blackMat = new THREE.MeshPhongMaterial({ color: COLOR_BLACK, shininess: 40 });
-    const bellyMat = new THREE.MeshPhongMaterial({ color: COLOR_BELLY, shininess: 10 });
+    const frogMat = new THREE.MeshToonMaterial({ color: COLOR_FROG, gradientMap: gradientMap });
+    const hatMat = new THREE.MeshToonMaterial({ color: COLOR_HAT, gradientMap: gradientMap, side: THREE.DoubleSide });
+    const coralMat = new THREE.MeshToonMaterial({ color: COLOR_CORAL, gradientMap: gradientMap });
+    const whiteMat = new THREE.MeshToonMaterial({ color: COLOR_WHITE, gradientMap: gradientMap });
+    const blackMat = new THREE.MeshToonMaterial({ color: COLOR_BLACK, gradientMap: gradientMap });
+    const bellyMat = new THREE.MeshToonMaterial({ color: COLOR_BELLY, gradientMap: gradientMap });
 
     // Mascot Group
     const mascotGroup = new THREE.Group();
     mascotGroup.position.y = 0.2;
     scene.add(mascotGroup);
 
-    // 1. Thân + Đầu (One chubby round sphere)
+    // Outline Helper (Inverted Hull Technique)
+    const outlineMat = new THREE.MeshBasicMaterial({
+      color: 0x1E2D32,
+      side: THREE.BackSide
+    });
+
+    function createToonMesh(geometry, material, outlineSize = 0.05) {
+      const group = new THREE.Group();
+      
+      // Main mesh
+      const mesh = new THREE.Mesh(geometry, material);
+      group.add(mesh);
+      
+      // Outline mesh
+      const outlineGeom = geometry.clone();
+      const outline = new THREE.Mesh(outlineGeom, outlineMat);
+      outline.scale.multiplyScalar(1 + outlineSize);
+      group.add(outline);
+      
+      return group;
+    }
+
+    // 1. Thân + Đầu (One chubby round sphere with outline)
     const bodyGeom = new THREE.SphereGeometry(1.2, 32, 32);
-    const bodyMesh = new THREE.Mesh(bodyGeom, frogMat);
-    bodyMesh.scale.set(1.2, 0.95, 1.15); // chubby and round
-    mascotGroup.add(bodyMesh);
+    const body = createToonMesh(bodyGeom, frogMat, 0.04);
+    body.scale.set(1.2, 0.95, 1.15); // chubby and round
+    mascotGroup.add(body);
 
-    // 2. Bụng (Belly patch)
+    // 2. Bụng (Belly patch with outline)
     const bellyGeom = new THREE.SphereGeometry(0.7, 32, 32);
-    const bellyMesh = new THREE.Mesh(bellyGeom, bellyMat);
-    bellyMesh.scale.set(1.05, 0.85, 0.2);
-    bellyMesh.position.set(0, -0.25, 0.98);
-    mascotGroup.add(bellyMesh);
+    const belly = createToonMesh(bellyGeom, bellyMat, 0.04);
+    belly.scale.set(1.05, 0.85, 0.2);
+    belly.position.set(0, -0.25, 0.98);
+    mascotGroup.add(belly);
 
-    // 3. Mắt
+    // 3. Mắt (Big cartoon eyes with thick outlines)
     const eyeSocketGeom = new THREE.SphereGeometry(0.35, 16, 16);
     const eyeballGeom = new THREE.SphereGeometry(0.26, 16, 16);
     const pupilGeom = new THREE.SphereGeometry(0.14, 16, 16);
@@ -1457,16 +1494,16 @@
     const sparkleGeom = new THREE.SphereGeometry(0.045, 8, 8);
 
     // Left Eye
-    const leftEyeSocket = new THREE.Mesh(eyeSocketGeom, frogMat);
+    const leftEyeSocket = createToonMesh(eyeSocketGeom, frogMat, 0.05);
     leftEyeSocket.scale.set(1, 1.1, 1);
     leftEyeSocket.position.set(-0.52, 0.78, 0.45);
     mascotGroup.add(leftEyeSocket);
 
-    const leftEyeball = new THREE.Mesh(eyeballGeom, whiteMat);
+    const leftEyeball = createToonMesh(eyeballGeom, whiteMat, 0.06);
     leftEyeball.position.set(-0.5, 0.8, 0.62);
     mascotGroup.add(leftEyeball);
 
-    const leftPupil = new THREE.Mesh(pupilGeom, blackMat);
+    const leftPupil = new THREE.Mesh(pupilGeom, blackMat); // black - no outline needed
     leftPupil.position.set(-0.46, 0.8, 0.84);
     leftPupil.rotation.y = 0.1;
     mascotGroup.add(leftPupil);
@@ -1476,16 +1513,16 @@
     mascotGroup.add(leftSparkle);
 
     // Right Eye
-    const rightEyeSocket = new THREE.Mesh(eyeSocketGeom, frogMat);
+    const rightEyeSocket = createToonMesh(eyeSocketGeom, frogMat, 0.05);
     rightEyeSocket.scale.set(1, 1.1, 1);
     rightEyeSocket.position.set(0.52, 0.78, 0.45);
     mascotGroup.add(rightEyeSocket);
 
-    const rightEyeball = new THREE.Mesh(eyeballGeom, whiteMat);
+    const rightEyeball = createToonMesh(eyeballGeom, whiteMat, 0.06);
     rightEyeball.position.set(0.5, 0.8, 0.62);
     mascotGroup.add(rightEyeball);
 
-    const rightPupil = new THREE.Mesh(pupilGeom, blackMat);
+    const rightPupil = new THREE.Mesh(pupilGeom, blackMat); // black - no outline needed
     rightPupil.position.set(0.46, 0.8, 0.84);
     rightPupil.rotation.y = -0.1;
     mascotGroup.add(rightPupil);
@@ -1494,7 +1531,7 @@
     rightSparkle.position.set(0.51, 0.85, 0.94);
     mascotGroup.add(rightSparkle);
 
-    // 4. Má hồng (Blush cheeks)
+    // 4. Má hồng (Blush cheeks - borderless for softness)
     const blushGeom = new THREE.SphereGeometry(0.2, 16, 16);
     blushGeom.scale(1, 1, 0.3); // flat cheek
 
@@ -1515,14 +1552,31 @@
     mouth.rotation.set(0.2, 0, Math.PI); // flipped upside down for smile
     mascotGroup.add(mouth);
 
-    // 6. Nón lá (Conical Hat)
+    // 6. Nón lá (Conical Hat with outlines and details)
     const hatGeom = new THREE.ConeGeometry(1.4, 0.75, 32, 1, true);
-    const hat = new THREE.Mesh(hatGeom, hatMat);
+    const hat = createToonMesh(hatGeom, hatMat, 0.03);
     hat.position.set(0, 1.15, 0.1);
     hat.rotation.set(0.1, 0, -0.15); // tilted back and slightly left/right
     mascotGroup.add(hat);
 
-    // 7. Dây nón (Hat Strap)
+    // Traditional nón lá rings (black circles running around the cone)
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x1E2D32 }); // ink outline color
+    
+    // Ring 1 (lower)
+    const ring1Geom = new THREE.TorusGeometry(0.9, 0.015, 8, 48);
+    const ring1 = new THREE.Mesh(ring1Geom, ringMat);
+    ring1.rotation.x = Math.PI / 2;
+    ring1.position.y = -0.15; // height offset relative to hat center
+    hat.children[0].add(ring1); // add as child of the main hat mesh
+    
+    // Ring 2 (upper)
+    const ring2Geom = new THREE.TorusGeometry(0.5, 0.015, 8, 48);
+    const ring2 = new THREE.Mesh(ring2Geom, ringMat);
+    ring2.rotation.x = Math.PI / 2;
+    ring2.position.y = 0.1;
+    hat.children[0].add(ring2);
+
+    // 7. Dây nón (Hat Strap & Bow knot)
     const strapLGeom = new THREE.CylinderGeometry(0.015, 0.015, 1.3);
     const strapL = new THREE.Mesh(strapLGeom, coralMat);
     strapL.position.set(-0.48, 0.28, 0.3);
@@ -1555,35 +1609,35 @@
     bowR.rotation.z = 0.3;
     mascotGroup.add(bowR);
 
-    // 8. Tay (Arms)
+    // 8. Tay (Arms with outlines)
     const armGeom = new THREE.SphereGeometry(0.24, 16, 16);
     armGeom.scale(1.5, 0.8, 0.8);
 
-    const armL = new THREE.Mesh(armGeom, frogMat);
+    const armL = createToonMesh(armGeom, frogMat, 0.05);
     armL.position.set(-0.68, -0.35, 0.82);
     armL.rotation.set(0.2, 0.4, -0.35);
     mascotGroup.add(armL);
 
-    const armR = new THREE.Mesh(armGeom, frogMat);
+    const armR = createToonMesh(armGeom, frogMat, 0.05);
     armR.position.set(0.68, -0.35, 0.82);
     armR.rotation.set(0.2, -0.4, 0.35);
     mascotGroup.add(armR);
 
-    // 9. Chân (Feet)
+    // 9. Chân (Feet with outlines)
     const footGeom = new THREE.SphereGeometry(0.28, 16, 16);
     footGeom.scale(1.4, 0.7, 0.9);
 
-    const footL = new THREE.Mesh(footGeom, frogMat);
+    const footL = createToonMesh(footGeom, frogMat, 0.05);
     footL.position.set(-0.74, -0.85, 0.65);
     footL.rotation.set(0.1, 0.6, -0.1);
     mascotGroup.add(footL);
 
-    const footR = new THREE.Mesh(footGeom, frogMat);
+    const footR = createToonMesh(footGeom, frogMat, 0.05);
     footR.position.set(0.74, -0.85, 0.65);
     footR.rotation.set(0.1, -0.6, 0.1);
     mascotGroup.add(footR);
 
-    // 10. Drop shadow
+    // 10. Drop shadow (flat ring under the frog)
     const shadowGeom = new THREE.RingGeometry(0, 1.1, 32);
     const shadowMat = new THREE.MeshBasicMaterial({
       color: 0x2d4048,
@@ -1596,15 +1650,15 @@
     shadow.position.y = -1.15;
     mascotGroup.add(shadow);
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+    // Lights (Stronger lights for bright cel-shaded colors)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
     keyLight.position.set(5, 8, 5);
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0x88c4d0, 0.45);
+    const fillLight = new THREE.DirectionalLight(0x88c4d0, 0.5);
     fillLight.position.set(-5, -2, -5);
     scene.add(fillLight);
 
