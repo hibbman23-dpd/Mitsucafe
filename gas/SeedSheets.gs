@@ -93,6 +93,24 @@ function initCartSheet() {
   Logger.log('CART tab created.');
 }
 
+/**
+ * Cập nhật config print server — chạy 1 lần sau khi đổi IP hoặc port.
+ * Không cần xoá CONFIG — sẽ ghi đè các key đã tồn tại.
+ */
+function setupPrintServerConfig() {
+  var printCfg = {
+    'PRINT_SERVER_IP':   '192.168.1.8',
+    'PRINT_SERVER_PORT': '5001',
+    'STORE_NAME':        'LAM HA KISSATEN',
+    'STORE_ADDRESS':     'Lam Ha, Lam Dong',
+    'STORE_PHONE':       '',
+    'RECEIPT_FOOTER1':   'Cam on! Hen gap lai nhe!',
+    'RECEIPT_FOOTER2':   'lamhakissaten',
+  };
+  Object.keys(printCfg).forEach(function (k) { setConfig(k, printCfg[k]); });
+  Logger.log('Print server config updated: PRINT_SERVER_IP=192.168.1.8:5001');
+}
+
 function seedConfigDefaults() {
   var defaults = {
     'LOCATION_ID': 'LH01',

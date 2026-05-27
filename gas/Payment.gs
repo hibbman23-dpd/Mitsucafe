@@ -36,6 +36,5 @@ function checkPaymentStatus(orderId) {
   return null;
 }
 
-function markOrderPaid(orderId) {
-  updateField(orderId, 'payment_status', 'PAID');
-}
+// markOrderPaid đã chuyển sang Orders.gs (cần set DELIVERED + trigger print)
+// Không define lại ở đây để tránh override.

@@ -32,20 +32,24 @@ var LABEL_W = 30; // ký tự/dòng cho 50mm label (203 dpi, font 8×16)
  */
 function printOrderLabels(order) {
   if (!order || !order.items || !order.items.length) {
-    logError('printOrderLabels', new Error('Empty order or items'));
+    Logger.log('printOrderLabels: empty order, skipping');
     return;
   }
+  // GAS chạy trên Google Cloud → không reach được Flask print-server trên LAN.
+  // Tem sẽ in khi Mac Mini poller hoặc KDS hỗ trợ label print (Phase 2).
+  // Log silently — KHÔNG alert Telegram để tránh báo lỗi giả.
   order.items.forEach(function (item) {
     for (var i = 0; i < item.qty; i++) {
       try {
         var esc = buildLabelEscPos365B(order, item);
         sendLabelToPrinter(esc);
+        Logger.log('Label printed: ' + order.order_id + ' item=' + item.sku);
       } catch (err) {
-        logError('printOrderLabels item=' + item.sku, err);
+        // LAN unreachable từ GAS — log only, không Telegram
+        Logger.log('Label print skipped (LAN unreachable from GAS): ' + item.sku + ' — ' + err);
       }
     }
   });
-  updateField(order.order_id, 'label_printed_at', new Date().toISOString());
 }
 
 // ── ESC/POS builder — XP-365B 40×30mm ─────────────────────────────────────────
@@ -65,9 +69,10 @@ function buildLabelEscPos365B(order, item) {
   var ESC = '\x1B', GS = '\x1D';
   var d = '';
 
-  // Init + UTF-8 mode
+  // Init
   d += ESC + '@';           // Init printer
-  d += ESC + 't\xFF';       // Code page 255 = UTF-8 (Xprinter 2020+)
+  // ESC t: KHÔNG dùng 0xFF — Xprinter-specific, hỏng máy in khác
+  // Codepage phải cài qua Xprinter Label Tool hoặc printer config
   d += ESC + '3\x18';       // Line spacing 24 dots (tight)
 
   // ── Dòng 1: Short code + vị trí (bold) ────────────────────────────────────
@@ -78,11 +83,11 @@ function buildLabelEscPos365B(order, item) {
   d += ESC + '!\x00';       // Normal
 
   // ── Separator ─────────────────────────────────────────────────────────────
-  d += _repeat('─', LABEL_W) + '\n'; // ── (unicode dash, fallback to -)
+  d += _repeat('-', LABEL_W) + '\n'; // separator (ASCII '-', safe cho mọi printer)
 
   // ── Tên món (double-height) ───────────────────────────────────────────────
   d += ESC + '!\x10';       // Double-height
-  var nameLine = _truncate(item.name, LABEL_W - 3) + ' \xd7' + item.qty; // × qty
+  var nameLine = _truncate(item.name, LABEL_W - 3) + ' x' + item.qty; // 'x' thay cho × (ASCII safe)
   d += nameLine + '\n';
   d += ESC + '!\x00';       // Normal
 
@@ -127,16 +132,32 @@ function sendToPrinter(escposData) {
 
 function _postToPrintServer(path, escposData) {
   var url = _printServerUrl(path);
+  // Dùng _escposToBytes() thay vì newBlob(string) để tránh UTF-8 encoding
+  // newBlob(string) mã hoá UTF-8 → byte > 127 thành 2 bytes → hỏng ESC/POS
   var response = UrlFetchApp.fetch(url, {
     method:      'post',
     contentType: 'application/octet-stream',
-    payload:     Utilities.newBlob(escposData).getBytes(),
+    payload:     _escposToBytes(escposData),
     muteHttpExceptions: true,
   });
   var code = response.getResponseCode();
   if (code !== 200) {
     throw new Error('Print server ' + path + ' → HTTP ' + code + ': ' + response.getContentText());
   }
+}
+
+/**
+ * Chuyển ESC/POS string → byte array [0–255].
+ * Cần thiết vì Utilities.newBlob(string) encode UTF-8,
+ * làm hỏng bytes > 127 (e.g. \xFF → [0xC3,0xBF]).
+ * Hàm này lấy đúng 8 bits thấp của từng char code.
+ */
+function _escposToBytes(str) {
+  var bytes = new Array(str.length);
+  for (var i = 0; i < str.length; i++) {
+    bytes[i] = str.charCodeAt(i) & 0xFF;
+  }
+  return bytes;
 }
 
 function _printServerUrl(path) {
@@ -212,7 +233,7 @@ function _buildModsLine(modifiers) {
   if (modifiers.sugar)    parts.push(sugarMap[modifiers.sugar] || modifiers.sugar);
   if (modifiers.ice)      parts.push(iceMap[modifiers.ice]     || modifiers.ice);
   if (modifiers.toppings) parts.push(modifiers.toppings);
-  return parts.join(' \xb7 '); // ·
+  return parts.join(' / '); // '/' thay cho · (ASCII safe)
 }
 
 // ── Test functions ────────────────────────────────────────────────────────────

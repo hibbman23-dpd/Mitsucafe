@@ -37,31 +37,11 @@ var RECEIPT_W = 32; // ký tự/dòng cho POS-58L 58mm
  * @param {string} orderId
  */
 function printThermalReceipt(orderId) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ORDERS');
-  if (!sheet) {
-    logError('printThermalReceipt', new Error('ORDERS sheet missing'));
-    return;
-  }
-  var data = sheet.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    if (data[i][0] === orderId) {
-      var order        = _rowToOrder(data[i]);          // từ Orders.gs
-      order.payment    = {
-        method: data[i][18] || 'bank_transfer',         // payment_method col
-        status: data[i][19] || 'PENDING',               // payment_status col
-      };
-      try {
-        var esc = buildReceiptEscPos(order);
-        sendReceiptToPrinter(esc);                      // từ LabelPrint.gs
-        updateField(orderId, 'printed_at', new Date().toISOString());
-        Logger.log('Receipt printed for ' + orderId);
-      } catch (err) {
-        logError('printThermalReceipt', err);
-      }
-      return;
-    }
-  }
-  logError('printThermalReceipt', new Error('Order not found: ' + orderId));
+  // In receipt được xử lý bởi Mac Mini poller (kiến trúc pull).
+  // GAS chạy trên Google Cloud → không reach được LAN (192.168.x.x).
+  // Poller tự polling ?action=pending_print mỗi 4s rồi in trực tiếp trên Mac Mini.
+  // Không cần làm gì từ GAS — poller sẽ pick up khi thấy status=DELIVERED + printed_at rỗng.
+  Logger.log('printThermalReceipt: ' + orderId + ' → queued for Mac Mini poller');
 }
 
 // ── ESC/POS builder — POS-58L 58mm ───────────────────────────────────────────
@@ -83,7 +63,8 @@ function buildReceiptEscPos(order) {
 
   // ── Init ──────────────────────────────────────────────────────────────────
   d += ESC + '@';             // Init printer
-  d += ESC + 't\xFF';         // UTF-8 code page (Xprinter 2020+)
+  // ESC t code page: KHÔNG dùng 0xFF (Xprinter-specific UTF-8, không tương thích)
+  // Rongta/standard printers: dùng default PC437 hoặc cài qua printer tool
 
   // ── Header (center) ───────────────────────────────────────────────────────
   d += ESC + 'a\x01';         // Center
@@ -110,7 +91,7 @@ function buildReceiptEscPos(order) {
 
   var shortCode   = (order.metadata && order.metadata.short_code) ? '#' + order.metadata.short_code : '';
   var tableOrType = _receiptLocLabel(order);
-  var orderLine   = [shortCode, tableOrType].filter(Boolean).join('  \xb7  '); // ·
+  var orderLine   = [shortCode, tableOrType].filter(Boolean).join('  /  '); // '/' thay cho · (ASCII safe)
   if (orderLine) d += '  ' + orderLine + '\n';
 
   if (order.customer_name) {

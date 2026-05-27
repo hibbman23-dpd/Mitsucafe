@@ -168,7 +168,8 @@ function _runStateSideEffects(order, newStatus) {
   try {
     switch (newStatus) {
       case 'CONFIRMED':
-        printOrderLabels(order);
+        // Tem dán ly được xử lý bởi Mac Mini poller (GAS không reach LAN).
+        // Poller polling ?action=pending_labels và in ngay sau khi đơn tạo.
         break;
       case 'MAKING':
         sendZaloNotify(order.customer_id, '☕ Đơn ' + order.order_id + ' đang pha chế');
@@ -246,12 +247,19 @@ function _rowToOrder(row) {
 
 /**
  * Đánh dấu đơn đã thanh toán. Gọi từ KDS khi nhân viên xác nhận.
+ * Set payment_status=PAID + status=DELIVERED + in hóa đơn nhiệt.
+ * Bypass transition validation vì KDS có thể thanh toán từ bất kỳ state nào.
  * @param {string} orderId
  */
 function markOrderPaid(orderId) {
   var row = _findOrderRow(orderId);
   if (!row) throw new Error('Order not found: ' + orderId);
-  _ordersSheet().getRange(row.rowIndex, 20).setValue('PAID'); // payment_status col
+  var sheet = _ordersSheet();
+  var now = new Date().toISOString();
+  sheet.getRange(row.rowIndex, 20).setValue('PAID');       // payment_status col
+  sheet.getRange(row.rowIndex, 13).setValue('DELIVERED');  // status col
+  sheet.getRange(row.rowIndex, 18).setValue(now);          // delivered_at col
+  try { printThermalReceipt(orderId); } catch (e) { logError('markOrderPaid.print', e); }
   return 'PAID';
 }
 
