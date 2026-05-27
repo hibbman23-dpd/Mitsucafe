@@ -92,12 +92,12 @@ _PAD = 10                  # padding trái/phải (dots)
 _CW  = _W - 2 * _PAD      # content width
 
 # Font sizes — receipt (58mm)
-_SZ_HEADER  = 26   # tên quán
-_SZ_LOGO    = 22   # logo frog
-_SZ_ADDR    = 13   # địa chỉ
-_SZ_NORMAL  = 15   # nội dung chính
-_SZ_SMALL   = 13   # modifier, ghi chú
-_SZ_TOTAL   = 17   # tổng tiền
+_SZ_HEADER  = 32   # tên quán
+_SZ_LOGO    = 24   # logo frog
+_SZ_ADDR    = 16   # địa chỉ
+_SZ_NORMAL  = 20   # nội dung chính
+_SZ_SMALL   = 16   # modifier, ghi chú
+_SZ_TOTAL   = 24   # tổng tiền
 
 # Font sizes — label (50×30mm)
 _SZ_LBL_HDR  = 18  # header: short_code + location + [cup/total]
