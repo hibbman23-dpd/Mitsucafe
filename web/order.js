@@ -190,7 +190,7 @@ function renderMenuScreen() {
           <rect x="13.5" y="44" width="10" height="3" fill="currentColor" rx="1"/>
           <rect x="26.5" y="44" width="10" height="3" fill="currentColor" rx="1"/>
         </svg>
-        かえる
+        KaeruKàphê
       </a>
       ${tableId ? `<div class="table-chip">Bàn ${tableId}</div>` : '<div></div>'}
     </header>
