@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; frame-src 'self' https://www.facebook.com https://www.instagram.com https://www.tiktok.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; frame-src 'self' https://www.facebook.com https://www.instagram.com https://www.tiktok.com;">
   <meta name="description" content="Khám phá Kaeru Bubble Tea & Cafe tại Lâm Hà, Lâm Đồng. Thưởng thức Trà sữa Matcha Nhật Bản, Hojicha thơm ngon cùng nông sản địa phương trong không gian ấm cúng.">
   <meta name="theme-color" content="#2D5F6B">
   <meta property="og:title" content="KaeruKàphê — Kaeru Bubble Tea & Cà phê Lâm Đồng">
@@ -24,6 +24,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=IM+Fell+English+SC&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=IM+Fell+English+SC&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"></noscript>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   
   <script type="application/ld+json">
   {
@@ -423,20 +425,117 @@
     .stk-head h2 { font-size: clamp(1.9rem,3.5vw,2.8rem); color: var(--teal); margin-top: 10px; }
     .stk-head p { font-family: var(--font-en); font-size: .78rem; letter-spacing: .16em; color: var(--earth); margin-top: 6px; }
 
-    .stk-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 14px; }
-
-    .stk-item { display: flex; flex-direction: column; align-items: center; gap: 9px; cursor: pointer; }
-    .stk-item:hover .stk-badge { transform: scale(1.08) rotate(-3deg); box-shadow: 5px 5px 0 rgba(45,95,107,.25); border-color: var(--coral); }
-
-    .stk-badge {
-      width: 100%; aspect-ratio: 1; border-radius: 50%;
-      background: var(--cream); border: 2.5px solid var(--teal);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 10px; box-shadow: 3px 3px 0 rgba(45,95,107,.18);
-      transition: all .22s ease;
+    /* ============================= */
+    /* CIRCULAR STICKERS LAYOUT      */
+    /* ============================= */
+    .circular-stickers-container {
+      position: relative;
+      width: 100%;
+      max-width: 750px;
+      height: 640px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
     }
-    .stk-jp { font-size: .68rem; font-weight: 700; color: var(--teal); text-align: center; margin-top: 2px; }
-    .stk-en { font-family: var(--font-en); font-size: .62rem; letter-spacing: .08em; color: var(--earth-dk); text-align: center; }
+    
+    .center-3d-canvas-wrapper {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(237,229,208,0.3) 0%, rgba(237,229,208,0) 70%);
+      transition: background 0.3s;
+    }
+    .center-3d-canvas-wrapper:active {
+      cursor: grabbing;
+      background: radial-gradient(circle, rgba(237,229,208,0.5) 0%, rgba(237,229,208,0) 70%);
+    }
+    
+    #mascot-3d-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    .drag-hint {
+      position: absolute;
+      bottom: -15px;
+      font-family: var(--font-en);
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: var(--teal-mid);
+      background: var(--cream);
+      padding: 4px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(45,95,107,0.15);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      pointer-events: none;
+      white-space: nowrap;
+      animation: floatHint 3s ease-in-out infinite;
+    }
+    
+    @keyframes floatHint {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    
+    .circular-stk-item {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      width: 115px;
+      transform: translate(-50%, -50%);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .circular-stk-item:hover {
+      transform: translate(-50%, -50%) scale(1.1);
+      z-index: 15;
+    }
+    .circular-stk-item:hover .stk-badge {
+      transform: rotate(-3deg);
+      box-shadow: 6px 6px 0 rgba(45,95,107,.25);
+      border-color: var(--coral);
+    }
+    
+    .stk-badge {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--cream);
+      border: 2.5px solid var(--teal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      box-shadow: 3px 3px 0 rgba(45,95,107,.18);
+      transition: all .25s ease;
+      overflow: hidden;
+    }
+    .stk-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+    .stk-en {
+      font-family: var(--font-en);
+      font-size: .65rem;
+      letter-spacing: .08em;
+      color: var(--earth-dk);
+      text-align: center;
+      white-space: nowrap;
+    }
 
     /* ============================= */
     /* MERCH                         */
@@ -625,18 +724,41 @@
       }
     }
 
-    /* ── Sections responsive ── */
     @media (max-width: 900px) {
       .story-grid { grid-template-columns: 1fr; }
       .menu-grid { grid-template-columns: 1fr 1fr; }
-      .stk-grid { grid-template-columns: repeat(3,1fr); }
       .merch-grid { grid-template-columns: 1fr 1fr; }
       .footer-body { grid-template-columns: 1fr; }
     }
     @media (max-width: 540px) {
       .menu-grid { grid-template-columns: 1fr; }
-      .stk-grid { grid-template-columns: repeat(2,1fr); }
       .merch-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .circular-stickers-container {
+        height: 380px;
+        max-width: 380px;
+      }
+      .center-3d-canvas-wrapper {
+        width: 170px;
+        height: 170px;
+      }
+      .circular-stk-item {
+        width: 75px;
+        gap: 4px;
+      }
+      .circular-stk-item .stk-badge {
+        border-width: 2px;
+        padding: 5px;
+      }
+      .circular-stk-item .stk-en {
+        font-size: .52rem;
+      }
+      .drag-hint {
+        bottom: -10px;
+        font-size: 0.55rem;
+        padding: 2px 7px;
+      }
     }
   </style>
 </head>
@@ -903,9 +1025,14 @@
       <p class="reveal d2">Bộ biểu cảm của Kaeru · 6 biểu cảm</p>
     </div>
 
-    <div class="stk-grid">
+    <div class="circular-stickers-container">
+      <div class="center-3d-canvas-wrapper">
+        <canvas id="mascot-3d-canvas"></canvas>
+        <div class="drag-hint">Kéo vuốt để xoay 3D ↺</div>
+      </div>
+
       <!-- 集中 DETERMINED -->
-      <div class="stk-item reveal d1">
+      <div class="circular-stk-item reveal d1" data-index="0">
         <div class="stk-badge stk-photo">
           <picture>
             <source srcset="img/stk-quyet-tam.webp" type="image/webp">
@@ -916,7 +1043,7 @@
       </div>
 
       <!-- 乾杯 JOYFUL -->
-      <div class="stk-item reveal d2">
+      <div class="circular-stk-item reveal d2" data-index="1">
         <div class="stk-badge stk-photo">
           <picture>
             <source srcset="img/stk-vui-ve.webp" type="image/webp">
@@ -927,7 +1054,7 @@
       </div>
 
       <!-- びっくり SURPRISED -->
-      <div class="stk-item reveal d3">
+      <div class="circular-stk-item reveal d3" data-index="2">
         <div class="stk-badge stk-photo">
           <picture>
             <source srcset="img/stk-ngac-nhien.webp" type="image/webp">
@@ -938,7 +1065,7 @@
       </div>
 
       <!-- ねむい SLEEPY -->
-      <div class="stk-item reveal d4">
+      <div class="circular-stk-item reveal d4" data-index="3">
         <div class="stk-badge stk-photo">
           <picture>
             <source srcset="img/stk-buon-ngu.webp" type="image/webp">
@@ -949,7 +1076,7 @@
       </div>
 
       <!-- 自慢げ PROUD -->
-      <div class="stk-item reveal d3">
+      <div class="circular-stk-item reveal d3" data-index="4">
         <div class="stk-badge stk-photo">
           <picture>
             <source srcset="img/stk-tu-hao.webp" type="image/webp">
@@ -960,7 +1087,7 @@
       </div>
 
       <!-- またね SEE YOU -->
-      <div class="stk-item reveal d4">
+      <div class="circular-stk-item reveal d4" data-index="5">
         <div class="stk-badge stk-photo">
           <picture>
             <source srcset="img/stk-tam-biet.webp" type="image/webp">
@@ -1216,14 +1343,364 @@
   });
 
   // ── Sticker click bounce ──
-  document.querySelectorAll('.stk-item').forEach(s => {
+  document.querySelectorAll('.circular-stk-item').forEach(s => {
     s.addEventListener('click', () => {
       const b = s.querySelector('.stk-badge');
-      b.style.transition = 'transform .12s';
-      b.style.transform = 'scale(.88)';
-      setTimeout(() => { b.style.transform = ''; }, 130);
+      if (b) {
+        b.style.transition = 'transform .12s';
+        b.style.transform = 'scale(.88)';
+        setTimeout(() => { b.style.transform = ''; }, 130);
+      }
     });
   });
+
+  // ── Circular stickers layout arrangement ──
+  function arrangeStickers() {
+    const container = document.querySelector('.circular-stickers-container');
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    
+    const isMobile = window.innerWidth <= 600;
+    
+    // Choose radius based on screen size
+    const radius = isMobile ? 125 : 230; 
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    const items = document.querySelectorAll('.circular-stk-item');
+    // Start at -90 degrees (top) and step by 60 degrees (Math.PI / 3) clockwise
+    const baseAngle = -Math.PI / 2;
+    const angleStep = Math.PI / 3;
+    
+    items.forEach((item, index) => {
+      const angle = baseAngle + index * angleStep;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      
+      item.style.left = `${x}px`;
+      item.style.top = `${y}px`;
+    });
+  }
+  
+  arrangeStickers();
+  window.addEventListener('resize', arrangeStickers);
+
+  // ── Three.js Mascot 3D Setup ──
+  function init3DMascot() {
+    const canvas = document.getElementById('mascot-3d-canvas');
+    const container = document.querySelector('.center-3d-canvas-wrapper');
+    if (!canvas || !container) return;
+
+    // Dimensions
+    let width = container.clientWidth;
+    let height = container.clientHeight;
+
+    // Scene
+    const scene = new THREE.Scene();
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(32, width / height, 0.1, 100);
+    camera.position.set(0, 1.0, 7.5);
+    camera.lookAt(0, 0, 0);
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      alpha: true,
+      antialias: true
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Colors
+    const COLOR_FROG = 0x3C6A5A;   // forest green
+    const COLOR_HAT = 0xC8A65D;    // straw gold
+    const COLOR_CORAL = 0xEB624A;  // orange coral
+    const COLOR_WHITE = 0xFFFFFF;
+    const COLOR_BLACK = 0x1E2D32;  // dark ink
+    const COLOR_BELLY = 0xD4DFBE;  // light green/yellow belly
+
+    // Materials
+    const frogMat = new THREE.MeshPhongMaterial({ color: COLOR_FROG, shininess: 25, specular: 0x111111 });
+    const hatMat = new THREE.MeshPhongMaterial({ color: COLOR_HAT, shininess: 15, specular: 0x111111, side: THREE.DoubleSide });
+    const coralMat = new THREE.MeshPhongMaterial({ color: COLOR_CORAL, shininess: 15 });
+    const whiteMat = new THREE.MeshPhongMaterial({ color: COLOR_WHITE, shininess: 40 });
+    const blackMat = new THREE.MeshPhongMaterial({ color: COLOR_BLACK, shininess: 40 });
+    const bellyMat = new THREE.MeshPhongMaterial({ color: COLOR_BELLY, shininess: 10 });
+
+    // Mascot Group
+    const mascotGroup = new THREE.Group();
+    mascotGroup.position.y = 0.2;
+    scene.add(mascotGroup);
+
+    // 1. Thân + Đầu (One chubby round sphere)
+    const bodyGeom = new THREE.SphereGeometry(1.2, 32, 32);
+    const bodyMesh = new THREE.Mesh(bodyGeom, frogMat);
+    bodyMesh.scale.set(1.2, 0.95, 1.15); // chubby and round
+    mascotGroup.add(bodyMesh);
+
+    // 2. Bụng (Belly patch)
+    const bellyGeom = new THREE.SphereGeometry(0.7, 32, 32);
+    const bellyMesh = new THREE.Mesh(bellyGeom, bellyMat);
+    bellyMesh.scale.set(1.05, 0.85, 0.2);
+    bellyMesh.position.set(0, -0.25, 0.98);
+    mascotGroup.add(bellyMesh);
+
+    // 3. Mắt
+    const eyeSocketGeom = new THREE.SphereGeometry(0.35, 16, 16);
+    const eyeballGeom = new THREE.SphereGeometry(0.26, 16, 16);
+    const pupilGeom = new THREE.SphereGeometry(0.14, 16, 16);
+    pupilGeom.scale(1, 1, 0.3); // flat pupil
+    const sparkleGeom = new THREE.SphereGeometry(0.045, 8, 8);
+
+    // Left Eye
+    const leftEyeSocket = new THREE.Mesh(eyeSocketGeom, frogMat);
+    leftEyeSocket.scale.set(1, 1.1, 1);
+    leftEyeSocket.position.set(-0.52, 0.78, 0.45);
+    mascotGroup.add(leftEyeSocket);
+
+    const leftEyeball = new THREE.Mesh(eyeballGeom, whiteMat);
+    leftEyeball.position.set(-0.5, 0.8, 0.62);
+    mascotGroup.add(leftEyeball);
+
+    const leftPupil = new THREE.Mesh(pupilGeom, blackMat);
+    leftPupil.position.set(-0.46, 0.8, 0.84);
+    leftPupil.rotation.y = 0.1;
+    mascotGroup.add(leftPupil);
+
+    const leftSparkle = new THREE.Mesh(sparkleGeom, whiteMat);
+    leftSparkle.position.set(-0.41, 0.85, 0.94);
+    mascotGroup.add(leftSparkle);
+
+    // Right Eye
+    const rightEyeSocket = new THREE.Mesh(eyeSocketGeom, frogMat);
+    rightEyeSocket.scale.set(1, 1.1, 1);
+    rightEyeSocket.position.set(0.52, 0.78, 0.45);
+    mascotGroup.add(rightEyeSocket);
+
+    const rightEyeball = new THREE.Mesh(eyeballGeom, whiteMat);
+    rightEyeball.position.set(0.5, 0.8, 0.62);
+    mascotGroup.add(rightEyeball);
+
+    const rightPupil = new THREE.Mesh(pupilGeom, blackMat);
+    rightPupil.position.set(0.46, 0.8, 0.84);
+    rightPupil.rotation.y = -0.1;
+    mascotGroup.add(rightPupil);
+
+    const rightSparkle = new THREE.Mesh(sparkleGeom, whiteMat);
+    rightSparkle.position.set(0.51, 0.85, 0.94);
+    mascotGroup.add(rightSparkle);
+
+    // 4. Má hồng (Blush cheeks)
+    const blushGeom = new THREE.SphereGeometry(0.2, 16, 16);
+    blushGeom.scale(1, 1, 0.3); // flat cheek
+
+    const leftBlush = new THREE.Mesh(blushGeom, coralMat);
+    leftBlush.position.set(-0.76, 0.15, 0.9);
+    leftBlush.rotation.set(0.1, 0.3, -0.1);
+    mascotGroup.add(leftBlush);
+
+    const rightBlush = new THREE.Mesh(blushGeom, coralMat);
+    rightBlush.position.set(0.76, 0.15, 0.9);
+    rightBlush.rotation.set(0.1, -0.3, 0.1);
+    mascotGroup.add(rightBlush);
+
+    // 5. Miệng cười (Smiley mouth)
+    const mouthGeom = new THREE.TorusGeometry(0.24, 0.04, 8, 24, Math.PI * 0.9);
+    const mouth = new THREE.Mesh(mouthGeom, blackMat);
+    mouth.position.set(0, 0.18, 1.09);
+    mouth.rotation.set(0.2, 0, Math.PI); // flipped upside down for smile
+    mascotGroup.add(mouth);
+
+    // 6. Nón lá (Conical Hat)
+    const hatGeom = new THREE.ConeGeometry(1.4, 0.75, 32, 1, true);
+    const hat = new THREE.Mesh(hatGeom, hatMat);
+    hat.position.set(0, 1.15, 0.1);
+    hat.rotation.set(0.1, 0, -0.15); // tilted back and slightly left/right
+    mascotGroup.add(hat);
+
+    // 7. Dây nón (Hat Strap)
+    const strapLGeom = new THREE.CylinderGeometry(0.015, 0.015, 1.3);
+    const strapL = new THREE.Mesh(strapLGeom, coralMat);
+    strapL.position.set(-0.48, 0.28, 0.3);
+    strapL.rotation.z = -0.55;
+    strapL.rotation.x = 0.25;
+    mascotGroup.add(strapL);
+
+    const strapRGeom = new THREE.CylinderGeometry(0.015, 0.015, 1.3);
+    const strapR = new THREE.Mesh(strapRGeom, coralMat);
+    strapR.position.set(0.48, 0.28, 0.3);
+    strapR.rotation.z = 0.55;
+    strapR.rotation.x = 0.25;
+    mascotGroup.add(strapR);
+
+    // Bow knot under chin
+    const bowKnotGeom = new THREE.SphereGeometry(0.06, 8, 8);
+    const bowKnot = new THREE.Mesh(bowKnotGeom, coralMat);
+    bowKnot.position.set(0, -0.4, 0.72);
+    mascotGroup.add(bowKnot);
+
+    const bowWingGeom = new THREE.SphereGeometry(0.08, 8, 8);
+    bowWingGeom.scale(1.5, 0.7, 0.7);
+    const bowL = new THREE.Mesh(bowWingGeom, coralMat);
+    bowL.position.set(-0.1, -0.42, 0.72);
+    bowL.rotation.z = -0.3;
+    mascotGroup.add(bowL);
+
+    const bowR = new THREE.Mesh(bowWingGeom, coralMat);
+    bowR.position.set(0.1, -0.42, 0.72);
+    bowR.rotation.z = 0.3;
+    mascotGroup.add(bowR);
+
+    // 8. Tay (Arms)
+    const armGeom = new THREE.SphereGeometry(0.24, 16, 16);
+    armGeom.scale(1.5, 0.8, 0.8);
+
+    const armL = new THREE.Mesh(armGeom, frogMat);
+    armL.position.set(-0.68, -0.35, 0.82);
+    armL.rotation.set(0.2, 0.4, -0.35);
+    mascotGroup.add(armL);
+
+    const armR = new THREE.Mesh(armGeom, frogMat);
+    armR.position.set(0.68, -0.35, 0.82);
+    armR.rotation.set(0.2, -0.4, 0.35);
+    mascotGroup.add(armR);
+
+    // 9. Chân (Feet)
+    const footGeom = new THREE.SphereGeometry(0.28, 16, 16);
+    footGeom.scale(1.4, 0.7, 0.9);
+
+    const footL = new THREE.Mesh(footGeom, frogMat);
+    footL.position.set(-0.74, -0.85, 0.65);
+    footL.rotation.set(0.1, 0.6, -0.1);
+    mascotGroup.add(footL);
+
+    const footR = new THREE.Mesh(footGeom, frogMat);
+    footR.position.set(0.74, -0.85, 0.65);
+    footR.rotation.set(0.1, -0.6, 0.1);
+    mascotGroup.add(footR);
+
+    // 10. Drop shadow
+    const shadowGeom = new THREE.RingGeometry(0, 1.1, 32);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: 0x2d4048,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide
+    });
+    const shadow = new THREE.Mesh(shadowGeom, shadowMat);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = -1.15;
+    mascotGroup.add(shadow);
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    keyLight.position.set(5, 8, 5);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x88c4d0, 0.45);
+    fillLight.position.set(-5, -2, -5);
+    scene.add(fillLight);
+
+    // Render loop and interaction
+    let autoRotate = true;
+    let autoRotateTimer = null;
+    let targetRotationY = 0;
+    let targetRotationX = 0;
+    
+    const damping = 0.08;
+
+    // Pointer controls
+    let isDragging = false;
+    let prevPointerX = 0;
+    let prevPointerY = 0;
+
+    function onPointerDown(e) {
+      isDragging = true;
+      autoRotate = false;
+      if (autoRotateTimer) clearTimeout(autoRotateTimer);
+      
+      prevPointerX = e.clientX || (e.touches && e.touches[0].clientX);
+      prevPointerY = e.clientY || (e.touches && e.touches[0].clientY);
+      
+      container.style.cursor = 'grabbing';
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging) return;
+      
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      
+      const deltaX = clientX - prevPointerX;
+      const deltaY = clientY - prevPointerY;
+      
+      targetRotationY += deltaX * 0.007;
+      targetRotationX += deltaY * 0.007;
+      
+      targetRotationX = Math.max(-0.4, Math.min(0.4, targetRotationX));
+
+      prevPointerX = clientX;
+      prevPointerY = clientY;
+    }
+
+    function onPointerUp() {
+      if (!isDragging) return;
+      isDragging = false;
+      container.style.cursor = 'grab';
+
+      autoRotateTimer = setTimeout(() => {
+        autoRotate = true;
+        targetRotationX = 0;
+      }, 3500);
+    }
+
+    container.addEventListener('mousedown', onPointerDown);
+    container.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    container.addEventListener('touchstart', onPointerDown, { passive: true });
+    container.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp);
+
+    // Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (autoRotate) {
+        mascotGroup.rotation.y += 0.005;
+        targetRotationY = mascotGroup.rotation.y;
+      } else {
+        mascotGroup.rotation.y += (targetRotationY - mascotGroup.rotation.y) * damping;
+        mascotGroup.rotation.x += (targetRotationX - mascotGroup.rotation.x) * damping;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      width = container.clientWidth;
+      height = container.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    });
+  }
+
+  // Init when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init3DMascot);
+  } else {
+    init3DMascot();
+  }
 
   // ── Hero parallax (subtle) ──
   addEventListener('scroll', () => {
