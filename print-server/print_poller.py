@@ -601,28 +601,21 @@ def build_label_raster(order: dict, item: dict, cup_num: int, total_cups: int) -
 def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> bytes:
     """TSPL TEXT commands cho XP-365B tem 50×30mm — tiếng Việt đầy đủ.
 
-    XP-365B portrait mode: x=0..239 (head=30mm), y=0..399 (feed=50mm)
-    rotation=90 → text đọc left-to-right trên tem landscape vật lý.
-    Mapping: physical_lx = 399−py, physical_ly = px
-    Để đặt tại landscape (lx, ly): portrait px=ly, py=399−lx
-
-    Layout landscape (50mm × 30mm):
-      ly=5:  #code  vị_trí                  [cup/total]
-      ly=27: ══════════════════════════════════════════ (dày 3)
-      ly=32: TÊN MÓN (font lớn)
-      ly=90: modifier / modifier
-      ly=107: GC: ghi_chú  (nếu có)
-      ly=125: ─────────────────────────────────────────
-      ly=130: HH:MM (giữa label)
+    XP-365B portrait mode: x=0..399 (width=50mm), y=0..239 (height=30mm)
+    rotation=0 → text đọc ngang theo chiều rộng 50mm của tem.
     """
     def T(px, py, text_str, font="4", sx=1, sy=1):
         s = _strip_viet(text_str)
-        return f'TEXT {px},{py},"{font}",90,{sx},{sy},"{s}"\r\n'.encode("ascii")
+        return f'TEXT {px},{py},"{font}",0,{sx},{sy},"{s}"\r\n'.encode("ascii")
 
     meta       = order.get("metadata") or {}
     short_code = ("#" + str(meta.get("short_code", ""))) if meta.get("short_code") \
                  else ("#" + order.get("order_id", "????")[-4:])
-    loc        = _loc_label(order)
+    
+    loc = _loc_label(order)
+    if loc.startswith("Giao hàng"):
+        loc = "Giao hàng"
+
     name       = item.get("name", "?")
     size       = (item.get("modifiers") or {}).get("size", "")
     if size:
@@ -631,23 +624,78 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> 
     notes    = (meta.get("notes") or "").strip()
     time_str = _format_time_only(str(order.get("timestamp", "")))
 
+    left_str  = f"{short_code}  {loc}"
+    right_str = f"[{cup_num}/{total_cups}]"
+
     cmd = [
         b"SIZE 50 mm,30 mm\r\n",
         b"GAP 3 mm,0\r\n",
+        b"DIRECTION 0\r\n",
+        b"CODEPAGE UTF-8\r\n",
         b"CLS\r\n",
-        T(5, 389, f"{short_code}  {loc}"),          # Header trái: lx=10, ly=5
-        T(5, 79,  f"[{cup_num}/{total_cups}]"),      # Cup counter: lx=320, ly=5
-        b"BAR 27,0,3,400\r\n",                       # Kẻ dày tại landscape ly=27
-        T(32, 389, name, sy=2),                      # Tên món lớn: lx=10, ly=32
+        T(10,  10, left_str, font="3"),                 # Header trai: x=10, y=10
+        T(300, 10, right_str, font="3"),                # Cup counter phai: x=300, y=10
+        b"BAR 0,38,400,2\r\n",                          # Ngang tren: y=38
     ]
+
+    # ── Middle Area Layout ────────────────────────────────────────────────────
+    middle_items = []
+    
+    # 1. Item name
+    name_stripped = _strip_viet(name)
+    if len(name_stripped) > 23:
+        name = name[:23]
+        name_stripped = name_stripped[:23]
+        
+    if len(name_stripped) <= 15:
+        middle_items.append((name, "4", 1, 2, 64))      # (text, font, sx, sy, height)
+    else:
+        middle_items.append((name, "3", 1, 2, 48))
+        
+    # 2. Modifiers
     if mods:
-        cmd.append(T(90, 389, mods, font="3"))       # Modifier: lx=10, ly=90
+        if len(mods) > 23:
+            mods = mods[:23]
+        middle_items.append((mods, "3", 1, 1, 24))
+        
+    # 3. Customer Info (Name + Phone)
+    cust_name = (order.get("customer_name") or "").strip()
+    cust_id = (order.get("customer_id") or "").strip()
+    if cust_id == "0000000000":
+        cust_id = ""
+        
+    cust_parts = []
+    if cust_name:
+        cust_parts.append(cust_name)
+    if cust_id:
+        cust_parts.append(cust_id)
+        
+    if cust_parts:
+        cust_str = " - ".join(cust_parts)
+        if len(cust_str) > 23:
+            cust_str = cust_str[:23]
+        middle_items.append((cust_str, "3", 1, 1, 24))
+        
+    # 4. Notes
     if notes:
-        py_note = 107 if mods else 90
-        cmd.append(T(py_note, 389, f"GC: {notes[:28]}", font="3"))
+        note_str = f"GC: {notes}"
+        if len(note_str) > 23:
+            note_str = note_str[:23]
+        middle_items.append((note_str, "3", 1, 1, 24))
+        
+    # Calculate spacing to center dynamically in the middle area (Y: 40 to 202)
+    total_height = sum(item[4] for item in middle_items)
+    remaining = 162 - total_height
+    gap = max(2, remaining // (len(middle_items) + 1))
+    
+    y_ptr = 40 + gap
+    for text_str, font, sx, sy, h in middle_items:
+        cmd.append(T(10, y_ptr, text_str, font=font, sx=sx, sy=sy))
+        y_ptr += h + gap
+
     cmd += [
-        b"BAR 125,0,1,400\r\n",                     # Kẻ mỏng tại landscape ly=125
-        T(130, 199, time_str, font="3"),             # Giờ giữa: lx=200, ly=130
+        b"BAR 0,202,400,2\r\n",                         # Ngang duoi: y=202
+        T(160, 208, time_str, font="3"),                # Gio giua: x=160, y=208
         b"PRINT 1\r\n",
     ]
     return b"".join(cmd)

@@ -331,11 +331,9 @@ def _build_test_receipt() -> bytes:
     return d
 
 
-def _build_test_label() -> bytes:
-    """TSPL BITMAP test label cho XP-365B — in thử tiếng Việt đầy đủ.
-
-    Dùng PIL render → TSPL BITMAP (giống flow thực tế).
-    Chạy: curl http://localhost:5001/test/label
+def _build_test_label(scenario: str = "dine_in") -> bytes:
+    """TSPL test label cho XP-365B.
+    Chạy: curl http://localhost:5001/test/label?type=dine_in|take_away|delivery|long_name
     """
     import sys, os
     sys.path.insert(0, os.path.dirname(__file__))
@@ -344,7 +342,9 @@ def _build_test_label() -> bytes:
     fake_order = {
         "order_id": "ORD-TEST-0001",
         "timestamp": "2026-05-27T08:10:00+07:00",
-        "table_id":  "03",
+        "table_id":  "",
+        "customer_name": "",
+        "customer_id": "",
         "metadata":  {"short_code": "127", "delivery_type": "dine_in", "notes": ""},
         "items": [],
     }
@@ -353,6 +353,26 @@ def _build_test_label() -> bytes:
         "qty":       1,
         "modifiers": {"sugar": "30%", "ice": "less"},
     }
+
+    if scenario == "take_away":
+        fake_order["metadata"]["delivery_type"] = "take_away"
+        fake_order["customer_name"] = "Anh Minh"
+        fake_order["customer_id"] = "0987654321"
+    elif scenario == "delivery":
+        fake_order["metadata"]["delivery_type"] = "delivery"
+        fake_order["metadata"]["delivery_address"] = "938 Đường Hùng Vương, Lâm Hà"
+        fake_order["customer_name"] = "Chị Vy"
+        fake_order["customer_id"] = "0975087429"
+        fake_order["metadata"]["notes"] = "Giao gấp trước 10h"
+    elif scenario == "long_name":
+        fake_order["table_id"] = "03"
+        fake_order["metadata"]["delivery_type"] = "dine_in"
+        fake_item["name"] = "Trà Sữa Matcha Trân Châu Đường Đen"
+        fake_item["modifiers"]["toppings"] = "Trân châu hoàng kim"
+    else: # dine_in
+        fake_order["table_id"] = "03"
+        fake_order["metadata"]["delivery_type"] = "dine_in"
+
     return build_label_tspl(fake_order, fake_item, 1, 2)
 
 
@@ -383,8 +403,9 @@ def _label_send(data: bytes) -> dict:
 @app.get("/test/label")
 def test_label():
     """In test label cứng cho XP-365B — debug mà không cần GAS."""
-    data = _build_test_label()
-    log.info("TEST LABEL %d bytes [%s]", len(data), LABEL_MODE)
+    scenario = request.args.get("type", "dine_in")
+    data = _build_test_label(scenario)
+    log.info("TEST LABEL (scenario=%s) %d bytes [%s]", scenario, len(data), LABEL_MODE)
     try:
         r = _label_send(data)
         return jsonify(r), 200
@@ -768,12 +789,12 @@ def test_label_bitmap_zero():
 
 @app.get("/test/label/text-landscape")
 def test_label_text_landscape():
-    """TEXT rotation=90, CODEPAGE UTF-8 — layout thực tế tem 50×30mm.
+    """TEXT rotation=270 + DIRECTION 0 — layout thực tế tem 50×30mm.
 
     Portrait mode: x=0..239 (head=30mm), y=0..399 (feed=50mm)
-    rotation=90 → text đọc left-to-right trên tem landscape vật lý.
-    Mapping: physical_lx = 399−py, physical_ly = px
-    Để đặt tại landscape (lx, ly): portrait px=ly, py=399−lx
+    DIRECTION 0 + rotation=270: physical_lx = py, physical_ly = px
+    Để đặt tại landscape (lx, ly): portrait px=ly, py=lx
+    Text grows trong +y direction (rightward in landscape).
     """
     import unicodedata
 
@@ -784,23 +805,30 @@ def test_label_text_landscape():
         return "".join(c for c in nfd if unicodedata.category(c) != "Mn").upper()
 
     def T(px, py, text_str, font="4", sx=1, sy=1):
-        return f'TEXT {px},{py},"{font}",90,{sx},{sy},"{sv(text_str)}"\r\n'.encode("ascii")
+        return f'TEXT {px},{py},"{font}",0,{sx},{sy},"{sv(text_str)}"\r\n'.encode("ascii")
+
+    # Center helper: x = (240 - charW * len) // 2, charW≈12 for font4, ≈9 for font3
+    def cx(text, font="4"):
+        w = (12 if font == "4" else 9) * len(sv(text))
+        return max(2, (240 - w) // 2)
 
     lines = [
         b"SIZE 50 mm,30 mm\r\n",
         b"GAP 3 mm,0\r\n",
+        b"DIRECTION 0\r\n",
+        b"CODEPAGE UTF-8\r\n",
         b"CLS\r\n",
-        T(5, 389, "#127  Bàn 03"),                   # Header trái: lx=10, ly=5
-        T(5, 79,  "[1/2]"),                           # Cup counter: lx=320, ly=5
-        b"BAR 27,0,3,400\r\n",                        # Kẻ dày tại landscape ly=27
-        T(32, 389, "Bạc xỉu", sy=2),                 # Tên món lớn: lx=10, ly=32
-        T(90, 389, "Ít ngọt / Ít đá", font="3"),     # Modifier: lx=10, ly=90
-        b"BAR 125,0,1,400\r\n",                       # Kẻ mỏng tại landscape ly=125
-        T(130, 199, "08:10", font="3"),               # Giờ giữa: lx=200, ly=130
+        T(5,         140, "#127  Ban 03"),            # Header trai: y=140
+        T(175,       140, "[1/2]"),                   # Cup counter phai: y=140
+        b"BAR 0,162,240,3\r\n",                       # Ngang day: y=162
+        T(cx("Bac xiu"), 170, "Bac xiu", sy=2),      # Ten mon giua: y=170..202
+        T(cx("It ngot / It da","3"), 212, "It ngot / It da", font="3"),  # Modifier: y=212
+        b"BAR 0,232,240,2\r\n",                       # Ngang mong: y=232
+        T(cx("08:10","3"), 240, "08:10", font="3"),   # Gio giua: y=240
         b"PRINT 1\r\n",
     ]
     data = b"".join(lines)
-    log.info("TEST text-landscape (ASCII rotation=90): %d bytes", len(data))
+    log.info("TEST text-landscape (DIRECTION 0 rotation=270): %d bytes", len(data))
     log.info("data: %s", data.decode("ascii"))
     try:
         r = _label_send(data)
