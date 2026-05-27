@@ -1118,8 +1118,12 @@
       <div class="foot-col">
         <h3>Ghé thăm · ご来店</h3>
         <ul>
-          <li><a href="#">Lâm Hà, Lâm Đồng · Việt Nam</a></li>
-          <li><a href="#">Giờ mở cửa · 営業時間</a></li>
+          <li>
+            <a href="javascript:void(0)" id="hours-toggle" style="cursor: pointer; transition: color 0.2s;">Giờ mở cửa · 営業時間</a>
+            <div id="hours-details" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease, margin-top 0.3s ease; font-size: 0.76rem; line-height: 1.6; color: rgba(245,240,232,.5); margin-top: 0px; padding-left: 5px;">
+              🕒 6:00 đến 0:00
+            </div>
+          </li>
           <li><a href="index.html?utm_source=landing">Đặt hàng online · オーダー</a></li>
           <li>
             <a href="javascript:void(0)" id="contact-toggle" style="cursor: pointer; transition: color 0.2s;">Liên hệ · お問い合わせ</a>
@@ -1241,6 +1245,24 @@
         contactDetails.style.maxHeight = '0px';
         contactDetails.style.marginTop = '0px';
         contactToggle.style.color = '';
+      }
+    });
+  }
+
+  // ── Hours toggle dropdown ──
+  const hoursToggle = document.getElementById('hours-toggle');
+  const hoursDetails = document.getElementById('hours-details');
+  if (hoursToggle && hoursDetails) {
+    hoursToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (hoursDetails.style.maxHeight === '0px' || hoursDetails.style.maxHeight === '') {
+        hoursDetails.style.maxHeight = hoursDetails.scrollHeight + 'px';
+        hoursDetails.style.marginTop = '8px';
+        hoursToggle.style.color = 'var(--coral)';
+      } else {
+        hoursDetails.style.maxHeight = '0px';
+        hoursDetails.style.marginTop = '0px';
+        hoursToggle.style.color = '';
       }
     });
   }
