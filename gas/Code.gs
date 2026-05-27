@@ -24,6 +24,12 @@ function doPost(e) {
     }
 
     var payload = JSON.parse(raw);
+
+    // Route xử lý webhook biến động số dư từ MacroDroid
+    if (payload && payload.action === 'bank_notification') {
+      return handleBankNotification(payload);
+    }
+
     var order = validateOrderPayload(payload);
 
     appendOrderToSheet(order);
