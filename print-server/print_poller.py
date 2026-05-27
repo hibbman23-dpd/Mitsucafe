@@ -621,7 +621,7 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> 
     if size:
         name += f" ({size})"
     mods     = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"})
-    notes    = (meta.get("notes") or "").strip()
+    notes    = str(meta.get("notes") or "").strip()
     time_str = _format_time_only(str(order.get("timestamp", "")))
 
     left_str  = f"{short_code}  {loc}"
@@ -659,8 +659,8 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> 
         middle_items.append((mods, "3", 1, 1, 24))
         
     # 3. Customer Info (Name + Phone)
-    cust_name = (order.get("customer_name") or "").strip()
-    cust_id = (order.get("customer_id") or "").strip()
+    cust_name = str(order.get("customer_name") or "").strip()
+    cust_id = str(order.get("customer_id") or "").strip()
     if cust_id == "0000000000":
         cust_id = ""
         
