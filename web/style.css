@@ -528,8 +528,8 @@ input  { font: inherit; }
 }
 .address-region-hint strong { color: var(--earth); }
 
-.delivery-chips { margin-top: 0; }
-.delivery-chips .chip { flex: 1; text-align: center; justify-content: center; }
+.delivery-chips, .payment-chips { margin-top: 0; }
+.delivery-chips .chip, .payment-chips .chip { flex: 1; text-align: center; justify-content: center; }
 
 .delivery-confirm-note {
   background: rgba(200,150,62,.12);

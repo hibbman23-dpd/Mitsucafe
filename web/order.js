@@ -48,6 +48,7 @@ let cart         = loadCart();
 let lastOrder    = { shortCode: '', total: 0, delivery: 'pickup' };
 let submitting   = false;
 let deliveryMode = 'pickup';  // 'pickup' | 'delivery'
+let paymentMethod = 'bank_transfer'; // 'bank_transfer' | 'cash'
 
 // ─── CART ─────────────────────────────────────────────────────────────────────
 function loadCart() {
@@ -416,6 +417,20 @@ function renderCheckoutScreen() {
       </div>`)}
 
       <div class="form-section">
+        <label class="form-label">Phương thức thanh toán</label>
+        <div class="opt-chips payment-chips">
+          <button class="chip${paymentMethod === 'bank_transfer' ? ' active' : ''}"
+                  data-action="toggle-payment" data-method="bank_transfer">
+            💳 Chuyển khoản
+          </button>
+          <button class="chip${paymentMethod === 'cash' ? ' active' : ''}"
+                  data-action="toggle-payment" data-method="cash">
+            💵 Tiền mặt
+          </button>
+        </div>
+      </div>
+
+      <div class="form-section">
         <label class="form-label">Ghi chú</label>
         <input class="form-input" id="inp-notes" type="text" placeholder="Ít ngọt, không đá, không hành...">
       </div>
@@ -449,9 +464,9 @@ function renderSuccessScreen() {
     ? buildVietQRUrl(lastOrder.total, lastOrder.shortCode)
     : null;
 
-  const paymentBlock = isDelivery
-    ? `<div class="payment-note">💳 Thanh toán khi nhận hàng</div>`
-    : hasBankInfo ? `
+  let paymentBlock = '';
+  if (lastOrder.paymentMethod === 'bank_transfer') {
+    paymentBlock = hasBankInfo ? `
         <div class="qr-block">
           <div class="qr-label">Quét QR — số tiền & nội dung đã có sẵn</div>
           <img class="qr-img" src="${qrUrl}" alt="QR ngân hàng ${BANK_QR.bank} · ${fmt(lastOrder.total)}">
@@ -465,10 +480,26 @@ function renderSuccessScreen() {
           <div class="ck-amount">Số tiền: <strong>${fmt(lastOrder.total)}</strong></div>
         </div>`
     : `<div class="payment-note">
-         💳 Thanh toán tại quầy hoặc chuyển khoản<br>
+         💳 Chuyển khoản ngân hàng<br>
          <div class="ck-instruction" style="margin-top:8px">Ghi nội dung CK:</div>
          <div class="ck-code">${lastOrder.shortCode}</div>
        </div>`;
+  } else {
+    // cash payment method
+    if (isDelivery) {
+      paymentBlock = `
+        <div class="payment-note">
+          💵 Bạn hãy thanh toán <strong>${fmt(lastOrder.total)}</strong> tiền mặt khi nhận hàng nhé!
+        </div>`;
+    } else {
+      paymentBlock = `
+        <div class="payment-note">
+          💵 Bạn hãy thanh toán tại quầy nhé!<br>
+          <div class="ck-instruction" style="margin-top:8px">Số tiền cần thanh toán:</div>
+          <div class="ck-amount" style="font-size:24px; color:var(--accent); font-weight:bold; margin-top:4px;">${fmt(lastOrder.total)}</div>
+        </div>`;
+    }
+  }
 
   return `
     <main class="success-screen">
@@ -690,7 +721,7 @@ async function submitOrder() {
     customer_name: name || null,
     customer_id: normPhone,
     items, total,
-    payment: { method: 'bank_transfer', total, status: 'PENDING' },
+    payment: { method: paymentMethod, total, status: 'PENDING' },
     metadata: {
       delivery_type: deliveryType,
       business_line: 'kissaten',
@@ -713,7 +744,7 @@ async function submitOrder() {
       body: JSON.stringify(payload),
     });
 
-    lastOrder = { shortCode, total, delivery: deliveryMode };
+    lastOrder = { shortCode, total, delivery: deliveryMode, paymentMethod: paymentMethod };
     clearCart();
     screen = 'success';
     render();
@@ -825,11 +856,17 @@ document.addEventListener('click', e => {
       render();
       break;
 
+    case 'toggle-payment':
+      paymentMethod = el.dataset.method;
+      render();
+      break;
+
     case 'go-menu':
       screen = 'menu';
       sheet  = null;
       submitting   = false;
       deliveryMode = 'pickup';
+      paymentMethod = 'bank_transfer';
       render();
       break;
 
