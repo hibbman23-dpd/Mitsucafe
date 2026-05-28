@@ -691,19 +691,30 @@ function renderOrders() {
           💳 Đã thanh toán
         </button>
       </div>`;
+    const cleanNotes = o.notes ? o.notes.replace('[🎁 ĐỔI LY MIỄN PHÍ] ', '') : '';
+    const notesHtml = cleanNotes ? `<div class="card-notes" style="font-size: 0.8rem; color: var(--gold); font-style: italic; margin-top: 8px; border-top: 1px dashed rgba(245,240,232,0.08); padding-top: 6px;">📝 ${cleanNotes}</div>` : '';
+
     return `
       <div class="order-card ${isPaid?'paid':'pending'}" id="card-${o.order_id}">
         <div class="card-top">
           <div class="short-code">${o.short_code||'—'}</div>
           <div class="order-meta">
             <strong>${deliveryLabel(o.delivery_type, o.table_id)}</strong><br>
-            ${o.customer_name ? o.customer_name+' · ' : ''}${o.customer_id}<br>
+            ${o.customer_name ? o.customer_name+' · ' : ''}${o.customer_id || 'Khách vãng lai'}<br>
+            ${o.customer_stamps ? `<span style="color: var(--gold); font-weight: bold; font-size: 0.72rem;">${o.customer_stamps}</span><br>` : ''}
             ${o.timestamp}<span class="status-chip s-${o.status}">${o.status}</span>
           </div>
         </div>
         <div class="card-body">
           <div class="items-summary">${o.items_summary||'(không có chi tiết)'}</div>
-          <div class="total-row"><span class="total-amount">${fmt(o.total)}</span>${payBadge}</div>
+          ${notesHtml}
+          <div class="total-row">
+            <span class="total-amount">${fmt(o.total)}</span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              ${o.use_free_drink ? `<span style="background: rgba(76,175,80,.18); color: #81C784; font-size: .7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px;">🎁 Ly Miễn Phí</span>` : ''}
+              ${payBadge}
+            </div>
+          </div>
         </div>
         ${footer}
       </div>`;

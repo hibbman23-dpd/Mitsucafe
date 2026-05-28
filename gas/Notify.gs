@@ -107,15 +107,30 @@ function buildZaloStatusMessage(order, status) {
 }
 
 /** Thông báo stamp update — Tier 2 */
-function notifyStampUpdate(customerId, newCount, totalEver) {
+function notifyStampUpdate(customerId, stampsEarned, newCount, totalEver, freeDrinksBalance) {
   var remaining = 10 - newCount;
-  var msg;
-  if (newCount === 0) {
-    msg = '✅ 1 ly miễn phí đã dùng. Tem bắt đầu từ 0. Cảm ơn! ❤️';
-  } else if (newCount >= 10) {
-    msg = '🎉 Đủ 10 tem rồi! Lần sau ghé nhắc nhân viên để lấy 1 ly free nhé!';
+  var msg = '🐸 [KaeruKàphê] Tích điểm thành công!\n' +
+            '• Đơn này tích lũy: ' + stampsEarned + ' tem\n' +
+            '• Số tem hiện tại: ' + newCount + '/10 🎟️\n' +
+            '• Số ly nước thưởng đang có: ' + freeDrinksBalance + ' 🎁\n';
+  if (freeDrinksBalance > 0) {
+    msg += '👉 Hãy chọn "Đổi ly nước miễn phí" trong lần đặt đơn tới nhé!';
   } else {
-    msg = '☕ Vừa tích 1 tem! ' + newCount + '/10 🎟️ · Còn ' + remaining + ' tem nữa là free!';
+    msg += '👉 Còn ' + remaining + ' tem nữa để nhận 1 ly nước miễn phí!';
   }
+  
+  // Gửi Zalo OA
   sendZaloNotify(customerId, msg);
+
+  // Gửi Telegram alert để chủ quán theo dõi
+  try {
+    var tgMsg = '🐸 <b>TÍCH ĐIỂM THÀNH VIÊN</b>\n' +
+                'Khách hàng: <code>' + customerId + '</code>\n' +
+                '• Đơn này tích lũy: <b>+' + stampsEarned + '</b> tem\n' +
+                '• Số tem hiện tại: <b>' + newCount + '/10</b> 🎟️\n' +
+                '• Số ly nước thưởng: <b>' + freeDrinksBalance + '</b> 🎁';
+    sendTelegramAlert(tgMsg);
+  } catch (tgErr) {
+    Logger.log('Telegram loyalty alert error: ' + tgErr);
+  }
 }

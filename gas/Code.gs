@@ -124,6 +124,13 @@ function doGet(e) {
       return _jsonResponse({ ok: true, promo: promo });
     }
 
+    if (action === 'customer_info') {
+      var phone = e.parameter.phone;
+      if (!phone) return _jsonResponse({ ok: false, error: 'phone required' });
+      var info = getCustomerInfo(phone);
+      return _jsonResponse({ ok: true, customer: info });
+    }
+
     if (action === 'set_promo') {
       var active = e.parameter.active === 'true';
       var duration = e.parameter.duration || '60'; // minutes or 'end_of_day'

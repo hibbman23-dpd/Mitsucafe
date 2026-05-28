@@ -53,6 +53,17 @@ let paymentMethod = 'bank_transfer'; // 'bank_transfer' | 'cash'
 let activePromo  = null;      // {active, percent, start, end, message}
 let promoTimer   = null;
 
+let checkoutFormState = {
+  phone: '',
+  name: '',
+  address: '',
+  table: '',
+  notes: '',
+  useFreeDrink: false
+};
+let customerLoyalty = null;
+let loadingLoyalty = false;
+
 // Backup original prices first
 MENU_DATA.forEach(item => {
   item.price_m_old = item.price_m;
@@ -66,7 +77,14 @@ function loadCart() {
 }
 function saveCart()  { localStorage.setItem('lhk_cart', JSON.stringify(cart)); }
 function clearCart() { cart = []; saveCart(); }
-function cartTotal() { return cart.reduce((s, i) => s + i.subtotal, 0); }
+function cartTotal() {
+  const subtotal = cart.reduce((s, i) => s + i.subtotal, 0);
+  if (screen === 'checkout') {
+    const discount = getCartDiscount().amount;
+    return Math.max(0, subtotal - discount);
+  }
+  return subtotal;
+}
 function cartCount() { return cart.reduce((s, i) => s + i.qty, 0); }
 
 function addToCart(item, qty, price, modifiers) {
@@ -373,9 +391,18 @@ function renderCartSheet() {
 
 // ─── SCREEN: CHECKOUT ─────────────────────────────────────────────────────────
 function renderCheckoutScreen() {
-  const saved = JSON.parse(localStorage.getItem('lhk_user') || '{}');
   const tableLabel = tableId ? `Bàn ${tableId.padStart(2,'0')}` : 'Mang đi';
   const isDelivery = deliveryMode === 'delivery';
+  const phoneLabel = isDelivery ? 'Số điện thoại <span class="req">*</span>' : 'Số điện thoại <span class="form-label-hint">(tích tem đổi ly miễn phí)</span>';
+
+  const subtotal = cart.reduce((s, i) => s + i.subtotal, 0);
+  const discount = getCartDiscount();
+  const discountRow = discount.amount > 0 ? `
+    <div class="summary-row promo-row" style="color: var(--coral); font-weight: 600;">
+      <span>🎁 Ly nước miễn phí (Giảm)</span>
+      <span>-${fmt(discount.amount)}</span>
+    </div>
+  ` : '';
 
   return `
     <header class="app-header">
@@ -386,15 +413,16 @@ function renderCheckoutScreen() {
     <main class="checkout-form">
 
       <div class="form-section">
-        <label class="form-label">Số điện thoại <span class="req">*</span></label>
+        <label class="form-label" id="lbl-phone">${phoneLabel}</label>
         <input class="form-input" id="inp-phone" type="tel" placeholder="09xx xxx xxx" inputmode="numeric"
-               value="${saved.phone || ''}">
+               value="${checkoutFormState.phone}">
+        ${renderLoyaltySection()}
       </div>
 
       <div class="form-section">
         <label class="form-label">Tên khách <span class="form-label-hint">(không bắt buộc)</span></label>
         <input class="form-input" id="inp-name" type="text" placeholder="Ví dụ: Minh" autocomplete="name"
-               value="${saved.name || ''}">
+               value="${checkoutFormState.name}">
       </div>
 
       <div class="form-section">
@@ -416,14 +444,16 @@ function renderCheckoutScreen() {
         <label class="form-label">Địa chỉ giao hàng <span class="req">*</span></label>
         <input class="form-input" id="inp-address" type="text"
                placeholder="Số nhà, tên đường..."
-               autocomplete="street-address">
+               autocomplete="street-address"
+               value="${checkoutFormState.address}">
         <div class="address-region-hint">📍 Khu vực giao: <strong>Lâm Hà, Lâm Đồng</strong></div>
       </div>` : (tableId ? '' : `
       <div class="form-section table-row">
         <span class="form-label">Số bàn</span>
         <span class="table-chip-lg">${tableLabel}</span>
         <input class="form-input table-input" id="inp-table" type="text"
-               placeholder="Nhập số bàn (01, 02...)" maxlength="2" inputmode="numeric">
+               placeholder="Nhập số bàn (01, 02...)" maxlength="2" inputmode="numeric"
+               value="${checkoutFormState.table}">
       </div>`)}
 
       <div class="form-section">
@@ -442,7 +472,8 @@ function renderCheckoutScreen() {
 
       <div class="form-section">
         <label class="form-label">Ghi chú</label>
-        <input class="form-input" id="inp-notes" type="text" placeholder="Ít ngọt, không đá, không hành...">
+        <input class="form-input" id="inp-notes" type="text" placeholder="Ít ngọt, không đá, không hành..."
+               value="${checkoutFormState.notes}">
       </div>
 
       <div class="order-summary">
@@ -452,6 +483,7 @@ function renderCheckoutScreen() {
             <span>${ci.name} × ${ci.qty}</span>
             <span>${fmt(ci.subtotal)}</span>
           </div>`).join('')}
+        ${discountRow}
         <div class="summary-total">
           <span>Tổng</span>
           <strong>${fmt(cartTotal())}</strong>
@@ -713,15 +745,28 @@ async function submitOrder() {
 
   // Validate
   const errEl = document.getElementById('submit-error');
-  if (phone.length < 9) { showErr(errEl, 'Vui lòng nhập số điện thoại hợp lệ.'); return; }
+  if (isDelivery && !phone) {
+    showErr(errEl, 'Vui lòng nhập số điện thoại để giao hàng.');
+    return;
+  }
+  if (phone && phone.length < 9) {
+    showErr(errEl, 'Vui lòng nhập số điện thoại hợp lệ.');
+    return;
+  }
+  if (checkoutFormState.useFreeDrink && !phone) {
+    showErr(errEl, 'Vui lòng nhập số điện thoại để sử dụng ly nước miễn phí.');
+    return;
+  }
   if (isDelivery && !address) { showErr(errEl, 'Vui lòng nhập địa chỉ giao hàng.'); return; }
   if (cart.length === 0) { showErr(errEl, 'Giỏ hàng trống.'); return; }
 
   errEl.style.display = 'none';
 
   // Save user info
-  const normPhone = phone.startsWith('0') ? phone : '0' + phone;
-  localStorage.setItem('lhk_user', JSON.stringify({ name, phone: normPhone }));
+  const normPhone = phone ? (phone.startsWith('0') ? phone : '0' + phone) : '';
+  if (normPhone) {
+    localStorage.setItem('lhk_user', JSON.stringify({ name, phone: normPhone }));
+  }
 
   const total = cartTotal();
   const items = cart.map(ci => ({
@@ -737,7 +782,7 @@ async function submitOrder() {
     channel: 'web', utm_source: utmSource,
     table_id: isDelivery ? null : tbl,
     customer_name: name || null,
-    customer_id: normPhone,
+    customer_id: normPhone || null,
     items, total,
     payment: { method: paymentMethod, total, status: 'PENDING' },
     metadata: {
@@ -746,6 +791,7 @@ async function submitOrder() {
       category_type: 'beverage',
       notes,
       short_code: shortCode,
+      use_free_drink: checkoutFormState.useFreeDrink,
       ...(isDelivery && { delivery_address: address }),
     },
   };
@@ -862,7 +908,7 @@ document.addEventListener('click', e => {
       // Kiểm tra xem đã có bánh trong giỏ chưa — nếu có rồi thì vào checkout luôn
       if (cart.some(c => MENU_DATA.find(m => m.sku === c.sku)?.subcategory === 'pastry')) {
         sheet = null;
-        screen = 'checkout';
+        enterCheckout();
       } else {
         sheet = 'upsell';
       }
@@ -885,6 +931,8 @@ document.addEventListener('click', e => {
       submitting   = false;
       deliveryMode = 'pickup';
       paymentMethod = 'bank_transfer';
+      customerLoyalty = null;
+      checkoutFormState.useFreeDrink = false;
       render();
       break;
 
@@ -897,7 +945,7 @@ document.addEventListener('click', e => {
     case 'upsell-checkout':
       // Nút "Tiếp tục thanh toán" → đi thẳng đến checkout
       sheet = null;
-      screen = 'checkout';
+      enterCheckout();
       render();
       break;
 
@@ -929,6 +977,211 @@ document.addEventListener('click', e => {
 // Close sheet on Escape key
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && sheet) closeSheet();
+});
+
+// ─── LOYALTY CARD & INPUT BINDINGS ───────────────────────────────────────────
+function initCheckoutState() {
+  const saved = JSON.parse(localStorage.getItem('lhk_user') || '{}');
+  checkoutFormState = {
+    phone: saved.phone || '',
+    name: saved.name || '',
+    address: '',
+    table: '',
+    notes: '',
+    useFreeDrink: false
+  };
+  customerLoyalty = null;
+  loadingLoyalty = false;
+}
+
+function enterCheckout() {
+  initCheckoutState();
+  if (checkoutFormState.phone) {
+    fetchLoyaltyInfo(checkoutFormState.phone);
+  }
+}
+
+async function fetchLoyaltyInfo(phone) {
+  const norm = phone.replace(/\D/g, '');
+  if (norm.length < 9 || norm.length > 11) {
+    customerLoyalty = null;
+    render();
+    return;
+  }
+
+  loadingLoyalty = true;
+  render();
+
+  try {
+    const res = await fetch(`${GAS_URL}?action=customer_info&phone=${encodeURIComponent(norm)}`);
+    if (!res.ok) throw new Error('Fetch failed');
+    const data = await res.json();
+    if (data.ok && data.customer) {
+      customerLoyalty = data.customer;
+    } else {
+      customerLoyalty = null;
+    }
+  } catch (err) {
+    console.error('Error fetching loyalty info:', err);
+    customerLoyalty = null;
+  } finally {
+    loadingLoyalty = false;
+    render();
+  }
+}
+
+function getCartDiscount() {
+  if (!checkoutFormState.useFreeDrink || !customerLoyalty) return { amount: 0, sku: null };
+  const availableRewards = customerLoyalty.free_drinks_earned - customerLoyalty.free_drinks_used;
+  if (availableRewards <= 0) return { amount: 0, sku: null };
+
+  // Find the highest priced drink in the cart
+  let highestDrink = null;
+  cart.forEach(ci => {
+    const sku = (ci.sku || '').toUpperCase();
+    if (sku.indexOf('BK') !== 0) { // Drink items only (no pastry)
+      if (!highestDrink || ci.price > highestDrink.price) {
+        highestDrink = ci;
+      }
+    }
+  });
+
+  if (highestDrink) {
+    return { amount: highestDrink.price, sku: highestDrink.sku };
+  }
+  return { amount: 0, sku: null };
+}
+
+const STAMP_STICKERS = [
+  'img/stk-quyet-tam.webp',
+  'img/stk-vui-ve.webp',
+  'img/stk-ngac-nhien.webp',
+  'img/stk-buon-ngu.webp',
+  'img/stk-tu-hao.webp',
+  'img/stk-tam-biet.webp',
+  'img/stk-quyet-tam.webp',
+  'img/stk-vui-ve.webp',
+  'img/stk-ngac-nhien.webp',
+  'img/stk-tu-hao.webp'
+];
+
+function renderLoyaltySection() {
+  const phone = checkoutFormState.phone.replace(/\D/g, '');
+  if (phone.length < 9) return '';
+
+  if (loadingLoyalty) {
+    return `<div class="loyalty-loading" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 8px; font-style: italic;">Đang tìm thẻ tích tem... 🐸</div>`;
+  }
+
+  const stamps = customerLoyalty ? (customerLoyalty.stamp_count || 0) : 0;
+  const freeEarned = customerLoyalty ? (customerLoyalty.free_drinks_earned || 0) : 0;
+  const freeUsed = customerLoyalty ? (customerLoyalty.free_drinks_used || 0) : 0;
+  const freeAvailable = Math.max(0, freeEarned - freeUsed);
+
+  let gridHtml = '';
+  for (let i = 0; i < 10; i++) {
+    const isActive = i < stamps;
+    if (isActive) {
+      const stickerImg = STAMP_STICKERS[i] || 'img/stk-quyet-tam.webp';
+      gridHtml += `
+        <div class="stamp-slot active" title="Tem ${i+1}">
+          <img src="${stickerImg}" class="stamp-img" alt="🐸">
+        </div>`;
+    } else {
+      gridHtml += `
+        <div class="stamp-slot" title="Ô ${i+1}">
+          <span class="stamp-number">${i+1}</span>
+        </div>`;
+    }
+  }
+
+  const stampsFromCart = cart.reduce((s, ci) => {
+    const sku = (ci.sku || '').toUpperCase();
+    return sku.indexOf('BK') !== 0 ? s + ci.qty : s;
+  }, 0);
+
+  let nextStepText = '';
+  if (stampsFromCart > 0) {
+    const totalAfterOrder = stamps + stampsFromCart;
+    const newRewards = Math.floor(totalAfterOrder / 10);
+    
+    if (newRewards > 0) {
+      nextStepText = `Mua thêm ${stampsFromCart} ly sẽ nhận ngay <strong>${newRewards} ly nước miễn phí</strong>! 🎉`;
+    } else {
+      nextStepText = `Đơn này được cộng <strong>+${stampsFromCart} tem</strong>. Mua ${10 - (totalAfterOrder % 10)} ly nữa để nhận quà! 🎟️`;
+    }
+  } else {
+    nextStepText = `Mua 1 món nước bất kỳ để bắt đầu tích tem đổi quà nhé! ☕`;
+  }
+
+  let rewardBlock = '';
+  if (freeAvailable > 0) {
+    rewardBlock = `
+      <div class="reward-box">
+        <label class="reward-checkbox-container">
+          <input type="checkbox" class="reward-checkbox" id="chk-use-free-drink" ${checkoutFormState.useFreeDrink ? 'checked' : ''}>
+          <div class="reward-text-container">
+            <span class="reward-title">Đổi 1 ly nước miễn phí</span>
+            <span class="reward-desc">Bạn đang có ${freeAvailable} ly thưởng khả dụng</span>
+          </div>
+          <span class="reward-badge-gift">🎁</span>
+        </label>
+      </div>`;
+  }
+
+  return `
+    <div class="loyalty-container">
+      <div class="loyalty-header">
+        <div class="loyalty-title">
+          <span>Thẻ tích tem Kaeru</span>
+          <span>${stamps}/10 🎟️</span>
+        </div>
+        <div class="loyalty-subtitle">${nextStepText}</div>
+      </div>
+      <div class="stamp-grid">
+        ${gridHtml}
+      </div>
+      ${rewardBlock}
+    </div>
+  `;
+}
+
+// Bind input changes to checkoutFormState
+document.addEventListener('input', e => {
+  const id = e.target.id;
+  if (!id) return;
+  if (id === 'inp-phone') {
+    const val = e.target.value.replace(/\D/g, '');
+    checkoutFormState.phone = e.target.value;
+    if (val.length === 10 || (val.length === 9 && !val.startsWith('0'))) {
+      fetchLoyaltyInfo(val);
+    } else if (val.length < 9) {
+      if (customerLoyalty !== null) {
+        customerLoyalty = null;
+        checkoutFormState.useFreeDrink = false;
+        render();
+      }
+    }
+  }
+  if (id === 'inp-name') {
+    checkoutFormState.name = e.target.value;
+  }
+  if (id === 'inp-address') {
+    checkoutFormState.address = e.target.value;
+  }
+  if (id === 'inp-table') {
+    checkoutFormState.table = e.target.value;
+  }
+  if (id === 'inp-notes') {
+    checkoutFormState.notes = e.target.value;
+  }
+});
+
+document.addEventListener('change', e => {
+  if (e.target.id === 'chk-use-free-drink') {
+    checkoutFormState.useFreeDrink = e.target.checked;
+    render();
+  }
 });
 
 // ─── PROMOTION SYSTEM ──────────────────────────────────────────────────────────

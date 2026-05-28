@@ -32,7 +32,31 @@ function validateOrderPayload(p) {
   if (!p.channel) throw new Error('channel required');
 
   var customerId = normalizeCustomerId(p.customer_id);
-  if (!customerId) throw new Error('customer_id required (phone)');
+  var deliveryType = p.metadata && p.metadata.delivery_type || (p.table_id ? 'dine_in' : 'pickup');
+  if (deliveryType === 'delivery' && !customerId) {
+    throw new Error('Số điện thoại là bắt buộc khi giao hàng.');
+  }
+
+  // Validate free drink redemption
+  var useFreeDrink = p.metadata && p.metadata.use_free_drink === true;
+  if (useFreeDrink) {
+    if (!customerId) {
+      throw new Error('Cần có số điện thoại để đổi ly nước miễn phí.');
+    }
+    var info = getCustomerInfo(customerId);
+    var available = info.free_drinks_earned - info.free_drinks_used;
+    if (available <= 0) {
+      throw new Error('Tài khoản của bạn hiện tại không có ly nước miễn phí nào khả dụng.');
+    }
+  }
+
+  var notes = p.metadata && p.metadata.notes || p.notes || '';
+  if (useFreeDrink) {
+    notes = '[🎁 ĐỔI LY MIỄN PHÍ] ' + notes;
+  }
+  if (p.metadata) {
+    p.metadata.notes = notes;
+  }
 
   var subtotal = 0;
   p.items.forEach(function (it) {
@@ -69,10 +93,10 @@ function validateOrderPayload(p) {
     invoice_url: null,
     printed_at: null,
     metadata: p.metadata || {
-      delivery_type: p.table_id ? 'dine_in' : 'pickup',
+      delivery_type: deliveryType,
       business_line: 'kissaten',
       category_type: 'beverage',
-      notes: p.notes || '',
+      notes: notes,
     },
   };
 }
@@ -222,6 +246,8 @@ function _findOrderRow(orderId) {
 }
 
 function _rowToOrder(row) {
+  var notes = row[23] || '';
+  var useFreeDrink = notes.indexOf('[🎁 ĐỔI LY MIỄN PHÍ]') !== -1;
   return {
     order_id: row[0],
     event_id: row[1],
@@ -238,9 +264,10 @@ function _rowToOrder(row) {
     status: row[12],
     customer_name: row[24] || '',
     metadata: {
-      notes: row[23] || '',
+      notes: notes,
       short_code: row[25] || '',
       delivery_type: row[26] || '',
+      use_free_drink: useFreeDrink,
     },
   };
 }
@@ -259,6 +286,14 @@ function markOrderPaid(orderId) {
   sheet.getRange(row.rowIndex, 20).setValue('PAID');       // payment_status col
   sheet.getRange(row.rowIndex, 13).setValue('DELIVERED');  // status col
   sheet.getRange(row.rowIndex, 18).setValue(now);          // delivered_at col
+  
+  try {
+    var order = _rowToOrder(row.data);
+    _creditStampsForOrder(order);
+  } catch (loyErr) {
+    logError('markOrderPaid.loyalty', loyErr);
+  }
+
   try { printThermalReceipt(orderId); } catch (e) { logError('markOrderPaid.print', e); }
   return 'PAID';
 }
@@ -271,6 +306,10 @@ function getTodayOrders() {
   var data = sheet.getDataRange().getValues();
   var today = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
   var orders = [];
+  
+  // Cache customer lookups to optimize performance
+  var customerCache = {};
+
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
     if (!row[0] || String(row[0]).indexOf(today) === -1) continue;
@@ -278,9 +317,42 @@ function getTodayOrders() {
     try {
       var items = JSON.parse(row[9]);
       itemsSummary = items.map(function(it) {
-        return it.name + ' × ' + it.qty;
+        var mods = [];
+        if (it.modifiers) {
+          Object.keys(it.modifiers).forEach(function(k) {
+            mods.push(it.modifiers[k]);
+          });
+        }
+        return it.name + ' × ' + it.qty + (mods.length ? ' (' + mods.join(', ') + ')' : '');
       }).join(', ');
     } catch(_) {}
+
+    var customerPhone = row[8];
+    var stampInfoText = '';
+    if (customerPhone) {
+      var norm = normalizeCustomerId(customerPhone);
+      if (norm) {
+        if (!customerCache[norm]) {
+          try {
+            customerCache[norm] = getCustomerInfo(norm);
+          } catch (e) {
+            customerCache[norm] = null;
+          }
+        }
+        var info = customerCache[norm];
+        if (info) {
+          stampInfoText = info.stamp_count + '/10 🎟️';
+          var freeLeft = info.free_drinks_earned - info.free_drinks_used;
+          if (freeLeft > 0) {
+            stampInfoText += ' (' + freeLeft + ' ly free)';
+          }
+        }
+      }
+    }
+
+    var notes = row[23] || '';
+    var useFreeDrink = notes.indexOf('[🎁 ĐỔI LY MIỄN PHÍ]') !== -1;
+
     orders.push({
       order_id:       row[0],
       short_code:     row[25] || '',
@@ -293,8 +365,174 @@ function getTodayOrders() {
       payment_status: row[19],
       delivery_type:  row[26] || 'pickup',
       items_summary:  itemsSummary,
+      notes:          notes,
+      use_free_drink: useFreeDrink,
+      customer_stamps: stampInfoText,
     });
   }
   orders.reverse();
   return orders;
+}
+
+function getCustomerInfo(phone) {
+  var normPhone = normalizeCustomerId(phone);
+  if (!normPhone) return null;
+  
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('CUSTOMERS');
+  if (!sheet) return {
+    customer_id: normPhone,
+    name: '',
+    phone: phone,
+    stamp_count: 0,
+    stamp_total_ever: 0,
+    free_drinks_earned: 0,
+    free_drinks_used: 0,
+  };
+  
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (normalizeCustomerId(row[0]) === normPhone || normalizeCustomerId(row[2]) === normPhone) {
+      return {
+        customer_id: row[0] || normPhone,
+        name: row[1] || '',
+        phone: row[2] || phone,
+        zalo_id: row[3] || '',
+        stamp_count: parseInt(row[8]) || 0,
+        stamp_total_ever: parseInt(row[9]) || 0,
+        free_drinks_earned: parseInt(row[10]) || 0,
+        free_drinks_used: parseInt(row[11]) || 0,
+        notes: row[12] || '',
+      };
+    }
+  }
+  
+  return {
+    customer_id: normPhone,
+    name: '',
+    phone: phone,
+    stamp_count: 0,
+    stamp_total_ever: 0,
+    free_drinks_earned: 0,
+    free_drinks_used: 0,
+  };
+}
+
+function _creditStampsForOrder(order) {
+  var phone = order.customer_id;
+  var normPhone = normalizeCustomerId(phone);
+  if (!normPhone) {
+    Logger.log('No valid phone number for order ' + order.order_id + ', skipping loyalty points.');
+    return;
+  }
+
+  // 1. Đếm số lượng ly nước trong đơn (bỏ qua bánh - SKU bắt đầu bằng BK)
+  var stampsEarned = 0;
+  if (order.items && order.items.length) {
+    order.items.forEach(function (item) {
+      var sku = (item.sku || '').toUpperCase();
+      if (sku.indexOf('BK') !== 0) {
+        stampsEarned += parseInt(item.qty) || 0;
+      }
+    });
+  }
+
+  if (stampsEarned === 0 && !order.metadata.use_free_drink) {
+    Logger.log('No eligible drink items and no free drink usage for order ' + order.order_id);
+    return;
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('CUSTOMERS');
+  if (!sheet) {
+    throw new Error('CUSTOMERS sheet is missing');
+  }
+
+  var data = sheet.getDataRange().getValues();
+  var customerRowIndex = -1;
+  var cust = {
+    customer_id: normPhone,
+    name: order.customer_name || '',
+    phone: normPhone,
+    zalo_id: '',
+    first_order: order.timestamp,
+    last_order: order.timestamp,
+    total_orders: 1,
+    total_spent: order.total,
+    stamp_count: 0,
+    stamp_total_ever: 0,
+    free_drinks_earned: 0,
+    free_drinks_used: 0,
+    notes: '',
+  };
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (normalizeCustomerId(row[0]) === normPhone || normalizeCustomerId(row[2]) === normPhone) {
+      customerRowIndex = i + 1;
+      cust.customer_id = row[0] || normPhone;
+      cust.name = row[1] || order.customer_name || cust.name;
+      cust.phone = row[2] || normPhone;
+      cust.zalo_id = row[3] || '';
+      cust.first_order = row[4] || order.timestamp;
+      cust.last_order = order.timestamp;
+      cust.total_orders = (parseInt(row[6]) || 0) + 1;
+      cust.total_spent = (parseFloat(row[7]) || 0) + order.total;
+      cust.stamp_count = parseInt(row[8]) || 0;
+      cust.stamp_total_ever = parseInt(row[9]) || 0;
+      cust.free_drinks_earned = parseInt(row[10]) || 0;
+      cust.free_drinks_used = parseInt(row[11]) || 0;
+      cust.notes = row[12] || '';
+      break;
+    }
+  }
+
+  // 2. Cập nhật tem và ly miễn phí
+  var usedFreeDrink = false;
+  if (order.metadata.use_free_drink) {
+    var availableFree = cust.free_drinks_earned - cust.free_drinks_used;
+    if (availableFree > 0) {
+      cust.free_drinks_used += 1;
+      usedFreeDrink = true;
+    } else {
+      logError('loyalty.use_free_drink', new Error('Customer ' + normPhone + ' tried to use free drink but had none available.'));
+    }
+  }
+
+  cust.stamp_count += stampsEarned;
+  cust.stamp_total_ever += stampsEarned;
+
+  if (cust.stamp_count >= 10) {
+    var newEarned = Math.floor(cust.stamp_count / 10);
+    cust.free_drinks_earned += newEarned;
+    cust.stamp_count = cust.stamp_count % 10;
+  }
+
+  var rowData = [
+    cust.customer_id,
+    cust.name,
+    cust.phone,
+    cust.zalo_id,
+    cust.first_order,
+    cust.last_order,
+    cust.total_orders,
+    cust.total_spent,
+    cust.stamp_count,
+    cust.stamp_total_ever,
+    cust.free_drinks_earned,
+    cust.free_drinks_used,
+    cust.notes,
+  ];
+
+  if (customerRowIndex !== -1) {
+    sheet.getRange(customerRowIndex, 1, 1, rowData.length).setValues([rowData]);
+  } else {
+    sheet.appendRow(rowData);
+  }
+
+  try {
+    notifyStampUpdate(normPhone, stampsEarned, cust.stamp_count, cust.stamp_total_ever, cust.free_drinks_earned - cust.free_drinks_used);
+  } catch (notifErr) {
+    logError('loyalty.notify', notifErr);
+  }
 }
