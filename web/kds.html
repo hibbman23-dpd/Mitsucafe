@@ -234,6 +234,35 @@
 
     /* ── HIDDEN UTIL ── */
     .hidden { display: none !important; }
+
+    /* ── CUSTOM OPTIONS ── */
+    .opt-group  { margin-bottom: 16px; padding: 0 18px; }
+    .opt-label  {
+      font-size: .75rem; font-weight: 600; letter-spacing: .08em;
+      color: var(--muted); text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .opt-chips  { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kds-chip {
+      padding: 6px 14px; border-radius: 20px;
+      border: 1px solid var(--border);
+      font-size: .82rem; color: var(--cream);
+      background: var(--bg);
+      cursor: pointer;
+      transition: all .12s;
+    }
+    .kds-chip.active {
+      border-color: var(--coral);
+      background: rgba(235,98,74,0.22);
+      color: #fff;
+    }
+    .price-old {
+      text-decoration: line-through;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-right: 6px;
+      opacity: 0.65;
+    }
   </style>
 </head>
 <body>
@@ -323,23 +352,19 @@
   <div class="cart-bar-right">Gửi đơn →</div>
 </div>
 
-<!-- ════════ OVERLAY: SIZE PICKER ════════ -->
+<!-- ════════ OVERLAY: CUSTOM PICKER ════════ -->
 <div class="overlay-bg hidden" id="size-overlay" onclick="closeSizeSheet(event)">
   <div class="bottom-sheet" id="size-sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-head">
-      <div class="sheet-title" id="size-item-name">Chọn size</div>
+      <div class="sheet-title" id="size-item-name">Tùy chỉnh món</div>
       <button class="btn-close" onclick="closeSizeSheet()">✕</button>
     </div>
-    <div class="size-btns">
-      <div class="size-btn" onclick="confirmSize('M')">
-        <span class="size-label">M</span>
-        <span class="size-price" id="price-m">—</span>
-      </div>
-      <div class="size-btn" onclick="confirmSize('L')">
-        <span class="size-label">L</span>
-        <span class="size-price" id="price-l">—</span>
-      </div>
+    <div class="sheet-body" id="custom-sheet-body" style="padding: 16px 0; overflow-y: auto; max-height: 50vh;">
+      <!-- Dynamic options injected here -->
+    </div>
+    <div class="sheet-footer" style="padding: 16px; border-top: 1px solid var(--border); display: flex; gap: 12px;">
+      <button class="btn-submit-order" id="btn-add-custom-cart" onclick="confirmCustomOrder()" style="flex: 1; padding: 12px; font-weight: 700; border-radius: 8px; background: var(--coral); color: white; cursor: pointer; border: none;">Thêm vào giỏ</button>
     </div>
   </div>
 </div>
@@ -421,13 +446,41 @@ let activeView   = 'orders';
 let activeCat    = 'all';
 let ttsReady     = false;
 
-let staffCart    = [];   // [{sku, name, qty, price, size, subtotal}]
-let pendingItem  = null; // item waiting for size selection
+// Backup original prices first
+MENU_DATA.forEach(item => {
+  item.price_m_old = item.price_m;
+  if (item.price_l) item.price_l_old = item.price_l;
+});
+
+let activePromo  = null;
+let staffCart    = [];   // [{sku, name, qty, price, modifiers, subtotal}]
+let pendingItem  = null; // item waiting for customizations
+let pendingOpts  = {
+  size: null,
+  sugar: null,
+  ice: null,
+  toppings: []
+};
 let orderMode    = 'dine_in';
 let selectedTable = '';
 
 let selectedDuration = '60'; // Default 1 hour
 let promoInterval = null;
+
+const ICE_LABEL   = { full: 'Nhiều đá', less: 'Ít đá', none: 'Không đá', blended: 'Xay' };
+const SUGAR_LABEL = { '0%':'Không ngọt','30%':'Ít ngọt','50%':'Vừa','70%':'Ngọt','100%':'Rất ngọt' };
+
+function applyPromo5Percent(active) {
+  MENU_DATA.forEach(item => {
+    if (active) {
+      item.price_m = Math.round(item.price_m_old * 0.95);
+      if (item.price_l_old) item.price_l = Math.round(item.price_l_old * 0.95);
+    } else {
+      item.price_m = item.price_m_old;
+      if (item.price_l_old) item.price_l = item.price_l_old;
+    }
+  });
+}
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 function fmt(n) { return Number(n).toLocaleString('vi-VN') + 'đ'; }
@@ -494,7 +547,10 @@ async function loadPromoStatus() {
     const res = await fetch(`${GAS_URL}?action=promo_info`);
     const data = await res.json();
     if (data.ok) {
+      activePromo = data.promo;
       updatePromoUI(data.promo);
+      applyPromo5Percent(data.promo && data.promo.active);
+      renderMenuGrid();
     }
   } catch (err) {
     document.getElementById('promo-status-text').textContent = '⚠️ Lỗi kết nối';
@@ -565,7 +621,10 @@ async function activatePromo() {
     const res = await fetch(url);
     const data = await res.json();
     if (data.ok) {
+      activePromo = data.promo;
       updatePromoUI(data.promo);
+      applyPromo5Percent(data.promo && data.promo.active);
+      renderMenuGrid();
       alert('Đã kích hoạt chương trình giảm giá 5%!');
     }
   } catch (err) {
@@ -585,7 +644,10 @@ async function deactivatePromo() {
     const res = await fetch(url);
     const data = await res.json();
     if (data.ok) {
+      activePromo = data.promo;
       updatePromoUI(data.promo);
+      applyPromo5Percent(data.promo && data.promo.active);
+      renderMenuGrid();
       alert('Đã tắt chương trình khuyến mãi!');
     }
   } catch (err) {
@@ -725,25 +787,147 @@ function renderMenuGrid() {
   }).join('') || '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🌿</div>Không có món nào.</div>';
 }
 
-// ─── SIZE PICKER ─────────────────────────────────────────────────────────────
+// ─── CUSTOM PICKER ────────────────────────────────────────────────────────────
 function tapMenuItem(sku) {
   const item = MENU_DATA.find(m => m.sku === sku);
   if (!item) return;
-  if (item.price_l) {
+  
+  const c = item.customizations || {};
+  const hasOpts = item.price_l || (c.sugar && c.sugar.length) || (c.ice && c.ice.length) || (c.toppings && c.toppings.length);
+  
+  if (hasOpts) {
     pendingItem = item;
+    pendingOpts = {
+      size: item.price_l ? 'M' : null,
+      sugar: c.sugar && c.sugar.length ? c.sugar[Math.floor(c.sugar.length / 2)] : null,
+      ice: c.ice && c.ice.length ? c.ice[0] : null,
+      toppings: []
+    };
+    
     document.getElementById('size-item-name').textContent = item.name;
-    document.getElementById('price-m').textContent = fmt(item.price_m) + ' (M)';
-    document.getElementById('price-l').textContent = fmt(item.price_l) + ' (L)';
     document.getElementById('size-overlay').classList.remove('hidden');
+    renderCustomOptions();
   } else {
-    addToStaffCart(item, 'M', item.price_m);
+    addToStaffCart(item, {}, item.price_m);
   }
 }
 
-function confirmSize(size) {
+function selectPendingOpt(key, val) {
+  pendingOpts[key] = val;
+  renderCustomOptions();
+}
+
+function togglePendingTopping(id, name, price) {
+  const idx = pendingOpts.toppings.findIndex(x => x.id === id);
+  if (idx >= 0) {
+    pendingOpts.toppings.splice(idx, 1);
+  } else {
+    pendingOpts.toppings.push({ id, name, price });
+  }
+  renderCustomOptions();
+}
+
+function renderCustomOptions() {
+  const item = pendingItem;
+  if (!item) return;
+  const c = item.customizations || {};
+  
+  let html = '';
+  
+  // 1. Size
+  if (item.price_l) {
+    html += `
+      <div class="opt-group">
+        <div class="opt-label">Kích thước (Size)</div>
+        <div class="opt-chips">
+          <button class="kds-chip${pendingOpts.size === 'M' ? ' active' : ''}" onclick="selectPendingOpt('size', 'M')">
+            M — ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_m_old)}</span>` : ''}${fmt(item.price_m)}
+          </button>
+          <button class="kds-chip${pendingOpts.size === 'L' ? ' active' : ''}" onclick="selectPendingOpt('size', 'L')">
+            L — ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_l_old)}</span>` : ''}${fmt(item.price_l)}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+  
+  // 2. Sugar
+  if (c.sugar && c.sugar.length) {
+    html += `
+      <div class="opt-group">
+        <div class="opt-label">Đường</div>
+        <div class="opt-chips">
+          ${c.sugar.map(val => `
+            <button class="kds-chip${pendingOpts.sugar === val ? ' active' : ''}" onclick="selectPendingOpt('sugar', '${val}')">
+              ${SUGAR_LABEL[val] || val}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  // 3. Ice
+  if (c.ice && c.ice.length && !c.ice.includes('blended')) {
+    html += `
+      <div class="opt-group">
+        <div class="opt-label">Đá</div>
+        <div class="opt-chips">
+          ${c.ice.map(val => `
+            <button class="kds-chip${pendingOpts.ice === val ? ' active' : ''}" onclick="selectPendingOpt('ice', '${val}')">
+              ${ICE_LABEL[val] || val}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  // 4. Toppings
+  if (c.toppings && c.toppings.length) {
+    html += `
+      <div class="opt-group">
+        <div class="opt-label">Toppings</div>
+        <div class="opt-chips">
+          ${c.toppings.map(t => {
+            const active = pendingOpts.toppings.some(x => x.id === t.id);
+            return `
+              <button class="kds-chip${active ? ' active' : ''}" onclick="togglePendingTopping('${t.id}', '${t.name}', ${t.price})">
+                ${t.name} (+${fmt(t.price)})
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+  
+  document.getElementById('custom-sheet-body').innerHTML = html;
+  
+  const basePrice = (pendingOpts.size === 'L' && item.price_l) ? item.price_l : item.price_m;
+  const toppingsPrice = pendingOpts.toppings.reduce((sum, t) => sum + t.price, 0);
+  const totalPrice = basePrice + toppingsPrice;
+  
+  document.getElementById('btn-add-custom-cart').textContent = `Thêm vào giỏ · ${fmt(totalPrice)}`;
+}
+
+function confirmCustomOrder() {
   if (!pendingItem) return;
-  const price = size === 'L' ? pendingItem.price_l : pendingItem.price_m;
-  addToStaffCart(pendingItem, size, price);
+  const item = pendingItem;
+  
+  const basePrice = (pendingOpts.size === 'L' && item.price_l) ? item.price_l : item.price_m;
+  const toppingsPrice = pendingOpts.toppings.reduce((sum, t) => sum + t.price, 0);
+  const totalPrice = basePrice + toppingsPrice;
+  
+  const modifiers = {};
+  if (pendingOpts.size) modifiers.size = pendingOpts.size;
+  if (pendingOpts.sugar) modifiers.sugar = pendingOpts.sugar;
+  if (pendingOpts.ice) modifiers.ice = pendingOpts.ice;
+  if (pendingOpts.toppings && pendingOpts.toppings.length) {
+    modifiers.toppings = pendingOpts.toppings.map(t => t.name).join(', ');
+  }
+  
+  addToStaffCart(item, modifiers, totalPrice);
   closeSizeSheet();
 }
 
@@ -754,11 +938,11 @@ function closeSizeSheet(e) {
 }
 
 // ─── STAFF CART ───────────────────────────────────────────────────────────────
-function addToStaffCart(item, size, price) {
-  const key = item.sku + '_' + size;
+function addToStaffCart(item, modifiers, price) {
+  const key = item.sku + '_' + JSON.stringify(modifiers);
   const ex  = staffCart.find(c => c._key === key);
   if (ex) { ex.qty++; ex.subtotal = ex.qty * ex.price; }
-  else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty:1, price, size, subtotal:price });
+  else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty:1, price, modifiers, subtotal:price });
   updateCartBar();
   renderMenuGrid();
 }
@@ -812,18 +996,28 @@ function closeCartSheet(e) {
 function renderCartItems() {
   const list = document.getElementById('cart-items-list');
   if (!staffCart.length) { list.innerHTML = '<div class="empty-state" style="padding:20px 0">Giỏ trống</div>'; return; }
-  list.innerHTML = staffCart.map(ci => `
-    <div class="cart-item-row">
-      <div>
-        <div class="cart-item-name">${ci.name}${ci.size ? ` <span class="cart-item-size">(${ci.size})</span>` : ''}</div>
-        <div class="cart-item-price">${fmt(ci.subtotal)}</div>
-      </div>
-      <div class="stepper">
-        <button class="step-btn" onclick="updateCartItemQty('${ci._key}',-1)">−</button>
-        <span class="qty-val">${ci.qty}</span>
-        <button class="step-btn" onclick="updateCartItemQty('${ci._key}',1)">+</button>
-      </div>
-    </div>`).join('');
+  list.innerHTML = staffCart.map(ci => {
+    const sizeStr = ci.modifiers?.size ? ` (${ci.modifiers.size})` : '';
+    const modsList = [];
+    if (ci.modifiers?.sugar) modsList.push(SUGAR_LABEL[ci.modifiers.sugar] || ci.modifiers.sugar);
+    if (ci.modifiers?.ice) modsList.push(ICE_LABEL[ci.modifiers.ice] || ci.modifiers.ice);
+    if (ci.modifiers?.toppings) modsList.push(ci.modifiers.toppings);
+    const modsStr = modsList.length ? `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${modsList.join(', ')}</div>` : '';
+    
+    return `
+      <div class="cart-item-row">
+        <div>
+          <div class="cart-item-name">${ci.name}${sizeStr}</div>
+          ${modsStr}
+          <div class="cart-item-price">${fmt(ci.subtotal)}</div>
+        </div>
+        <div class="stepper">
+          <button class="step-btn" onclick="updateCartItemQty('${ci._key}',-1)">−</button>
+          <span class="qty-val">${ci.qty}</span>
+          <button class="step-btn" onclick="updateCartItemQty('${ci._key}',1)">+</button>
+        </div>
+      </div>`;
+  }).join('');
   document.getElementById('order-form-total').textContent = fmt(cartTotal());
 }
 
@@ -866,7 +1060,7 @@ async function submitStaffOrder() {
     customer_id: normPhone,
     items: staffCart.map(ci => ({
       sku: ci.sku, name: ci.name, qty: ci.qty, price: ci.price,
-      modifiers: ci.size ? { size: ci.size } : {},
+      modifiers: ci.modifiers || {},
     })),
     total,
     payment: { method: 'cash', total, status: 'PENDING' },
@@ -898,6 +1092,7 @@ if (!window.speechSynthesis) document.getElementById('tts-banner').classList.add
 // Build table-grid on load
 renderTableGrid();
 
+loadPromoStatus();
 loadOrders();
 setInterval(loadOrders, POLL_MS);
 </script>
