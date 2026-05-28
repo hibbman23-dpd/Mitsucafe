@@ -1,7 +1,7 @@
 // Service Worker — Lâm Hà Kissaten
 // Cache shell files → offline menu view. POST (đặt hàng) luôn online.
 
-const CACHE = 'lhk-v3';
+const CACHE = 'lhk-v4';
 const SHELL = ['./','./index.html','./style.css','./order.js','./menu-data.js','./manifest.json'];
 
 self.addEventListener('install', e => {

@@ -996,6 +996,7 @@ function initCheckoutState() {
 
 function enterCheckout() {
   initCheckoutState();
+  screen = 'checkout';
   if (checkoutFormState.phone) {
     fetchLoyaltyInfo(checkoutFormState.phone);
   }
