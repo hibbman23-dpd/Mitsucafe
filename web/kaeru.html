@@ -634,14 +634,29 @@
       gap: 7px;
       cursor: pointer;
       width: 115px;
+      z-index: 5;
+      /* Base transform centered around point */
       transform: translate(-50%, -50%);
-      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.65s ease;
     }
-    .circular-stk-item:hover {
-      transform: translate(-50%, -50%) scale(1.1);
+    
+    /* Specific reveal overrides to preserve translate(-50%, -50%) centering */
+    .circular-stk-item.reveal {
+      opacity: 0;
+      transform: translate(-50%, -50%) translateY(22px);
+    }
+    
+    .circular-stk-item.reveal.up {
+      opacity: 1;
+      transform: translate(-50%, -50%) translateY(0);
+    }
+    
+    .circular-stk-item.reveal.up:hover {
+      transform: translate(-50%, -50%) scale(1.06);
       z-index: 15;
     }
-    .circular-stk-item:hover .stk-badge {
+    
+    .circular-stk-item.reveal.up:hover .stk-badge {
       transform: rotate(-3deg);
       box-shadow: 6px 6px 0 rgba(45,95,107,.25);
       border-color: var(--coral);
@@ -1701,9 +1716,9 @@
     s.addEventListener('click', () => {
       const b = s.querySelector('.stk-badge');
       if (b) {
-        b.style.transition = 'transform .12s';
-        b.style.transform = 'scale(.88)';
-        setTimeout(() => { b.style.transform = ''; }, 130);
+        b.style.transition = 'transform .1s cubic-bezier(0.25, 1, 0.5, 1)';
+        b.style.transform = 'scale(.94)';
+        setTimeout(() => { b.style.transform = ''; }, 110);
       }
     });
   });
