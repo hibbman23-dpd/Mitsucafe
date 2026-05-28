@@ -267,16 +267,17 @@ function _jsonResponse(obj) {
 
 function _getPromoInfoInternal() {
   var activeStr = getConfig('PROMO_5PERCENT_ACTIVE') || 'false';
-  var startStr  = getConfig('PROMO_5PERCENT_START') || '';
-  var endStr    = getConfig('PROMO_5PERCENT_END') || '';
+  var startVal  = getConfig('PROMO_5PERCENT_START') || '';
+  var endVal    = getConfig('PROMO_5PERCENT_END') || '';
   var message   = getConfig('PROMO_5PERCENT_MSG') || 'Khuyến mãi đặc biệt: Giảm 5% toàn bộ menu!';
   
-  var active = activeStr === 'true';
+  var active = activeStr === true || String(activeStr).trim().toLowerCase() === 'true';
   var now = new Date();
   
-  if (active && startStr && endStr) {
-    var start = new Date(startStr);
-    var end = new Date(endStr);
+  var start = startVal ? new Date(startVal) : null;
+  var end = endVal ? new Date(endVal) : null;
+  
+  if (active && start && end && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
     if (now < start || now > end) {
       active = false;
     }
@@ -285,8 +286,8 @@ function _getPromoInfoInternal() {
   return {
     active: active,
     percent: 5,
-    start: startStr,
-    end: endStr,
-    message: message
+    start: start && !isNaN(start.getTime()) ? start.toISOString() : String(startVal),
+    end: end && !isNaN(end.getTime()) ? end.toISOString() : String(endVal),
+    message: String(message)
   };
 }
