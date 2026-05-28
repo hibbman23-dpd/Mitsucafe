@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  launchd plist để auto-start Flask print server khi Mac Mini đăng nhập.
+  launchd plist — auto-start Flask print server khi Mac Mini login.
 
-  Cài đặt:
-    1. Sửa <PATH-TO-PROJECT> phía dưới thành đường dẫn thật (ví dụ /Users/dpd/Projects/lamha-kissaten)
-    2. cp com.lamha.kissaten.printserver.plist ~/Library/LaunchAgents/
-    3. launchctl load ~/Library/LaunchAgents/com.lamha.kissaten.printserver.plist
-    4. Test:  curl http://localhost:5000/health
+  Cài đặt (1 lần):
+    cp ~/Projects/lamha-kissaten/print-server/com.lamha.kissaten.printserver.plist \
+       ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.lamha.kissaten.printserver.plist
 
-  Stop:
+  Reload sau khi sửa:
     launchctl unload ~/Library/LaunchAgents/com.lamha.kissaten.printserver.plist
+    launchctl load   ~/Library/LaunchAgents/com.lamha.kissaten.printserver.plist
+
+  SOP nếu USB lỗi (Access denied):
+    launchctl unload ... → launchctl load ...
+    (Nếu vẫn lỗi: rút USB printer → cắm lại → load lại)
 -->
 <plist version="1.0">
 <dict>
@@ -19,33 +23,33 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/python3</string>
-        <string><PATH-TO-PROJECT>/print-server/print_server.py</string>
+        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>/Users/dpd/Projects/lamha-kissaten/print-server/print_server.py</string>
     </array>
 
     <key>EnvironmentVariables</key>
     <dict>
-        <key>PRINTER_IP</key>
-        <string>192.168.1.50</string>
-        <key>PRINTER_PORT</key>
-        <string>9100</string>
-        <key>SERVER_PORT</key>
-        <string>5000</string>
+        <key>RECEIPT_MODE</key><string>usb</string>
+        <key>RECEIPT_USB_VID</key><string>10473</string>
+        <key>RECEIPT_USB_PID</key><string>649</string>
+        <key>LABEL_MODE</key><string>usb</string>
+        <key>LABEL_USB_VID</key><string>8137</string>
+        <key>LABEL_USB_PID</key><string>8214</string>
+        <key>SERVER_PORT</key><string>5001</string>
+        <key>LOG_LEVEL</key><string>INFO</string>
+        <key>DYLD_LIBRARY_PATH</key><string>/opt/homebrew/lib</string>
     </dict>
 
-    <key>RunAtLoad</key>
-    <true/>
-
-    <key>KeepAlive</key>
-    <true/>
+    <key>WorkingDirectory</key>
+    <string>/Users/dpd/Projects/lamha-kissaten/print-server</string>
 
     <key>StandardOutPath</key>
-    <string><PATH-TO-PROJECT>/print-server/logs/stdout.log</string>
+    <string>/tmp/print_server.log</string>
 
     <key>StandardErrorPath</key>
-    <string><PATH-TO-PROJECT>/print-server/logs/stderr.log</string>
+    <string>/tmp/print_server.log</string>
 
-    <key>WorkingDirectory</key>
-    <string><PATH-TO-PROJECT>/print-server</string>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
 </dict>
 </plist>

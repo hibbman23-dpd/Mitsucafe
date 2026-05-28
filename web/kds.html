@@ -251,6 +251,7 @@
 <nav class="main-nav">
   <button class="nav-tab active" id="tab-orders" onclick="switchView('orders')">📋 Đơn hôm nay</button>
   <button class="nav-tab"        id="tab-menu"   onclick="switchView('menu')">➕ Gọi món</button>
+  <button class="nav-tab"        id="tab-promo"  onclick="switchView('promo')">⭐ Khuyến mãi</button>
 </nav>
 
 <!-- ════════ VIEW: ORDERS ════════ -->
@@ -274,6 +275,44 @@
 <div id="view-menu" class="hidden">
   <div class="cat-pills" id="cat-pills"></div>
   <div class="menu-grid" id="menu-grid"></div>
+</div>
+
+<!-- ════════ VIEW: PROMO ════════ -->
+<div id="view-promo" class="hidden" style="padding: 20px 14px;">
+  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; max-width: 600px; margin: 0 auto;">
+    <h2 style="font-size: 1.25rem; margin-bottom: 18px; color: var(--coral); display: flex; align-items: center; gap: 8px;">
+      <span>⭐</span> Cấu hình Khuyến mãi 5% toàn trang web
+    </h2>
+    
+    <div style="margin-bottom: 22px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px;">
+      <div style="font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">Trạng thái hiện tại:</div>
+      <div id="promo-status-text" style="font-size: 1.35rem; font-weight: bold; margin-top: 6px; color: var(--cream);">Đang tải...</div>
+      <div id="promo-timer-text" style="font-size: 1.1rem; color: var(--gold); margin-top: 6px; font-family: monospace; font-weight: 600;"></div>
+    </div>
+
+    <!-- Active Promo Settings -->
+    <div id="promo-settings-panel">
+      <div style="margin-bottom: 18px;">
+        <label class="form-label" style="margin-bottom: 8px; display: block;">Thông điệp hiển thị trên Banner</label>
+        <input class="form-input" id="promo-message-input" type="text" value="Khuyến mãi đặc biệt: Giảm giá 5% cho toàn bộ menu!" style="width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--cream); font-size: 0.9rem;">
+      </div>
+      
+      <div style="margin-bottom: 22px;">
+        <label class="form-label" style="margin-bottom: 8px; display: block;">Thời lượng áp dụng</label>
+        <div class="mode-btns" style="display: flex; gap: 8px;">
+          <div class="mode-btn active" id="duration-60" onclick="setPromoDuration('60')" style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;">1 Giờ</div>
+          <div class="mode-btn"        id="duration-120" onclick="setPromoDuration('120')" style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;">2 Giờ</div>
+          <div class="mode-btn"        id="duration-240" onclick="setPromoDuration('240')" style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;">4 Giờ</div>
+          <div class="mode-btn"        id="duration-day" onclick="setPromoDuration('end_of_day')" style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;">Đến hết ngày</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 10px;">
+        <button class="btn-submit-order" id="btn-activate-promo" onclick="activatePromo()" style="flex: 1; padding: 12px; font-weight: 700; border-radius: 8px; background: var(--coral); color: white; cursor: pointer; border: none;">Kích hoạt KM</button>
+        <button class="btn-submit-order" id="btn-deactivate-promo" onclick="deactivatePromo()" style="flex: 1; padding: 12px; font-weight: 700; border-radius: 8px; background: #4a5568; color: white; cursor: pointer; border: none; display: none;">Tắt khuyến mãi</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- CART BAR (persistent bottom bar khi có món) -->
@@ -387,6 +426,9 @@ let pendingItem  = null; // item waiting for size selection
 let orderMode    = 'dine_in';
 let selectedTable = '';
 
+let selectedDuration = '60'; // Default 1 hour
+let promoInterval = null;
+
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 function fmt(n) { return Number(n).toLocaleString('vi-VN') + 'đ'; }
 function fmtSpeak(amount) { return Math.round(amount / 1000) + ' nghìn'; }
@@ -429,10 +471,128 @@ function switchView(v) {
   activeView = v;
   document.getElementById('view-orders').classList.toggle('hidden', v !== 'orders');
   document.getElementById('view-menu').classList.toggle('hidden',   v !== 'menu');
+  document.getElementById('view-promo').classList.toggle('hidden',  v !== 'promo');
   document.getElementById('tab-orders').classList.toggle('active',  v === 'orders');
   document.getElementById('tab-menu').classList.toggle('active',    v === 'menu');
+  document.getElementById('tab-promo').classList.toggle('active',   v === 'promo');
   updateCartBar();
   if (v === 'menu') renderMenuView();
+  if (v === 'promo') loadPromoStatus();
+}
+
+// ─── PROMOTION CONTROL ────────────────────────────────────────────────────────
+function setPromoDuration(dur) {
+  selectedDuration = dur;
+  document.getElementById('duration-60').classList.toggle('active', dur === '60');
+  document.getElementById('duration-120').classList.toggle('active', dur === '120');
+  document.getElementById('duration-240').classList.toggle('active', dur === '240');
+  document.getElementById('duration-day').classList.toggle('active', dur === 'end_of_day');
+}
+
+async function loadPromoStatus() {
+  try {
+    const res = await fetch(`${GAS_URL}?action=promo_info`);
+    const data = await res.json();
+    if (data.ok) {
+      updatePromoUI(data.promo);
+    }
+  } catch (err) {
+    document.getElementById('promo-status-text').textContent = '⚠️ Lỗi kết nối';
+  }
+}
+
+function updatePromoUI(promo) {
+  const statusTxt = document.getElementById('promo-status-text');
+  const timerTxt = document.getElementById('promo-timer-text');
+  const msgInput = document.getElementById('promo-message-input');
+  const btnActivate = document.getElementById('btn-activate-promo');
+  const btnDeactivate = document.getElementById('btn-deactivate-promo');
+
+  if (promoInterval) clearInterval(promoInterval);
+
+  if (promo && promo.active) {
+    statusTxt.textContent = '🟢 ĐANG HOẠT ĐỘNG (Giảm 5%)';
+    statusTxt.style.color = '#81C784';
+    msgInput.value = promo.message;
+    btnDeactivate.style.display = 'block';
+    btnActivate.textContent = 'Cập nhật tin nhắn KM';
+    
+    // Countdown
+    const endTime = new Date(promo.end).getTime();
+    
+    function updateCountdown() {
+      const now = Date.now();
+      const diff = endTime - now;
+      if (diff <= 0) {
+        timerTxt.textContent = 'Khuyến mãi đã hết hạn';
+        statusTxt.textContent = '🔴 ĐANG TẮT';
+        statusTxt.style.color = 'var(--gold)';
+        btnDeactivate.style.display = 'none';
+        btnActivate.textContent = 'Kích hoạt KM';
+        clearInterval(promoInterval);
+        return;
+      }
+      
+      const hrs = Math.floor(diff / (3600 * 1000));
+      const mins = Math.floor((diff % (3600 * 1000)) / (60 * 1000));
+      const secs = Math.floor((diff % (60 * 1000)) / 1000);
+      
+      let timerStr = 'Thời gian còn lại: ';
+      if (hrs > 0) timerStr += hrs + ' giờ ';
+      timerStr += mins + ' phút ' + secs + ' giây';
+      timerTxt.textContent = timerStr;
+    }
+    
+    updateCountdown();
+    promoInterval = setInterval(updateCountdown, 1000);
+  } else {
+    statusTxt.textContent = '🔴 ĐANG TẮT';
+    statusTxt.style.color = 'var(--gold)';
+    timerTxt.textContent = '';
+    btnDeactivate.style.display = 'none';
+    btnActivate.textContent = 'Kích hoạt KM';
+  }
+}
+
+async function activatePromo() {
+  const btn = document.getElementById('btn-activate-promo');
+  const msg = document.getElementById('promo-message-input').value.trim();
+  btn.disabled = true;
+  btn.textContent = 'Đang kích hoạt...';
+  
+  try {
+    const url = `${GAS_URL}?action=set_promo&active=true&duration=${selectedDuration}&message=${encodeURIComponent(msg)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.ok) {
+      updatePromoUI(data.promo);
+      alert('Đã kích hoạt chương trình giảm giá 5%!');
+    }
+  } catch (err) {
+    alert('Lỗi kết nối — vui lòng thử lại.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deactivatePromo() {
+  const btn = document.getElementById('btn-deactivate-promo');
+  btn.disabled = true;
+  btn.textContent = 'Đang tắt...';
+  
+  try {
+    const url = `${GAS_URL}?action=set_promo&active=false`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.ok) {
+      updatePromoUI(data.promo);
+      alert('Đã tắt chương trình khuyến mãi!');
+    }
+  } catch (err) {
+    alert('Lỗi kết nối — vui lòng thử lại.');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ─── ORDERS VIEW ─────────────────────────────────────────────────────────────

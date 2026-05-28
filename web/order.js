@@ -50,6 +50,15 @@ let submitting   = false;
 let deliveryMode = 'pickup';  // 'pickup' | 'delivery'
 let paymentMethod = 'bank_transfer'; // 'bank_transfer' | 'cash'
 
+let activePromo  = null;      // {active, percent, start, end, message}
+let promoTimer   = null;
+
+// Backup original prices first
+MENU_DATA.forEach(item => {
+  item.price_m_old = item.price_m;
+  if (item.price_l) item.price_l_old = item.price_l;
+});
+
 // ─── CART ─────────────────────────────────────────────────────────────────────
 function loadCart() {
   try { return JSON.parse(localStorage.getItem('lhk_cart') || '[]'); }
@@ -170,8 +179,9 @@ function renderMenuScreen() {
             ${item.name_jp ? `<div class="item-jp">${item.name_jp}</div>` : ''}
             ${item.story   ? `<div class="item-story">${item.story}</div>` : ''}
             <div class="item-price">
+              ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_m_old)}</span>` : ''}
               ${fmt(item.price_m)}
-              ${item.price_l ? ` <span class="price-sep">·</span> ${fmt(item.price_l)}` : ''}
+              ${item.price_l ? ` <span class="price-sep">·</span> ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_l_old)}</span>` : ''}${fmt(item.price_l)}` : ''}
               ${item.price_l ? `<span class="size-hint"> M / L</span>` : ''}
             </div>
           </div>
@@ -214,7 +224,7 @@ function renderItemSheetInner() {
         ${['M','L'].map(s => `
           <button class="chip${selOpts.size===s?' active':''}"
             data-action="opt" data-key="size" data-val="${s}">
-            ${s} — ${fmt(s==='L'?item.price_l:item.price_m)}
+            ${s} — ${activePromo && activePromo.active ? `<span class="price-old" style="margin-right: 4px;">${fmt(s==='L'?item.price_l_old:item.price_m_old)}</span>` : ''}${fmt(s==='L'?item.price_l:item.price_m)}
           </button>`).join('')}
       </div>
     </div>` : '';
@@ -288,7 +298,7 @@ function renderItemSheetInner() {
       </div>
       <div class="sheet-footer">
         <button class="btn-primary" data-action="add-to-cart">
-          Thêm vào giỏ &nbsp;·&nbsp; ${fmt(price * selOpts.qty)}
+          Thêm vào giỏ &nbsp;·&nbsp; ${activePromo && activePromo.active ? `<span class="price-old" style="color: rgba(255,255,255,0.7); text-decoration: line-through; font-size: 0.8rem; margin-right: 6px;">${fmt(((selOpts.size === 'L' && item.price_l_old ? item.price_l_old : item.price_m_old) + (selOpts.toppings || []).reduce((s, t) => s + t.price, 0)) * selOpts.qty)}</span>` : ''}${fmt(price * selOpts.qty)}
         </button>
       </div>`;
 }
@@ -581,19 +591,13 @@ function renderUpsellSheet() {
 // ─── RENDER MAIN ──────────────────────────────────────────────────────────────
 function render() {
   const app = document.getElementById('app');
+  let contentHtml = '';
 
   if (screen === 'checkout') {
-    app.innerHTML = renderCheckoutScreen();
-    return;
-  }
-  if (screen === 'success') {
-    app.innerHTML = renderSuccessScreen();
-    return;
-  }
-
-  // Nếu đang ở màn hình menu và các sheet tương ứng đã có sẵn trên DOM, ta chỉ cần cập nhật nội dung
-  // bên trong (innerHTML) để tránh kích hoạt lại hiệu ứng trượt (transition slide-up) gây giật màn hình.
-  if (screen === 'menu') {
+    contentHtml = renderCheckoutScreen();
+  } else if (screen === 'success') {
+    contentHtml = renderSuccessScreen();
+  } else if (screen === 'menu') {
     const existingItemSheet = document.getElementById('item-sheet');
     const existingCartSheet = document.getElementById('cart-sheet');
     const existingUpsellSheet = document.getElementById('upsell-sheet');
@@ -610,32 +614,46 @@ function render() {
       existingUpsellSheet.innerHTML = renderUpsellSheetInner();
       return;
     }
+
+    contentHtml = renderMenuScreen();
   }
 
-  // menu (default)
-  app.innerHTML = renderMenuScreen();
+  // Prepend promo banner if active
+  if (activePromo && activePromo.active) {
+    const bannerHtml = `
+      <div id="promo-banner" class="promo-banner">
+        <span>📣 ${activePromo.message}</span>
+        <span class="promo-countdown" id="promo-timer">--:--</span>
+      </div>
+    `;
+    app.innerHTML = bannerHtml + contentHtml;
+    updatePromoTimerDisplay();
+  } else {
+    app.innerHTML = contentHtml;
+  }
 
-  if (sheet === 'item' && selItem) {
-    app.insertAdjacentHTML('beforeend', renderItemSheet());
-    // animate in
-    requestAnimationFrame(() => {
-      const el = document.getElementById('item-sheet');
-      if (el) el.classList.add('open');
-    });
-  }
-  if (sheet === 'cart') {
-    app.insertAdjacentHTML('beforeend', renderCartSheet());
-    requestAnimationFrame(() => {
-      const el = document.getElementById('cart-sheet');
-      if (el) el.classList.add('open');
-    });
-  }
-  if (sheet === 'upsell') {
-    app.insertAdjacentHTML('beforeend', renderUpsellSheet());
-    requestAnimationFrame(() => {
-      const el = document.getElementById('upsell-sheet');
-      if (el) el.classList.add('open');
-    });
+  if (screen === 'menu') {
+    if (sheet === 'item' && selItem) {
+      app.insertAdjacentHTML('beforeend', renderItemSheet());
+      requestAnimationFrame(() => {
+        const el = document.getElementById('item-sheet');
+        if (el) el.classList.add('open');
+      });
+    }
+    if (sheet === 'cart') {
+      app.insertAdjacentHTML('beforeend', renderCartSheet());
+      requestAnimationFrame(() => {
+        const el = document.getElementById('cart-sheet');
+        if (el) el.classList.add('open');
+      });
+    }
+    if (sheet === 'upsell') {
+      app.insertAdjacentHTML('beforeend', renderUpsellSheet());
+      requestAnimationFrame(() => {
+        const el = document.getElementById('upsell-sheet');
+        if (el) el.classList.add('open');
+      });
+    }
   }
 }
 
@@ -913,6 +931,127 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && sheet) closeSheet();
 });
 
+// ─── PROMOTION SYSTEM ──────────────────────────────────────────────────────────
+async function checkPromoStatus() {
+  try {
+    const res = await fetch(`${GAS_URL}?action=promo_info`);
+    if (!res.ok) throw new Error('Fetch failed');
+    const data = await res.json();
+    if (data.ok && data.promo) {
+      updatePromoState(data.promo);
+    }
+  } catch (err) {
+    console.warn('Cannot fetch promo status:', err);
+  }
+}
+
+function applyPromo5Percent(active) {
+  MENU_DATA.forEach(item => {
+    if (active) {
+      item.price_m = Math.round(item.price_m_old * 0.95);
+      if (item.price_l_old) item.price_l = Math.round(item.price_l_old * 0.95);
+    } else {
+      item.price_m = item.price_m_old;
+      if (item.price_l_old) item.price_l = item.price_l_old;
+    }
+  });
+}
+
+function recalculateCartItemPrice(c) {
+  const item = MENU_DATA.find(i => i.sku === c.sku);
+  if (!item) return c.price;
+  
+  const size = c.modifiers?.size;
+  const base = (size === 'L' && item.price_l) ? item.price_l : item.price_m;
+  
+  let tops = 0;
+  if (c.modifiers?.toppings) {
+    const toppingNames = c.modifiers.toppings.split(', ').map(s => s.trim());
+    const availableToppings = item.customizations?.toppings || [];
+    toppingNames.forEach(tName => {
+      const topObj = availableToppings.find(t => t.name === tName);
+      if (topObj) {
+        tops += topObj.price;
+      }
+    });
+  }
+  return base + tops;
+}
+
+function syncCartPrices() {
+  cart.forEach(c => {
+    c.price = recalculateCartItemPrice(c);
+    c.subtotal = c.qty * c.price;
+  });
+  saveCart();
+}
+
+function updatePromoTimerDisplay() {
+  if (!activePromo || !activePromo.active) return;
+  const endTime = new Date(activePromo.end).getTime();
+  const now = new Date().getTime();
+  const diff = endTime - now;
+  const timerEl = document.getElementById('promo-timer');
+  const bannerEl = document.getElementById('promo-banner');
+
+  if (diff <= 0) {
+    if (promoTimer) {
+      clearInterval(promoTimer);
+      promoTimer = null;
+    }
+    activePromo.active = false;
+    applyPromo5Percent(false);
+    syncCartPrices();
+    if (bannerEl) bannerEl.classList.add('hidden');
+    render();
+    return;
+  }
+
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+
+  let timeStr = '';
+  if (hours > 0) {
+    timeStr = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  } else {
+    timeStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  if (timerEl) {
+    timerEl.textContent = timeStr;
+    if (diff <= 10 * 60 * 1000) {
+      timerEl.classList.add('urgent');
+    } else {
+      timerEl.classList.remove('urgent');
+    }
+  }
+}
+
+function startPromoCountdown() {
+  if (promoTimer) clearInterval(promoTimer);
+  promoTimer = setInterval(updatePromoTimerDisplay, 1000);
+  updatePromoTimerDisplay();
+}
+
+function updatePromoState(promo) {
+  if (promoTimer) {
+    clearInterval(promoTimer);
+    promoTimer = null;
+  }
+  
+  activePromo = promo;
+  
+  if (activePromo && activePromo.active) {
+    applyPromo5Percent(true);
+    syncCartPrices();
+    startPromoCountdown();
+  } else {
+    applyPromo5Percent(false);
+    syncCartPrices();
+  }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 function init() {
   const params = new URLSearchParams(location.search);
@@ -929,6 +1068,7 @@ function init() {
   }
 
   render();
+  checkPromoStatus().then(() => render());
 }
 
 init();

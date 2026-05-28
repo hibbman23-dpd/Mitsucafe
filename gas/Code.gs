@@ -115,7 +115,42 @@ function doGet(e) {
           story_telling: item.story_telling || '',
         };
       });
-      return _jsonResponse({ ok: true, count: menu.length, items: menu });
+      var promo = _getPromoInfoInternal();
+      return _jsonResponse({ ok: true, count: menu.length, items: menu, promo: promo });
+    }
+
+    if (action === 'promo_info') {
+      var promo = _getPromoInfoInternal();
+      return _jsonResponse({ ok: true, promo: promo });
+    }
+
+    if (action === 'set_promo') {
+      var active = e.parameter.active === 'true';
+      var duration = e.parameter.duration || '60'; // minutes or 'end_of_day'
+      var msg = e.parameter.message || 'Khuyến mãi đặc biệt: Giảm giá 5% cho toàn bộ menu!';
+      
+      if (active) {
+        var start = new Date();
+        var end;
+        if (duration === 'end_of_day') {
+          end = new Date();
+          end.setHours(23, 59, 59, 999);
+        } else {
+          var mins = parseInt(duration, 10) || 60;
+          end = new Date(start.getTime() + mins * 60 * 1000);
+        }
+        setConfig('PROMO_5PERCENT_ACTIVE', 'true');
+        setConfig('PROMO_5PERCENT_START', start.toISOString());
+        setConfig('PROMO_5PERCENT_END', end.toISOString());
+        setConfig('PROMO_5PERCENT_MSG', msg);
+      } else {
+        setConfig('PROMO_5PERCENT_ACTIVE', 'false');
+        setConfig('PROMO_5PERCENT_START', '');
+        setConfig('PROMO_5PERCENT_END', '');
+      }
+      
+      var promo = _getPromoInfoInternal();
+      return _jsonResponse({ ok: true, promo: promo });
     }
 
     return _jsonResponse({
@@ -125,6 +160,8 @@ function doGet(e) {
       endpoints: {
         'POST /': 'Submit order (JSON body — see CLAUDE.md §2)',
         'GET /?action=menu': 'Return active menu items as JSON',
+        'GET /?action=promo_info': 'Get active 5% promo status',
+        'GET /?action=set_promo&active=true&duration=60&message=...': 'Turn on/off 5% promo',
         'GET /?action=orders': 'Today orders for KDS',
         'GET /?action=mark_paid&order_id=ORD-...': 'Mark paid + print receipt',
         'GET /?action=pending_print': 'Pending receipt print jobs (Mac Mini poller)',
@@ -226,4 +263,30 @@ function _jsonResponse(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function _getPromoInfoInternal() {
+  var activeStr = getConfig('PROMO_5PERCENT_ACTIVE') || 'false';
+  var startStr  = getConfig('PROMO_5PERCENT_START') || '';
+  var endStr    = getConfig('PROMO_5PERCENT_END') || '';
+  var message   = getConfig('PROMO_5PERCENT_MSG') || 'Khuyến mãi đặc biệt: Giảm 5% toàn bộ menu!';
+  
+  var active = activeStr === 'true';
+  var now = new Date();
+  
+  if (active && startStr && endStr) {
+    var start = new Date(startStr);
+    var end = new Date(endStr);
+    if (now < start || now > end) {
+      active = false;
+    }
+  }
+  
+  return {
+    active: active,
+    percent: 5,
+    start: startStr,
+    end: endStr,
+    message: message
+  };
 }

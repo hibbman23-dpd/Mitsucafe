@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd plist — auto-start print poller (GAS polling) khi Mac Mini login.
+
+  Cài đặt (1 lần):
+    cp ~/Projects/lamha-kissaten/print-server/com.lamha.kissaten.printpoller.plist \
+       ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.lamha.kissaten.printpoller.plist
+
+  Reload sau khi sửa:
+    launchctl unload ~/Library/LaunchAgents/com.lamha.kissaten.printpoller.plist
+    launchctl load   ~/Library/LaunchAgents/com.lamha.kissaten.printpoller.plist
+
+  Log: tail -f /tmp/print_poller.log
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.lamha.kissaten.printpoller</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>/Users/dpd/Projects/lamha-kissaten/print-server/print_poller.py</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>GAS_WEBAPP_URL</key><string>https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec</string>
+        <key>PRINT_SERVER_URL</key><string>http://127.0.0.1:5001</string>
+        <key>POLL_INTERVAL</key><string>4</string>
+        <key>LOG_LEVEL</key><string>INFO</string>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/dpd/Projects/lamha-kissaten/print-server</string>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/print_poller.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/print_poller.log</string>
+
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+</dict>
+</plist>

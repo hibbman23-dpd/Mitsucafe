@@ -129,6 +129,10 @@ function seedConfigDefaults() {
     'CAFE_NAME': '<tên quán>',
     'CAFE_ADDRESS': '<địa chỉ>',
     'CAFE_PHONE': '<sđt>',
+    'PROMO_5PERCENT_ACTIVE': 'false',
+    'PROMO_5PERCENT_START': '',
+    'PROMO_5PERCENT_END': '',
+    'PROMO_5PERCENT_MSG': 'Khuyến mãi đặc biệt: Giảm giá 5% cho toàn bộ menu!',
   };
   Object.keys(defaults).forEach(function (k) {
     if (!getConfig(k)) setConfig(k, defaults[k]);

@@ -914,10 +914,66 @@
         padding: 2px 7px;
       }
     }
+
+    /* ── PROMO BANNER ── */
+    .promo-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(90deg, var(--coral-dk) 0%, var(--coral) 50%, var(--coral-dk) 100%);
+      color: #fff;
+      padding: 9px 16px;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      z-index: 1001;
+      box-shadow: 0 2px 10px rgba(235,98,74,0.25);
+      font-family: var(--font-body);
+      letter-spacing: 0.02em;
+      height: 38px;
+    }
+    .promo-countdown {
+      background: rgba(0, 0, 0, 0.28);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-family: monospace;
+      font-weight: bold;
+      font-size: 0.92rem;
+      display: inline-block;
+      min-width: 80px;
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+    @keyframes urgent-blink {
+      0%, 100% { opacity: 1; transform: scale(1); background: rgba(180, 0, 0, 0.8); box-shadow: 0 0 6px rgba(255,0,0,0.8); }
+      50% { opacity: 0.4; transform: scale(1.04); background: rgba(255, 0, 0, 0.95); box-shadow: 0 0 14px rgba(255,0,0,1); }
+    }
+    .promo-countdown.urgent {
+      animation: urgent-blink 0.8s infinite;
+      color: #fff;
+    }
+    .hidden { display: none !important; }
+    
+    body.has-promo nav {
+      top: 38px !important;
+    }
+    body.has-promo .hero {
+      padding-top: calc(50px + 38px) !important;
+    }
   </style>
 </head>
 <body>
 <a href="#main" class="skip-link">Skip to main content</a>
+
+<div id="promo-banner" class="promo-banner hidden">
+  <span>📣 <span id="promo-msg"></span></span>
+  <span class="promo-countdown" id="promo-timer">--:--</span>
+</div>
 
 <!-- ======== NAVIGATION ======== -->
 <nav id="nav">
@@ -1843,6 +1899,70 @@
       }
     });
   }
+
+  // ── Promotion System ──
+  (function() {
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+    let promoTimer = null;
+    let activePromo = null;
+
+    async function checkPromo() {
+      try {
+        const res = await fetch(GAS_URL + '?action=promo_info');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ok && data.promo && data.promo.active) {
+          activePromo = data.promo;
+          document.body.classList.add('has-promo');
+          document.getElementById('promo-msg').textContent = activePromo.message;
+          document.getElementById('promo-banner').classList.remove('hidden');
+          
+          const endTime = new Date(activePromo.end).getTime();
+          
+          function updateTimer() {
+            const now = new Date().getTime();
+            const diff = endTime - now;
+            const timerEl = document.getElementById('promo-timer');
+            const bannerEl = document.getElementById('promo-banner');
+
+            if (diff <= 0) {
+              clearInterval(promoTimer);
+              document.body.classList.remove('has-promo');
+              if (bannerEl) bannerEl.classList.add('hidden');
+              return;
+            }
+
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+
+            let timeStr = '';
+            if (hours > 0) {
+              timeStr = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            } else {
+              timeStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
+            }
+
+            if (timerEl) {
+              timerEl.textContent = timeStr;
+              if (diff <= 10 * 60 * 1000) { // under 10 minutes
+                timerEl.classList.add('urgent');
+              } else {
+                timerEl.classList.remove('urgent');
+              }
+            }
+          }
+          
+          promoTimer = setInterval(updateTimer, 1000);
+          updateTimer();
+        }
+      } catch (err) {
+        console.warn('Promo load error:', err);
+      }
+    }
+
+    checkPromo();
+  })();
 </script>
 </body>
 </html>
