@@ -440,6 +440,9 @@
     
     .center-mascot-animation-wrapper {
       position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
       width: 300px;
       height: 300px;
       z-index: 10;
@@ -450,7 +453,7 @@
       cursor: pointer;
       border-radius: 50%;
       background: radial-gradient(circle, rgba(237,229,208,0.35) 0%, rgba(237,229,208,0) 70%);
-      transition: background 0.3s;
+      transition: background 0.3s, transform 0.3s;
       user-select: none;
     }
     .center-mascot-animation-wrapper:hover {
@@ -1181,6 +1184,11 @@
               <stop offset="0%" stop-color="#EAF2DC" />
               <stop offset="100%" stop-color="#D4DFBE" />
             </linearGradient>
+            <!-- Shirt Gradient -->
+            <linearGradient id="shirt-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#3a7688" />
+              <stop offset="100%" stop-color="#2D5F6B" />
+            </linearGradient>
             <!-- Coral Gradient -->
             <linearGradient id="coral-grad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stop-color="#FF7B64" />
@@ -1271,6 +1279,13 @@
               <ellipse cx="0" cy="10" rx="46" ry="40" fill="url(#frog-grad)" stroke="#1E2D32" stroke-width="2.8" />
               <!-- Belly -->
               <ellipse cx="0" cy="22" rx="30" ry="22" fill="url(#belly-grad)" stroke="#1E2D32" stroke-width="2.2" />
+              <!-- Teal Shirt / Jacket -->
+              <path class="shirt-body" d="M -45,15 C -46,30 -35,48 0,48 C 35,48 46,30 45,15 C 44,5 38,-2 32,8 C 22,22 10,25 0,25 C -10,25 -22,22 -32,8 C -38,-2 -44,5 -45,15 Z" fill="url(#shirt-grad)" stroke="#1E2D32" stroke-width="2.8" />
+              <!-- Crossed Collar Trim -->
+              <path d="M -32,8 C -20,18 -10,24 4,26" fill="none" stroke="#EAF2DC" stroke-width="3.5" stroke-linecap="round" />
+              <path d="M 32,8 C 20,18 10,24 -4,26" fill="none" stroke="#EAF2DC" stroke-width="3.5" stroke-linecap="round" />
+              <!-- Coral Sash / Belt -->
+              <path d="M -38,34 C -20,38 20,38 38,34" fill="none" stroke="url(#coral-grad)" stroke-width="4.5" stroke-linecap="round" />
               
               <!-- Eyes -->
               <!-- Left Eye Socket -->
@@ -1317,13 +1332,18 @@
                 <ellipse cx="5" cy="29" rx="4" ry="2" fill="url(#coral-grad)" />
               </g>
 
-              <!-- Arms -->
+              <!-- Arms (Teal Sleeves & Green Hands) -->
               <!-- Left arm holding the pole -->
-              <path class="left-arm" d="M -32,10 Q -45,-5 -34,-25" fill="none" stroke="url(#frog-grad)" stroke-width="7" stroke-linecap="round" />
+              <path class="left-arm" d="M -32,10 Q -45,-5 -34,-25" fill="none" stroke="url(#shirt-grad)" stroke-width="7" stroke-linecap="round" />
+              <circle cx="-34" cy="-25" r="4.5" fill="url(#frog-grad)" stroke="#1E2D32" stroke-width="1.8" />
+              
               <!-- Default right arm (hanging/swinging) -->
-              <path class="default-right-arm" d="M 32,10 Q 42,22 35,32" fill="none" stroke="url(#frog-grad)" stroke-width="7" stroke-linecap="round" />
+              <path class="default-right-arm" d="M 32,10 Q 42,22 35,32" fill="none" stroke="url(#shirt-grad)" stroke-width="7" stroke-linecap="round" />
+              <circle class="default-right-arm" cx="35" cy="32" r="4.5" fill="url(#frog-grad)" stroke="#1E2D32" stroke-width="1.8" />
+              
               <!-- Offering right arm (reaches forward) -->
-              <path class="offering-right-arm" d="M 32,8 Q 15,22 0,35" fill="none" stroke="url(#frog-grad)" stroke-width="7" stroke-linecap="round" />
+              <path class="offering-right-arm" d="M 32,8 Q 15,22 0,35" fill="none" stroke="url(#shirt-grad)" stroke-width="7" stroke-linecap="round" />
+              <circle class="offering-right-arm" cx="0" cy="35" r="4.5" fill="url(#frog-grad)" stroke="#1E2D32" stroke-width="1.8" />
 
               <!-- 4. PRESENTED TEA CUP (Mặc định ẩn) -->
               <g class="offered-boba-cup-container" transform="translate(0, 35)">
@@ -1693,29 +1713,28 @@
     const container = document.querySelector('.circular-stickers-container');
     if (!container) return;
     
-    const rect = container.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    
     const isMobile = window.innerWidth <= 600;
     
     // Choose radius based on screen size
     const radius = isMobile ? 125 : 230; 
-    const centerX = width / 2;
-    const centerY = height / 2;
+    
+    // Fallback dimensions if container width/height not fully computed yet
+    const rect = container.getBoundingClientRect();
+    const width = rect.width || (isMobile ? 370 : 750);
+    const height = rect.height || (isMobile ? 380 : 640);
     
     const items = document.querySelectorAll('.circular-stk-item');
-    // Start at -90 degrees (top) and step by 60 degrees (Math.PI / 3) clockwise
     const baseAngle = -Math.PI / 2;
     const angleStep = Math.PI / 3;
     
     items.forEach((item, index) => {
       const angle = baseAngle + index * angleStep;
-      const x = centerX + Math.cos(angle) * radius;
-      const y = centerY + Math.sin(angle) * radius;
+      // Position using percentages centered around the container's 50% midpoint
+      const xPct = 50 + (Math.cos(angle) * radius / width) * 100;
+      const yPct = 50 + (Math.sin(angle) * radius / height) * 100;
       
-      item.style.left = `${x}px`;
-      item.style.top = `${y}px`;
+      item.style.left = `${xPct}%`;
+      item.style.top = `${yPct}%`;
     });
   }
   
