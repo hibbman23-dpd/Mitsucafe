@@ -25,6 +25,22 @@ function doPost(e) {
 
     var payload = JSON.parse(raw);
 
+    // Route xử lý các sự kiện Camera AI & Bảo mật
+    if (payload && payload.action === 'admin_login') {
+      var res = adminLogin(payload.username, payload.password);
+      return _jsonResponse(res);
+    }
+
+    if (payload && payload.action === 'update_admin_password') {
+      var res = updateAdminPassword(payload.token, payload.old_password, payload.new_password);
+      return _jsonResponse(res);
+    }
+
+    if (payload && payload.action === 'log_camera_event') {
+      var res = saveCameraEvent(payload.secret, payload.event_data || {});
+      return _jsonResponse(res);
+    }
+
     // Route xử lý webhook biến động số dư từ MacroDroid
     if (payload && payload.action === 'bank_notification') {
       return handleBankNotification(payload);
@@ -129,6 +145,37 @@ function doGet(e) {
       if (!phone) return _jsonResponse({ ok: false, error: 'phone required' });
       var info = getCustomerInfo(phone);
       return _jsonResponse({ ok: true, customer: info });
+    }
+
+    if (action === 'get_camera_events') {
+      var token = e.parameter.token;
+      var limit = e.parameter.limit;
+      var res = getCameraEvents(token, limit);
+      return _jsonResponse(res);
+    }
+
+    if (action === 'setup_financials') {
+      var res = setupExpenseForm();
+      createFinancialDashboard();
+      return _jsonResponse({ ok: true, message: 'Financial system initialized.', form_url: res.formUrl, edit_url: res.editUrl });
+    }
+
+    if (action === 'compute_cogs') {
+      var date = e.parameter.date;
+      if (!date) {
+        date = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      }
+      var metrics = computeDailyMetrics(date);
+      return _jsonResponse({ ok: true, metrics: metrics });
+    }
+    
+    if (action === 'send_daily_report') {
+      var date = e.parameter.date;
+      if (!date) {
+        date = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      }
+      sendDailyEmailReport(date);
+      return _jsonResponse({ ok: true, message: 'Report sent for date: ' + date });
     }
 
     if (action === 'set_promo') {

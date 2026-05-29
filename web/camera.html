@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KaeruCam AI — Hệ thống Giám sát Camera AI</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color: hsl(222, 47%, 9%);
+      --panel-bg: hsla(222, 47%, 14%, 0.75);
+      --border-color: hsla(222, 47%, 25%, 0.4);
+      --glass-border: hsla(0, 0%, 100%, 0.08);
+      --text-main: hsl(0, 0%, 95%);
+      --text-muted: hsl(215, 20%, 65%);
+      
+      --accent-cyan: hsl(190, 100%, 45%);
+      --accent-cyan-glow: hsla(190, 100%, 45%, 0.35);
+      --accent-red: hsl(350, 85%, 55%);
+      --accent-red-glow: hsla(350, 85%, 55%, 0.3);
+      --accent-yellow: hsl(45, 100%, 50%);
+      --accent-green: hsl(150, 80%, 45%);
+      
+      --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1, h2, h3, h4, .font-outfit {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* GLASSMORPHISM BACKGROUND ACCENTS */
+    .glow-bg {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent-cyan-glow) 0%, transparent 70%);
+      top: -100px;
+      left: -100px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .glow-bg-right {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, hsla(350, 85%, 55%, 0.15) 0%, transparent 75%);
+      bottom: -150px;
+      right: -100px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* HEADER */
+    header {
+      background-color: hsla(222, 47%, 6%, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      font-size: 28px;
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    .logo-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #ffffff 0%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      background-color: hsla(150, 80%, 45%, 0.15);
+      color: var(--accent-green);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid hsla(150, 80%, 45%, 0.3);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: blink 1.5s infinite;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition-smooth);
+    }
+
+    .btn:hover {
+      background: var(--border-color);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan-glow);
+    }
+
+    .btn-danger {
+      background-color: hsla(350, 85%, 55%, 0.1);
+      border-color: hsla(350, 85%, 55%, 0.3);
+      color: var(--accent-red);
+    }
+
+    .btn-danger:hover {
+      background-color: var(--accent-red);
+      color: white;
+      border-color: var(--accent-red);
+      box-shadow: 0 0 12px var(--accent-red-glow);
+    }
+
+    /* DASHBOARD CONTENT */
+    main {
+      flex: 1;
+      padding: 30px;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1.8fr 1.2fr;
+      gap: 30px;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* CAMERA SECTION */
+    .cams-container {
+      display: flex;
+      flex-direction: column;
+      gap: 25px;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-left: 3px solid var(--accent-cyan);
+      padding-left: 10px;
+    }
+
+    .cam-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .cam-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .cam-wrapper {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      background-color: #05070f;
+      border: 1px solid var(--border-color);
+    }
+
+    .cam-video-placeholder {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .cam-feed {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px;
+      z-index: 2;
+    }
+
+    .cam-badge {
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid hsla(0, 0%, 100%, 0.1);
+    }
+
+    .cam-live-indicator {
+      width: 6px;
+      height: 6px;
+      background-color: var(--accent-red);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--accent-red);
+      animation: blink 1.2s infinite;
+    }
+
+    .cam-info-footer {
+      display: flex;
+      justify-content: space-between;
+      background-color: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border: 1px solid hsla(0, 0%, 100%, 0.05);
+    }
+
+    /* MOCK AI BOUNDING BOXES FOR DEMONSTRATION */
+    .ai-bounding-box {
+      position: absolute;
+      border: 2px solid var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan-glow);
+      border-radius: 4px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      padding: 2px;
+      font-size: 8px;
+      font-weight: bold;
+      color: #000;
+      z-index: 1;
+      animation: box-wobble 4s infinite linear;
+    }
+
+    .ai-bounding-box::before {
+      content: attr(data-label);
+      position: absolute;
+      top: -16px;
+      left: -2px;
+      background-color: var(--accent-cyan);
+      color: #000;
+      padding: 1px 4px;
+      border-radius: 3px 3px 0 0;
+      font-size: 8px;
+    }
+
+    .box-staff {
+      top: 25%;
+      left: 35%;
+      width: 25%;
+      height: 60%;
+      border-color: var(--accent-green);
+    }
+    .box-staff::before {
+      background-color: var(--accent-green) !important;
+    }
+
+    .box-customer1 {
+      top: 30%;
+      left: 15%;
+      width: 20%;
+      height: 55%;
+      border-color: var(--accent-cyan);
+    }
+
+    .box-customer2 {
+      top: 32%;
+      left: 60%;
+      width: 18%;
+      height: 50%;
+      border-color: var(--accent-cyan);
+    }
+
+    /* EVENTS LOG SECTION */
+    .events-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .log-filter-bar {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .filter-btn {
+      background-color: hsla(222, 47%, 20%, 0.4);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .filter-btn.active, .filter-btn:hover {
+      background-color: var(--accent-cyan-glow);
+      color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+    }
+
+    .events-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 550px;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+
+    /* Custom scrollbar */
+    .events-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .events-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .events-list::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    .events-list::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-cyan-glow);
+    }
+
+    .event-card {
+      background-color: hsla(222, 47%, 18%, 0.35);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: var(--transition-smooth);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .event-card:hover {
+      border-color: var(--accent-cyan);
+      background-color: hsla(222, 47%, 18%, 0.5);
+      transform: translateX(3px);
+    }
+
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .event-type-badge {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    /* Severity badges */
+    .badge-critical {
+      background-color: hsla(350, 85%, 55%, 0.15);
+      color: var(--accent-red);
+      border: 1px solid hsla(350, 85%, 55%, 0.3);
+    }
+    
+    .badge-warning {
+      background-color: hsla(45, 100%, 50%, 0.12);
+      color: var(--accent-yellow);
+      border: 1px solid hsla(45, 100%, 50%, 0.3);
+    }
+
+    .badge-info {
+      background-color: hsla(190, 100%, 45%, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid hsla(190, 100%, 45%, 0.3);
+    }
+
+    .event-time {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .event-desc {
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .event-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .event-cam-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .event-btn-media {
+      color: var(--accent-cyan);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .event-btn-media:hover {
+      text-decoration: underline;
+    }
+
+    /* LOGIN OVERLAY */
+    .login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-color);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: var(--transition-smooth);
+    }
+
+    .login-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .login-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+      backdrop-filter: blur(15px);
+      text-align: center;
+      transform: translateY(0);
+      transition: var(--transition-smooth);
+    }
+
+    .login-icon {
+      font-size: 45px;
+      margin-bottom: 15px;
+      display: inline-block;
+    }
+
+    .login-header-text {
+      margin-bottom: 25px;
+    }
+
+    .login-header-text h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .login-header-text p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-control {
+      width: 100%;
+      background-color: hsla(222, 47%, 20%, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px 14px;
+      color: white;
+      font-size: 14px;
+      transition: var(--transition-smooth);
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan-glow);
+    }
+
+    .login-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-cyan) 0%, hsl(200, 100%, 40%) 100%);
+      border: none;
+      color: #000;
+      font-weight: 600;
+      padding: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+      transition: var(--transition-smooth);
+    }
+
+    .login-btn:hover {
+      box-shadow: 0 0 15px var(--accent-cyan-glow);
+      transform: translateY(-1px);
+    }
+
+    .login-error {
+      color: var(--accent-red);
+      font-size: 12px;
+      margin-top: 12px;
+      min-height: 18px;
+    }
+
+    /* CHANGE PASSWORD MODAL */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(5, 7, 15, 0.85);
+      z-index: 50;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 30px;
+      width: 100%;
+      max-width: 380px;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    /* ANIMATIONS */
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.85; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+
+    @keyframes box-wobble {
+      0% { transform: translate(0, 0); }
+      25% { transform: translate(1px, -1px); }
+      50% { transform: translate(-1px, 1px); }
+      75% { transform: translate(1px, 1px); }
+      100% { transform: translate(0, 0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-bg"></div>
+  <div class="glow-bg-right"></div>
+
+  <!-- LOGIN OVERLAY -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <span class="login-icon">🐸</span>
+      <div class="login-header-text">
+        <h2>KaeruCam AI</h2>
+        <p>Đăng nhập hệ thống giám sát an ninh</p>
+      </div>
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="username">Tên đăng nhập</label>
+          <input type="text" id="username" class="form-control" required placeholder="Nhập tên đăng nhập">
+        </div>
+        <div class="form-group">
+          <label for="password">Mật khẩu</label>
+          <input type="password" id="password" class="form-control" required placeholder="Nhập mật khẩu">
+        </div>
+        <button type="submit" class="login-btn">Đăng Nhập</button>
+        <div id="loginError" class="login-error"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-container">
+      <span class="logo-icon">🐸</span>
+      <span class="logo-title">KaeruCam AI</span>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>HỆ THỐNG HOẠT ĐỘNG</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" onclick="openPassModal()">🔐 Đổi mật khẩu</button>
+      <button class="btn btn-danger" onclick="handleLogout()">🚪 Đăng xuất</button>
+    </div>
+  </header>
+
+  <!-- DASHBOARD CONTENT -->
+  <main>
+    <!-- LEFT PANEL: CAMERA VIEWERS -->
+    <section class="cams-container">
+      <div class="card">
+        <div class="card-title">
+          <span>LUỒNG CAMERA TRỰC TIẾP (LIVE FEEDS)</span>
+          <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">Xử lý Edge AI: Hoạt động</span>
+        </div>
+        
+        <div class="cam-grid">
+          <!-- Camera 1: Quầy Bar -->
+          <div class="cam-wrapper">
+            <!-- Simulated bounding boxes for AI visualization -->
+            <div class="ai-bounding-box box-staff" data-label="Nhân viên (99%)"></div>
+            <div class="ai-bounding-box box-customer1" data-label="Khách hàng (95%)"></div>
+            
+            <!-- Simulated grid background or custom placeholder -->
+            <svg class="cam-video-placeholder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+              <rect width="100%" height="100%" fill="#080a14"/>
+              <line x1="0" y1="90" x2="640" y2="90" stroke="hsla(190, 100%, 45%, 0.15)" stroke-dasharray="5,5"/>
+              <line x1="0" y1="270" x2="640" y2="270" stroke="hsla(190, 100%, 45%, 0.15)" stroke-dasharray="5,5"/>
+              <!-- Green tracking zone for staff -->
+              <rect x="210" y="70" width="180" height="230" fill="transparent" stroke="var(--accent-green)" stroke-dasharray="3,3" stroke-width="1.5"/>
+              <text x="215" y="65" fill="var(--accent-green)" font-size="9" font-family="monospace">STAFF_ZONE_01</text>
+              
+              <!-- Draw camera grid to make it look technical -->
+              <circle cx="320" cy="180" r="100" fill="transparent" stroke="hsla(0, 0%, 100%, 0.05)"/>
+              <line x1="320" y1="0" x2="320" y2="360" stroke="hsla(0, 0%, 100%, 0.03)"/>
+              <line x1="0" y1="180" x2="640" y2="180" stroke="hsla(0, 0%, 100%, 0.03)"/>
+            </svg>
+            
+            <div class="cam-feed">
+              <div class="cam-badge">
+                <span class="cam-live-indicator"></span>
+                <span>CAM 01 — QUẦY BAR</span>
+              </div>
+              <div class="cam-info-footer">
+                <span>FPS: 15.0 · Bitrate: 1024kbps</span>
+                <span>RTSP ──> WebRTC</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Camera 2: Sảnh Khách -->
+          <div class="cam-wrapper">
+            <!-- Simulated bounding boxes for AI visualization -->
+            <div class="ai-bounding-box box-customer2" data-label="Khách hàng (98%)"></div>
+            
+            <svg class="cam-video-placeholder" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+              <rect width="100%" height="100%" fill="#080a14"/>
+              <line x1="0" y1="90" x2="640" y2="90" stroke="hsla(190, 100%, 45%, 0.15)" stroke-dasharray="5,5"/>
+              <line x1="0" y1="270" x2="640" y2="270" stroke="hsla(190, 100%, 45%, 0.15)" stroke-dasharray="5,5"/>
+              <!-- Cyan tracking zone for queue -->
+              <rect x="50" y="80" width="400" height="220" fill="transparent" stroke="var(--accent-cyan)" stroke-dasharray="3,3" stroke-width="1.5"/>
+              <text x="55" y="75" fill="var(--accent-cyan)" font-size="9" font-family="monospace">QUEUE_ZONE_01</text>
+              
+              <!-- Draw camera grid -->
+              <circle cx="320" cy="180" r="100" fill="transparent" stroke="hsla(0, 0%, 100%, 0.05)"/>
+              <line x1="320" y1="0" x2="320" y2="360" stroke="hsla(0, 0%, 100%, 0.03)"/>
+              <line x1="0" y1="180" x2="640" y2="180" stroke="hsla(0, 0%, 100%, 0.03)"/>
+            </svg>
+            
+            <div class="cam-feed">
+              <div class="cam-badge">
+                <span class="cam-live-indicator"></span>
+                <span>CAM 02 — SẢNH KHÁCH</span>
+              </div>
+              <div class="cam-info-footer">
+                <span>FPS: 15.0 · Bitrate: 1120kbps</span>
+                <span>RTSP ──> WebRTC</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: EVENT LOGS -->
+    <section class="events-container">
+      <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+        <div class="card-title" style="margin-bottom: 10px;">
+          <span>NHẬT KÝ SỰ KIỆN AI CAMERA</span>
+          <button class="btn" style="padding: 4px 10px; font-size:11px;" onclick="loadEvents()">🔄 Làm mới</button>
+        </div>
+        
+        <!-- Filter bar -->
+        <div class="log-filter-bar">
+          <div class="filter-group">
+            <button id="btnFilterAll" class="filter-btn active" onclick="filterEvents('all')">Tất cả</button>
+            <button id="btnFilterCritical" class="filter-btn" onclick="filterEvents('CRITICAL')">Nghiêm trọng</button>
+            <button id="btnFilterWarning" class="filter-btn" onclick="filterEvents('WARNING')">Cảnh báo</button>
+          </div>
+          <span id="eventsCount" style="font-size: 11px; color: var(--text-muted); align-self: center;">Đang tải...</span>
+        </div>
+        
+        <!-- Events feed list -->
+        <div id="eventsList" class="events-list">
+          <!-- Dynamically populated events -->
+          <div style="text-align:center; padding:40px; color:var(--text-muted);">Đang tải nhật ký sự kiện...</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- PASSWORD MODAL -->
+  <div id="passModal" class="modal-overlay" onclick="closePassModalOutside(event)">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closePassModal()">✕</button>
+      <h3 style="margin-bottom:20px; font-size:18px;">🔐 Thay đổi mật khẩu</h3>
+      <form id="passForm" onsubmit="handlePasswordChange(event)">
+        <div class="form-group">
+          <label for="oldPassword">Mật khẩu cũ</label>
+          <input type="password" id="oldPassword" class="form-control" required placeholder="Mật khẩu hiện tại">
+        </div>
+        <div class="form-group">
+          <label for="newPassword">Mật khẩu mới</label>
+          <input type="password" id="newPassword" class="form-control" required placeholder="Mật khẩu mới (tối thiểu 6 ký tự)">
+        </div>
+        <button type="submit" class="login-btn" style="margin-top:10px;">Xác nhận Đổi Mật Khẩu</button>
+        <div id="passMessage" style="font-size:12px; margin-top:10px; text-align:center; min-height:18px;"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Điền URL của GAS Web App của bạn vào đây
+    const API_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+    
+    let allEvents = [];
+    let currentFilter = 'all';
+
+    // 1. Kiểm tra trạng thái đăng nhập khi load trang
+    window.onload = function() {
+      const token = sessionStorage.getItem('camera_token');
+      if (token) {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        loadEvents();
+        // Tự động reload sự kiện mỗi 10 giây
+        setInterval(loadEventsSilent, 10000);
+      } else {
+        document.getElementById('loginOverlay').classList.remove('hidden');
+      }
+    };
+
+    // 2. Xử lý Đăng nhập
+    async function handleLogin(e) {
+      e.preventDefault();
+      const user = document.getElementById('username').value;
+      const pass = document.getElementById('password').value;
+      const errEl = document.getElementById('loginError');
+      errEl.textContent = 'Đang đăng nhập...';
+      errEl.style.color = 'var(--accent-cyan)';
+      
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Sử dụng no-cors để tránh lỗi CORS trong Apps Script, hoặc setup JSONP
+          // Lưu ý: no-cors sẽ không đọc được response body. 
+          // Do đó ta sẽ dùng fetch POST chuẩn. Nếu Apps Script cấu hình trả CORS đúng (hoặc sử dụng CORS-anywhere proxy),
+          // ta sẽ lấy được dữ liệu. Apps Script doPost() với JSON response mặc định trả Header CORS đầy đủ khi redirect.
+        });
+        
+        // Để gửi yêu cầu an toàn, GAS hỗ trợ fetch nhận payload nếu client gọi qua POST chuẩn.
+        // Ta thực hiện gửi POST nhận phản hồi dạng JSON.
+        const res = await apiPost({ action: 'admin_login', username: user, password: pass });
+        
+        if (res && res.ok) {
+          sessionStorage.setItem('camera_token', res.token);
+          document.getElementById('loginOverlay').classList.add('hidden');
+          document.getElementById('password').value = '';
+          errEl.textContent = '';
+          loadEvents();
+        } else {
+          errEl.textContent = res ? res.error : 'Tài khoản hoặc mật khẩu không chính xác';
+          errEl.style.color = 'var(--accent-red)';
+        }
+      } catch (err) {
+        console.error(err);
+        errEl.textContent = 'Lỗi kết nối máy chủ API. Thử lại sau.';
+        errEl.style.color = 'var(--accent-red)';
+      }
+    }
+
+    // 3. Đăng xuất
+    function handleLogout() {
+      sessionStorage.removeItem('camera_token');
+      document.getElementById('loginOverlay').classList.remove('hidden');
+      document.getElementById('username').value = '';
+      document.getElementById('loginError').textContent = '';
+    }
+
+    // 4. Lấy danh sách sự kiện AI từ Apps Script
+    async function loadEvents() {
+      const token = sessionStorage.getItem('camera_token');
+      if (!token) return;
+      
+      const listEl = document.getElementById('eventsList');
+      const countEl = document.getElementById('eventsCount');
+      
+      try {
+        const url = `${API_URL}?action=get_camera_events&token=${token}&limit=40`;
+        const response = await fetch(url);
+        const res = await response.json();
+        
+        if (res && res.ok) {
+          allEvents = res.events || [];
+          renderEvents();
+        } else if (res && res.error === 'Unauthorized') {
+          handleLogout();
+        } else {
+          listEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--accent-red);">Không thể tải dữ liệu: ${res ? res.error : ''}</div>`;
+        }
+      } catch(err) {
+        listEl.innerHTML = `<div style="text-align:center; padding:30px; color:var(--accent-red);">Lỗi kết nối máy chủ dữ liệu.</div>`;
+      }
+    }
+
+    // Chạy ngầm reload không có hiệu ứng "loading" nhấp nháy
+    async function loadEventsSilent() {
+      const token = sessionStorage.getItem('camera_token');
+      if (!token) return;
+      try {
+        const url = `${API_URL}?action=get_camera_events&token=${token}&limit=40`;
+        const response = await fetch(url);
+        const res = await response.json();
+        if (res && res.ok) {
+          allEvents = res.events || [];
+          renderEvents();
+        }
+      } catch(e) {}
+    }
+
+    // 5. Hiển thị sự kiện lên giao diện
+    function renderEvents() {
+      const listEl = document.getElementById('eventsList');
+      const countEl = document.getElementById('eventsCount');
+      
+      let filtered = allEvents;
+      if (currentFilter === 'CRITICAL') {
+        filtered = allEvents.filter(e => e.event_type === 'UNUSUAL_BEHAVIOR' || e.duration_sec > 300); // Demo lọc Critical
+      } else if (currentFilter === 'WARNING') {
+        filtered = allEvents.filter(e => e.event_type === 'STAFF_ABSENT' || e.event_type === 'LONG_QUEUE');
+      }
+      
+      countEl.textContent = `Tổng số: ${filtered.length} sự kiện`;
+      
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">Không có sự kiện nào được ghi nhận.</div>';
+        return;
+      }
+      
+      listEl.innerHTML = filtered.map(ev => {
+        let severityClass = 'badge-info';
+        let severityLabel = 'Bình thường';
+        
+        // Xác định độ nghiêm trọng theo thời gian vắng mặt hoặc loại
+        if (ev.event_type === 'UNUSUAL_BEHAVIOR') {
+          severityClass = 'badge-critical';
+          severityLabel = 'Nghiêm trọng';
+        } else if (ev.event_type === 'STAFF_ABSENT' && ev.duration_sec > 180) {
+          severityClass = 'badge-critical';
+          severityLabel = 'Nghiêm trọng';
+        } else if (ev.event_type === 'STAFF_ABSENT' || ev.event_type === 'LONG_QUEUE') {
+          severityClass = 'badge-warning';
+          severityLabel = 'Cảnh báo';
+        }
+        
+        const dateStr = formatIsoDate(ev.timestamp);
+        const durStr = ev.duration_sec > 0 ? `Thời lượng: ${ev.duration_sec}s` : '';
+        const snapshotBtn = ev.snapshot_url 
+          ? `<a href="${ev.snapshot_url}" target="_blank" class="event-btn-media">🖼️ Xem ảnh chụp</a>` 
+          : `<span style="color:var(--text-muted);">Không có ảnh chụp</span>`;
+          
+        return `
+          <div class="event-card">
+            <div class="event-header">
+              <span class="event-type-badge ${severityClass}">${severityLabel} · ${translateEventType(ev.event_type)}</span>
+              <span class="event-time">${dateStr}</span>
+            </div>
+            <div class="event-desc">
+              ${ev.description}
+            </div>
+            <div class="event-meta">
+              <div class="event-cam-label">
+                📹 ${translateCamName(ev.camera_name)}
+              </div>
+              <div>
+                ${durStr ? durStr + ' · ' : ''} ${snapshotBtn}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 6. Lọc sự kiện
+    function filterEvents(type) {
+      currentFilter = type;
+      document.getElementById('btnFilterAll').classList.remove('active');
+      document.getElementById('btnFilterCritical').classList.remove('active');
+      document.getElementById('btnFilterWarning').classList.remove('active');
+      
+      if (type === 'all') document.getElementById('btnFilterAll').classList.add('active');
+      if (type === 'CRITICAL') document.getElementById('btnFilterCritical').classList.add('active');
+      if (type === 'WARNING') document.getElementById('btnFilterWarning').classList.add('active');
+      
+      renderEvents();
+    }
+
+    // 7. Thay đổi mật khẩu
+    async function handlePasswordChange(e) {
+      e.preventDefault();
+      const oldPass = document.getElementById('oldPassword').value;
+      const newPass = document.getElementById('newPassword').value;
+      const msgEl = document.getElementById('passMessage');
+      const token = sessionStorage.getItem('camera_token');
+      
+      if (newPass.length < 6) {
+        msgEl.textContent = 'Mật khẩu mới phải từ 6 ký tự trở lên.';
+        msgEl.style.color = 'var(--accent-red)';
+        return;
+      }
+      
+      msgEl.textContent = 'Đang xử lý...';
+      msgEl.style.color = 'var(--accent-cyan)';
+      
+      try {
+        const res = await apiPost({
+          action: 'update_admin_password',
+          token: token,
+          old_password: oldPass,
+          new_password: newPass
+        });
+        
+        if (res && res.ok) {
+          msgEl.textContent = 'Đổi mật khẩu thành công! Yêu cầu đăng nhập lại.';
+          msgEl.style.color = 'var(--accent-green)';
+          document.getElementById('oldPassword').value = '';
+          document.getElementById('newPassword').value = '';
+          setTimeout(() => {
+            closePassModal();
+            handleLogout();
+          }, 2000);
+        } else {
+          msgEl.textContent = res ? res.error : 'Lỗi đổi mật khẩu';
+          msgEl.style.color = 'var(--accent-red)';
+        }
+      } catch (err) {
+        msgEl.textContent = 'Lỗi kết nối máy chủ.';
+        msgEl.style.color = 'var(--accent-red)';
+      }
+    }
+
+    // Modal Control
+    function openPassModal() {
+      document.getElementById('passModal').style.display = 'flex';
+      document.getElementById('passMessage').textContent = '';
+    }
+    function closePassModal() {
+      document.getElementById('passModal').style.display = 'none';
+    }
+    function closePassModalOutside(e) {
+      if (e.target.id === 'passModal') closePassModal();
+    }
+
+    // TRANSLATE HELPERS
+    function translateEventType(type) {
+      const map = {
+        'STAFF_ABSENT': 'Vắng quầy',
+        'LONG_QUEUE': 'Hàng đợi đông',
+        'UNUSUAL_BEHAVIOR': 'Hành vi lạ'
+      };
+      return map[type] || type;
+    }
+
+    function translateCamName(name) {
+      const map = {
+        'Cam_Quay_Bar': 'Camera Quầy Bar',
+        'Cam_Sanh_Khach': 'Camera Sảnh Khách'
+      };
+      return map[name] || name;
+    }
+
+    function formatIsoDate(isoString) {
+      try {
+        const d = new Date(isoString);
+        if (isNaN(d.getTime())) return isoString;
+        
+        const hrs = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const mth = String(d.getMonth() + 1).padStart(2, '0');
+        
+        return `${hrs}:${mins} ${day}/${mth}`;
+      } catch(e) {
+        return isoString;
+      }
+    }
+
+    // HELPER FETCH POST CHUẨN ĐỂ LÀM VIỆC VỚI GOOGLE APPS SCRIPT
+    async function apiPost(data) {
+      const rawResponse = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain' // Sử dụng text/plain tránh CORS preflight pre-check của browser, GAS doPost nhận bình thường
+        },
+        body: JSON.stringify(data)
+      });
+      return await rawResponse.json();
+    }
+  </script>
+</body>
+</html>

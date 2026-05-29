@@ -295,6 +295,21 @@ function markOrderPaid(orderId) {
   }
 
   try { printThermalReceipt(orderId); } catch (e) { logError('markOrderPaid.print', e); }
+
+  // Cập nhật số liệu tài chính thời gian thực
+  try {
+    var dateCompact = orderId.split('-')[1]; // ORD-20260528-1234 -> 20260528
+    if (dateCompact && dateCompact.length === 8) {
+      var yyyy = dateCompact.substring(0, 4);
+      var mm = dateCompact.substring(4, 6);
+      var dd = dateCompact.substring(6, 8);
+      var dateStr = yyyy + '-' + mm + '-' + dd;
+      computeDailyMetrics(dateStr);
+    }
+  } catch (fErr) {
+    logError('markOrderPaid.financials', fErr);
+  }
+
   return 'PAID';
 }
 

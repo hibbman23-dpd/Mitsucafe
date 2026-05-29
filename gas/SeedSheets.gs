@@ -56,6 +56,16 @@ function initAllSheets() {
       'modifiers_json', 'subtotal', 'added_at',
     ],
     'CONFIG': ['key', 'value'],
+    'EXPENSES': [
+      'expense_id', 'date', 'category', 'amount', 'description', 'payment_method',
+      'staff_id', 'receipt_url', 'created_at'
+    ],
+    'DAILY_METRICS': [
+      'date', 'revenue', 'cogs', 'orders_count', 'average_order_value', 'updated_at'
+    ],
+    'CAMERA_EVENTS': [
+      'event_id', 'timestamp', 'camera_name', 'event_type', 'duration_sec', 'description', 'snapshot_url', 'status'
+    ],
   };
 
   Object.keys(schemas).forEach(function (name) {
