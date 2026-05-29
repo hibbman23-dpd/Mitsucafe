@@ -542,7 +542,21 @@ function sendMonthlyEmailReport(month, year) {
  */
 function sendEmailAlert(subject, htmlBody) {
   try {
-    var email = getConfig('REPORT_EMAIL') || Session.getActiveUser().getEmail() || SpreadsheetApp.getActiveSpreadsheet().getOwner().getEmail();
+    var email = getConfig('REPORT_EMAIL');
+    if (!email) {
+      // Dự phòng 1: Thử lấy email chủ sở hữu file Sheets
+      try {
+        email = SpreadsheetApp.getActiveSpreadsheet().getOwner().getEmail();
+      } catch (e1) {
+        // Dự phòng 2: Thử lấy email của phiên người dùng đang hoạt động
+        try {
+          email = Session.getActiveUser().getEmail();
+        } catch (e2) {
+          Logger.log('Không thể lấy email tự động: ' + e2.message);
+        }
+      }
+    }
+    
     if (!email) {
       Logger.log('No recipient email found for reports.');
       return;
