@@ -808,6 +808,17 @@ async function submitOrder() {
       body: JSON.stringify(payload),
     });
 
+    // Tích hợp lưu đặc điểm khách hàng quen qua camera AI nội bộ
+    fetch('http://localhost:5000/api/associate_order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_phone: normPhone,
+        customer_name: name || 'Khách Quen',
+        items: cart.map(ci => `${ci.name} (${ci.qty})`).join(', ')
+      })
+    }).catch(err => console.log('Không kết nối được Camera AI local:', err));
+
     lastOrder = { shortCode, total, delivery: deliveryMode, paymentMethod: paymentMethod };
     clearCart();
     screen = 'success';
@@ -1323,6 +1334,107 @@ function init() {
 
   render();
   checkPromoStatus().then(() => render());
+  
+  // Khởi chạy vòng lặp kiểm tra khách quen từ Camera AI (3 giây/lần)
+  setInterval(pollActiveCustomer, 3000);
+}
+
+// ─── CAMERA AI INTEGRATION (ACTIVE CUSTOMER POLLING) ──────────────────────────
+let lastActiveCustomerId = null;
+
+async function pollActiveCustomer() {
+  // Chỉ chạy trên màn hình menu hoặc checkout
+  if (screen !== 'menu' && screen !== 'checkout') {
+    removeCustomerSuggestionBanner();
+    return;
+  }
+
+  try {
+    const res = await fetch('http://localhost:5000/api/active_customer');
+    if (!res.ok) throw new Error('Flask not running');
+    const data = await res.json();
+
+    if (data.detected) {
+      if (data.customer_id !== lastActiveCustomerId) {
+        lastActiveCustomerId = data.customer_id;
+        
+        // Hiện thông báo toast chào mừng
+        showToast(`🐸 Chào mừng ${data.name} quay lại!`);
+        
+        // Nếu đang ở màn hình checkout, tự động điền form
+        if (screen === 'checkout') {
+          const inpPhone = document.getElementById('inp-phone');
+          const inpName = document.getElementById('inp-name');
+          
+          if (inpPhone && (!checkoutFormState.phone || checkoutFormState.phone.startsWith('ANON'))) {
+            const cleanPhone = data.customer_id.startsWith('ANON_') ? '' : data.customer_id;
+            inpPhone.value = cleanPhone;
+            checkoutFormState.phone = cleanPhone;
+            if (cleanPhone) {
+              fetchLoyaltyInfo(cleanPhone);
+            }
+          }
+          if (inpName && !checkoutFormState.name) {
+            inpName.value = data.name;
+            checkoutFormState.name = data.name;
+          }
+        }
+        
+        // Vẽ banner gợi ý nước uống trên Menu/Checkout
+        showCustomerSuggestionBanner(data);
+      }
+    } else {
+      if (lastActiveCustomerId !== null) {
+        lastActiveCustomerId = null;
+        removeCustomerSuggestionBanner();
+      }
+    }
+  } catch (err) {
+    // Tránh in log lỗi liên tục nếu Flask Server không chạy
+  }
+}
+
+function showCustomerSuggestionBanner(cust) {
+  removeCustomerSuggestionBanner();
+  
+  const banner = document.createElement('div');
+  banner.id = 'customer-suggestion-banner';
+  banner.className = 'customer-suggestion-banner';
+  
+  // Customization mapping: Trích xuất tên món sạch để thêm vào giỏ nhanh
+  const cleanFavDrink = (cust.favorite_drink || '').split(',')[0].replace(/\s*\(\d+\)\s*/g, '').trim();
+  
+  banner.innerHTML = `
+    <div class="cs-content">
+      <span class="cs-avatar">🐸</span>
+      <div class="cs-details">
+        <div class="cs-title">Chào mừng <strong>${cust.name}</strong> quay lại!</div>
+        <div class="cs-desc">Món uống quen thuộc: <strong>${cleanFavDrink || 'Chưa lưu'}</strong></div>
+      </div>
+    </div>
+    ${cleanFavDrink ? `<button class="cs-btn" id="btn-quick-order-fav" data-sku-fav="${cleanFavDrink}">Gọi nhanh</button>` : ''}
+  `;
+  
+  // Thêm banner vào đầu màn hình hiện tại
+  const targetContainer = document.querySelector('.menu-screen main') || document.querySelector('.checkout-form');
+  if (targetContainer) {
+    targetContainer.insertBefore(banner, targetContainer.firstChild);
+    
+    // Gắn sự kiện cho nút Gọi nhanh
+    document.getElementById('btn-quick-order-fav')?.addEventListener('click', () => {
+      const matchedItem = MENU_DATA.find(item => item.name.toLowerCase() === cleanFavDrink.toLowerCase());
+      if (matchedItem) {
+        quickAdd(matchedItem.sku);
+      } else {
+        showToast(`Không tìm thấy món ${cleanFavDrink} trong menu. Vui lòng chọn bên dưới.`);
+      }
+    });
+  }
+}
+
+function removeCustomerSuggestionBanner() {
+  const el = document.getElementById('customer-suggestion-banner');
+  if (el) el.remove();
 }
 
 init();
