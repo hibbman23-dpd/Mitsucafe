@@ -41,6 +41,8 @@ const CAT_EMOJI = {
 let screen       = 'menu';    // menu | checkout | success
 let sheet        = null;      // null | 'item' | 'cart' | 'upsell'
 let activeCat    = 'all';
+let lastActiveCat = 'all';
+let lastScreen    = 'menu';
 let selItem      = null;      // MENU_DATA row đang xem
 let selOpts      = {};        // {size, sugar, ice, qty, toppings:[]}
 let tableId      = '';        // từ URL ?t=03 → TABLE_03
@@ -625,6 +627,24 @@ function render() {
   const app = document.getElementById('app');
   let contentHtml = '';
 
+  // Lưu vị trí cuộn trước khi re-render
+  let scrollY = window.scrollY;
+  let menuListScrollTop = 0;
+  let catScrollLeft = 0;
+  const currentMenuListEl = document.querySelector('.menu-list');
+  const currentCatScrollEl = document.querySelector('.cat-scroll');
+
+  if (screen === lastScreen && activeCat === lastActiveCat) {
+    if (currentMenuListEl) menuListScrollTop = currentMenuListEl.scrollTop;
+    if (currentCatScrollEl) catScrollLeft = currentCatScrollEl.scrollLeft;
+  } else {
+    // Reset cuộn nếu thay đổi màn hình hoặc đổi danh mục category
+    scrollY = 0;
+    menuListScrollTop = 0;
+    lastScreen = screen;
+    lastActiveCat = activeCat;
+  }
+
   if (screen === 'checkout') {
     contentHtml = renderCheckoutScreen();
   } else if (screen === 'success') {
@@ -662,6 +682,15 @@ function render() {
     updatePromoTimerDisplay();
   } else {
     app.innerHTML = contentHtml;
+  }
+
+  // Khôi phục vị trí cuộn sau khi innerHTML cập nhật
+  if (screen === 'menu') {
+    window.scrollTo(0, scrollY);
+    const newMenuListEl = document.querySelector('.menu-list');
+    const newCatScrollEl = document.querySelector('.cat-scroll');
+    if (newMenuListEl && menuListScrollTop > 0) newMenuListEl.scrollTop = menuListScrollTop;
+    if (newCatScrollEl && catScrollLeft > 0) newCatScrollEl.scrollLeft = catScrollLeft;
   }
 
   if (screen === 'menu') {
