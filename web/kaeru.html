@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://script.google.com https://script.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; frame-src 'self' https://www.facebook.com https://www.instagram.com https://www.tiktok.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://script.google.com https://script.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; frame-src 'self' https://www.facebook.com https://www.instagram.com https://www.tiktok.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com;">
   <meta name="description" content="Khám phá Kaeru Bubble Tea & Cafe tại Lâm Hà, Lâm Đồng. Thưởng thức Trà sữa Matcha Nhật Bản, Hojicha thơm ngon cùng nông sản địa phương trong không gian ấm cúng.">
   <meta name="theme-color" content="#2D5F6B">
   <meta property="og:title" content="KaeruKàphê — Kaeru Bubble Tea & Cà phê Lâm Đồng">
@@ -33,7 +33,7 @@
     "image": "https://hibbman23-dpd.github.io/kaerukaphe/kaeru-mascot.svg",
     "@id": "https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html",
     "url": "https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html",
-    "telephone": "+84997508742",
+    "telephone": "+84975087429",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "Lâm Hà",
@@ -85,7 +85,8 @@
       --wrap:       min(1180px, 92vw);
     }
 
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; scroll-padding-top: 60px; }
+    html.has-promo { scroll-padding-top: 98px; }
 
     body {
       font-family: var(--font-jp);
@@ -305,9 +306,9 @@
     .hero-soc-btn.maps { border-color: rgba(45,95,107,.3); }
     .hero-soc-btn.maps:hover { border-color: #4285f4; color: #4285f4; background: rgba(66,133,244,.06); }
 
-    /* Menu section divider for Kaphe */
+    /* Menu section divider for Kaphe — sits between two .menu-grid blocks (not inside a grid) */
     .menu-divider {
-      grid-column: 1/-1; padding: 28px 0 8px;
+      padding: 28px 0 8px;
       display: flex; align-items: center; gap: 14px;
     }
     .menu-divider-line { flex: 1; height: 1px; background: rgba(245,240,232,.18); }
@@ -1671,14 +1672,14 @@
         <h3>Ghé thăm · ご来店</h3>
         <ul>
           <li>
-            <a href="javascript:void(0)" id="hours-toggle" style="cursor: pointer; transition: color 0.2s;">Giờ mở cửa · 営業時間</a>
+            <a href="#" id="hours-toggle" role="button" aria-expanded="false" aria-controls="hours-details" style="cursor: pointer; transition: color 0.2s;">Giờ mở cửa · 営業時間</a>
             <div id="hours-details" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease, margin-top 0.3s ease; font-size: 0.76rem; line-height: 1.6; color: rgba(245,240,232,.5); margin-top: 0px; padding-left: 5px;">
               🕒 6:00 đến 0:00
             </div>
           </li>
           <li><a href="index.html?utm_source=landing">Đặt hàng online · オーダー</a></li>
           <li>
-            <a href="javascript:void(0)" id="contact-toggle" style="cursor: pointer; transition: color 0.2s;">Liên hệ · お問い合わせ</a>
+            <a href="#" id="contact-toggle" role="button" aria-expanded="false" aria-controls="contact-details" style="cursor: pointer; transition: color 0.2s;">Liên hệ · お問い合わせ</a>
             <div id="contact-details" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease, margin-top 0.3s ease; font-size: 0.76rem; line-height: 1.6; color: rgba(245,240,232,.5); margin-top: 0px; padding-left: 5px;">
               📍 KaeruKàphê 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng, Việt Nam<br>
               📞 0975087429
@@ -1703,9 +1704,19 @@
 
 
 <script>
-  // ── Navbar scroll effect ──
+  // ── App-wide constants ──
+  const APP_VERSION = '20260522';
+  const ORDER_URL_BASE = 'index.html?utm_source=landing';
+  const withVersion = (url) => url + (url.includes('?') ? '&' : '?') + 'v=' + APP_VERSION;
+
+  // ── Single combined scroll handler (nav + hero parallax) ──
   const nav = document.getElementById('nav');
-  addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 50), {passive:true});
+  const heroSun = document.querySelector('.hero-sun');
+  addEventListener('scroll', () => {
+    const y = scrollY;
+    nav.classList.toggle('scrolled', y > 50);
+    if (heroSun && y < innerHeight) heroSun.style.transform = `translateY(${y * .14}px)`;
+  }, {passive: true});
 
   // ── Scroll reveal ──
   const obs = new IntersectionObserver(entries => {
@@ -1714,11 +1725,14 @@
   document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
 
   // ── Ripple chuyển trang (nút Đặt ngay) ──
+  let isNavigating = false;
   function orderRipple(e) {
     const btn = e.currentTarget;
     const href = btn.getAttribute('href');
     if (!href || href === '#') return;
     e.preventDefault();
+    if (isNavigating) return;
+    isNavigating = true;
 
     // Lớp 1: ink trắng trong nút
     const ink = document.createElement('span');
@@ -1745,11 +1759,8 @@
     // Trigger expand sau 1 frame (cần timeout để CSS transition kích hoạt)
     requestAnimationFrame(() => requestAnimationFrame(() => wave.classList.add('open')));
 
-    // Chuyển trang sau khi sóng phủ đầy (thêm v= để bypass cache)
-    setTimeout(() => {
-      const dest = href.includes('?') ? href + '&v=20260522' : href + '?v=20260522';
-      location.href = dest;
-    }, 640);
+    // Chuyển trang sau khi sóng phủ đầy
+    setTimeout(() => { location.href = withVersion(href); }, 640);
   }
 
   // Gắn cho cả btn-primary lẫn nav order buttons
@@ -1763,7 +1774,9 @@
   document.querySelectorAll('.menu-card').forEach(card => {
     card.style.cursor = 'pointer';
     card.addEventListener('click', () => {
-      location.href = 'index.html?utm_source=landing&v=20260522';
+      if (isNavigating) return;
+      isNavigating = true;
+      location.href = withVersion(ORDER_URL_BASE);
     });
   });
 
@@ -1858,130 +1871,122 @@
     initMascotInteraction();
   }
 
-  // ── Hero parallax (subtle) ──
-  addEventListener('scroll', () => {
-    const sun = document.querySelector('.hero-sun');
-    if (sun && scrollY < innerHeight) sun.style.transform = `translateY(${scrollY*.14}px)`;
-  }, {passive:true});
-
-  // ── Contact toggle dropdown ──
-  const contactToggle = document.getElementById('contact-toggle');
-  const contactDetails = document.getElementById('contact-details');
-  if (contactToggle && contactDetails) {
-    contactToggle.addEventListener('click', (e) => {
+  // ── Footer disclosure toggles (Contact + Hours) ──
+  function bindToggle(toggleId, detailsId) {
+    const toggle = document.getElementById(toggleId);
+    const details = document.getElementById(detailsId);
+    if (!toggle || !details) return;
+    toggle.addEventListener('click', (e) => {
       e.preventDefault();
-      if (contactDetails.style.maxHeight === '0px' || contactDetails.style.maxHeight === '') {
-        contactDetails.style.maxHeight = contactDetails.scrollHeight + 'px';
-        contactDetails.style.marginTop = '8px';
-        contactToggle.style.color = 'var(--coral)';
+      const isOpen = details.style.maxHeight && details.style.maxHeight !== '0px';
+      if (isOpen) {
+        details.style.maxHeight = '0px';
+        details.style.marginTop = '0px';
+        toggle.style.color = '';
+        toggle.setAttribute('aria-expanded', 'false');
       } else {
-        contactDetails.style.maxHeight = '0px';
-        contactDetails.style.marginTop = '0px';
-        contactToggle.style.color = '';
+        details.style.maxHeight = details.scrollHeight + 'px';
+        details.style.marginTop = '8px';
+        toggle.style.color = 'var(--coral)';
+        toggle.setAttribute('aria-expanded', 'true');
       }
     });
   }
-
-  // ── Hours toggle dropdown ──
-  const hoursToggle = document.getElementById('hours-toggle');
-  const hoursDetails = document.getElementById('hours-details');
-  if (hoursToggle && hoursDetails) {
-    hoursToggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (hoursDetails.style.maxHeight === '0px' || hoursDetails.style.maxHeight === '') {
-        hoursDetails.style.maxHeight = hoursDetails.scrollHeight + 'px';
-        hoursDetails.style.marginTop = '8px';
-        hoursToggle.style.color = 'var(--coral)';
-      } else {
-        hoursDetails.style.maxHeight = '0px';
-        hoursDetails.style.marginTop = '0px';
-        hoursToggle.style.color = '';
-      }
-    });
-  }
+  bindToggle('contact-toggle', 'contact-details');
+  bindToggle('hours-toggle', 'hours-details');
 
   // ── Promotion System ──
   (function() {
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+    const URGENT_THRESHOLD_MS = 10 * 60 * 1000;
     let promoTimer = null;
-    let activePromo = null;
+    let pricesApplied = false;
+
+    function formatVnd(n) { return n.toLocaleString('vi-VN') + 'đ'; }
+
+    function revertPrices() {
+      document.querySelectorAll('.mc-price').forEach(el => {
+        if (el.dataset.originalPrice) {
+          el.textContent = formatVnd(parseInt(el.dataset.originalPrice, 10));
+        }
+      });
+      pricesApplied = false;
+    }
+
+    function applyDiscountedPrices(multiplier) {
+      if (pricesApplied) return; // idempotency guard
+      document.querySelectorAll('.mc-price').forEach(el => {
+        const raw = el.textContent.replace(/\D/g, '');
+        const parsed = parseInt(raw, 10);
+        if (isNaN(parsed)) return;
+        if (!el.dataset.originalPrice) el.dataset.originalPrice = String(parsed);
+        const oldPrice = parseInt(el.dataset.originalPrice, 10);
+        const discounted = Math.round(oldPrice * multiplier);
+        // Build via DOM to keep CSP clean and avoid innerHTML injection surface
+        el.textContent = '';
+        const oldSpan = document.createElement('span');
+        oldSpan.className = 'price-old';
+        oldSpan.style.cssText = 'text-decoration:line-through;opacity:.6;font-size:.8rem;margin-right:6px;font-weight:normal;color:rgba(245,240,232,.6);';
+        oldSpan.textContent = formatVnd(oldPrice);
+        el.appendChild(oldSpan);
+        el.appendChild(document.createTextNode(formatVnd(discounted)));
+      });
+      pricesApplied = true;
+    }
+
+    function endPromo(bannerEl) {
+      clearInterval(promoTimer);
+      promoTimer = null;
+      document.documentElement.classList.remove('has-promo');
+      document.body.classList.remove('has-promo');
+      if (bannerEl) bannerEl.classList.add('hidden');
+      revertPrices();
+    }
 
     async function checkPromo() {
       try {
         const res = await fetch(GAS_URL + '?action=promo_info');
         if (!res.ok) return;
         const data = await res.json();
-        if (data.ok && data.promo && data.promo.active) {
-          activePromo = data.promo;
-          document.body.classList.add('has-promo');
-          document.getElementById('promo-msg').textContent = activePromo.message;
-          document.getElementById('promo-banner').classList.remove('hidden');
-          
-          const endTime = new Date(activePromo.end).getTime();
-          
-          function updateTimer() {
-            const now = new Date().getTime();
-            const diff = endTime - now;
-            const timerEl = document.getElementById('promo-timer');
-            const bannerEl = document.getElementById('promo-banner');
+        if (!(data.ok && data.promo && data.promo.active)) return;
 
-            if (diff <= 0) {
-              clearInterval(promoTimer);
-              document.body.classList.remove('has-promo');
-              if (bannerEl) bannerEl.classList.add('hidden');
-              
-              // Revert prices
-              const priceEls = document.querySelectorAll('.mc-price');
-              priceEls.forEach(el => {
-                if (el.dataset.originalPrice) {
-                  const oldPrice = parseInt(el.dataset.originalPrice, 10);
-                  el.textContent = oldPrice.toLocaleString('vi-VN') + 'đ';
-                }
-              });
-              return;
-            }
-
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-
-            let timeStr = '';
-            if (hours > 0) {
-              timeStr = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-            } else {
-              timeStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
-            }
-
-            if (timerEl) {
-              timerEl.textContent = timeStr;
-              if (diff <= 10 * 60 * 1000) { // under 10 minutes
-                timerEl.classList.add('urgent');
-              } else {
-                timerEl.classList.remove('urgent');
-              }
-            }
-          }
-          
-          // Apply promo to homepage menu items
-          const priceEls = document.querySelectorAll('.mc-price');
-          priceEls.forEach(el => {
-            const rawText = el.textContent.replace(/\D/g, '');
-            const originalPrice = parseInt(rawText, 10);
-            if (!isNaN(originalPrice)) {
-              if (!el.dataset.originalPrice) {
-                el.dataset.originalPrice = originalPrice;
-              }
-              const oldPrice = parseInt(el.dataset.originalPrice, 10);
-              const discountedPrice = Math.round(oldPrice * 0.95);
-              const formattedDiscounted = discountedPrice.toLocaleString('vi-VN') + 'đ';
-              const formattedOriginal = oldPrice.toLocaleString('vi-VN') + 'đ';
-              el.innerHTML = `<span class="price-old" style="text-decoration: line-through; opacity: 0.6; font-size: 0.8rem; margin-right: 6px; font-weight: normal; color: rgba(245,240,232,0.6);">${formattedOriginal}</span>${formattedDiscounted}`;
-            }
-          });
-
-          promoTimer = setInterval(updateTimer, 1000);
-          updateTimer();
+        const promo = data.promo;
+        // Resolve discount: prefer server value, fall back to 5% only if missing/invalid.
+        // Server schema sends `percent` (integer, e.g. 5 = 5% off). Also accept
+        // `discount` (fraction 0..1) or `multiplier` (0..1) for forward-compat.
+        let multiplier = 0.95;
+        if (typeof promo.percent === 'number' && promo.percent > 0 && promo.percent < 100) {
+          multiplier = 1 - promo.percent / 100;
+        } else if (typeof promo.discount === 'number' && promo.discount > 0 && promo.discount < 1) {
+          multiplier = 1 - promo.discount;
+        } else if (typeof promo.multiplier === 'number' && promo.multiplier > 0 && promo.multiplier < 1) {
+          multiplier = promo.multiplier;
         }
+
+        document.documentElement.classList.add('has-promo');
+        document.body.classList.add('has-promo');
+        document.getElementById('promo-msg').textContent = promo.message || '';
+        const bannerEl = document.getElementById('promo-banner');
+        bannerEl.classList.remove('hidden');
+
+        const endTime = new Date(promo.end).getTime();
+        const timerEl = document.getElementById('promo-timer');
+
+        function updateTimer() {
+          const diff = endTime - Date.now();
+          if (diff <= 0) { endPromo(bannerEl); return; }
+          const hours = Math.floor(diff / 3600000);
+          const minutes = Math.floor((diff % 3600000) / 60000);
+          const seconds = Math.floor((diff % 60000) / 1000);
+          const mm = String(minutes).padStart(2, '0');
+          const ss = String(seconds).padStart(2, '0');
+          timerEl.textContent = hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
+          timerEl.classList.toggle('urgent', diff <= URGENT_THRESHOLD_MS);
+        }
+
+        applyDiscountedPrices(multiplier);
+        updateTimer();
+        promoTimer = setInterval(updateTimer, 1000);
       } catch (err) {
         console.warn('Promo load error:', err);
       }
