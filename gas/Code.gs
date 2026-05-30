@@ -213,20 +213,39 @@ function doGet(e) {
     if (action === 'review_form') return webAppReviewForm();
     if (action === 'review_submit') return webAppReviewSubmit(e);
 
-    // ── Phase D analytics endpoints (read-only, safe to expose) ──
-    if (action === 'rfm_snapshot') return _jsonResponse(rfmSnapshot());
+    // ── Phase D analytics endpoints ──
+    // Optional token guard: nếu CONFIG.REPORT_API_TOKEN có set, các endpoint phơi PII/sales
+    // sẽ require ?token=<value>. Nếu không set → mở (backward compat).
+    if (action === 'rfm_snapshot' || action === 'rfm_refresh' || action === 'winback_candidates') {
+      // 3 aliases cùng trả rfmSnapshot() (đã refresh + winback + champions)
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse(rfmSnapshot());
+    }
+    if (action === 'menu_engineering_data') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var meMonth = e.parameter.month; // YYYY-MM; default = tháng trước
+      return _jsonResponse(getMenuEngineeringData(meMonth));
+    }
     if (action === 'waste_report') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var fromW = e.parameter.from, toW = e.parameter.to;
       if (!fromW || !toW) return _jsonResponse({ ok: false, error: 'from + to required' });
       return _jsonResponse(wasteReport(fromW, toW));
     }
     if (action === 'cash_report') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var fromC = e.parameter.from, toC = e.parameter.to;
       if (!fromC || !toC) return _jsonResponse({ ok: false, error: 'from + to required' });
       return _jsonResponse(cashVarianceReport(fromC, toC));
     }
-    if (action === 'maintenance_status') return _jsonResponse({ ok: true, tasks: getAllMaintenanceTasks() });
-    if (action === 'pending_reviews') return _jsonResponse({ ok: true, reviews: getPendingResponses() });
+    if (action === 'maintenance_status') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse({ ok: true, tasks: getAllMaintenanceTasks() });
+    }
+    if (action === 'pending_reviews') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse({ ok: true, reviews: getPendingResponses() });
+    }
 
     return _jsonResponse({
       ok: true,
@@ -340,6 +359,18 @@ function _jsonResponse(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Token guard cho các endpoint phơi PII/sales data.
+ * Nếu CONFIG.REPORT_API_TOKEN có giá trị → require query `?token=<value>` khớp.
+ * Nếu CONFIG không có → mở (backward-compat cho deploy đầu, sẽ siết khi soft launch).
+ */
+function _requireTokenIfSet(e) {
+  var expected = getConfig('REPORT_API_TOKEN');
+  if (!expected) return true; // chưa set → mở
+  var provided = (e && e.parameter && e.parameter.token) || '';
+  return String(provided).trim() === String(expected).trim();
 }
 
 function _getPromoInfoInternal() {
