@@ -1,5 +1,13 @@
-# Claude session memory
-.claude/
+# Claude session memory — ignore by default
+.claude/*
+# But commit the cafe-manager skill + agent + commands (cross-machine portable)
+!.claude/skills/
+!.claude/agents/
+!.claude/commands/
+# Still ignore local-only state
+.claude/settings.local.json
+.claude/state/
+.claude/cache/
 
 # Glide (replaced by web PWA)
 glide/

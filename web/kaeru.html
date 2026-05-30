@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://script.google.com https://script.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; frame-src 'self' https://www.facebook.com https://www.instagram.com https://www.tiktok.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://script.google.com https://script.googleusercontent.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; frame-src 'self' https://www.facebook.com https://www.instagram.com https://www.tiktok.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://cloudflareinsights.com;">
   <meta name="description" content="Khám phá Kaeru Bubble Tea & Cafe tại Lâm Hà, Lâm Đồng. Thưởng thức Trà sữa Matcha Nhật Bản, Hojicha thơm ngon cùng nông sản địa phương trong không gian ấm cúng.">
   <meta name="theme-color" content="#2D5F6B">
   <meta property="og:title" content="KaeruKàphê — Kaeru Bubble Tea & Cà phê Lâm Đồng">
@@ -967,6 +967,11 @@
       padding-top: calc(50px + 38px) !important;
     }
   </style>
+
+  <!-- Cloudflare Web Analytics (free, privacy-friendly, no cookie) -->
+  <!-- Setup: https://www.cloudflare.com/web-analytics/ → add site → paste token below -->
+  <script defer src='https://static.cloudflareinsights.com/beacon.min.js'
+          data-cf-beacon='{"token": "REPLACE_WITH_CF_TOKEN"}'></script>
 </head>
 <body>
 <a href="#main" class="skip-link">Skip to main content</a>

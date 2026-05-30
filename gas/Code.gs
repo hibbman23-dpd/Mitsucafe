@@ -207,10 +207,31 @@ function doGet(e) {
       return _jsonResponse({ ok: true, promo: promo });
     }
 
+    // ── Web app forms (Phase B/C/D operational tools) ──
+    if (action === 'waste_form') return webAppWasteForm();
+    if (action === 'waste_submit') return webAppWasteSubmit(e);
+    if (action === 'review_form') return webAppReviewForm();
+    if (action === 'review_submit') return webAppReviewSubmit(e);
+
+    // ── Phase D analytics endpoints (read-only, safe to expose) ──
+    if (action === 'rfm_snapshot') return _jsonResponse(rfmSnapshot());
+    if (action === 'waste_report') {
+      var fromW = e.parameter.from, toW = e.parameter.to;
+      if (!fromW || !toW) return _jsonResponse({ ok: false, error: 'from + to required' });
+      return _jsonResponse(wasteReport(fromW, toW));
+    }
+    if (action === 'cash_report') {
+      var fromC = e.parameter.from, toC = e.parameter.to;
+      if (!fromC || !toC) return _jsonResponse({ ok: false, error: 'from + to required' });
+      return _jsonResponse(cashVarianceReport(fromC, toC));
+    }
+    if (action === 'maintenance_status') return _jsonResponse({ ok: true, tasks: getAllMaintenanceTasks() });
+    if (action === 'pending_reviews') return _jsonResponse({ ok: true, reviews: getPendingResponses() });
+
     return _jsonResponse({
       ok: true,
       service: 'Lâm Hà Kissaten Order API',
-      version: '1.1',
+      version: '1.2',
       endpoints: {
         'POST /': 'Submit order (JSON body — see CLAUDE.md §2)',
         'GET /?action=menu': 'Return active menu items as JSON',
@@ -222,6 +243,8 @@ function doGet(e) {
         'GET /?action=mark_printed&order_id=ORD-...': 'Mark receipt as printed',
         'GET /?action=pending_labels': 'Pending label print jobs (Mac Mini poller)',
         'GET /?action=mark_labels_printed&order_id=ORD-...': 'Mark labels as printed',
+        'GET /?action=waste_form': 'Mobile form to log waste (Phase C)',
+        'GET /?action=review_form': 'Mobile form to log review (Phase B)',
       },
     });
   } catch (err) {
