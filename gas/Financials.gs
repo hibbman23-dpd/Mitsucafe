@@ -346,7 +346,7 @@ function computeDailyMetrics(dateStr) {
   var foundRowIdx = -1;
   
   for (var r = 1; r < metricsData.length; r++) {
-    if (metricsData[r][0] === dateStr) {
+    if (_dateMatches(metricsData[r][0], dateStr)) {
       foundRowIdx = r + 1; // 1-based index
       break;
     }
@@ -417,7 +417,7 @@ function sendDailyEmailReport(dateStr) {
     if (metricsSheet) {
       var metrics = metricsSheet.getDataRange().getValues();
       for (var i = 1; i < metrics.length; i++) {
-        if (metrics[i][0] === dateStr) {
+        if (_dateMatches(metrics[i][0], dateStr)) {
           revenue = parseFloat(metrics[i][1]) || 0;
           cogs = parseFloat(metrics[i][2]) || 0;
           orders = parseInt(metrics[i][3]) || 0;
@@ -426,14 +426,14 @@ function sendDailyEmailReport(dateStr) {
         }
       }
     }
-    
+
     // 2. Lấy dữ liệu chi phí trong ngày
     var dailyOPEX = 0;
     var expenseDetails = [];
     if (expensesSheet) {
       var expData = expensesSheet.getDataRange().getValues();
       for (var j = 1; j < expData.length; j++) {
-        if (expData[j][1] === dateStr) {
+        if (_dateMatches(expData[j][1], dateStr)) {
           var amt = parseFloat(expData[j][3]) || 0;
           dailyOPEX += amt;
           expenseDetails.push({
@@ -487,37 +487,27 @@ function sendMonthlyEmailReport(month, year) {
     if (metricsSheet) {
       var metrics = metricsSheet.getDataRange().getValues();
       for (var i = 1; i < metrics.length; i++) {
-        var dateVal = metrics[i][0];
-        if (dateVal) {
-          var dateParts = dateVal.split('-');
-          var rYear = parseInt(dateParts[0]);
-          var rMonth = parseInt(dateParts[1]);
-          if (rYear === year && rMonth === month) {
-            totalRevenue += parseFloat(metrics[i][1]) || 0;
-            totalCogs += parseFloat(metrics[i][2]) || 0;
-            totalOrders += parseInt(metrics[i][3]) || 0;
-          }
+        var ym = _parseYearMonth(metrics[i][0]);
+        if (ym && ym.year === year && ym.month === month) {
+          totalRevenue += parseFloat(metrics[i][1]) || 0;
+          totalCogs += parseFloat(metrics[i][2]) || 0;
+          totalOrders += parseInt(metrics[i][3]) || 0;
         }
       }
     }
-    
+
     // 2. Quét EXPENSES để tổng hợp Chi phí vận hành
     var totalOPEX = 0;
     var categoryBreakdown = {};
     if (expensesSheet) {
       var expData = expensesSheet.getDataRange().getValues();
       for (var j = 1; j < expData.length; j++) {
-        var dateVal = expData[j][1];
-        if (dateVal) {
-          var dateParts = dateVal.split('-');
-          var eYear = parseInt(dateParts[0]);
-          var eMonth = parseInt(dateParts[1]);
-          if (eYear === year && eMonth === month) {
-            var amt = parseFloat(expData[j][3]) || 0;
-            var cat = expData[j][2] || 'Khác';
-            totalOPEX += amt;
-            categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + amt;
-          }
+        var ym2 = _parseYearMonth(expData[j][1]);
+        if (ym2 && ym2.year === year && ym2.month === month) {
+          var amt = parseFloat(expData[j][3]) || 0;
+          var cat = expData[j][2] || 'Khác';
+          totalOPEX += amt;
+          categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + amt;
         }
       }
     }
@@ -538,38 +528,157 @@ function sendMonthlyEmailReport(month, year) {
 }
 
 /**
- * HÀM PHỤ TRỢ: GỬI ALER EMAIL QUA GMAIL
+ * HÀM PHỤ TRỢ: GỬI ALERT EMAIL QUA GMAIL
+ *
+ * Lưu ý: scope `script.send_mail` phải được authorize trước. Nếu thiếu, gọi
+ * `verifyFinancialsHealth()` thủ công 1 lần trong GAS editor để trigger consent
+ * dialog. Mọi permission error đều set flag NEEDS_REAUTH trong Script Properties
+ * thay vì spam Telegram mỗi đêm.
  */
 function sendEmailAlert(subject, htmlBody) {
-  try {
-    var email = getConfig('REPORT_EMAIL');
-    if (!email) {
-      // Dự phòng 1: Thử lấy email chủ sở hữu file Sheets
-      try {
-        email = SpreadsheetApp.getActiveSpreadsheet().getOwner().getEmail();
-      } catch (e1) {
-        // Dự phòng 2: Thử lấy email của phiên người dùng đang hoạt động
-        try {
-          email = Session.getActiveUser().getEmail();
-        } catch (e2) {
-          Logger.log('Không thể lấy email tự động: ' + e2.message);
-        }
-      }
-    }
-    
-    if (!email) {
-      Logger.log('No recipient email found for reports.');
-      return;
-    }
-    MailApp.sendEmail({
-      to: email,
-      subject: subject,
-      htmlBody: htmlBody
-    });
-    Logger.log('Email report sent to: ' + email);
-  } catch (e) {
-    logError('sendEmailAlert', e);
+  var email = _resolveReportEmail();
+  if (!email) {
+    Logger.log('No recipient email found for reports.');
+    return;
   }
+  try {
+    MailApp.sendEmail({ to: email, subject: subject, htmlBody: htmlBody });
+    Logger.log('Email report sent to: ' + email);
+    // Email gửi được tức là scope đã OK — clear flag nếu có
+    try { PropertiesService.getScriptProperties().deleteProperty('NEEDS_REAUTH'); } catch (_) {}
+  } catch (e) {
+    var emsg = String((e && e.message) || e);
+    if (emsg.indexOf('permission') !== -1 || emsg.indexOf('script.send_mail') !== -1) {
+      // Đây là lỗi auth — không spam, chỉ set flag và log 1 lần / throttle window
+      try {
+        PropertiesService.getScriptProperties().setProperty('NEEDS_REAUTH', new Date().toISOString());
+      } catch (_) {}
+      logError('sendEmailAlert.NEEDS_REAUTH', new Error(
+        'MailApp scope chưa được authorize. Mở GAS editor → chạy verifyFinancialsHealth() thủ công và bấm "Allow" trong popup. ' +
+        'Chi tiết: ' + emsg
+      ));
+    } else {
+      logError('sendEmailAlert', e);
+    }
+  }
+}
+
+/**
+ * Xác định email nhận báo cáo. Thứ tự ưu tiên:
+ *   1. CONFIG.REPORT_EMAIL (rõ ràng nhất)
+ *   2. Owner email (chỉ work nếu file thuộc sở hữu user, không phải shared org file)
+ *   3. Active user email (trong time-trigger context = "")
+ * Trả về null nếu không có giá trị hợp lệ.
+ */
+function _resolveReportEmail() {
+  var email = getConfig('REPORT_EMAIL');
+  if (email && String(email).indexOf('@') !== -1) return String(email).trim();
+
+  try {
+    var owner = SpreadsheetApp.getActiveSpreadsheet().getOwner();
+    if (owner) {
+      var oe = owner.getEmail();
+      if (oe && oe.indexOf('@') !== -1) return oe;
+    }
+  } catch (_) { /* shared org file → null */ }
+
+  try {
+    var au = Session.getActiveUser().getEmail();
+    // Trong time-trigger với consumer account: au === "" → coi như không có
+    if (au && au.indexOf('@') !== -1) return au;
+  } catch (_) {}
+
+  return null;
+}
+
+/**
+ * Helper: so sánh giá trị ngày từ Sheets (có thể là Date object HOẶC string)
+ * với chuỗi 'YYYY-MM-DD'. Chuẩn hoá Date object về string VN trước khi compare.
+ * Bug ẩn trước đây: nếu cột date trong DAILY_METRICS/EXPENSES auto-format thành Date,
+ * `cellVal === dateStr` luôn false → revenue/expense bị tính = 0.
+ */
+function _dateMatches(cellVal, dateStr) {
+  if (!cellVal) return false;
+  if (cellVal instanceof Date) {
+    return Utilities.formatDate(cellVal, 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd') === dateStr;
+  }
+  return String(cellVal).trim() === dateStr;
+}
+
+/**
+ * Helper: parse YYYY-MM-DD từ Sheets cell (Date object hoặc string).
+ * Trả về {year, month} (month 1-indexed) hoặc null nếu không parse được.
+ */
+function _parseYearMonth(cellVal) {
+  if (!cellVal) return null;
+  if (cellVal instanceof Date) {
+    return { year: cellVal.getFullYear(), month: cellVal.getMonth() + 1 };
+  }
+  var parts = String(cellVal).trim().split('-');
+  if (parts.length < 2) return null;
+  var y = parseInt(parts[0], 10);
+  var m = parseInt(parts[1], 10);
+  if (isNaN(y) || isNaN(m)) return null;
+  return { year: y, month: m };
+}
+
+/**
+ * DIAGNOSTIC — Chạy thủ công qua GAS editor để:
+ *   1. Trigger consent dialog cho mọi scope đã khai báo (đặc biệt script.send_mail)
+ *   2. Kiểm tra sheets, triggers, email recipient
+ *   3. Gửi 1 email + 1 Telegram xác nhận hệ thống OK
+ *
+ * Sau khi commit code này, chạy hàm này 1 lần và bấm "Allow" trong popup.
+ */
+function verifyFinancialsHealth() {
+  var report = [];
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. Kiểm tra sheets bắt buộc
+  ['EXPENSES', 'DAILY_METRICS', 'ORDERS', 'MENU', 'CONFIG', 'ERROR_LOG'].forEach(function (name) {
+    report.push((ss.getSheetByName(name) ? '✅' : '❌') + ' Sheet ' + name);
+  });
+
+  // 2. Kiểm tra email recipient
+  var email = _resolveReportEmail();
+  report.push((email ? '✅' : '❌') + ' Email nhận báo cáo: ' + (email || 'CHƯA CẤU HÌNH'));
+
+  // 3. Kiểm tra triggers
+  var triggers = ScriptApp.getProjectTriggers();
+  var hasCron = triggers.some(function (t) { return t.getHandlerFunction() === 'cronDailyFinancials'; });
+  var hasForm = triggers.some(function (t) { return t.getHandlerFunction() === 'onExpenseFormSubmit'; });
+  report.push((hasCron ? '✅' : '❌') + ' Cron 23:00 (cronDailyFinancials)');
+  report.push((hasForm ? '✅' : '❌') + ' Form trigger (onExpenseFormSubmit)');
+
+  // 4. Test MailApp scope — đây là lý do chính phải chạy hàm này thủ công
+  var mailOk = false;
+  var mailErr = '';
+  try {
+    if (email) {
+      MailApp.sendEmail({
+        to: email,
+        subject: '✅ [Lâm Hà Kissaten] Kiểm tra hệ thống báo cáo',
+        htmlBody: '<p>Email này xác nhận MailApp đã được authorize đầy đủ.</p>' +
+                  '<pre style="font-family:monospace;background:#f3f4f6;padding:12px;border-radius:6px;">' +
+                  report.join('\n') + '</pre>'
+      });
+      mailOk = true;
+      try { PropertiesService.getScriptProperties().deleteProperty('NEEDS_REAUTH'); } catch (_) {}
+    } else {
+      mailErr = 'Không có email để test';
+    }
+  } catch (e) {
+    mailErr = String((e && e.message) || e);
+  }
+  report.push((mailOk ? '✅' : '❌') + ' MailApp.sendEmail' + (mailErr ? ' — ' + mailErr : ''));
+
+  // 5. Reset throttle để các lỗi mới (nếu có) sẽ alert lại
+  try { resetErrorThrottle(); } catch (_) {}
+
+  var summary = '🏥 <b>KIỂM TRA HỆ THỐNG BÁO CÁO TÀI CHÍNH</b>\n' + report.join('\n');
+  Logger.log(summary);
+  try { sendTelegramAlert(summary); } catch (_) {}
+  return report;
 }
 
 /**

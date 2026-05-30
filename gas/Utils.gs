@@ -74,21 +74,75 @@ function updateField(orderId, colName, value) {
   }
 }
 
-/** Ghi lỗi vào tab ERROR_LOG + alert Telegram */
+/**
+ * Ghi lỗi vào tab ERROR_LOG + alert Telegram (có throttle chống spam).
+ *
+ * Throttle: cùng 1 `context` chỉ gửi Telegram tối đa 1 lần / TELEGRAM_THROTTLE_MIN
+ * phút. Mọi lỗi đều luôn ghi đầy đủ vào ERROR_LOG.
+ * Lý do: trigger cron fire mỗi 23:00, nếu lỗi cứng (permission, quota...) thì
+ * không cần báo lại cùng nội dung mỗi đêm.
+ */
+var TELEGRAM_THROTTLE_MIN = 360; // 6 giờ
 function logError(context, err) {
+  var msg = String((err && err.message) || err);
+  var stack = String((err && err.stack) || '');
+  var nowIso = new Date().toISOString();
+
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('ERROR_LOG');
   if (!sheet) {
     sheet = ss.insertSheet('ERROR_LOG');
     sheet.appendRow(['timestamp', 'context', 'error', 'stack']);
   }
-  sheet.appendRow([
-    new Date().toISOString(),
-    context,
-    String(err && err.message || err),
-    String(err && err.stack || ''),
-  ]);
+  sheet.appendRow([nowIso, context, msg, stack]);
+
+  // Throttle Telegram: dùng PropertiesService, key duy nhất theo context
+  var shouldSendTelegram = true;
+  var suppressedCount = 0;
   try {
-    sendTelegramAlert('🚨 ERROR ' + context + ': ' + (err && err.message || err));
+    var props = PropertiesService.getScriptProperties();
+    var key = 'last_tg_err_' + context;
+    var countKey = 'tg_err_suppressed_' + context;
+    var last = parseInt(props.getProperty(key) || '0', 10);
+    var ageMin = (Date.now() - last) / 60000;
+    if (last && ageMin < TELEGRAM_THROTTLE_MIN) {
+      shouldSendTelegram = false;
+      var prev = parseInt(props.getProperty(countKey) || '0', 10);
+      props.setProperty(countKey, String(prev + 1));
+    } else {
+      suppressedCount = parseInt(props.getProperty(countKey) || '0', 10);
+      props.setProperty(key, String(Date.now()));
+      props.setProperty(countKey, '0');
+    }
+  } catch (_) { /* fall through */ }
+
+  if (!shouldSendTelegram) return;
+
+  try {
+    var tgMsg = '🚨 ERROR ' + context + ': ' + msg;
+    if (suppressedCount > 0) {
+      tgMsg += '\n(Đã bỏ qua ' + suppressedCount + ' lần lặp giống nhau trong ' +
+               TELEGRAM_THROTTLE_MIN + ' phút qua)';
+    }
+    sendTelegramAlert(tgMsg);
   } catch (_) { /* avoid recursion */ }
+}
+
+/**
+ * Reset throttle counter cho 1 context (hoặc tất cả nếu không truyền tham số).
+ * Dùng sau khi đã fix lỗi để Telegram có thể alert tiếp lần sau.
+ */
+function resetErrorThrottle(context) {
+  var props = PropertiesService.getScriptProperties();
+  if (context) {
+    props.deleteProperty('last_tg_err_' + context);
+    props.deleteProperty('tg_err_suppressed_' + context);
+    return;
+  }
+  var all = props.getProperties();
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf('last_tg_err_') === 0 || k.indexOf('tg_err_suppressed_') === 0) {
+      props.deleteProperty(k);
+    }
+  });
 }
