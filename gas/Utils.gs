@@ -65,9 +65,24 @@ function updateField(orderId, colName, value) {
   var colIdx = headers.indexOf(colName) + 1;
   if (colIdx === 0) throw new Error('Column not found: ' + colName);
 
-  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return;
+
+  // Thử tìm trong 200 dòng gần nhất trước (tối ưu hóa hiệu năng)
+  var startRow = Math.max(2, lastRow - 200 + 1);
+  var numRows = lastRow - startRow + 1;
+  var data = sheet.getRange(startRow, 1, numRows, 1).getValues();
   for (var i = 0; i < data.length; i++) {
     if (data[i][0] === orderId) {
+      sheet.getRange(startRow + i, colIdx).setValue(value);
+      return;
+    }
+  }
+
+  // Fallback: Quét toàn bộ cột A
+  var fullData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < fullData.length; i++) {
+    if (fullData[i][0] === orderId) {
       sheet.getRange(i + 2, colIdx).setValue(value);
       return;
     }
@@ -145,4 +160,23 @@ function resetErrorThrottle(context) {
       props.deleteProperty(k);
     }
   });
+}
+
+/**
+ * Lấy danh sách dòng cuối cùng của bảng tính kèm theo dòng tiêu đề (Header).
+ * Tối ưu hóa hiệu năng, giảm dung lượng bộ nhớ đọc/ghi so với getDataRange().getValues().
+ */
+function getLastRows(sheet, count) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1) {
+    return sheet.getDataRange().getValues();
+  }
+  var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var startRow = Math.max(2, lastRow - count + 1);
+  var numRows = lastRow - startRow + 1;
+  
+  var data = sheet.getRange(startRow, 1, numRows, lastCol).getValues();
+  data.unshift(header);
+  return data;
 }

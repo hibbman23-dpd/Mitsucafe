@@ -280,7 +280,7 @@ function doGet(e) {
 function _getPendingLabelOrders() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ORDERS');
   if (!sheet) return [];
-  var data = sheet.getDataRange().getValues();
+  var data = getLastRows(sheet, 300); // Tối ưu hóa: chỉ quét 300 dòng cuối thay vì toàn bộ sheet
   var cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);  // 4 giờ trước
   var result = [];
   for (var i = 1; i < data.length; i++) {
@@ -310,7 +310,7 @@ function _getPendingLabelOrders() {
 function _getPendingPrintOrders() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ORDERS');
   if (!sheet) return [];
-  var data = sheet.getDataRange().getValues();
+  var data = getLastRows(sheet, 300); // Tối ưu hóa: chỉ quét 300 dòng cuối thay vì toàn bộ sheet
   var cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   var result = [];
   for (var i = 1; i < data.length; i++) {

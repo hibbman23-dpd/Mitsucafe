@@ -236,10 +236,24 @@ function _ordersSheet() {
 
 function _findOrderRow(orderId) {
   var sheet = _ordersSheet();
-  var data = sheet.getDataRange().getValues();
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return null;
+
+  // Thử tìm trong 300 dòng gần nhất trước (tối ưu hóa tốc độ)
+  var startRow = Math.max(2, lastRow - 300 + 1);
+  var numRows = lastRow - startRow + 1;
+  var data = getLastRows(sheet, 300);
   for (var i = 1; i < data.length; i++) {
     if (data[i][0] === orderId) {
-      return { rowIndex: i + 1, data: data[i] };
+      return { rowIndex: startRow + (i - 1), data: data[i] };
+    }
+  }
+
+  // Fallback: Tìm trên toàn bộ bảng ORDERS nếu không thấy
+  var fullData = sheet.getDataRange().getValues();
+  for (var i = 1; i < fullData.length; i++) {
+    if (fullData[i][0] === orderId) {
+      return { rowIndex: i + 1, data: fullData[i] };
     }
   }
   return null;
@@ -318,7 +332,7 @@ function markOrderPaid(orderId) {
  */
 function getTodayOrders() {
   var sheet = _ordersSheet();
-  var data = sheet.getDataRange().getValues();
+  var data = getLastRows(sheet, 300); // Tối ưu hóa: chỉ quét 300 đơn gần nhất vì KDS chỉ cần hiển thị đơn hôm nay
   var today = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
   var orders = [];
   
