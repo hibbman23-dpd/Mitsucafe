@@ -58,3 +58,9 @@ logs/
 
 # Test data
 seed/test_order_*.json.local
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
