@@ -721,21 +721,24 @@ def _post_bytes(url: str, data: bytes) -> dict:
 
 
 # ── Poll loops ───────────────────────────────────────────────────────────────
-def poll_labels_once():
-    """Poll GAS lấy đơn cần in tem, in từng tem cho từng ly."""
+def poll_labels_once() -> bool:
+    """Poll GAS lấy đơn cần in tem, in từng tem cho từng ly.
+    Trả về True nếu có in tem, False nếu không có hoặc lỗi.
+    """
     url = GAS_WEBAPP_URL + "?action=pending_labels"
     try:
         result = _get_json(url)
     except Exception as exc:
         log.warning("GAS pending_labels error: %s", exc)
-        return
+        return False
 
     orders = result.get("orders") or []
     if not orders:
         log.debug("No pending label orders")
-        return
+        return False
 
     log.info("Found %d order(s) for labels", len(orders))
+    printed_any = False
 
     for order in orders:
         order_id = order.get("order_id", "?")
@@ -762,6 +765,7 @@ def poll_labels_once():
                     raise RuntimeError(f"Print server: {resp}")
                 log.info("Label %d/%d  %s — %s (%d bytes)",
                          i, total, order_id, item.get("name", "?"), resp.get("bytes", 0))
+                printed_any = True
             except Exception as exc:
                 log.error("Label %d/%d failed  %s: %s", i, total, order_id, exc)
                 all_ok = False
@@ -773,22 +777,28 @@ def poll_labels_once():
                 log.info("Labels marked: %s (%d cup(s))", order_id, total)
             except Exception as exc:
                 log.warning("mark_labels_printed failed  %s: %s", order_id, exc)
+                
+    return printed_any
 
 
-def poll_once():
+def poll_once() -> bool:
+    """Poll GAS lấy đơn cần in hoá đơn, in trực tiếp.
+    Trả về True nếu có in hoá đơn, False nếu không có hoặc lỗi.
+    """
     url = GAS_WEBAPP_URL + "?action=pending_print"
     try:
         result = _get_json(url)
     except Exception as exc:
         log.warning("GAS pending_print error: %s", exc)
-        return
+        return False
 
     orders = result.get("orders") or []
     if not orders:
         log.debug("No pending print orders")
-        return
+        return False
 
     log.info("Found %d order(s) to print", len(orders))
+    printed_any = False
 
     for order in orders:
         order_id = order.get("order_id", "?")
@@ -799,6 +809,7 @@ def poll_once():
                 raise RuntimeError(f"Print server error: {resp}")
             log.info("Printed receipt for %s (%d bytes, mode=%s)",
                      order_id, resp.get("bytes", 0), RECEIPT_MODE)
+            printed_any = True
 
             mark_url = GAS_WEBAPP_URL + f"?action=mark_printed&order_id={order_id}"
             _get_json(mark_url)
@@ -806,6 +817,8 @@ def poll_once():
 
         except Exception as exc:
             log.error("Failed to print %s: %s", order_id, exc)
+            
+    return printed_any
 
 
 def main():
@@ -823,16 +836,28 @@ def main():
         LABEL_DOTS_HEIGHT,
     )
 
+    current_interval = POLL_INTERVAL
     while True:
+        had_work = False
         try:
-            poll_labels_once()   # tem dán ly — ưu tiên trước (time-sensitive)
+            if poll_labels_once():
+                had_work = True
         except Exception as exc:
             log.error("poll_labels_once unhandled: %s", exc)
         try:
-            poll_once()          # hoá đơn nhiệt
+            if poll_once():
+                had_work = True
         except Exception as exc:
             log.error("poll_once unhandled: %s", exc)
-        time.sleep(POLL_INTERVAL)
+            
+        if had_work:
+            # Nếu có đơn, reset về khoảng thời gian mặc định để in nhanh nhất
+            current_interval = POLL_INTERVAL
+        else:
+            # Nếu không có đơn, tăng dần thời gian chờ (cộng 1s mỗi lần, tối đa 10s) để giảm tải
+            current_interval = min(10.0, current_interval + 1.0)
+            
+        time.sleep(current_interval)
 
 
 if __name__ == "__main__":
