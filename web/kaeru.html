@@ -1076,65 +1076,71 @@
       background: var(--ink);
     }
 
-    /* ── FLOATING STORY BUBBLE ── */
+    /* ── FLOATING STORY BUBBLE REDESIGN ── */
     .story-bubble-wrapper {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
+      bottom: 28px;
+      right: 28px;
       z-index: 990;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
       pointer-events: none;
       transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
     }
     .story-bubble-wrapper.hidden {
       opacity: 0;
-      transform: translateY(30px) scale(0.8);
+      transform: translateY(40px) scale(0.7);
       pointer-events: none !important;
     }
     
-    .story-bubble-btn {
+    .story-bubble-ring-container {
       position: relative;
-      width: 72px;
-      height: 72px;
+      width: 78px;
+      height: 78px;
       border-radius: 50%;
-      background: var(--cream);
-      border: 3px solid var(--coral);
+      padding: 3px;
+      background: linear-gradient(135deg, var(--coral) 0%, #FFB800 50%, var(--coral-dk) 100%);
+      background-size: 200% 200%;
+      animation: gradient-shift 4s ease infinite, bubble-wiggle 6s ease-in-out infinite;
+      box-shadow: 0 8px 32px rgba(235, 98, 74, 0.35), 0 0 0 4px rgba(235, 98, 74, 0.1);
       cursor: pointer;
       pointer-events: auto;
-      box-shadow: 0 8px 24px rgba(30, 45, 50, 0.18);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+    }
+    
+    @keyframes gradient-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    @keyframes bubble-wiggle {
+      0%, 90%, 100% { transform: scale(1) rotate(0deg); }
+      92% { transform: scale(1.08) rotate(-8deg); }
+      94% { transform: scale(1.08) rotate(8deg); }
+      96% { transform: scale(1.08) rotate(-6deg); }
+      98% { transform: scale(1.08) rotate(4deg); }
+    }
+    
+    .story-bubble-btn {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--cream);
+      border: 2px solid var(--cream);
+      position: relative;
+      overflow: visible;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
-      overflow: visible;
-    }
-    .story-bubble-btn::before, .story-bubble-btn::after {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: 50%;
-      border: 3px solid var(--coral);
-      opacity: 0.8;
-      pointer-events: none;
-      animation: bubble-ping 2.2s cubic-bezier(0.26, 0, 0, 1) infinite;
-    }
-    .story-bubble-btn::after {
-      animation-delay: 1.1s;
-    }
-    @keyframes bubble-ping {
-      0% { transform: scale(1); opacity: 0.8; }
-      70% { transform: scale(1.3); opacity: 0; }
-      100% { transform: scale(1.3); opacity: 0; }
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     }
     
-    .story-bubble-btn:hover {
-      transform: scale(1.06) rotate(-3deg);
-      box-shadow: 0 12px 32px rgba(235, 98, 74, 0.3);
-    }
-    .story-bubble-btn:active {
-      transform: scale(0.95);
+    .story-bubble-ring-container:hover {
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 12px 36px rgba(235, 98, 74, 0.5), 0 0 0 6px rgba(235, 98, 74, 0.15);
     }
     
     .story-bubble-thumb {
@@ -1144,78 +1150,80 @@
       object-fit: cover;
       object-position: center top;
       display: block;
+      transition: transform 0.4s ease;
+    }
+    .story-bubble-ring-container:hover .story-bubble-thumb {
+      transform: scale(1.06);
     }
     
     .story-bubble-play-icon {
       position: absolute;
-      bottom: -2px;
-      right: -2px;
-      width: 24px;
-      height: 24px;
+      bottom: -1px;
+      right: -1px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       background: var(--coral);
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 8px rgba(235, 98, 74, 0.4);
-      border: 1.5px solid var(--cream);
-      transition: transform 0.3s ease;
+      box-shadow: 0 3px 8px rgba(235, 98, 74, 0.4);
+      border: 2px solid var(--cream);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s;
+      z-index: 2;
     }
-    .story-bubble-btn:hover .story-bubble-play-icon {
-      transform: scale(1.15) rotate(3deg);
-    }
-    
-    .story-bubble-tooltip {
-      position: absolute;
-      right: 88px;
+    .story-bubble-ring-container:hover .story-bubble-play-icon {
+      transform: scale(1.15);
       background: var(--teal);
-      color: var(--cream);
-      font-family: var(--font-jp);
-      font-size: 0.76rem;
-      font-weight: 500;
-      letter-spacing: 0.05em;
-      padding: 8px 16px;
-      border-radius: 20px;
-      white-space: nowrap;
-      pointer-events: auto;
-      box-shadow: 0 6px 18px rgba(30, 45, 50, 0.15);
-      border: 1px solid rgba(245, 240, 232, 0.15);
-      opacity: 0;
-      transform: translateX(15px);
-      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .story-bubble-tooltip::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      right: -5px;
-      transform: translateY(-50%);
-      border-width: 5px 0 5px 6px;
-      border-style: solid;
-      border-color: transparent transparent transparent var(--teal);
-      width: 0;
-      height: 0;
-    }
-    .story-bubble-wrapper:hover .story-bubble-tooltip {
-      opacity: 1;
-      transform: translateX(0);
     }
     
-    .story-bubble-tooltip-jp {
-      font-size: 0.6rem;
-      opacity: 0.75;
-      display: block;
-      margin-top: 1px;
-      letter-spacing: 0.08em;
+    .story-bubble-badge {
+      background: var(--ink);
+      color: var(--cream);
+      font-family: var(--font-en);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      padding: 5px 12px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(30, 45, 50, 0.2);
+      border: 1px solid rgba(245, 240, 232, 0.12);
+      pointer-events: auto;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background-color 0.2s, color 0.2s, transform 0.2s;
+      cursor: pointer;
+    }
+    .story-bubble-badge::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--coral);
+      animation: pulse-dot 1.5s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.4; }
+    }
+    
+    .story-bubble-ring-container:hover + .story-bubble-badge,
+    .story-bubble-badge:hover {
+      background: var(--coral);
+      color: #fff;
+      transform: translateY(-2px);
     }
     
     .story-bubble-close {
       position: absolute;
-      top: -6px;
-      left: -6px;
-      width: 20px;
-      height: 20px;
+      top: -4px;
+      left: -4px;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
       background: var(--ink);
       color: rgba(245, 240, 232, 0.85);
@@ -1223,14 +1231,15 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: bold;
       cursor: pointer;
       pointer-events: auto;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
       opacity: 0;
       transform: scale(0.8);
       transition: opacity 0.25s, transform 0.25s, background-color 0.2s, color 0.2s;
+      z-index: 10;
     }
     .story-bubble-wrapper:hover .story-bubble-close {
       opacity: 1;
@@ -1346,24 +1355,25 @@
     
     @media (max-width: 600px) {
       .story-bubble-wrapper {
-        bottom: 16px;
-        right: 16px;
+        bottom: 20px;
+        right: 20px;
       }
-      .story-bubble-btn {
-        width: 58px;
-        height: 58px;
-        border-width: 2.5px;
+      .story-bubble-ring-container {
+        width: 64px;
+        height: 64px;
+        padding: 2.5px;
       }
       .story-bubble-play-icon {
-        width: 20px;
-        height: 20px;
-        font-size: 10px;
+        width: 22px;
+        height: 22px;
+        font-size: 8px;
       }
-      .story-bubble-tooltip {
-        display: none !important;
+      .story-bubble-badge {
+        font-size: 0.52rem;
+        padding: 4px 10px;
       }
       .story-bubble-close {
-        opacity: 0.7;
+        opacity: 0.8;
         transform: scale(0.9);
       }
       .dialog-close-btn {
@@ -2145,20 +2155,21 @@
 
 <div class="story-bubble-wrapper hidden" id="story-bubble-container">
   <button class="story-bubble-close" id="story-bubble-close-trigger" aria-label="Đóng quảng cáo câu chuyện">&times;</button>
-  <div class="story-bubble-tooltip">
-    Xem câu chuyện Kaeru 🎬
-    <span class="story-bubble-tooltip-jp">かえるの物語を見る</span>
-  </div>
-  <button class="story-bubble-btn" id="story-bubble-trigger" aria-label="Xem video câu chuyện Kaeru">
-    <picture>
-      <source srcset="img/story-visual.webp" type="image/webp">
-      <img src="img/story-visual.jpg" alt="Câu chuyện Kaeru" class="story-bubble-thumb">
-    </picture>
-    <div class="story-bubble-play-icon">
-      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
-        <path d="M8 5v14l11-7z"/>
-      </svg>
+  <div class="story-bubble-ring-container" id="story-bubble-trigger">
+    <div class="story-bubble-btn">
+      <picture>
+        <source srcset="img/story-visual.webp" type="image/webp">
+        <img src="img/story-visual.jpg" alt="Câu chuyện Kaeru" class="story-bubble-thumb">
+      </picture>
+      <div class="story-bubble-play-icon">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </div>
     </div>
+  </div>
+  <button class="story-bubble-badge" id="story-bubble-badge-trigger" aria-label="Xem video câu chuyện Kaeru">
+    Xem Story
   </button>
 </div>
 
@@ -2484,6 +2495,7 @@
     
     const bubbleContainer = document.getElementById('story-bubble-container');
     const bubbleTrigger = document.getElementById('story-bubble-trigger');
+    const bubbleBadgeTrigger = document.getElementById('story-bubble-badge-trigger');
     const bubbleClose = document.getElementById('story-bubble-close-trigger');
     
     if (!dialog || !videoContainer) return;
@@ -2513,6 +2525,10 @@
     
     if (bubbleTrigger) {
       bubbleTrigger.addEventListener('click', openVideo);
+    }
+    
+    if (bubbleBadgeTrigger) {
+      bubbleBadgeTrigger.addEventListener('click', openVideo);
     }
     
     if (closeBtn) {
