@@ -2135,6 +2135,32 @@
   </div>
 </footer>
 
+<!-- ======== VIDEO STORY DIALOG & BUBBLE ======== -->
+<dialog id="video-dialog">
+  <div class="dialog-container">
+    <button class="dialog-close-btn" id="dialog-close-trigger" aria-label="Đóng">&times;</button>
+    <div id="dialog-video-container" style="width:100%; height:100%;"></div>
+  </div>
+</dialog>
+
+<div class="story-bubble-wrapper hidden" id="story-bubble-container">
+  <button class="story-bubble-close" id="story-bubble-close-trigger" aria-label="Đóng quảng cáo câu chuyện">&times;</button>
+  <div class="story-bubble-tooltip">
+    Xem câu chuyện Kaeru 🎬
+    <span class="story-bubble-tooltip-jp">かえるの物語を見る</span>
+  </div>
+  <button class="story-bubble-btn" id="story-bubble-trigger" aria-label="Xem video câu chuyện Kaeru">
+    <picture>
+      <source srcset="img/story-visual.webp" type="image/webp">
+      <img src="img/story-visual.jpg" alt="Câu chuyện Kaeru" class="story-bubble-thumb">
+    </picture>
+    <div class="story-bubble-play-icon">
+      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    </div>
+  </button>
+</div>
 
 <script>
   // ── App-wide constants ──
@@ -2521,32 +2547,5 @@
     }
   })();
 </script>
-
-<!-- ======== VIDEO STORY DIALOG & BUBBLE ======== -->
-<dialog id="video-dialog">
-  <div class="dialog-container">
-    <button class="dialog-close-btn" id="dialog-close-trigger" aria-label="Đóng">&times;</button>
-    <div id="dialog-video-container" style="width:100%; height:100%;"></div>
-  </div>
-</dialog>
-
-<div class="story-bubble-wrapper hidden" id="story-bubble-container">
-  <button class="story-bubble-close" id="story-bubble-close-trigger" aria-label="Đóng quảng cáo câu chuyện">&times;</button>
-  <div class="story-bubble-tooltip">
-    Xem câu chuyện Kaeru 🎬
-    <span class="story-bubble-tooltip-jp">かえるの物語を見る</span>
-  </div>
-  <button class="story-bubble-btn" id="story-bubble-trigger" aria-label="Xem video câu chuyện Kaeru">
-    <picture>
-      <source srcset="img/story-visual.webp" type="image/webp">
-      <img src="img/story-visual.jpg" alt="Câu chuyện Kaeru" class="story-bubble-thumb">
-    </picture>
-    <div class="story-bubble-play-icon">
-      <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
-        <path d="M8 5v14l11-7z"/>
-      </svg>
-    </div>
-  </button>
-</div>
 </body>
 </html>
