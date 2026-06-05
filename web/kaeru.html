@@ -2036,15 +2036,15 @@
     checkPromo();
   })();
 
-  // ── Reset khoá chuyển trang khi quay lại từ bfcache (nút Back) ──
-  // Nếu không có, lớp sóng teal toàn màn hình + khoá isNavigating sẽ kẹt lại,
-  // khiến cả trang bị phủ hoặc nút "Đặt ngay" không bấm được.
-  window.addEventListener('pageshow', (e) => {
-    if (e.persisted) {
-      isNavigating = false;
-      document.querySelectorAll('.order-wave, .order-ink').forEach(el => el.remove());
-    }
-  });
+  // ── Reset bfcache: dọn wave TRƯỚC khi trang bị đóng băng ──
+  // pagehide fires trước khi freeze → trang được lưu vào bfcache ở trạng thái sạch
+  // pageshow là lớp dự phòng cho trường hợp pagehide không đủ
+  function resetNavState() {
+    isNavigating = false;
+    document.querySelectorAll('.order-wave, .order-ink').forEach(el => el.remove());
+  }
+  window.addEventListener('pagehide', resetNavState);
+  window.addEventListener('pageshow', (e) => { if (e.persisted) resetNavState(); });
 </script>
 </body>
 </html>
