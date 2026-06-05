@@ -2531,8 +2531,11 @@
     if (!dialog || !videoContainer) return;
     
     function openVideo() {
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      const autoplayParam = isMobile ? 'autoplay=0' : 'autoplay=1';
+      
       videoContainer.innerHTML = '<iframe class="dialog-video-frame" ' +
-        'src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=1&playsinline=1&enablejsapi=1&rel=0" ' +
+        'src="https://www.youtube.com/embed/' + videoId + '?' + autoplayParam + '&playsinline=1&enablejsapi=1&rel=0" ' +
         'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" ' +
         'allowfullscreen></iframe>';
       dialog.showModal();
