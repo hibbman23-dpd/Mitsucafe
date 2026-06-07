@@ -9,56 +9,83 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:hsl(222,47%,9%); --panel:hsla(222,47%,14%,.85); --border:hsla(0,0%,100%,.08);
+    --bg:hsl(222,47%,9%); --panel:hsla(222,47%,14%,.85); --panel2:hsla(222,47%,18%,.6);
+    --border:hsla(0,0%,100%,.08);
     --text:hsl(0,0%,95%); --muted:hsl(215,20%,62%);
     --cyan:hsl(190,100%,45%); --red:hsl(350,85%,57%); --yellow:hsl(45,100%,52%);
     --green:hsl(150,75%,45%); --violet:hsl(265,80%,65%);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);padding:16px;max-width:1280px;margin:0 auto}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
   h1,h2,h3{font-family:'Outfit',sans-serif}
   a{color:var(--cyan);text-decoration:none}
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
-  .topbar h1{font-size:1.3rem}
-  .topbar .meta{color:var(--muted);font-size:.8rem}
-  .btn{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:10px;cursor:pointer;font-size:.85rem;transition:.2s}
+  .wrap{max-width:1300px;margin:0 auto;padding:14px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .topbar h1{font-size:1.25rem}
+  .meta{color:var(--muted);font-size:.78rem}
+  .btn{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:8px 13px;border-radius:10px;cursor:pointer;font-size:.84rem;transition:.15s}
   .btn:hover{border-color:var(--cyan)}
   .btn.primary{background:var(--cyan);color:#012;border:none;font-weight:600}
+  .btn.sm{padding:5px 10px;font-size:.78rem}
+  .btn.green{background:var(--green);color:#021;border:none;font-weight:600}
+  /* tabs */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px}
+  .tab{padding:8px 14px;border-radius:10px;cursor:pointer;font-size:.85rem;color:var(--muted);border:1px solid transparent;white-space:nowrap}
+  .tab.active{background:var(--panel);color:var(--text);border-color:var(--border)}
+  .view{display:none}
+  .view.active{display:block}
+  /* cards grid */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;backdrop-filter:blur(8px)}
-  .card h2{font-size:.95rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px}
+  .card h2{font-size:.92rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px}
   .kpi-row{display:flex;gap:18px;flex-wrap:wrap}
-  .kpi{flex:1;min-width:90px}
-  .kpi .v{font-family:'Outfit';font-size:1.6rem;font-weight:700}
-  .kpi .l{color:var(--muted);font-size:.75rem;margin-top:2px}
-  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:600;margin:2px 4px 2px 0}
-  .b-cyan{background:hsla(190,100%,45%,.15);color:var(--cyan)}
-  .b-green{background:hsla(150,75%,45%,.15);color:var(--green)}
-  .b-red{background:hsla(350,85%,57%,.15);color:var(--red)}
-  .b-yellow{background:hsla(45,100%,52%,.15);color:var(--yellow)}
-  .b-violet{background:hsla(265,80%,65%,.15);color:var(--violet)}
-  .b-muted{background:hsla(215,20%,62%,.12);color:var(--muted)}
-  ul.list{list-style:none;font-size:.85rem}
-  ul.list li{padding:7px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px}
-  ul.list li:last-child{border:none}
-  .empty{color:var(--muted);font-size:.85rem;font-style:italic;padding:6px 0}
-  .err{color:var(--red);font-size:.8rem}
-  .toggle{display:flex;align-items:center;gap:10px;margin-top:8px}
+  .kpi{flex:1;min-width:80px}
+  .kpi .v{font-family:'Outfit';font-size:1.5rem;font-weight:700}
+  .kpi .l{color:var(--muted);font-size:.72rem;margin-top:2px}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:600;margin:2px 4px 2px 0}
+  .b-cyan{background:hsla(190,100%,45%,.15);color:var(--cyan)} .b-green{background:hsla(150,75%,45%,.15);color:var(--green)}
+  .b-red{background:hsla(350,85%,57%,.15);color:var(--red)} .b-yellow{background:hsla(45,100%,52%,.15);color:var(--yellow)}
+  .b-violet{background:hsla(265,80%,65%,.15);color:var(--violet)} .b-muted{background:hsla(215,20%,62%,.12);color:var(--muted)}
+  ul.list{list-style:none;font-size:.84rem} ul.list li{padding:7px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px} ul.list li:last-child{border:none}
+  .empty{color:var(--muted);font-size:.83rem;font-style:italic;padding:6px 0} .err{color:var(--red);font-size:.8rem}
+  /* tables */
+  .tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:6px}
+  table{border-collapse:collapse;width:100%;font-size:.82rem}
+  th{text-align:left;color:var(--muted);font-weight:500;padding:8px;border-bottom:1px solid var(--border);white-space:nowrap;font-size:.74rem;text-transform:uppercase}
+  td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr:last-child td{border:none}
+  input.cell,select.cell{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 7px;font-size:.82rem;width:100%;min-width:70px}
+  input.cell:focus{outline:none;border-color:var(--cyan)}
+  .toolbar{display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap}
+  .sectitle{font-size:1.05rem;margin:4px 0 4px}
+  .hint{color:var(--muted);font-size:.78rem;margin-bottom:8px}
+  .saved{color:var(--green);font-size:.75rem;margin-left:6px}
+  /* agents */
+  .agent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+  .agent-btn{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;text-align:left;transition:.15s}
+  .agent-btn:hover{border-color:var(--cyan);transform:translateY(-1px)}
+  .agent-btn .n{font-weight:600;font-size:.9rem} .agent-btn .d{color:var(--muted);font-size:.72rem;margin-top:3px}
+  .chatbox{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
+  .chatlog{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+  .msg{padding:9px 12px;border-radius:12px;font-size:.84rem;max-width:85%}
+  .msg.me{background:hsla(190,100%,45%,.13);align-self:flex-end;border:1px solid hsla(190,100%,45%,.25)}
+  .msg.bot{background:var(--panel2);align-self:flex-start}
+  .msg .st{font-size:.68rem;color:var(--muted);margin-top:4px}
+  .chatinput{display:flex;gap:8px}
+  .chatinput input{flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px;font-size:.88rem}
   /* login */
   #login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
   #login.hidden{display:none}
   .loginbox{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:30px;width:330px;max-width:90vw}
-  .loginbox h1{font-size:1.3rem;margin-bottom:4px}
-  .loginbox p{color:var(--muted);font-size:.82rem;margin-bottom:18px}
+  .loginbox h1{font-size:1.3rem;margin-bottom:4px} .loginbox p{color:var(--muted);font-size:.82rem;margin-bottom:18px}
   .loginbox input{width:100%;padding:11px;margin-bottom:11px;border-radius:10px;border:1px solid var(--border);background:hsla(222,47%,9%,.6);color:var(--text);font-size:.9rem}
-  .loginbox .btn{width:100%}
-  .small{font-size:.72rem;color:var(--muted)}
-  .insight-v{font-weight:700}
+  .loginbox .btn{width:100%} .small{font-size:.72rem;color:var(--muted)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--cyan);padding:10px 18px;border-radius:12px;font-size:.85rem;z-index:60;opacity:0;transition:.3s}
+  .toast.show{opacity:1}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
 <div id="login">
   <div class="loginbox">
     <h1>🐸 Kaeru Ops</h1>
@@ -70,186 +97,252 @@
   </div>
 </div>
 
-<!-- APP -->
 <div id="app" style="display:none">
+<div class="wrap">
   <div class="topbar">
+    <div><h1>🐸 Kaeru Ops</h1><div class="meta" id="meta">—</div></div>
     <div>
-      <h1>🐸 Kaeru Ops</h1>
-      <div class="meta" id="meta">—</div>
-    </div>
-    <div>
-      <button class="btn" onclick="load()">🔄 Làm mới</button>
+      <button class="btn" onclick="refreshActive()">🔄 Làm mới</button>
       <a class="btn" href="kds.html" target="_blank">🍳 KDS</a>
+      <a class="btn" href="camera.html" target="_blank">📷 Camera</a>
       <button class="btn" onclick="logout()">Đăng xuất</button>
     </div>
   </div>
-  <div class="grid" id="grid"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-v="overview" onclick="switchTab('overview')">📊 Tổng quan</div>
+    <div class="tab" data-v="menu" onclick="switchTab('menu')">🍵 Menu & Giá</div>
+    <div class="tab" data-v="inventory" onclick="switchTab('inventory')">📦 Kho & Nguyên liệu</div>
+    <div class="tab" data-v="promo" onclick="switchTab('promo')">🏷️ Promo</div>
+    <div class="tab" data-v="staff" onclick="switchTab('staff')">👤 Nhân viên</div>
+    <div class="tab" data-v="config" onclick="switchTab('config')">⚙️ Cấu hình</div>
+    <div class="tab" data-v="agents" onclick="switchTab('agents')">🤖 Agents & Chat</div>
+  </div>
+
+  <div id="v-overview" class="view active"><div class="grid" id="ovGrid"></div></div>
+  <div id="v-menu" class="view"></div>
+  <div id="v-inventory" class="view"></div>
+  <div id="v-promo" class="view"></div>
+  <div id="v-staff" class="view"></div>
+  <div id="v-config" class="view"></div>
+  <div id="v-agents" class="view"></div>
 </div>
+</div>
+<div class="toast" id="toast"></div>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
-const TKEY = 'dash_token';
-let timer = null;
+const GAS_URL='https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+const TKEY='dash_token';
+let timer=null, chatTimer=null, adminCache=null;
 
-async function apiPost(data){
-  const r = await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)});
-  return r.json();
-}
-async function apiGet(params){
-  const r = await fetch(GAS_URL+'?'+params);
-  return r.json();
-}
-const vnd = n => (Number(n)||0).toLocaleString('vi-VN')+'đ';
-const esc = s => String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+async function apiPost(d){const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(d)});return r.json();}
+async function apiGet(p){const r=await fetch(GAS_URL+'?'+p);return r.json();}
+const vnd=n=>(Number(n)||0).toLocaleString('vi-VN')+'đ';
+const esc=s=>String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const tk=()=>sessionStorage.getItem(TKEY);
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 
+/* ---------- AUTH ---------- */
 async function login(){
-  const u=document.getElementById('u').value.trim();
-  const p=document.getElementById('p').value;
-  const err=document.getElementById('loginErr');
-  err.textContent='Đang kiểm tra...';
+  const err=document.getElementById('loginErr');err.textContent='Đang kiểm tra...';
   try{
-    const res=await apiPost({action:'admin_login',username:u,password:p});
-    if(res&&res.ok){
-      sessionStorage.setItem(TKEY,res.token);
-      document.getElementById('p').value='';
-      showApp();
-    }else{ err.textContent=res?res.error:'Sai tài khoản/mật khẩu'; }
-  }catch(e){ err.textContent='Lỗi kết nối máy chủ.'; }
+    const res=await apiPost({action:'admin_login',username:document.getElementById('u').value.trim(),password:document.getElementById('p').value});
+    if(res&&res.ok){sessionStorage.setItem(TKEY,res.token);document.getElementById('p').value='';showApp();}
+    else err.textContent=res?res.error:'Sai tài khoản/mật khẩu';
+  }catch(e){err.textContent='Lỗi kết nối máy chủ.';}
 }
-function logout(){
-  sessionStorage.removeItem(TKEY);
-  if(timer) clearInterval(timer);
-  document.getElementById('app').style.display='none';
-  document.getElementById('login').classList.remove('hidden');
-}
-function showApp(){
-  document.getElementById('login').classList.add('hidden');
-  document.getElementById('app').style.display='block';
-  load();
-  if(timer) clearInterval(timer);
-  timer=setInterval(load,90000); // auto refresh 90s
-}
+function logout(){sessionStorage.removeItem(TKEY);if(timer)clearInterval(timer);if(chatTimer)clearInterval(chatTimer);document.getElementById('app').style.display='none';document.getElementById('login').classList.remove('hidden');}
+function showApp(){document.getElementById('login').classList.add('hidden');document.getElementById('app').style.display='block';switchTab('overview');loadOverview();timer=setInterval(()=>{if(curTab==='overview')loadOverview();},90000);}
 
-async function load(){
-  const token=sessionStorage.getItem(TKEY);
-  if(!token){ logout(); return; }
+/* ---------- TABS ---------- */
+let curTab='overview';
+function switchTab(v){
+  curTab=v;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='v-'+v));
+  if(v==='overview')loadOverview();
+  else if(v==='agents')loadAgents();
+  else loadAdmin(v);
+}
+function refreshActive(){adminCache=null;switchTab(curTab);}
+
+/* ---------- OVERVIEW ---------- */
+async function loadOverview(){
+  if(!tk())return logout();
   document.getElementById('meta').textContent='Đang tải...';
-  let d;
-  try{ d=await apiGet('action=dashboard_summary&token='+encodeURIComponent(token)); }
-  catch(e){ document.getElementById('meta').textContent='Lỗi kết nối'; return; }
-  if(!d||!d.ok){
-    if(d&&d.error==='unauthorized'){ logout(); return; }
-    document.getElementById('meta').textContent='Lỗi: '+((d&&d.error)||'?');
-    return;
-  }
-  const now=new Date();
-  document.getElementById('meta').textContent='Hôm nay '+d.date+' · cập nhật '+now.toLocaleTimeString('vi-VN');
-  render(d);
+  let d;try{d=await apiGet('action=dashboard_summary&token='+encodeURIComponent(tk()));}catch(e){document.getElementById('meta').textContent='Lỗi kết nối';return;}
+  if(!d||!d.ok){if(d&&d.error==='unauthorized')return logout();document.getElementById('meta').textContent='Lỗi: '+((d&&d.error)||'?');return;}
+  document.getElementById('meta').textContent='Hôm nay '+d.date+' · cập nhật '+new Date().toLocaleTimeString('vi-VN');
+  renderOverview(d);
 }
-
-function card(title,body){ return `<div class="card"><h2>${title}</h2>${body}</div>`; }
-function errBox(o){ return o&&o.error?`<div class="err">⚠ ${esc(o.error)}</div>`:''; }
-
-function render(d){
-  const g=document.getElementById('grid');
-  let html='';
-
-  // 1. KPI
+function card(t,b){return `<div class="card"><h2>${t}</h2>${b}</div>`;}
+function eb(o){return o&&o.error?`<div class="err">⚠ ${esc(o.error)}</div>`:'';}
+function renderOverview(d){
+  const g=document.getElementById('ovGrid');let h='';
   const k=d.kpi||{};
-  html+=card('📊 KPI hôm nay', errBox(k)+`<div class="kpi-row">
-    <div class="kpi"><div class="v">${vnd(k.revenue)}</div><div class="l">Doanh thu</div></div>
-    <div class="kpi"><div class="v">${k.orders_count||0}</div><div class="l">Đơn</div></div>
-    <div class="kpi"><div class="v">${vnd(k.average_order_value)}</div><div class="l">AOV</div></div>
-  </div>`);
-
-  // 2. Orders live
-  const o=d.orders||{};
-  let statusB='';
-  if(o.by_status) for(const s in o.by_status) statusB+=`<span class="badge b-cyan">${esc(s)}: ${o.by_status[s]}</span>`;
-  let recent=(o.recent||[]).map(r=>`<li><span>${esc(r.short_code||r.order_id||'')} · ${esc(r.items_summary||'')}</span><span class="badge b-muted">${esc(r.status||'')}</span></li>`).join('');
-  html+=card(`🧾 Đơn hôm nay (${o.count||0})`, errBox(o)+(statusB||'')+(recent?`<ul class="list" style="margin-top:8px">${recent}</ul>`:'<div class="empty">Chưa có đơn.</div>'));
-
-  // 3. Cash
-  const c=d.cash||{};
-  let cashBody=errBox(c);
-  if(!c.error){
-    const cc=c.counts||{};
-    cashBody+=`<span class="badge b-green">OK: ${cc.ok||0}</span><span class="badge b-yellow">Warn: ${cc.warn||0}</span><span class="badge b-red">Alert: ${cc.alert||0}</span>`;
-    cashBody+=`<div class="small" style="margin-top:8px">Tổng lệch tuyệt đối: ${vnd(c.totalVarianceAbs||c.total_variance_abs||0)}</div>`;
-    if((cc.ok||0)+(cc.warn||0)+(cc.alert||0)===0) cashBody+='<div class="empty">Chưa có ca đóng hôm nay.</div>';
-  }
-  html+=card('💵 Két ca hôm nay', cashBody);
-
-  // 4. Low stock
-  const ls=d.low_stock;
-  let lsBody=errBox(ls);
-  if(Array.isArray(ls)){
-    lsBody+= ls.length? `<ul class="list">${ls.map(x=>`<li><span>${esc(x.name)}</span><span class="badge b-red">${x.current_stock}/${x.min_stock} ${esc(x.unit||'')}</span></li>`).join('')}</ul>` : '<div class="empty">Tồn kho ổn ✓</div>';
-  }
-  html+=card('📦 Tồn kho thấp', lsBody);
-
-  // 5. Maintenance
-  const mt=d.maintenance;
-  let mtBody=errBox(mt);
-  if(Array.isArray(mt)){
-    const due=mt.filter(t=>{const s=(t.status||'').toLowerCase();return s.includes('due')||s.includes('overdue')||s.includes('quá')||s.includes('đến hạn');});
-    mtBody+= due.length? `<ul class="list">${due.map(t=>`<li><span>${esc(t.name||t.task||t.equipment||'')}</span><span class="badge b-yellow">${esc(t.status||'')}</span></li>`).join('')}</ul>` : '<div class="empty">Không có task tới hạn ✓</div>';
-  }
-  html+=card('🔧 Bảo trì tới hạn', mtBody);
-
-  // 6. Reviews pending
-  const rv=d.reviews_pending;
-  let rvBody=errBox(rv);
-  if(Array.isArray(rv)){
-    rvBody+= rv.length? `<ul class="list">${rv.slice(0,8).map(r=>`<li><span>${esc((r.source||'')+': '+(r.comment||r.text||'').slice(0,60))}</span><span class="badge ${(r.sentiment==='critical'||r.rating<=2)?'b-red':'b-green'}">${esc(r.rating!=null?r.rating+'★':(r.sentiment||''))}</span></li>`).join('')}</ul>` : '<div class="empty">Không có review chờ trả lời ✓</div>';
-  }
-  html+=card('⭐ Review chờ trả lời', rvBody);
-
-  // 7. Promo control
-  const pr=d.promo||{};
-  const active=pr.active===true||pr.active==='true';
-  html+=card('🏷️ Promo', errBox(pr)+`
-    <div>${active?'<span class="badge b-green">ĐANG CHẠY</span>':'<span class="badge b-muted">TẮT</span>'}</div>
-    <div class="small" style="margin-top:6px">${esc(pr.message||pr.msg||'(chưa có nội dung)')}</div>
-    <div class="toggle">
-      <button class="btn ${active?'':'primary'}" onclick="setPromo(true)">Bật 5%</button>
-      <button class="btn ${active?'primary':''}" onclick="setPromo(false)">Tắt</button>
-    </div>
-    <div class="small" style="margin-top:6px">⚠ Campaign nâng cao quản lý ở tab PROMOTIONS (qua /promo).</div>`);
-
-  // 8. RFM
-  const rf=d.rfm||{};
-  let rfBody=errBox(rf);
-  if(!rf.error){
-    let segB='';
-    const seg=rf.segments||{};
-    for(const s in seg){ const v=typeof seg[s]==='object'?(seg[s].count||seg[s].length||0):seg[s]; segB+=`<span class="badge b-violet">${esc(s)}: ${v}</span>`; }
-    rfBody+=`<div class="kpi"><div class="v">${rf.total||0}</div><div class="l">Tổng khách</div></div><div style="margin-top:8px">${segB||'<span class="empty">Chưa đủ data</span>'}</div>`;
-  }
-  html+=card('👥 Khách (RFM)', rfBody);
-
-  // 9. Agent insights
-  const ins=d.agent_insights||[];
-  let insBody = ins.length? `<ul class="list">${ins.map(i=>{
-    const v=(i.verdict||'').toUpperCase();
-    const cls=v.includes('SCALE')||v.includes('KEEP')?'b-green':v.includes('KILL')?'b-red':v.includes('FIX')?'b-yellow':'b-cyan';
-    return `<li><span><b>${esc(i.agent||'')}</b> · ${esc((i.summary||'').slice(0,70))}</span>${v?`<span class="badge ${cls}">${esc(v)}</span>`:''}</li>`;
-  }).join('')}</ul>` : '<div class="empty">Chưa có insight. Chạy /roi, /menu-eng, /doi-thu, /trend trong Claude → sẽ hiện ở đây.</div>';
-  html+=card('🤖 Agent insights', insBody);
-
-  g.innerHTML=html;
+  h+=card('📊 KPI hôm nay',eb(k)+`<div class="kpi-row"><div class="kpi"><div class="v">${vnd(k.revenue)}</div><div class="l">Doanh thu</div></div><div class="kpi"><div class="v">${k.orders_count||0}</div><div class="l">Đơn</div></div><div class="kpi"><div class="v">${vnd(k.average_order_value)}</div><div class="l">AOV</div></div></div>`);
+  const o=d.orders||{};let sb='';if(o.by_status)for(const s in o.by_status)sb+=`<span class="badge b-cyan">${esc(s)}: ${o.by_status[s]}</span>`;
+  let rec=(o.recent||[]).map(r=>`<li><span>${esc(r.short_code||r.order_id||'')} · ${esc(r.items_summary||'')}</span><span class="badge b-muted">${esc(r.status||'')}</span></li>`).join('');
+  h+=card(`🧾 Đơn hôm nay (${o.count||0})`,eb(o)+sb+(rec?`<ul class="list" style="margin-top:8px">${rec}</ul>`:'<div class="empty">Chưa có đơn.</div>'));
+  const c=d.cash||{};let cb=eb(c);if(!c.error){const cc=c.counts||{};cb+=`<span class="badge b-green">OK ${cc.ok||0}</span><span class="badge b-yellow">Warn ${cc.warn||0}</span><span class="badge b-red">Alert ${cc.alert||0}</span>`;if((cc.ok||0)+(cc.warn||0)+(cc.alert||0)===0)cb+='<div class="empty">Chưa có ca đóng.</div>';}
+  h+=card('💵 Két ca hôm nay',cb);
+  const ls=d.low_stock;let lb=eb(ls);if(Array.isArray(ls))lb+=ls.length?`<ul class="list">${ls.map(x=>`<li><span>${esc(x.name)}</span><span class="badge b-red">${x.current_stock}/${x.min_stock} ${esc(x.unit||'')}</span></li>`).join('')}</ul>`:'<div class="empty">Tồn kho ổn ✓</div>';
+  h+=card('📦 Tồn kho thấp',lb);
+  const mt=d.maintenance;let mb=eb(mt);if(Array.isArray(mt)){const due=mt.filter(t=>{const s=(t.status||'').toLowerCase();return s.includes('due')||s.includes('overdue')||s.includes('quá')||s.includes('hạn');});mb+=due.length?`<ul class="list">${due.map(t=>`<li><span>${esc(t.name||t.task||t.equipment||'')}</span><span class="badge b-yellow">${esc(t.status||'')}</span></li>`).join('')}</ul>`:'<div class="empty">Không có task tới hạn ✓</div>';}
+  h+=card('🔧 Bảo trì tới hạn',mb);
+  const rv=d.reviews_pending;let rb=eb(rv);if(Array.isArray(rv))rb+=rv.length?`<ul class="list">${rv.slice(0,8).map(r=>`<li><span>${esc((r.source||'')+': '+(r.comment||r.text||'').slice(0,55))}</span><span class="badge ${(r.sentiment==='critical'||r.rating<=2)?'b-red':'b-green'}">${esc(r.rating!=null?r.rating+'★':(r.sentiment||''))}</span></li>`).join('')}</ul>`:'<div class="empty">Không có review chờ ✓</div>';
+  h+=card('⭐ Review chờ trả lời',rb);
+  const rf=d.rfm||{};let fb=eb(rf);if(!rf.error){let sg='';const seg=rf.segments||{};for(const s in seg){const v=typeof seg[s]==='object'?(seg[s].count||seg[s].length||0):seg[s];sg+=`<span class="badge b-violet">${esc(s)}: ${v}</span>`;}fb+=`<div class="kpi"><div class="v">${rf.total||0}</div><div class="l">Tổng khách</div></div><div style="margin-top:8px">${sg||'<span class="empty">Chưa đủ data</span>'}</div>`;}
+  h+=card('👥 Khách (RFM)',fb);
+  const ins=d.agent_insights||[];let ib=ins.length?`<ul class="list">${ins.map(i=>{const v=(i.verdict||'').toUpperCase();const cl=v.includes('SCALE')||v.includes('KEEP')?'b-green':v.includes('KILL')?'b-red':v.includes('FIX')?'b-yellow':'b-cyan';return `<li><span><b>${esc(i.agent||'')}</b> · ${esc((i.summary||'').slice(0,60))}</span>${v?`<span class="badge ${cl}">${esc(v)}</span>`:''}</li>`;}).join('')}</ul>`:'<div class="empty">Chưa có insight. Chạy agent ở tab Agents.</div>';
+  h+=card('🤖 Agent insights',ib);
+  g.innerHTML=h;
 }
 
-async function setPromo(on){
-  const token=sessionStorage.getItem(TKEY);
-  try{
-    await apiGet('action=set_promo&active='+(on?'true':'false')+'&duration=end_of_day&message='+encodeURIComponent('Giảm 5% toàn menu hôm nay!'));
-    load();
-  }catch(e){ alert('Lỗi đổi promo'); }
+/* ---------- ADMIN DATA (editors) ---------- */
+async function ensureAdmin(){
+  if(adminCache)return adminCache;
+  const d=await apiGet('action=admin_data&token='+encodeURIComponent(tk()));
+  if(!d||!d.ok){if(d&&d.error==='unauthorized')logout();throw new Error((d&&d.error)||'admin_data fail');}
+  adminCache=d;return d;
+}
+// entity configs: {sheet, key, updateAct, addAct, fields:[{h,label,type}]}
+const ENT={
+  menu:{title:'🍵 Menu & Giá',data:'menu',key:'sku',updateAct:'menu_update',addAct:'menu_add',
+    fields:[{h:'sku',l:'SKU'},{h:'name',l:'Tên'},{h:'category',l:'Loại'},{h:'price_m',l:'Giá M',t:'num'},{h:'price_l',l:'Giá L',t:'num'},{h:'cost_nl',l:'Vốn NL',t:'num'},{h:'available',l:'Bán',t:'bool'},{h:'on_promo',l:'Promo',t:'bool'},{h:'promo_price',l:'Giá promo',t:'num'}],
+    hint:'Sửa giá / bật-tắt bán / bật promo trực tiếp. Thêm món phức tạp (công thức) nên dùng Google Sheet.'},
+  inventory:{title:'📦 Kho & Nguyên liệu',data:'inventory',key:'ingredient_id',updateAct:'inventory_update',addAct:'inventory_add',
+    fields:[{h:'ingredient_id',l:'ID'},{h:'name',l:'Tên'},{h:'unit',l:'ĐV'},{h:'current_stock',l:'Tồn',t:'num'},{h:'min_stock',l:'Tối thiểu',t:'num'},{h:'cost_per_unit',l:'Giá/ĐV',t:'num'},{h:'supplier',l:'NCC'}],
+    hint:'Cập nhật tồn kho, ngưỡng cảnh báo, nhà cung cấp. Tồn < tối thiểu sẽ hiện ở Tổng quan.'},
+  staff:{title:'👤 Nhân viên',data:'staff',key:'staff_id',updateAct:'staff_update',addAct:'staff_add',
+    fields:[{h:'staff_id',l:'ID'},{h:'name',l:'Tên'},{h:'role',l:'Vai trò'},{h:'active',l:'Đang làm',t:'bool'},{h:'hourly_rate',l:'Lương/giờ',t:'num'},{h:'shift_start',l:'Ca từ'},{h:'shift_end',l:'Ca đến'}],
+    hint:'Quản lý nhân viên + ca làm.'},
+};
+async function loadAdmin(v){
+  if(v==='promo')return loadPromo();
+  if(v==='config')return loadConfig();
+  const cfg=ENT[v];if(!cfg)return;
+  const el=document.getElementById('v-'+v);el.innerHTML='<div class="empty">Đang tải...</div>';
+  let d;try{d=await ensureAdmin();}catch(e){el.innerHTML='<div class="err">⚠ '+esc(e.message)+'</div>';return;}
+  const rows=d[cfg.data]||[];
+  let h=`<div class="sectitle">${cfg.title}</div><div class="hint">${cfg.hint}</div>`;
+  h+='<div class="tablewrap"><table><thead><tr>';
+  cfg.fields.forEach(f=>h+=`<th>${f.l}</th>`);h+='<th></th></tr></thead><tbody>';
+  rows.forEach((r,ri)=>{
+    h+='<tr data-key="'+esc(r[cfg.key])+'">';
+    cfg.fields.forEach(f=>{
+      const val=r[f.h];
+      if(f.t==='bool')h+=`<td><select class="cell" data-h="${f.h}"><option value="true"${(val===true||val==='TRUE'||val==='true')?' selected':''}>✓</option><option value="false"${!(val===true||val==='TRUE'||val==='true')?' selected':''}>✗</option></select></td>`;
+      else h+=`<td><input class="cell" data-h="${f.h}" ${f.t==='num'?'type="number"':''} value="${esc(val)}"></td>`;
+    });
+    h+=`<td><button class="btn sm green" onclick="saveRow('${v}',this)">Lưu</button><span class="saved" id="sv-${v}-${ri}"></span></td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  // add new
+  h+=`<div class="toolbar"><button class="btn primary sm" onclick="toggleAdd('${v}')">+ Thêm mới</button><a class="btn sm" href="https://docs.google.com/spreadsheets" target="_blank">Mở Google Sheet</a></div>`;
+  h+=`<div id="add-${v}" style="display:none" class="tablewrap"><table><tbody><tr>`;
+  cfg.fields.forEach(f=>h+=`<td><input class="cell" data-h="${f.h}" placeholder="${f.l}" ${f.t==='num'?'type="number"':''}></td>`);
+  h+=`<td><button class="btn sm green" onclick="addRow('${v}',this)">Thêm</button></td></tr></tbody></table></div>`;
+  el.innerHTML=h;
+}
+async function saveRow(v,btn){
+  const cfg=ENT[v];const tr=btn.closest('tr');const key=tr.dataset.key;const fields={};
+  tr.querySelectorAll('[data-h]').forEach(inp=>{fields[inp.dataset.h]=inp.value;});
+  const body={action:cfg.updateAct,token:tk(),fields};body[cfg.key]=key;
+  const res=await apiPost(body);
+  if(res&&res.ok){toast('Đã lưu '+key);adminCache=null;}else toast('Lỗi: '+((res&&res.error)||'?'));
+}
+async function addRow(v,btn){
+  const cfg=ENT[v];const tr=btn.closest('tr');const item={};
+  tr.querySelectorAll('[data-h]').forEach(inp=>{if(inp.value!=='')item[inp.dataset.h]=inp.value;});
+  const res=await apiPost({action:cfg.addAct,token:tk(),item});
+  if(res&&res.ok){toast('Đã thêm');adminCache=null;loadAdmin(v);}else toast('Lỗi: '+((res&&res.error)||'?'));
+}
+function toggleAdd(v){const e=document.getElementById('add-'+v);e.style.display=e.style.display==='none'?'block':'none';}
+
+/* ---------- PROMO ---------- */
+async function loadPromo(){
+  const el=document.getElementById('v-promo');el.innerHTML='<div class="empty">Đang tải...</div>';
+  let d;try{d=await ensureAdmin();}catch(e){el.innerHTML='<div class="err">⚠ '+esc(e.message)+'</div>';return;}
+  const rows=d.promotions||[];
+  let h='<div class="sectitle">🏷️ Chiến dịch khuyến mãi</div><div class="hint">Bật/tắt campaign. Tạo campaign mới dùng /promo trong tab Agents (tự áp brand voice + sinh nội dung).</div>';
+  if(!rows.length)h+='<div class="empty">Chưa có campaign. Vào tab Agents → nút /promo để tạo.</div>';
+  else{
+    h+='<div class="tablewrap"><table><thead><tr><th>ID</th><th>Tên</th><th>Loại</th><th>Giảm</th><th>Active</th></tr></thead><tbody>';
+    rows.forEach(r=>{const on=(r.is_active===true||r.is_active==='TRUE'||r.is_active==='true');
+      h+=`<tr><td>${esc(r.campaign_id)}</td><td>${esc(r.name)}</td><td>${esc(r.type)}</td><td>${esc(r.discount_value)} ${esc(r.discount_type||'')}</td><td><button class="btn sm ${on?'green':''}" onclick="togglePromo('${esc(r.campaign_id)}',${!on})">${on?'ĐANG BẬT':'TẮT'}</button></td></tr>`;});
+    h+='</tbody></table></div>';
+  }
+  el.innerHTML=h;
+}
+async function togglePromo(id,on){
+  const res=await apiPost({action:'promo_toggle',token:tk(),campaign_id:id,is_active:on});
+  if(res&&res.ok){toast('Đã '+(on?'bật':'tắt')+' '+id);adminCache=null;loadPromo();}else toast('Lỗi: '+((res&&res.error)||'?'));
 }
 
-// boot
-if(sessionStorage.getItem(TKEY)) showApp();
+/* ---------- CONFIG ---------- */
+async function loadConfig(){
+  const el=document.getElementById('v-config');el.innerHTML='<div class="empty">Đang tải...</div>';
+  let d;try{d=await ensureAdmin();}catch(e){el.innerHTML='<div class="err">⚠ '+esc(e.message)+'</div>';return;}
+  const keys=d.config_keys||[];const cfg=d.config||{};
+  let h='<div class="sectitle">⚙️ Cấu hình quán</div><div class="hint">Chỉ các thiết lập an toàn. Token/secret/mật khẩu KHÔNG sửa được ở đây (bảo mật) — dùng Apps Script.</div><div class="tablewrap"><table><tbody>';
+  keys.forEach((k,i)=>{h+=`<tr><td style="color:var(--muted);white-space:nowrap">${esc(k)}</td><td><input class="cell" id="cfg-${i}" value="${esc(cfg[k])}"></td><td><button class="btn sm green" onclick="saveConfig('${esc(k)}',${i})">Lưu</button></td></tr>`;});
+  h+='</tbody></table></div>';el.innerHTML=h;
+}
+async function saveConfig(k,i){
+  const res=await apiPost({action:'config_set',token:tk(),key:k,value:document.getElementById('cfg-'+i).value});
+  if(res&&res.ok){toast('Đã lưu '+k);adminCache=null;}else toast('Lỗi: '+((res&&res.error)||'?'));
+}
+
+/* ---------- AGENTS & CHAT ---------- */
+const AGENTS=[
+  {c:'/sang',n:'Brief sáng',d:'KPI + ưu tiên hôm nay'},
+  {c:'/tuan',n:'Brief tuần',d:'Tổng kết + plan tuần'},
+  {c:'/roi tuần',n:'Đo ROI',d:'Post/promo nào ra đơn'},
+  {c:'/menu-eng',n:'Menu Engineering',d:'Stars/Dogs matrix'},
+  {c:'/doi-thu',n:'Đối thủ',d:'Quét đối thủ Lâm Hà'},
+  {c:'/trend',n:'Trend scout',d:'Trend đồ uống/format'},
+  {c:'/khach',n:'Khách (RFM)',d:'Segment + winback'},
+  {c:'/review',n:'Review',d:'Phản hồi đánh giá'},
+  {c:'/promo',n:'Tạo promo',d:'Flash sale/happy hour'},
+  {c:'/post',n:'Viết post',d:'FB/IG/TikTok'},
+  {c:'/winback-loop',n:'Chuỗi giữ khách',d:'khach→promo→post'},
+  {c:'/trend-loop',n:'Chuỗi bắt trend',d:'trend→menu/post'},
+  {c:'/bao-tri',n:'Bảo trì',d:'Thiết bị tới hạn'},
+  {c:'/chot-ca',n:'Chốt ca',d:'Đối soát két'},
+  {c:'/huy',n:'Log hao hụt',d:'Waste cuối ngày'},
+  {c:'/mo-rong',n:'Mở rộng',d:'Brainstorm chiến lược'},
+];
+function loadAgents(){
+  const el=document.getElementById('v-agents');
+  let h='<div class="sectitle">🤖 Agents</div><div class="hint">Bấm để gửi lệnh cho Claude Code (qua hàng đợi). Claude Code trên máy anh sẽ nhặt & chạy — KHÔNG real-time, máy phải bật + chạy lệnh <b>/inbox</b>.</div>';
+  h+='<div class="agent-grid">'+AGENTS.map(a=>`<div class="agent-btn" onclick="sendCmd('${a.c}')"><div class="n">${esc(a.n)}</div><div class="d">${esc(a.c)} · ${esc(a.d)}</div></div>`).join('')+'</div>';
+  h+='<div class="sectitle">💬 Chat ra lệnh Claude</div>';
+  h+='<div class="chatbox"><div class="chatlog" id="chatlog"></div><div class="chatinput"><input id="chatin" placeholder="VD: tạo promo happy hour trà -15% T6-T7..." onkeydown="if(event.key===\'Enter\')sendChat()"><button class="btn primary" onclick="sendChat()">Gửi</button></div><div class="small" style="margin-top:8px">Lệnh vào hàng đợi → Claude Code chạy /inbox để xử lý → kết quả hiện ở đây.</div></div>';
+  el.innerHTML=h;
+  loadChat();
+  if(chatTimer)clearInterval(chatTimer);
+  chatTimer=setInterval(()=>{if(curTab==='agents')loadChat();},20000);
+}
+async function sendCmd(c){const res=await apiPost({action:'queue_command',token:tk(),text:c});if(res&&res.ok){toast('Đã gửi: '+c);loadChat();}else toast('Lỗi gửi lệnh');}
+async function sendChat(){const inp=document.getElementById('chatin');const t=inp.value.trim();if(!t)return;inp.value='';const res=await apiPost({action:'queue_command',token:tk(),text:t});if(res&&res.ok){loadChat();}else toast('Lỗi gửi');}
+async function loadChat(){
+  const log=document.getElementById('chatlog');if(!log)return;
+  let d;try{d=await apiGet('action=command_queue&token='+encodeURIComponent(tk())+'&limit=25');}catch(e){return;}
+  if(!d||!d.ok)return;
+  const cmds=(d.commands||[]).slice().reverse();
+  if(!cmds.length){log.innerHTML='<div class="empty">Chưa có lệnh nào. Bấm agent hoặc gõ lệnh bên dưới.</div>';return;}
+  log.innerHTML=cmds.map(c=>{
+    const st=c.status==='done'?'b-green':c.status==='pending'?'b-yellow':c.status==='error'?'b-red':'b-muted';
+    let h=`<div class="msg me">${esc(c.text)}<div class="st"><span class="badge ${st}">${esc(c.status)}</span> ${esc((c.created_at||'').slice(11,16))}</div></div>`;
+    if(c.result)h+=`<div class="msg bot">${esc(c.result)}</div>`;
+    return h;
+  }).join('');
+  log.scrollTop=log.scrollHeight;
+}
+
+/* boot */
+if(tk())showApp();
 document.getElementById('p').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
 </script>
 </body>

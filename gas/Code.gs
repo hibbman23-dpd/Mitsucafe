@@ -51,6 +51,34 @@ function doPost(e) {
       return _jsonResponse({ ok: true, insight_id: insId });
     }
 
+    // ── Dashboard admin writes (đều cần admin session token) ──
+    var _ADMIN_WRITE = {
+      'menu_update': adminMenuUpdate, 'menu_add': adminMenuAdd,
+      'inventory_update': adminInventoryUpdate, 'inventory_add': adminInventoryAdd,
+      'staff_update': adminStaffUpdate, 'staff_add': adminStaffAdd,
+      'promo_toggle': adminPromoToggle, 'config_set': adminConfigSet,
+    };
+    if (payload && _ADMIN_WRITE[payload.action]) {
+      if (!validateSessionToken(payload.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      return _jsonResponse(_ADMIN_WRITE[payload.action](payload));
+    }
+
+    // ── Command queue (chat → Claude Code) ──
+    if (payload && payload.action === 'queue_command') {
+      if (!validateSessionToken(payload.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      return _jsonResponse(queueCommand(payload));
+    }
+    if (payload && payload.action === 'command_update') {
+      if (!validateSessionToken(payload.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      return _jsonResponse(updateCommand(payload));
+    }
+
     // Route xử lý webhook biến động số dư từ MacroDroid
     if (payload && payload.action === 'bank_notification') {
       return handleBankNotification(payload);
@@ -280,6 +308,20 @@ function doGet(e) {
       }
       var insLimit = parseInt(e.parameter.limit, 10) || 20;
       return _jsonResponse({ ok: true, insights: getAgentInsights(insLimit) });
+    }
+    if (action === 'admin_data') {
+      if (!validateSessionToken(e.parameter.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      return _jsonResponse(getAdminData());
+    }
+    if (action === 'command_queue') {
+      if (!validateSessionToken(e.parameter.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      var cqStatus = e.parameter.status || null;
+      var cqLimit = parseInt(e.parameter.limit, 10) || 30;
+      return _jsonResponse({ ok: true, commands: getCommandQueue(cqStatus, cqLimit) });
     }
 
     return _jsonResponse({

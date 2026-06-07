@@ -73,6 +73,9 @@ function initAllSheets() {
     'AGENT_INSIGHTS': [
       'insight_id', 'timestamp', 'agent', 'summary', 'verdict', 'doc_link'
     ],
+    'COMMAND_QUEUE': [
+      'command_id', 'created_at', 'text', 'status', 'result', 'updated_at', 'source'
+    ],
   };
 
   Object.keys(schemas).forEach(function (name) {
