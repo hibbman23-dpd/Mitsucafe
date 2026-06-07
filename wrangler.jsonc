@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "kaerukaphe",
+  "account_id": "dded21400dfc0fc17e2662f8e143b685",
   "compatibility_date": "2026-06-02",
   "observability": {
     "enabled": true
