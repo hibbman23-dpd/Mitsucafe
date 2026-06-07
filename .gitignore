@@ -58,3 +58,6 @@ logs/
 
 # Test data
 seed/test_order_*.json.local
+
+# Wrangler cache
+.wrangler/

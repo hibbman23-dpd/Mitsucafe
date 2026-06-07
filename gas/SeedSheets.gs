@@ -23,7 +23,7 @@ function initAllSheets() {
       'table_id', 'staff_id', 'customer_id', 'items_json', 'subtotal', 'total',
       'status', 'confirmed_at', 'making_at', 'ready_at', 'delivering_at', 'delivered_at',
       'payment_method', 'payment_status', 'label_printed_at', 'invoice_url',
-      'printed_at', 'notes',
+      'printed_at', 'notes', 'customer_name', 'short_code', 'delivery_type', 'utm_campaign',
     ],
     'MENU': [
       'sku', 'name', 'name_jp', 'category', 'subcategory', 'role',
@@ -65,6 +65,13 @@ function initAllSheets() {
     ],
     'CAMERA_EVENTS': [
       'event_id', 'timestamp', 'camera_name', 'event_type', 'duration_sec', 'description', 'snapshot_url', 'status'
+    ],
+    'MARKETING_LOG': [
+      'activity_id', 'date', 'type', 'platform', 'campaign_id', 'title',
+      'utm_tag', 'cost_vnd', 'effort_hours', 'reach', 'clicks', 'notes'
+    ],
+    'AGENT_INSIGHTS': [
+      'insight_id', 'timestamp', 'agent', 'summary', 'verdict', 'doc_link'
     ],
   };
 
@@ -202,4 +209,37 @@ function seedMenuFromJson() {
     sheet.appendRow(row);
   });
   Logger.log('Seeded ' + MENU_JSON.length + ' menu items.');
+}
+
+/**
+ * Migration cho Agent ROI (2026-06-07) — chạy 1 lần trên Sheet ĐÃ DEPLOY trước đó.
+ * An toàn & idempotent: chỉ thêm cái thiếu, không xoá/ghi đè data.
+ *   1. Thêm header 'utm_campaign' (cột 28) vào ORDERS nếu chưa có.
+ *   2. Tạo tab MARKETING_LOG nếu chưa có.
+ */
+function migrateForRoiAgent() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. ORDERS: đảm bảo có cột utm_campaign
+  var orders = ss.getSheetByName('ORDERS');
+  if (orders) {
+    var lastCol = orders.getLastColumn();
+    var headers = orders.getRange(1, 1, 1, lastCol).getValues()[0];
+    if (headers.indexOf('utm_campaign') === -1) {
+      orders.getRange(1, lastCol + 1)
+        .setValue('utm_campaign')
+        .setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
+      Logger.log('ORDERS: added utm_campaign header at col ' + (lastCol + 1));
+    } else {
+      Logger.log('ORDERS: utm_campaign already present.');
+    }
+  } else {
+    Logger.log('ORDERS sheet missing — chạy initAllSheets() trước.');
+  }
+
+  // 2. MARKETING_LOG
+  if (typeof initMarketingLog === 'function') {
+    initMarketingLog();
+  }
+  Logger.log('migrateForRoiAgent() done.');
 }

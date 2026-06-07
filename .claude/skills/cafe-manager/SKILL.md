@@ -44,8 +44,13 @@ Bạn là trợ lý điều hành cho **Lâm Hà Kissaten** (KaeruKàphê) — q
 | "Feedback / khiếu nại / NPS…" | `references/feedback-loop.md` |
 | "Mở rộng / chi nhánh / wholesale / catering / line mới…" | `references/expansion-strategy.md` |
 | "Menu engineering / stars/dogs / 80-20 SKU…" | `references/menu-engineering.md` |
+| "Đối thủ / competitor / quán khác / so giá / price war / quét đối thủ…" | `references/competitor-scan.md` (deep → delegate `cafe-research`) |
+| "Trend / xu hướng đồ uống / format viral / món gì đang hot / bắt trend…" | `references/trend-scout.md` (deep → delegate `cafe-research`) |
+| "Review / đánh giá Maps-FB / phản hồi khách / sao / reputation…" | `references/reviews-reputation.md` |
+| "ROI / post nào ra đơn / promo lãi không / SCALE-KILL / đo lường marketing / campaign effective…" | `references/roi-measurement.md` |
 | "Forecast demand / thời tiết / lễ tết…" | `references/demand-forecast.md` |
 | "Cron / scheduled task / automation đang chạy…" | `references/automation-registry.md` |
+| "Chuỗi / workflow / winback loop / trend loop / nối agent / tự chạy…" | `references/agent-chains.md` |
 
 Nếu user hỏi nhiều intent cùng lúc → load nhiều reference (ưu tiên 2 file mạnh nhất, đừng overload).
 
@@ -88,6 +93,13 @@ Người dùng có thể gọi qua các lệnh ngắn:
 | `/chot-ca` | cash-reconciliation → Z-report flow |
 | `/bao-tri` | equipment-maintenance → due/overdue list |
 | `/khach` | rfm-segmentation → 5 segments + winback drafts |
+| `/roi` | roi-measurement → đo post/promo nào ra đơn + verdict SCALE/KILL |
+| `/menu-eng` | menu-engineering → matrix Stars/Dogs + top 3 action (data: `?action=menu_engineering_data`) |
+| `/doi-thu` | competitor-scan → quét/so đối thủ; deep scan delegate `cafe-research` |
+| `/trend` | trend-scout → quét trend đồ uống/format, lọc 3 cổng; deep delegate `cafe-research` |
+| `/review` | reviews-reputation → pull pending review + draft phản hồi + alert critical |
+| `/winback-loop` | agent-chains CHUỖI 1 → /khach→/promo→/post tới gate, +14d đo /roi |
+| `/trend-loop` | agent-chains CHUỖI 2 → /trend→/menu-eng\|/post tới gate, +7-14d đo /roi |
 | `/mo-rong` | expansion-strategy + menu-engineering → quarterly brainstorm |
 
 ## Khi không match được intent
@@ -102,6 +114,22 @@ Nếu user hỏi gì đó **ngoài 8 mảng** (web/social/marketing/ops brief/F&
 - Brand voice: `references/_brand-voice.md`
 - Plan tổng: `/Users/dpd/.claude/plans/b-n-plan-cho-t-i-starry-rose.md`
 - Project context: `CLAUDE.md` (Kissaten v1.1)
-- GAS utilities: `gas/{Notify,Utils,Menu,Financials,Promo,Loyalty,Inventory}.gs`
+- **GAS Web App URL** (cho data commands `/roi`, `/menu-eng`, `/review`, `/khach`):
+  `https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec`
+  → Khi command ghi `{WEB_APP_URL}`, thay bằng URL này. Nếu fetch fail → fallback hỏi user paste data.
+- GAS utilities: `gas/{Notify,Utils,Menu,Financials,Promo,Loyalty,Inventory,Marketing}.gs`
 - Landing page: `web/kaeru.html` (ship version on GitHub Pages)
+- **Ops Dashboard**: `web/dashboard.html` (login admin · card KPI/đơn/két/kho/bảo trì/review/promo/RFM/agent insights)
 - Mascot assets: `web/img/`
+
+### Tự log insight lên Dashboard (sau mode phân tích)
+Sau khi chạy xong `/roi`, `/menu-eng`, `/doi-thu`, `/trend`, `/review`, `/khach`, `/tuan` → POST 1 dòng tóm tắt để hiện trên Ops Dashboard:
+```
+POST {WEB_APP_URL}  body: {
+  "action":"log_agent_insight", "token":"<admin session>",
+  "agent":"roi", "summary":"FB boost ROI -18% → kill", "verdict":"KILL",
+  "doc_link":"docs/.../YYYY-MM.md"
+}
+```
+- `verdict` dùng từ khóa SCALE/KEEP/FIX/KILL (ROI) hoặc ngắn gọn để dashboard tô màu badge.
+- Cần admin session token (lấy qua `admin_login`); không có token → bỏ qua bước này, không chặn output chính.

@@ -14,6 +14,7 @@
  *   GET  /?action=pending_print         → Đơn chưa in (Mac Mini poller)
  *   GET  /?action=mark_printed&order_id=... → Đánh dấu đã in (Mac Mini poller)
  *   GET  /?action=menu    → Menu đang active
+ *   GET  /?action=roi_data&from=YYYY-MM-DD&to=YYYY-MM-DD → Data cho Agent ROI (ORDERS+PROMOTIONS+MARKETING_LOG+MENU costs)
  */
 
 function doPost(e) {
@@ -39,6 +40,15 @@ function doPost(e) {
     if (payload && payload.action === 'log_camera_event') {
       var res = saveCameraEvent(payload.secret, payload.event_data || {});
       return _jsonResponse(res);
+    }
+
+    // Agent ghi 1 dòng insight lên dashboard (yêu cầu admin session token)
+    if (payload && payload.action === 'log_agent_insight') {
+      if (!validateSessionToken(payload.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      var insId = logAgentInsight(payload);
+      return _jsonResponse({ ok: true, insight_id: insId });
     }
 
     // Route xử lý webhook biến động số dư từ MacroDroid
@@ -168,7 +178,17 @@ function doGet(e) {
       var metrics = computeDailyMetrics(date);
       return _jsonResponse({ ok: true, metrics: metrics });
     }
-    
+
+    if (action === 'roi_data') {
+      var roiTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var roiFrom = e.parameter.from;
+      if (!roiFrom) {
+        // mặc định 28 ngày để đủ baseline so sánh
+        roiFrom = Utilities.formatDate(new Date(Date.now() - 28 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      }
+      return _jsonResponse({ ok: true, data: getRoiData(roiFrom, roiTo) });
+    }
+
     if (action === 'send_daily_report') {
       var date = e.parameter.date;
       if (!date) {
@@ -245,6 +265,21 @@ function doGet(e) {
     if (action === 'pending_reviews') {
       if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       return _jsonResponse({ ok: true, reviews: getPendingResponses() });
+    }
+
+    // ── Ops Dashboard (web/dashboard.html) — yêu cầu admin session token ──
+    if (action === 'dashboard_summary') {
+      if (!validateSessionToken(e.parameter.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      return _jsonResponse(getDashboardSummary());
+    }
+    if (action === 'agent_insights') {
+      if (!validateSessionToken(e.parameter.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      var insLimit = parseInt(e.parameter.limit, 10) || 20;
+      return _jsonResponse({ ok: true, insights: getAgentInsights(insLimit) });
     }
 
     return _jsonResponse({

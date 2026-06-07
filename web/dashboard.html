@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaeru Ops — Trung tâm điều hành</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:hsl(222,47%,9%); --panel:hsla(222,47%,14%,.85); --border:hsla(0,0%,100%,.08);
+    --text:hsl(0,0%,95%); --muted:hsl(215,20%,62%);
+    --cyan:hsl(190,100%,45%); --red:hsl(350,85%,57%); --yellow:hsl(45,100%,52%);
+    --green:hsl(150,75%,45%); --violet:hsl(265,80%,65%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);padding:16px;max-width:1280px;margin:0 auto}
+  h1,h2,h3{font-family:'Outfit',sans-serif}
+  a{color:var(--cyan);text-decoration:none}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  .topbar h1{font-size:1.3rem}
+  .topbar .meta{color:var(--muted);font-size:.8rem}
+  .btn{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:10px;cursor:pointer;font-size:.85rem;transition:.2s}
+  .btn:hover{border-color:var(--cyan)}
+  .btn.primary{background:var(--cyan);color:#012;border:none;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;backdrop-filter:blur(8px)}
+  .card h2{font-size:.95rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .kpi-row{display:flex;gap:18px;flex-wrap:wrap}
+  .kpi{flex:1;min-width:90px}
+  .kpi .v{font-family:'Outfit';font-size:1.6rem;font-weight:700}
+  .kpi .l{color:var(--muted);font-size:.75rem;margin-top:2px}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:600;margin:2px 4px 2px 0}
+  .b-cyan{background:hsla(190,100%,45%,.15);color:var(--cyan)}
+  .b-green{background:hsla(150,75%,45%,.15);color:var(--green)}
+  .b-red{background:hsla(350,85%,57%,.15);color:var(--red)}
+  .b-yellow{background:hsla(45,100%,52%,.15);color:var(--yellow)}
+  .b-violet{background:hsla(265,80%,65%,.15);color:var(--violet)}
+  .b-muted{background:hsla(215,20%,62%,.12);color:var(--muted)}
+  ul.list{list-style:none;font-size:.85rem}
+  ul.list li{padding:7px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px}
+  ul.list li:last-child{border:none}
+  .empty{color:var(--muted);font-size:.85rem;font-style:italic;padding:6px 0}
+  .err{color:var(--red);font-size:.8rem}
+  .toggle{display:flex;align-items:center;gap:10px;margin-top:8px}
+  /* login */
+  #login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
+  #login.hidden{display:none}
+  .loginbox{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:30px;width:330px;max-width:90vw}
+  .loginbox h1{font-size:1.3rem;margin-bottom:4px}
+  .loginbox p{color:var(--muted);font-size:.82rem;margin-bottom:18px}
+  .loginbox input{width:100%;padding:11px;margin-bottom:11px;border-radius:10px;border:1px solid var(--border);background:hsla(222,47%,9%,.6);color:var(--text);font-size:.9rem}
+  .loginbox .btn{width:100%}
+  .small{font-size:.72rem;color:var(--muted)}
+  .insight-v{font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="loginbox">
+    <h1>🐸 Kaeru Ops</h1>
+    <p>Trung tâm điều hành — đăng nhập để tiếp tục</p>
+    <input id="u" placeholder="Tên đăng nhập" autocomplete="username">
+    <input id="p" type="password" placeholder="Mật khẩu" autocomplete="current-password">
+    <button class="btn primary" onclick="login()">Đăng nhập</button>
+    <p id="loginErr" class="err" style="margin-top:10px"></p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div>
+      <h1>🐸 Kaeru Ops</h1>
+      <div class="meta" id="meta">—</div>
+    </div>
+    <div>
+      <button class="btn" onclick="load()">🔄 Làm mới</button>
+      <a class="btn" href="kds.html" target="_blank">🍳 KDS</a>
+      <button class="btn" onclick="logout()">Đăng xuất</button>
+    </div>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+const TKEY = 'dash_token';
+let timer = null;
+
+async function apiPost(data){
+  const r = await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(data)});
+  return r.json();
+}
+async function apiGet(params){
+  const r = await fetch(GAS_URL+'?'+params);
+  return r.json();
+}
+const vnd = n => (Number(n)||0).toLocaleString('vi-VN')+'đ';
+const esc = s => String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+async function login(){
+  const u=document.getElementById('u').value.trim();
+  const p=document.getElementById('p').value;
+  const err=document.getElementById('loginErr');
+  err.textContent='Đang kiểm tra...';
+  try{
+    const res=await apiPost({action:'admin_login',username:u,password:p});
+    if(res&&res.ok){
+      sessionStorage.setItem(TKEY,res.token);
+      document.getElementById('p').value='';
+      showApp();
+    }else{ err.textContent=res?res.error:'Sai tài khoản/mật khẩu'; }
+  }catch(e){ err.textContent='Lỗi kết nối máy chủ.'; }
+}
+function logout(){
+  sessionStorage.removeItem(TKEY);
+  if(timer) clearInterval(timer);
+  document.getElementById('app').style.display='none';
+  document.getElementById('login').classList.remove('hidden');
+}
+function showApp(){
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('app').style.display='block';
+  load();
+  if(timer) clearInterval(timer);
+  timer=setInterval(load,90000); // auto refresh 90s
+}
+
+async function load(){
+  const token=sessionStorage.getItem(TKEY);
+  if(!token){ logout(); return; }
+  document.getElementById('meta').textContent='Đang tải...';
+  let d;
+  try{ d=await apiGet('action=dashboard_summary&token='+encodeURIComponent(token)); }
+  catch(e){ document.getElementById('meta').textContent='Lỗi kết nối'; return; }
+  if(!d||!d.ok){
+    if(d&&d.error==='unauthorized'){ logout(); return; }
+    document.getElementById('meta').textContent='Lỗi: '+((d&&d.error)||'?');
+    return;
+  }
+  const now=new Date();
+  document.getElementById('meta').textContent='Hôm nay '+d.date+' · cập nhật '+now.toLocaleTimeString('vi-VN');
+  render(d);
+}
+
+function card(title,body){ return `<div class="card"><h2>${title}</h2>${body}</div>`; }
+function errBox(o){ return o&&o.error?`<div class="err">⚠ ${esc(o.error)}</div>`:''; }
+
+function render(d){
+  const g=document.getElementById('grid');
+  let html='';
+
+  // 1. KPI
+  const k=d.kpi||{};
+  html+=card('📊 KPI hôm nay', errBox(k)+`<div class="kpi-row">
+    <div class="kpi"><div class="v">${vnd(k.revenue)}</div><div class="l">Doanh thu</div></div>
+    <div class="kpi"><div class="v">${k.orders_count||0}</div><div class="l">Đơn</div></div>
+    <div class="kpi"><div class="v">${vnd(k.average_order_value)}</div><div class="l">AOV</div></div>
+  </div>`);
+
+  // 2. Orders live
+  const o=d.orders||{};
+  let statusB='';
+  if(o.by_status) for(const s in o.by_status) statusB+=`<span class="badge b-cyan">${esc(s)}: ${o.by_status[s]}</span>`;
+  let recent=(o.recent||[]).map(r=>`<li><span>${esc(r.short_code||r.order_id||'')} · ${esc(r.items_summary||'')}</span><span class="badge b-muted">${esc(r.status||'')}</span></li>`).join('');
+  html+=card(`🧾 Đơn hôm nay (${o.count||0})`, errBox(o)+(statusB||'')+(recent?`<ul class="list" style="margin-top:8px">${recent}</ul>`:'<div class="empty">Chưa có đơn.</div>'));
+
+  // 3. Cash
+  const c=d.cash||{};
+  let cashBody=errBox(c);
+  if(!c.error){
+    const cc=c.counts||{};
+    cashBody+=`<span class="badge b-green">OK: ${cc.ok||0}</span><span class="badge b-yellow">Warn: ${cc.warn||0}</span><span class="badge b-red">Alert: ${cc.alert||0}</span>`;
+    cashBody+=`<div class="small" style="margin-top:8px">Tổng lệch tuyệt đối: ${vnd(c.totalVarianceAbs||c.total_variance_abs||0)}</div>`;
+    if((cc.ok||0)+(cc.warn||0)+(cc.alert||0)===0) cashBody+='<div class="empty">Chưa có ca đóng hôm nay.</div>';
+  }
+  html+=card('💵 Két ca hôm nay', cashBody);
+
+  // 4. Low stock
+  const ls=d.low_stock;
+  let lsBody=errBox(ls);
+  if(Array.isArray(ls)){
+    lsBody+= ls.length? `<ul class="list">${ls.map(x=>`<li><span>${esc(x.name)}</span><span class="badge b-red">${x.current_stock}/${x.min_stock} ${esc(x.unit||'')}</span></li>`).join('')}</ul>` : '<div class="empty">Tồn kho ổn ✓</div>';
+  }
+  html+=card('📦 Tồn kho thấp', lsBody);
+
+  // 5. Maintenance
+  const mt=d.maintenance;
+  let mtBody=errBox(mt);
+  if(Array.isArray(mt)){
+    const due=mt.filter(t=>{const s=(t.status||'').toLowerCase();return s.includes('due')||s.includes('overdue')||s.includes('quá')||s.includes('đến hạn');});
+    mtBody+= due.length? `<ul class="list">${due.map(t=>`<li><span>${esc(t.name||t.task||t.equipment||'')}</span><span class="badge b-yellow">${esc(t.status||'')}</span></li>`).join('')}</ul>` : '<div class="empty">Không có task tới hạn ✓</div>';
+  }
+  html+=card('🔧 Bảo trì tới hạn', mtBody);
+
+  // 6. Reviews pending
+  const rv=d.reviews_pending;
+  let rvBody=errBox(rv);
+  if(Array.isArray(rv)){
+    rvBody+= rv.length? `<ul class="list">${rv.slice(0,8).map(r=>`<li><span>${esc((r.source||'')+': '+(r.comment||r.text||'').slice(0,60))}</span><span class="badge ${(r.sentiment==='critical'||r.rating<=2)?'b-red':'b-green'}">${esc(r.rating!=null?r.rating+'★':(r.sentiment||''))}</span></li>`).join('')}</ul>` : '<div class="empty">Không có review chờ trả lời ✓</div>';
+  }
+  html+=card('⭐ Review chờ trả lời', rvBody);
+
+  // 7. Promo control
+  const pr=d.promo||{};
+  const active=pr.active===true||pr.active==='true';
+  html+=card('🏷️ Promo', errBox(pr)+`
+    <div>${active?'<span class="badge b-green">ĐANG CHẠY</span>':'<span class="badge b-muted">TẮT</span>'}</div>
+    <div class="small" style="margin-top:6px">${esc(pr.message||pr.msg||'(chưa có nội dung)')}</div>
+    <div class="toggle">
+      <button class="btn ${active?'':'primary'}" onclick="setPromo(true)">Bật 5%</button>
+      <button class="btn ${active?'primary':''}" onclick="setPromo(false)">Tắt</button>
+    </div>
+    <div class="small" style="margin-top:6px">⚠ Campaign nâng cao quản lý ở tab PROMOTIONS (qua /promo).</div>`);
+
+  // 8. RFM
+  const rf=d.rfm||{};
+  let rfBody=errBox(rf);
+  if(!rf.error){
+    let segB='';
+    const seg=rf.segments||{};
+    for(const s in seg){ const v=typeof seg[s]==='object'?(seg[s].count||seg[s].length||0):seg[s]; segB+=`<span class="badge b-violet">${esc(s)}: ${v}</span>`; }
+    rfBody+=`<div class="kpi"><div class="v">${rf.total||0}</div><div class="l">Tổng khách</div></div><div style="margin-top:8px">${segB||'<span class="empty">Chưa đủ data</span>'}</div>`;
+  }
+  html+=card('👥 Khách (RFM)', rfBody);
+
+  // 9. Agent insights
+  const ins=d.agent_insights||[];
+  let insBody = ins.length? `<ul class="list">${ins.map(i=>{
+    const v=(i.verdict||'').toUpperCase();
+    const cls=v.includes('SCALE')||v.includes('KEEP')?'b-green':v.includes('KILL')?'b-red':v.includes('FIX')?'b-yellow':'b-cyan';
+    return `<li><span><b>${esc(i.agent||'')}</b> · ${esc((i.summary||'').slice(0,70))}</span>${v?`<span class="badge ${cls}">${esc(v)}</span>`:''}</li>`;
+  }).join('')}</ul>` : '<div class="empty">Chưa có insight. Chạy /roi, /menu-eng, /doi-thu, /trend trong Claude → sẽ hiện ở đây.</div>';
+  html+=card('🤖 Agent insights', insBody);
+
+  g.innerHTML=html;
+}
+
+async function setPromo(on){
+  const token=sessionStorage.getItem(TKEY);
+  try{
+    await apiGet('action=set_promo&active='+(on?'true':'false')+'&duration=end_of_day&message='+encodeURIComponent('Giảm 5% toàn menu hôm nay!'));
+    load();
+  }catch(e){ alert('Lỗi đổi promo'); }
+}
+
+// boot
+if(sessionStorage.getItem(TKEY)) showApp();
+document.getElementById('p').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+</script>
+</body>
+</html>

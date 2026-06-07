@@ -91,7 +91,7 @@ Save: docs/trend-research/YYYY-MM.md
 - Plan tổng: `/Users/dpd/.claude/plans/b-n-plan-cho-t-i-starry-rose.md`
 - Brand voice: `/Users/dpd/Projects/lamha-kissaten/docs/brand-voice.md`
 - Skill: `/Users/dpd/Projects/lamha-kissaten/.claude/skills/cafe-manager/`
-- GAS endpoint: `https://script.google.com/macros/s/AKfycby.../exec`
+- GAS endpoint: `https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec`
 - Social handles: kaeru.html line 1030-1049
 - Phone: 0975 087 429
 

@@ -10,10 +10,10 @@ var ORDERS_HEADERS = [
   'table_id', 'staff_id', 'customer_id', 'items_json', 'subtotal', 'total',
   'status', 'confirmed_at', 'making_at', 'ready_at', 'delivering_at', 'delivered_at',
   'payment_method', 'payment_status', 'label_printed_at', 'invoice_url',
-  'printed_at', 'notes', 'customer_name', 'short_code', 'delivery_type'
+  'printed_at', 'notes', 'customer_name', 'short_code', 'delivery_type', 'utm_campaign'
 ];
 // Column indices (1-based, for getRange):
-// payment_status = 20, customer_name = 25, short_code = 26, delivery_type = 27
+// payment_status = 20, customer_name = 25, short_code = 26, delivery_type = 27, utm_campaign = 28
 
 var VALID_STATUS = ['NEW', 'CONFIRMED', 'MAKING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
 
@@ -74,6 +74,7 @@ function validateOrderPayload(p) {
     schema_ver: '1.1',
     channel: p.channel,
     utm_source: p.utm_source || p.channel,
+    utm_campaign: p.utm_campaign || '',
     location_id: getConfig('LOCATION_ID') || 'LH01',
     table_id: p.table_id || null,
     staff_id: p.staff_id || null,
@@ -125,6 +126,7 @@ function appendOrderToSheet(order) {
     order.customer_name || '',
     order.metadata.short_code || '',
     order.metadata.delivery_type || '',
+    order.utm_campaign || '',
   ]);
 }
 
@@ -268,6 +270,7 @@ function _rowToOrder(row) {
     timestamp: row[2],
     channel: row[3],
     utm_source: row[4],
+    utm_campaign: row[27] || '',
     location_id: row[5],
     table_id: row[6],
     staff_id: row[7],

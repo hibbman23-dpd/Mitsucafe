@@ -97,3 +97,25 @@ Q1 mỗi năm, chủ quán chạy:
 - ❌ Skip throttling → spam khi error cứng
 - ❌ Tạo job mà ko document ở đây → orphan
 - ❌ Xoá job ko cập nhật reference này
+
+---
+
+## Layer D — Agent Chains (chuỗi nối nhiều agent · xem `agent-chains.md`)
+
+> Khác Layer B (job lẻ): mỗi chuỗi nối nhiều agent + 1 gate duyệt + đóng vòng /roi → log lên Dashboard.
+> Mẫu **scheduled-to-gate**: scheduled task chạy chuỗi TỚI gate → tạo nháp → ping Telegram → chủ duyệt → bước cuối.
+
+| Chuỗi | Lệnh | Nhịp đề xuất | Cron (chạy tới gate) | Bước đóng vòng |
+|---|---|---|---|---|
+| Winback Loop | `/winback-loop` | 2 tuần | `0 8 * * 1` (T2, tuần lẻ) | +14d `/roi winback-YYYYMM` |
+| Trend-to-Test | `/trend-loop` | 2 tuần | `0 10 * * 3` (T4, tuần chẵn) | +7–14d `/roi` |
+| Weekly Growth | `/tuan` (full) | tuần | `30 6 * * 5` | trong chính `/tuan` |
+| Reputation | `/review` | 6h | `0 */6 * * *` | markReviewResponded + insight |
+| Daily Pulse | `/sang` | ngày | `0 7 * * *` | không (chỉ báo cáo) |
+
+### Đăng ký (paste khi muốn bật tự động)
+```
+/schedule "cafe_winback_loop" "0 8 * * 1" "Run /winback-loop tới gate. Ping Telegram chủ quán duyệt. KHÔNG tự gửi."
+/schedule "cafe_trend_loop" "0 10 * * 3" "Run /trend-loop tới gate. Ping Telegram. KHÔNG tự triển khai."
+```
+> Lưu ý: chuỗi có gate → scheduled task chỉ tạo bản nháp + nhắc, KHÔNG hoàn tất khâu gửi/đăng/thêm SKU.
