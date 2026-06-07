@@ -101,7 +101,8 @@
 <div class="wrap">
   <div class="topbar">
     <div><h1>🐸 Kaeru Ops</h1><div class="meta" id="meta">—</div></div>
-    <div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="badge b-muted" id="dispPill" title="Trạng thái người trực hàng đợi (Claude Code /loop /inbox)">⚪ Dispatcher…</span>
       <button class="btn" onclick="refreshActive()">🔄 Làm mới</button>
       <a class="btn" href="kds.html" target="_blank">🍳 KDS</a>
       <a class="btn" href="camera.html" target="_blank">📷 Camera</a>
@@ -133,7 +134,7 @@
 <script>
 const GAS_URL='https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
 const TKEY='dash_token';
-let timer=null, chatTimer=null, adminCache=null;
+let timer=null, chatTimer=null, dispTimer=null, adminCache=null;
 
 async function apiPost(d){const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(d)});return r.json();}
 async function apiGet(p){const r=await fetch(GAS_URL+'?'+p);return r.json();}
@@ -151,8 +152,16 @@ async function login(){
     else err.textContent=res?res.error:'Sai tài khoản/mật khẩu';
   }catch(e){err.textContent='Lỗi kết nối máy chủ.';}
 }
-function logout(){sessionStorage.removeItem(TKEY);if(timer)clearInterval(timer);if(chatTimer)clearInterval(chatTimer);document.getElementById('app').style.display='none';document.getElementById('login').classList.remove('hidden');}
-function showApp(){document.getElementById('login').classList.add('hidden');document.getElementById('app').style.display='block';switchTab('overview');loadOverview();timer=setInterval(()=>{if(curTab==='overview')loadOverview();},90000);}
+function logout(){sessionStorage.removeItem(TKEY);if(timer)clearInterval(timer);if(chatTimer)clearInterval(chatTimer);if(dispTimer)clearInterval(dispTimer);document.getElementById('app').style.display='none';document.getElementById('login').classList.remove('hidden');}
+function showApp(){document.getElementById('login').classList.add('hidden');document.getElementById('app').style.display='block';switchTab('overview');loadOverview();timer=setInterval(()=>{if(curTab==='overview')loadOverview();},90000);pollDispatcher();dispTimer=setInterval(pollDispatcher,30000);}
+async function pollDispatcher(){
+  const el=document.getElementById('dispPill');if(!el||!tk())return;
+  let d;try{d=await apiGet('action=dispatcher_status&token='+encodeURIComponent(tk()));}catch(e){return;}
+  if(!d||!d.ok)return;
+  if(d.online){el.className='badge b-green';el.textContent='🟢 Dispatcher hoạt động'+(d.age_sec!=null?' ('+d.age_sec+'s)':'');}
+  else if(d.last_run){el.className='badge b-red';el.textContent='🔴 Dispatcher offline — mở Claude Code chạy /loop /inbox';}
+  else{el.className='badge b-muted';el.textContent='⚪ Dispatcher chưa từng chạy — /loop /inbox';}
+}
 
 /* ---------- TABS ---------- */
 let curTab='overview';

@@ -61,3 +61,6 @@ seed/test_order_*.json.local
 
 # Wrangler cache
 .wrangler/
+
+# Dispatcher credential (local only)
+.claude/.dispatcher-auth.json

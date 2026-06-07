@@ -78,6 +78,12 @@ function doPost(e) {
       }
       return _jsonResponse(updateCommand(payload));
     }
+    if (payload && payload.action === 'dispatcher_heartbeat') {
+      if (!validateSessionToken(payload.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      return _jsonResponse(recordDispatcherHeartbeat());
+    }
 
     // Route xử lý webhook biến động số dư từ MacroDroid
     if (payload && payload.action === 'bank_notification') {
@@ -322,6 +328,12 @@ function doGet(e) {
       var cqStatus = e.parameter.status || null;
       var cqLimit = parseInt(e.parameter.limit, 10) || 30;
       return _jsonResponse({ ok: true, commands: getCommandQueue(cqStatus, cqLimit) });
+    }
+    if (action === 'dispatcher_status') {
+      if (!validateSessionToken(e.parameter.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      return _jsonResponse(getDispatcherStatus());
     }
 
     return _jsonResponse({

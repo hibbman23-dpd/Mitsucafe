@@ -55,6 +55,20 @@ function getCommandQueue(status, limit) {
   return rows;
 }
 
+/** Dispatcher (Claude Code /inbox) ghi nhịp tim mỗi lần chạy. */
+function recordDispatcherHeartbeat() {
+  setConfig('DISPATCHER_LAST_RUN', new Date().toISOString());
+  return { ok: true };
+}
+
+/** Trạng thái dispatcher: online nếu heartbeat < 180s (loop 2 phút). */
+function getDispatcherStatus() {
+  var last = getConfig('DISPATCHER_LAST_RUN');
+  if (!last) return { ok: true, online: false, last_run: null, age_sec: null };
+  var age = Math.round((Date.now() - new Date(last).getTime()) / 1000);
+  return { ok: true, online: age < 180, last_run: last, age_sec: age };
+}
+
 /** Claude Code cập nhật kết quả sau khi chạy. */
 function updateCommand(p) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('COMMAND_QUEUE');

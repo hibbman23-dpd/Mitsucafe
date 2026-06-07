@@ -64,6 +64,10 @@ function getDashboardSummary() {
   try { out.agent_insights = getAgentInsights(8); }
   catch (e) { out.agent_insights = []; }
 
+  // Trạng thái dispatcher (Claude Code /inbox loop)
+  try { out.dispatcher = getDispatcherStatus(); }
+  catch (e) { out.dispatcher = { online: false }; }
+
   return out;
 }
 

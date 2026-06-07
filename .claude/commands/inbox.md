@@ -5,8 +5,12 @@ description: Nhặt lệnh từ COMMAND_QUEUE (chat dashboard) → thực thi �
 Cầu nối Dashboard chat → Claude Code. Chạy tay khi muốn xử lý, hoặc đặt scheduled task định kỳ.
 
 Workflow:
-1. Lấy admin session token: POST `{WEB_APP_URL}` body `{"action":"admin_login","username":"admin","password":"<ADMIN_PASS>"}`
-   → lưu token (hỏi user mật khẩu admin nếu chưa biết; KHÔNG hardcode).
+0. Đọc credential từ file local `.claude/.dispatcher-auth.json` (gitignored):
+   `{"username":"admin","password":"<mật khẩu admin>"}`
+   - Nếu file thiếu/rỗng password → DỪNG, báo user: "Điền mật khẩu admin vào .claude/.dispatcher-auth.json để dispatcher chạy". KHÔNG hỏi password trong chat, KHÔNG hardcode.
+1. Lấy admin session token: POST `{WEB_APP_URL}` body `{"action":"admin_login","username":"<u>","password":"<p>"}`
+   → cache token (hạn 2h, login lại khi hết).
+   - Ngay sau khi có token: POST `{action:'dispatcher_heartbeat', token}` (báo dashboard "🟢 hoạt động").
 2. GET `{WEB_APP_URL}?action=command_queue&token=<token>&status=pending`
    → danh sách lệnh chờ (mới→cũ).
 3. Với MỖI lệnh (xử lý cũ→mới):
@@ -18,6 +22,8 @@ Workflow:
    - POST `{WEB_APP_URL}` body `{"action":"command_update","token":"<token>","command_id":"<id>","status":"done","result":"<tóm tắt ≤300 ký tự + doc_link nếu có>"}`
      (lỗi → status `"error"`, result = thông báo lỗi)
 4. Nếu lệnh sinh insight đáng lên dashboard → cũng POST `log_agent_insight`.
+5. Cuối mỗi lần chạy: POST `dispatcher_heartbeat` lần nữa (cập nhật nhịp tim).
+   Nếu KHÔNG có lệnh pending → vẫn POST heartbeat rồi kết thúc (để dashboard biết dispatcher còn sống).
 
 Nguyên tắc:
 - KHÔNG tự publish/gửi/ghi tiền — chỉ draft + báo "cần duyệt".
