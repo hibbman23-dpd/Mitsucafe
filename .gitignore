@@ -64,3 +64,4 @@ seed/test_order_*.json.local
 
 # Dispatcher credential (local only)
 .claude/.dispatcher-auth.json
+ops/.dispatcher.lock
