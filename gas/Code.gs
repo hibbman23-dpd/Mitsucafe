@@ -214,6 +214,7 @@ function doGet(e) {
     }
 
     if (action === 'roi_data') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var roiTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
       var roiFrom = e.parameter.from;
       if (!roiFrom) {

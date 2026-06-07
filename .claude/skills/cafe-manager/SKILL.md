@@ -117,6 +117,8 @@ Nếu user hỏi gì đó **ngoài 8 mảng** (web/social/marketing/ops brief/F&
 - **GAS Web App URL** (cho data commands `/roi`, `/menu-eng`, `/review`, `/khach`):
   `https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec`
   → Khi command ghi `{WEB_APP_URL}`, thay bằng URL này. Nếu fetch fail → fallback hỏi user paste data.
+  → **Auth token**: nếu `.claude/.dispatcher-auth.json` có `report_api_token`, append `&token=<token>` vào MỌI call GET tới endpoint guarded (`roi_data`, `menu_engineering_data`, `rfm_snapshot`, `pending_reviews`, `cash_report`, `waste_report`, `maintenance_status`, `dispatch_pull`, `dispatch_done`). Không có token → gọi không token (endpoint đang mở).
+  → Apps Script **chỉ nhận GET** từ curl (POST bị Google chặn server-side) — luôn dùng GET cho data pull.
 - GAS utilities: `gas/{Notify,Utils,Menu,Financials,Promo,Loyalty,Inventory,Marketing}.gs`
 - Landing page: `web/kaeru.html` (ship version on GitHub Pages)
 - **Ops Dashboard**: `web/dashboard.html` (login admin · card KPI/đơn/két/kho/bảo trì/review/promo/RFM/agent insights)
