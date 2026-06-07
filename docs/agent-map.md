@@ -203,3 +203,31 @@ CHUỖI 5 Daily      /sang đọc dashboard_summary → top 3 + điều hướng
 Chi tiết + data handoff + anti-pattern: `references/agent-chains.md` · lịch chạy: `automation-registry.md` Layer D.
 
 **Mô hình hoàn chỉnh:** Tool → Workflow → **Chain** → Company. Con người chỉ chạm 1 gate/chuỗi; mọi kết quả hiện 1 chỗ trên Ops Dashboard.
+
+---
+
+## 🎛️ OPS DASHBOARD v2 — bàn điều khiển đầy đủ (2026-06-07)
+
+`web/dashboard.html` — app nhiều tab, login mật mã (chung tài khoản KaeruCam):
+
+| Tab | Làm được |
+|---|---|
+| 📊 Tổng quan | KPI/đơn/két/kho/bảo trì/review/RFM/agent-insights (đọc) |
+| 🍵 Menu & Giá | **Sửa trực tiếp**: giá M/L, vốn, bật-tắt bán, bật promo + giá promo; thêm món |
+| 📦 Kho & Nguyên liệu | **Sửa**: tồn, ngưỡng min, giá/ĐV, NCC; thêm nguyên liệu |
+| 👤 Nhân viên | **Sửa**: vai trò, ca, lương/giờ, đang làm; thêm NV |
+| 🏷️ Promo | Bật/tắt campaign (tạo mới qua /promo) |
+| ⚙️ Cấu hình | Sửa CONFIG an toàn (in tem, loyalty, info quán) — KHÔNG đụng token/secret |
+| 🤖 Agents & Chat | 16 nút agent + khung chat ra lệnh Claude |
+
+**Backend:** `gas/Admin.gs` (CRUD theo header, token-guard, config allowlist) · `gas/Commands.gs` (COMMAND_QUEUE).
+**Endpoint:** `admin_data` · `menu_update/add` · `inventory_update/add` · `staff_update/add` · `promo_toggle` · `config_set` · `queue_command` · `command_queue` · `command_update`.
+
+### Cầu nối Chat → Claude (Command Queue)
+```
+Chat/nút dashboard → queue_command → COMMAND_QUEUE (status=pending)
+   → Claude Code chạy /inbox: nhặt pending → route skill → thực thi (draft, không tự gửi)
+   → command_update (status=done + result) → dashboard hiện kết quả như chat
+```
+Không real-time (trễ = nhịp /inbox). Máy phải bật Claude Code. Dùng đúng gói hiện tại, 0đ thêm.
+Tự động: scheduled task chạy `/inbox` mỗi 2-5 phút.
