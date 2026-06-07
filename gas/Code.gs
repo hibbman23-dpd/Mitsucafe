@@ -335,6 +335,19 @@ function doGet(e) {
       }
       return _jsonResponse(getDispatcherStatus());
     }
+    // Dispatcher GET endpoints (curl-friendly; gate bằng REPORT_API_TOKEN nếu set)
+    if (action === 'dispatch_pull') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse(dispatchPull());
+    }
+    if (action === 'dispatch_done') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse(updateCommand({
+        command_id: e.parameter.id,
+        status: e.parameter.status || 'done',
+        result: e.parameter.result || '',
+      }));
+    }
 
     return _jsonResponse({
       ok: true,

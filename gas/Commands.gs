@@ -69,6 +69,15 @@ function getDispatcherStatus() {
   return { ok: true, online: age < 180, last_run: last, age_sec: age };
 }
 
+/**
+ * GET endpoint cho dispatcher (curl chỉ làm được GET với Apps Script).
+ * 1 call: ghi heartbeat + trả lệnh pending. Gate bằng _requireTokenIfSet.
+ */
+function dispatchPull() {
+  recordDispatcherHeartbeat();
+  return { ok: true, commands: getCommandQueue('pending', 20) };
+}
+
 /** Claude Code cập nhật kết quả sau khi chạy. */
 function updateCommand(p) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('COMMAND_QUEUE');
