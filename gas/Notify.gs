@@ -22,6 +22,10 @@ function sendTelegramAlert(message) {
   });
 }
 
+// Dịch phương thức + trạng thái thanh toán sang tiếng Việt để hiển thị.
+function _payMethodVi(m){var x={vietqr:'VietQR',momo:'MoMo',zalopay:'ZaloPay',cash:'Tiền mặt',bank_transfer:'Chuyển khoản'};return x[m]||m;}
+function _payStatusVi(s){var x={PENDING:'Chờ thanh toán',PAID:'Đã thanh toán',FAILED:'Thất bại',UNPAID:'Chưa thanh toán'};return x[s]||s;}
+
 function buildTelegramOrderSummary(order) {
   var meta         = order.metadata || {};
   var deliveryType = meta.delivery_type || 'pickup';
@@ -73,7 +77,7 @@ function buildTelegramOrderSummary(order) {
 
   lines.push('─────────');
   lines.push('<b>TỔNG: ' + formatCurrency(order.total) + '</b>');
-  lines.push('💳 ' + order.payment.method + ' · ' + order.payment.status);
+  lines.push('💳 ' + _payMethodVi(order.payment.method) + ' · ' + _payStatusVi(order.payment.status));
 
   return lines.join('\n');
 }

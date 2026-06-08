@@ -334,10 +334,10 @@ function cronWasteLogReminder() {
 
     if (waste.entries.length === 0) {
       sendTelegramAlert(
-        '🗑️ <b>NHẮC LOG WASTE</b>\n' +
-        'Chưa nhập waste hôm nay (' + today + ').\n' +
-        '👉 Form: ' + formUrl + '\n' +
-        'Hoặc gõ <code>/huy</code> trong Claude.'
+        '🗑️ <b>NHẮC GHI HAO HỤT</b>\n' +
+        'Chưa nhập hao hụt hôm nay (' + today + ').\n' +
+        '👉 Biểu mẫu: ' + formUrl + '\n' +
+        'Hoặc gõ <code>/huy</code> cho trợ lý.'
       );
     } else {
       // Check waste % revenue
@@ -358,9 +358,9 @@ function cronWasteLogReminder() {
               var wastePct = waste.total_cost / rev * 100;
               if (wastePct > 5) {
                 logError('waste.highRatio', new Error(
-                  'Waste hôm nay ' + Math.round(wastePct * 10) / 10 + '% revenue (' +
+                  'Hao hụt hôm nay ' + Math.round(wastePct * 10) / 10 + '% doanh thu (' +
                   formatCurrency(waste.total_cost) + ' / ' + formatCurrency(rev) +
-                  '). Target <3%. Review recipe portion?'
+                  '). Mục tiêu <3%. Xem lại định lượng công thức?'
                 ));
               }
             }

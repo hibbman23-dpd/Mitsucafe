@@ -23,24 +23,24 @@
 function cronOpenChecklist() {
   try {
     sendTelegramAlert(
-      '🌅 <b>CHECKLIST MỞ QUÁN</b>\n' +
+      '🌅 <b>DANH SÁCH MỞ QUÁN</b>\n' +
       '<i>06:00 - ' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM') + '</i>\n\n' +
-      '☐ Bật điện tổng + signage\n' +
-      '☐ POS + Glide tablet OK\n' +
-      '☐ Wi-Fi router + 4G backup\n' +
-      '☐ Máy pha cà phê: flush 3s mỗi group head\n' +
-      '☐ Máy nước nóng / boiler\n' +
+      '☐ Bật điện tổng + biển hiệu\n' +
+      '☐ Máy tính tiền + máy tính bảng đặt món OK\n' +
+      '☐ Wi-Fi + 4G dự phòng\n' +
+      '☐ Máy pha cà phê: xả 3 giây mỗi đầu pha\n' +
+      '☐ Máy đun nước nóng\n' +
       '☐ Máy đá — kiểm mực\n' +
-      '☐ Fridge <5°C / Freezer <-18°C\n' +
-      '☐ Pha mẻ trà đầu (matcha + hojicha) — label batch\n' +
-      '☐ Pha mẻ trân châu (60p shelf-life)\n' +
-      '☐ Setup quầy: ly, ống hút, túi, napkin\n' +
+      '☐ Tủ mát <5°C / Tủ đông <-18°C\n' +
+      '☐ Pha mẻ trà đầu (matcha + hojicha) — dán nhãn mẻ\n' +
+      '☐ Pha mẻ trân châu (dùng trong 60 phút)\n' +
+      '☐ Chuẩn bị quầy: ly, ống hút, túi, khăn giấy\n' +
       '☐ Vệ sinh quầy + bàn\n' +
-      '☐ Loa + playlist\n' +
-      '☐ Phòng vệ sinh OK\n' +
-      '☐ Biển "OPEN" + bảng menu\n' +
-      '☐ Đếm float đầu ca → <code>/chot-ca open</code>\n' +
-      '☐ Quick check maintenance overdue → <code>/bao-tri</code>'
+      '☐ Loa + nhạc nền\n' +
+      '☐ Nhà vệ sinh sạch\n' +
+      '☐ Biển "MỞ CỬA" + bảng thực đơn\n' +
+      '☐ Đếm tiền lẻ đầu ca → <code>/chot-ca open</code>\n' +
+      '☐ Kiểm tra nhanh bảo trì tới hạn → <code>/bao-tri</code>'
     );
   } catch (err) { logError('cronOpenChecklist', err); }
 }
@@ -52,17 +52,17 @@ function cronCloseChecklistReminder() {
     var formUrl = ScriptApp.getService().getUrl();
 
     sendTelegramAlert(
-      '🌙 <b>NHẮC CLOSE QUÁN</b>\n' +
+      '🌙 <b>NHẮC ĐÓNG QUÁN</b>\n' +
       '<i>21:30 - ' + today + '</i>\n\n' +
-      '☐ <b>Log waste cuối ngày</b> — <code>/huy</code> hoặc form: ' + formUrl + '?action=waste_form\n' +
-      '☐ <b>Cash recon</b> — <code>/chot-ca close</code>\n' +
-      '☐ Máy pha cà phê: backflush chemical\n' +
-      '☐ FIFO check fridge — label batch mở\n' +
-      '☐ Lau quầy + sàn + sanitize tools\n' +
-      '☐ Rác + sanitize toilet\n' +
+      '☐ <b>Ghi hao hụt cuối ngày</b> — <code>/huy</code> hoặc biểu mẫu: ' + formUrl + '?action=waste_form\n' +
+      '☐ <b>Đối soát két tiền</b> — <code>/chot-ca close</code>\n' +
+      '☐ Máy pha cà phê: súc rửa bằng hoá chất\n' +
+      '☐ Kiểm tra hạn tủ mát — dán nhãn mẻ đã mở\n' +
+      '☐ Lau quầy + sàn + khử khuẩn dụng cụ\n' +
+      '☐ Đổ rác + khử khuẩn nhà vệ sinh\n' +
       '☐ Tắt máy + đèn (giữ Wi-Fi)\n' +
-      '☐ Khóa cửa + biển CLOSED\n\n' +
-      '<i>Nếu có incident/review → gõ /handover hoặc /sang sáng mai.</i>'
+      '☐ Khóa cửa + biển "ĐÓNG CỬA"\n\n' +
+      '<i>Nếu có sự cố/đánh giá xấu → gõ /handover hoặc /sang sáng mai.</i>'
     );
 
     // Đồng thời chạy cronWasteLogReminder (nếu user chưa nhập waste, send thêm urgent prompt)
@@ -98,15 +98,15 @@ function cronInventoryLow() {
     }
     if (lowItems.length === 0) return;
 
-    var msg = '📦 <b>STOCK LOW ALERT</b>\n' +
+    var msg = '📦 <b>CẢNH BÁO TỒN KHO THẤP</b>\n' +
               '<i>' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM HH:mm') + '</i>\n\n';
     lowItems.slice(0, 12).forEach(function (it) {
-      msg += '- ' + it.name + ': ' + it.stock + it.unit + ' / min ' + it.min + it.unit;
-      if (it.supplier) msg += ' (vendor: ' + it.supplier + ')';
+      msg += '- ' + it.name + ': ' + it.stock + it.unit + ' / tối thiểu ' + it.min + it.unit;
+      if (it.supplier) msg += ' (nhà cung cấp: ' + it.supplier + ')';
       msg += '\n';
     });
-    if (lowItems.length > 12) msg += '... +' + (lowItems.length - 12) + ' more\n';
-    msg += '\nGõ <code>/sang</code> để xem priority + draft order.';
+    if (lowItems.length > 12) msg += '... +' + (lowItems.length - 12) + ' mục nữa\n';
+    msg += '\nGõ <code>/sang</code> để xem thứ tự ưu tiên + nháp đơn nhập.';
 
     // Throttle qua logError pattern để chống spam (chỉ 1 alert/6h cho cùng "stock low")
     logError('inventory.lowStock', new Error(msg.replace(/<[^>]+>/g, '')));
@@ -171,11 +171,11 @@ function cronFifoCheck() {
     }
     if (warnings.length === 0) return;
 
-    var msg = '🥡 <b>FIFO SHELF-LIFE ALERT</b>\n' +
+    var msg = '🥡 <b>CẢNH BÁO HẠN SỬ DỤNG</b>\n' +
               '<i>17:00 - ' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM') + '</i>\n\n';
     warnings.slice(0, 10).forEach(function (w) {
       msg += '⚠️ ' + w.name + ' — ' + w.stock + w.unit +
-             ' (mở ' + w.ageDays + 'd / shelf ' + w.shelfDays + 'd)\n';
+             ' (đã mở ' + w.ageDays + ' ngày / hạn ' + w.shelfDays + ' ngày)\n';
     });
     msg += '\n→ Dùng tối nay hoặc log <code>/huy</code> nếu phải bỏ.';
 
@@ -195,25 +195,25 @@ function cronWeeklyOpsDigest() {
     var cash = cashVarianceReport(fromStr, toStr);
     var overdueMaint = getOverdueMaint();
 
-    var msg = '📅 <b>WEEKLY OPS DIGEST</b>\n' +
+    var msg = '📅 <b>TỔNG HỢP VẬN HÀNH TUẦN</b>\n' +
               '<i>' + fromStr + ' → ' + toStr + '</i>\n\n';
 
     if (waste && waste.ok) {
-      msg += '🗑️ <b>Waste</b>: ' + formatCurrency(waste.total_cost) +
-             ' (' + waste.entry_count + ' entries)\n';
+      msg += '🗑️ <b>Hao hụt</b>: ' + formatCurrency(waste.total_cost) +
+             ' (' + waste.entry_count + ' lần ghi)\n';
     }
     if (cash && cash.ok) {
       var c = cash.counts || {};
-      msg += '🧾 <b>Cash</b>: ' + (c.ok || 0) + ' ok / ' + (c.warn || 0) + ' warn / ' + (c.alert || 0) + ' alert' +
-             ' (var abs ' + formatCurrency(cash.total_variance_abs) + ')\n';
+      msg += '🧾 <b>Két tiền</b>: ' + (c.ok || 0) + ' ổn / ' + (c.warn || 0) + ' cảnh báo / ' + (c.alert || 0) + ' báo động' +
+             ' (lệch tổng ' + formatCurrency(cash.total_variance_abs) + ')\n';
     }
     if (overdueMaint && overdueMaint.length > 0) {
       var overdueCount = overdueMaint.filter(function (t) { return t.status === 'overdue'; }).length;
       var dueCount = overdueMaint.filter(function (t) { return t.status === 'due'; }).length;
-      msg += '🔧 <b>Maintenance</b>: ' + overdueCount + ' overdue / ' + dueCount + ' due\n';
+      msg += '🔧 <b>Bảo trì</b>: ' + overdueCount + ' quá hạn / ' + dueCount + ' tới hạn\n';
     }
 
-    msg += '\nGõ <code>/tuan</code> để xem full brief tuần.';
+    msg += '\nGõ <code>/tuan</code> để xem báo cáo tuần đầy đủ.';
     sendTelegramAlert(msg);
   } catch (err) { logError('cronWeeklyOpsDigest', err); }
 }
@@ -261,13 +261,13 @@ function setupOpsTriggers() {
   Logger.log('Ops triggers registered: 6 triggers');
   try {
     sendTelegramAlert(
-      '✅ <b>OPS TRIGGERS REGISTERED</b>\n' +
-      '- 06:00 daily — open checklist\n' +
-      '- 08:00 daily — inventory low\n' +
-      '- 17:00 daily — FIFO check\n' +
-      '- 21:30 daily — close checklist + waste reminder\n' +
-      '- 22:00 daily — equipment maintenance\n' +
-      '- 06:30 Friday — weekly ops digest'
+      '✅ <b>ĐÃ BẬT LỊCH NHẮC VẬN HÀNH</b>\n' +
+      '- 06:00 hằng ngày — danh sách mở quán\n' +
+      '- 08:00 hằng ngày — cảnh báo tồn kho thấp\n' +
+      '- 17:00 hằng ngày — kiểm tra hạn dùng\n' +
+      '- 21:30 hằng ngày — danh sách đóng quán + nhắc hao hụt\n' +
+      '- 22:00 hằng ngày — bảo trì thiết bị\n' +
+      '- 06:30 Thứ 6 — tổng hợp vận hành tuần'
     );
   } catch (_) {}
   return { ok: true, registered: 6 };

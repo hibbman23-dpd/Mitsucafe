@@ -232,23 +232,23 @@ function cronEquipmentMaintReminder() {
     var overdue = overdueList.filter(function (t) { return t.status === 'overdue'; });
     var due = overdueList.filter(function (t) { return t.status === 'due'; });
 
-    var msg = '🔧 <b>MAINTENANCE STATUS</b>\n';
+    var msg = '🔧 <b>TÌNH TRẠNG BẢO TRÌ</b>\n';
     if (overdue.length > 0) {
-      msg += '\n<b>❌ OVERDUE (' + overdue.length + ')</b>\n';
+      msg += '\n<b>❌ QUÁ HẠN (' + overdue.length + ')</b>\n';
       overdue.slice(0, 8).forEach(function (t) {
         var daysOverdue = Math.floor((Date.now() - new Date(t.next_due_at).getTime()) / 86400000);
-        msg += '- ' + t.equipment + ' ' + t.task_type + ' — ' + daysOverdue + 'd\n';
+        msg += '- ' + t.equipment + ' ' + t.task_type + ' — ' + daysOverdue + ' ngày\n';
       });
-      if (overdue.length > 8) msg += '... +' + (overdue.length - 8) + ' more\n';
+      if (overdue.length > 8) msg += '... +' + (overdue.length - 8) + ' mục nữa\n';
     }
     if (due.length > 0) {
-      msg += '\n<b>⏰ DUE (' + due.length + ')</b>\n';
+      msg += '\n<b>⏰ TỚI HẠN (' + due.length + ')</b>\n';
       due.slice(0, 8).forEach(function (t) {
         msg += '- ' + t.equipment + ' ' + t.task_type + '\n';
       });
-      if (due.length > 8) msg += '... +' + (due.length - 8) + ' more\n';
+      if (due.length > 8) msg += '... +' + (due.length - 8) + ' mục nữa\n';
     }
-    msg += '\nGõ <code>/bao-tri</code> để mark done.';
+    msg += '\nGõ <code>/bao-tri</code> để đánh dấu xong.';
 
     // Direct send (không qua logError vì đây là digest expected daily, không phải error)
     sendTelegramAlert(msg);

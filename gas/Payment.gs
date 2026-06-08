@@ -63,7 +63,7 @@ function handleBankNotification(payload) {
   // Gửi thông báo Telegram
   try {
     var displayCode = matched.shortCode ? '#' + matched.shortCode : matched.orderId.slice(-4);
-    sendTelegramAlert('✅ [Auto-Pay] Đơn ' + displayCode + ' (' + matched.orderId + ') đã tự động thanh toán qua Vietcombank (' + parsed.amount.toLocaleString() + 'đ).');
+    sendTelegramAlert('✅ [Tự động] Đơn ' + displayCode + ' (' + matched.orderId + ') đã tự động thanh toán qua Vietcombank (' + parsed.amount.toLocaleString() + 'đ).');
   } catch (tgErr) {
     logError('handleBankNotification.telegram', tgErr);
   }

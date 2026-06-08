@@ -134,7 +134,7 @@ function logError(context, err) {
   if (!shouldSendTelegram) return;
 
   try {
-    var tgMsg = '🚨 ERROR ' + context + ': ' + msg;
+    var tgMsg = '🚨 LỖI ' + context + ': ' + msg;
     if (suppressedCount > 0) {
       tgMsg += '\n(Đã bỏ qua ' + suppressedCount + ' lần lặp giống nhau trong ' +
                TELEGRAM_THROTTLE_MIN + ' phút qua)';

@@ -1054,7 +1054,7 @@ function createFinancialDashboard() {
   Logger.log('Financial Dashboard created successfully in sheet ' + sheetName);
   
   // Gửi thông báo Telegram
-  sendTelegramAlert('📊 <b>DASHBOARD BÁO CÁO TÀI CHÍNH ĐÃ KHỞI TẠO</b>\n' +
+  sendTelegramAlert('📊 <b>BẢNG BÁO CÁO TÀI CHÍNH ĐÃ KHỞI TẠO</b>\n' +
                     'Đã khởi tạo thành công tab <code>BAO_CAO_TAI_CHINH</code> trên Google Sheet.\n' +
                     'Bạn có thể vào sheet để xem biểu đồ và tùy chọn Tháng/Năm trực quan!');
 }
