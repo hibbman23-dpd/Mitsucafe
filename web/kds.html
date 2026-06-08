@@ -1158,7 +1158,8 @@ async function deviceGate() {
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
-deviceGate();
+// Device-approval đã tắt (gate ở tầng Cloudflare/Worker). Chạy KDS thẳng.
+startKDS();
 </script>
 </body>
 </html>

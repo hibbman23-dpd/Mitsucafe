@@ -160,11 +160,8 @@ async function login(){
   }catch(e){err.textContent='Lỗi kết nối máy chủ.';}
 }
 function logout(){sessionStorage.removeItem(TKEY);if(timer)clearInterval(timer);if(chatTimer)clearInterval(chatTimer);if(dispTimer)clearInterval(dispTimer);document.getElementById('app').style.display='none';document.getElementById('login').classList.remove('hidden');}
-async function showApp(){
-  // Cổng thiết bị: máy chưa duyệt → màn chờ (vẫn cho self-approve vì đã đăng nhập = chủ quán).
-  let st='unknown';
-  try{const r=await apiGet('action=device_check');st=r&&r.status;}catch(e){}
-  if(st!=='approved'){return showDevicePending();}
+function showApp(){
+  // Device-approval đã tắt (gate ở tầng Cloudflare/Worker). Vào thẳng sau đăng nhập.
   _enterApp();
 }
 function _enterApp(){const dp=document.getElementById('devpending');if(dp)dp.style.display='none';document.getElementById('login').classList.add('hidden');document.getElementById('app').style.display='block';switchTab('overview');loadOverview();timer=setInterval(()=>{if(curTab==='overview')loadOverview();},90000);pollDispatcher();dispTimer=setInterval(pollDispatcher,30000);}

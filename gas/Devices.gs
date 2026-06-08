@@ -62,13 +62,11 @@ function deviceCheck(deviceId) {
   return { ok: true, status: String(sheet.getRange(row, 3).getValue() || 'pending') };
 }
 
-/** Gate cho endpoint data — chỉ true khi device APPROVED. */
+/** Gate cho endpoint data.
+ *  ĐÃ TẮT device-approval (chuyển sang gate trang ở tầng Cloudflare/Worker).
+ *  Luôn true → không chặn theo thiết bị nữa. (Giữ token/password guard ở Code.gs.) */
 function isDeviceApproved(deviceId) {
-  if (!deviceId) return false;
-  var sheet = _devicesSheet();
-  var row = _deviceRowIndex(sheet, deviceId);
-  if (row === -1) return false;
-  return String(sheet.getRange(row, 3).getValue()) === 'approved';
+  return true;
 }
 
 /** Danh sách thiết bị cho dashboard tab "Thiết bị". */
