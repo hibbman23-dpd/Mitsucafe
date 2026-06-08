@@ -52,7 +52,7 @@ function doPost(e) {
       if (!validateSessionToken(payload.token)) {
         return _jsonResponse({ ok: false, error: 'unauthorized' });
       }
-      if (payload.action === 'device_approve') return _jsonResponse(deviceApprove(payload.device_id, 'admin'));
+      if (payload.action === 'device_approve') return _jsonResponse(deviceApprove(payload.device_id, 'admin', payload.label));
       if (payload.action === 'device_revoke') return _jsonResponse(deviceRevoke(payload.device_id));
       return _jsonResponse(deviceLabel(payload.device_id, payload.label));
     }
@@ -354,7 +354,7 @@ function doGet(e) {
     if (action === 'device_approve' || action === 'device_revoke') {
       // Mac Mini curl bằng REPORT_API_TOKEN (bootstrap thiết bị đầu tiên không cần đăng nhập web).
       if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      if (action === 'device_approve') return _jsonResponse(deviceApprove(e.parameter.device_id, 'mac-mini'));
+      if (action === 'device_approve') return _jsonResponse(deviceApprove(e.parameter.device_id, 'mac-mini', e.parameter.label));
       return _jsonResponse(deviceRevoke(e.parameter.device_id));
     }
 

@@ -92,13 +92,19 @@ function deviceList() {
 
 function _isoOrStr(v) { return v instanceof Date ? v.toISOString() : String(v || ''); }
 
-/** Duyệt thiết bị. approvedBy = 'admin' (session) hoặc 'mac-mini' (report token). */
-function deviceApprove(deviceId, approvedBy) {
+/** Duyệt thiết bị (upsert). approvedBy = 'admin' (session) hoặc 'mac-mini' (report token).
+ *  Nếu thiết bị chưa đăng ký (vd self-approve từ Dashboard) → tạo mới luôn ở trạng thái approved. */
+function deviceApprove(deviceId, approvedBy, label) {
+  if (!deviceId) return { ok: false, error: 'device_id required' };
   var sheet = _devicesSheet();
   var row = _deviceRowIndex(sheet, deviceId);
-  if (row === -1) return { ok: false, error: 'device không tồn tại' };
+  var now = new Date().toISOString();
+  if (row === -1) {
+    sheet.appendRow([deviceId, label || '', 'approved', now, now, approvedBy || 'admin', now, '']);
+    return { ok: true, device_id: deviceId, status: 'approved', created: true };
+  }
   sheet.getRange(row, 3).setValue('approved');
-  sheet.getRange(row, 5).setValue(new Date().toISOString());
+  sheet.getRange(row, 5).setValue(now);
   sheet.getRange(row, 6).setValue(approvedBy || 'admin');
   return { ok: true, device_id: deviceId, status: 'approved' };
 }
