@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow, noarchive">
-  <title>KDS · KaeruKàphê</title>
+  <title>Màn bếp · KaeruKàphê</title>
   <script src="menu-data.js?v=20260523"></script>
   <style>
     :root {
@@ -511,6 +511,8 @@ function genStaffCode() {
   return String(seq).padStart(3,'0');
 }
 
+// Dịch trạng thái đơn sang tiếng Việt để hiển thị (KHÔNG đổi giá trị gốc o.status dùng trong logic/CSS).
+function statusVi(s){const m={NEW:'Mới',CONFIRMED:'Đã nhận',MAKING:'Đang pha',READY:'Xong',DELIVERING:'Đang giao',DELIVERED:'Đã giao',CANCELLED:'Đã huỷ',PAID:'Đã trả',UNPAID:'Chưa trả'};return m[s]||s;}
 function deliveryLabel(type, tableId) {
   if (type === 'delivery') return '🛵 Giao hàng';
   if (type === 'dine_in' && tableId) return '🪑 ' + String(tableId).replace('TABLE_','Bàn ');
@@ -717,7 +719,7 @@ function renderOrders() {
             <strong>${deliveryLabel(o.delivery_type, o.table_id)}</strong><br>
             ${o.customer_name ? o.customer_name+' · ' : ''}${o.customer_id || 'Khách vãng lai'}<br>
             ${o.customer_stamps ? `<span style="color: var(--gold); font-weight: bold; font-size: 0.72rem;">${o.customer_stamps}</span><br>` : ''}
-            ${o.timestamp}<span class="status-chip s-${o.status}">${o.status}</span>
+            ${o.timestamp}<span class="status-chip s-${o.status}">${statusVi(o.status)}</span>
           </div>
         </div>
         <div class="card-body">
@@ -864,7 +866,7 @@ function renderCustomOptions() {
   if (item.price_l) {
     html += `
       <div class="opt-group">
-        <div class="opt-label">Kích thước (Size)</div>
+        <div class="opt-label">Kích thước</div>
         <div class="opt-chips">
           <button class="kds-chip${pendingOpts.size === 'M' ? ' active' : ''}" onclick="selectPendingOpt('size', 'M')">
             M — ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_m_old)}</span>` : ''}${fmt(item.price_m)}

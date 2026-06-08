@@ -103,9 +103,9 @@
   <div class="topbar">
     <div><h1>🐸 Kaeru Ops</h1><div class="meta" id="meta">—</div></div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span class="badge b-muted" id="dispPill" title="Trạng thái người trực hàng đợi (Claude Code /loop /inbox)">⚪ Dispatcher…</span>
+      <span class="badge b-muted" id="dispPill" title="Trạng thái bộ điều phối (máy trợ lý nhận & chạy lệnh)">⚪ Bộ điều phối…</span>
       <button class="btn" onclick="refreshActive()">🔄 Làm mới</button>
-      <a class="btn" href="kds.html" target="_blank">🍳 KDS</a>
+      <a class="btn" href="kds.html" target="_blank">🍳 Màn bếp</a>
       <a class="btn" href="camera.html" target="_blank">📷 Camera</a>
       <button class="btn" onclick="logout()">Đăng xuất</button>
     </div>
@@ -113,12 +113,12 @@
 
   <div class="tabs">
     <div class="tab active" data-v="overview" onclick="switchTab('overview')">📊 Tổng quan</div>
-    <div class="tab" data-v="menu" onclick="switchTab('menu')">🍵 Menu & Giá</div>
+    <div class="tab" data-v="menu" onclick="switchTab('menu')">🍵 Thực đơn & Giá</div>
     <div class="tab" data-v="inventory" onclick="switchTab('inventory')">📦 Kho & Nguyên liệu</div>
-    <div class="tab" data-v="promo" onclick="switchTab('promo')">🏷️ Promo</div>
+    <div class="tab" data-v="promo" onclick="switchTab('promo')">🏷️ Khuyến mãi</div>
     <div class="tab" data-v="staff" onclick="switchTab('staff')">👤 Nhân viên</div>
     <div class="tab" data-v="config" onclick="switchTab('config')">⚙️ Cấu hình</div>
-    <div class="tab" data-v="agents" onclick="switchTab('agents')">🤖 Agents & Chat</div>
+    <div class="tab" data-v="agents" onclick="switchTab('agents')">🤖 Trợ lý & Trò chuyện</div>
     <div class="tab" data-v="devices" onclick="switchTab('devices')">📱 Thiết bị</div>
   </div>
 
@@ -149,6 +149,9 @@ const vnd=n=>(Number(n)||0).toLocaleString('vi-VN')+'đ';
 const esc=s=>String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const tk=()=>sessionStorage.getItem(TKEY);
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+// Dịch hiển thị trạng thái/thuật ngữ sang tiếng Việt (KHÔNG đổi giá trị gốc trong logic).
+function vis(s){const m={NEW:'Mới',CONFIRMED:'Đã nhận',MAKING:'Đang pha',READY:'Xong',DELIVERING:'Đang giao',DELIVERED:'Đã giao',CANCELLED:'Đã huỷ',PAID:'Đã trả',UNPAID:'Chưa trả',PENDING:'Đang chờ',pending:'đang chờ',done:'xong',error:'lỗi',approved:'đã duyệt',revoked:'đã thu hồi',flash:'Chớp nhoáng',discount:'Giảm giá',bogo:'Mua 1 tặng 1',happy_hour:'Giờ vàng',pct:'%',fixed:'đ'};return m[s]!=null?m[s]:s;}
+function viVerdict(v){const m={SCALE:'NHÂN RỘNG',KEEP:'GIỮ',KILL:'BỎ',FIX:'SỬA',PASS:'ĐẠT'};return m[v]||v;}
 
 /* ---------- AUTH ---------- */
 async function login(){
@@ -185,9 +188,9 @@ async function pollDispatcher(){
   const el=document.getElementById('dispPill');if(!el||!tk())return;
   let d;try{d=await apiGet('action=dispatcher_status&token='+encodeURIComponent(tk()));}catch(e){return;}
   if(!d||!d.ok)return;
-  if(d.online){el.className='badge b-green';el.textContent='🟢 Dispatcher hoạt động'+(d.age_sec!=null?' ('+d.age_sec+'s)':'');}
-  else if(d.last_run){el.className='badge b-red';el.textContent='🔴 Dispatcher offline — mở Claude Code chạy /loop /inbox';}
-  else{el.className='badge b-muted';el.textContent='⚪ Dispatcher chưa từng chạy — /loop /inbox';}
+  if(d.online){el.className='badge b-green';el.textContent='🟢 Bộ điều phối đang chạy'+(d.age_sec!=null?' ('+d.age_sec+'s)':'');}
+  else if(d.last_run){el.className='badge b-red';el.textContent='🔴 Bộ điều phối đang tắt — cần mở máy trợ lý';}
+  else{el.className='badge b-muted';el.textContent='⚪ Bộ điều phối chưa từng chạy';}
 }
 
 /* ---------- TABS ---------- */
@@ -217,22 +220,22 @@ function eb(o){return o&&o.error?`<div class="err">⚠ ${esc(o.error)}</div>`:''
 function renderOverview(d){
   const g=document.getElementById('ovGrid');let h='';
   const k=d.kpi||{};
-  h+=card('📊 KPI hôm nay',eb(k)+`<div class="kpi-row"><div class="kpi"><div class="v">${vnd(k.revenue)}</div><div class="l">Doanh thu</div></div><div class="kpi"><div class="v">${k.orders_count||0}</div><div class="l">Đơn</div></div><div class="kpi"><div class="v">${vnd(k.average_order_value)}</div><div class="l">AOV</div></div></div>`);
-  const o=d.orders||{};let sb='';if(o.by_status)for(const s in o.by_status)sb+=`<span class="badge b-cyan">${esc(s)}: ${o.by_status[s]}</span>`;
-  let rec=(o.recent||[]).map(r=>`<li><span>${esc(r.short_code||r.order_id||'')} · ${esc(r.items_summary||'')}</span><span class="badge b-muted">${esc(r.status||'')}</span></li>`).join('');
+  h+=card('📊 Chỉ số hôm nay',eb(k)+`<div class="kpi-row"><div class="kpi"><div class="v">${vnd(k.revenue)}</div><div class="l">Doanh thu</div></div><div class="kpi"><div class="v">${k.orders_count||0}</div><div class="l">Số đơn</div></div><div class="kpi"><div class="v">${vnd(k.average_order_value)}</div><div class="l">TB/đơn</div></div></div>`);
+  const o=d.orders||{};let sb='';if(o.by_status)for(const s in o.by_status)sb+=`<span class="badge b-cyan">${esc(vis(s))}: ${o.by_status[s]}</span>`;
+  let rec=(o.recent||[]).map(r=>`<li><span>${esc(r.short_code||r.order_id||'')} · ${esc(r.items_summary||'')}</span><span class="badge b-muted">${esc(vis(r.status||''))}</span></li>`).join('');
   h+=card(`🧾 Đơn hôm nay (${o.count||0})`,eb(o)+sb+(rec?`<ul class="list" style="margin-top:8px">${rec}</ul>`:'<div class="empty">Chưa có đơn.</div>'));
-  const c=d.cash||{};let cb=eb(c);if(!c.error){const cc=c.counts||{};cb+=`<span class="badge b-green">OK ${cc.ok||0}</span><span class="badge b-yellow">Warn ${cc.warn||0}</span><span class="badge b-red">Alert ${cc.alert||0}</span>`;if((cc.ok||0)+(cc.warn||0)+(cc.alert||0)===0)cb+='<div class="empty">Chưa có ca đóng.</div>';}
+  const c=d.cash||{};let cb=eb(c);if(!c.error){const cc=c.counts||{};cb+=`<span class="badge b-green">Ổn ${cc.ok||0}</span><span class="badge b-yellow">Cảnh báo ${cc.warn||0}</span><span class="badge b-red">Báo động ${cc.alert||0}</span>`;if((cc.ok||0)+(cc.warn||0)+(cc.alert||0)===0)cb+='<div class="empty">Chưa có ca đóng.</div>';}
   h+=card('💵 Két ca hôm nay',cb);
   const ls=d.low_stock;let lb=eb(ls);if(Array.isArray(ls))lb+=ls.length?`<ul class="list">${ls.map(x=>`<li><span>${esc(x.name)}</span><span class="badge b-red">${x.current_stock}/${x.min_stock} ${esc(x.unit||'')}</span></li>`).join('')}</ul>`:'<div class="empty">Tồn kho ổn ✓</div>';
   h+=card('📦 Tồn kho thấp',lb);
   const mt=d.maintenance;let mb=eb(mt);if(Array.isArray(mt)){const due=mt.filter(t=>{const s=(t.status||'').toLowerCase();return s.includes('due')||s.includes('overdue')||s.includes('quá')||s.includes('hạn');});mb+=due.length?`<ul class="list">${due.map(t=>`<li><span>${esc(t.name||t.task||t.equipment||'')}</span><span class="badge b-yellow">${esc(t.status||'')}</span></li>`).join('')}</ul>`:'<div class="empty">Không có task tới hạn ✓</div>';}
   h+=card('🔧 Bảo trì tới hạn',mb);
-  const rv=d.reviews_pending;let rb=eb(rv);if(Array.isArray(rv))rb+=rv.length?`<ul class="list">${rv.slice(0,8).map(r=>`<li><span>${esc((r.source||'')+': '+(r.comment||r.text||'').slice(0,55))}</span><span class="badge ${(r.sentiment==='critical'||r.rating<=2)?'b-red':'b-green'}">${esc(r.rating!=null?r.rating+'★':(r.sentiment||''))}</span></li>`).join('')}</ul>`:'<div class="empty">Không có review chờ ✓</div>';
-  h+=card('⭐ Review chờ trả lời',rb);
-  const rf=d.rfm||{};let fb=eb(rf);if(!rf.error){let sg='';const seg=rf.segments||{};for(const s in seg){const v=typeof seg[s]==='object'?(seg[s].count||seg[s].length||0):seg[s];sg+=`<span class="badge b-violet">${esc(s)}: ${v}</span>`;}fb+=`<div class="kpi"><div class="v">${rf.total||0}</div><div class="l">Tổng khách</div></div><div style="margin-top:8px">${sg||'<span class="empty">Chưa đủ data</span>'}</div>`;}
-  h+=card('👥 Khách (RFM)',fb);
-  const ins=d.agent_insights||[];let ib=ins.length?`<ul class="list">${ins.map(i=>{const v=(i.verdict||'').toUpperCase();const cl=v.includes('SCALE')||v.includes('KEEP')?'b-green':v.includes('KILL')?'b-red':v.includes('FIX')?'b-yellow':'b-cyan';return `<li><span><b>${esc(i.agent||'')}</b> · ${esc((i.summary||'').slice(0,60))}</span>${v?`<span class="badge ${cl}">${esc(v)}</span>`:''}</li>`;}).join('')}</ul>`:'<div class="empty">Chưa có insight. Chạy agent ở tab Agents.</div>';
-  h+=card('🤖 Agent insights',ib);
+  const rv=d.reviews_pending;let rb=eb(rv);if(Array.isArray(rv))rb+=rv.length?`<ul class="list">${rv.slice(0,8).map(r=>`<li><span>${esc((r.source||'')+': '+(r.comment||r.text||'').slice(0,55))}</span><span class="badge ${(r.sentiment==='critical'||r.rating<=2)?'b-red':'b-green'}">${esc(r.rating!=null?r.rating+'★':(r.sentiment||''))}</span></li>`).join('')}</ul>`:'<div class="empty">Không có đánh giá chờ ✓</div>';
+  h+=card('⭐ Đánh giá chờ trả lời',rb);
+  const rf=d.rfm||{};let fb=eb(rf);if(!rf.error){let sg='';const seg=rf.segments||{};for(const s in seg){const v=typeof seg[s]==='object'?(seg[s].count||seg[s].length||0):seg[s];sg+=`<span class="badge b-violet">${esc(s)}: ${v}</span>`;}fb+=`<div class="kpi"><div class="v">${rf.total||0}</div><div class="l">Tổng khách</div></div><div style="margin-top:8px">${sg||'<span class="empty">Chưa đủ dữ liệu</span>'}</div>`;}
+  h+=card('👥 Nhóm khách hàng',fb);
+  const ins=d.agent_insights||[];let ib=ins.length?`<ul class="list">${ins.map(i=>{const v=(i.verdict||'').toUpperCase();const cl=v.includes('SCALE')||v.includes('KEEP')?'b-green':v.includes('KILL')?'b-red':v.includes('FIX')?'b-yellow':'b-cyan';return `<li><span><b>${esc(i.agent||'')}</b> · ${esc((i.summary||'').slice(0,60))}</span>${v?`<span class="badge ${cl}">${esc(viVerdict(v))}</span>`:''}</li>`;}).join('')}</ul>`:'<div class="empty">Chưa có gợi ý. Chạy trợ lý ở tab Trợ lý.</div>';
+  h+=card('🤖 Gợi ý từ trợ lý',ib);
   g.innerHTML=h;
 }
 
@@ -245,14 +248,14 @@ async function ensureAdmin(){
 }
 // entity configs: {sheet, key, updateAct, addAct, fields:[{h,label,type}]}
 const ENT={
-  menu:{title:'🍵 Menu & Giá',data:'menu',key:'sku',updateAct:'menu_update',addAct:'menu_add',
-    fields:[{h:'sku',l:'SKU'},{h:'name',l:'Tên'},{h:'category',l:'Loại'},{h:'price_m',l:'Giá M',t:'num'},{h:'price_l',l:'Giá L',t:'num'},{h:'cost_nl',l:'Vốn NL',t:'num'},{h:'available',l:'Bán',t:'bool'},{h:'on_promo',l:'Promo',t:'bool'},{h:'promo_price',l:'Giá promo',t:'num'}],
-    hint:'Sửa giá / bật-tắt bán / bật promo trực tiếp. Thêm món phức tạp (công thức) nên dùng Google Sheet.'},
+  menu:{title:'🍵 Thực đơn & Giá',data:'menu',key:'sku',updateAct:'menu_update',addAct:'menu_add',
+    fields:[{h:'sku',l:'Mã'},{h:'name',l:'Tên món'},{h:'category',l:'Loại'},{h:'price_m',l:'Giá vừa',t:'num'},{h:'price_l',l:'Giá lớn',t:'num'},{h:'cost_nl',l:'Vốn NL',t:'num'},{h:'available',l:'Đang bán',t:'bool'},{h:'on_promo',l:'KM',t:'bool'},{h:'promo_price',l:'Giá KM',t:'num'}],
+    hint:'Sửa giá / bật-tắt bán / bật khuyến mãi trực tiếp. Thêm món phức tạp (công thức) nên dùng Google Trang tính.'},
   inventory:{title:'📦 Kho & Nguyên liệu',data:'inventory',key:'ingredient_id',updateAct:'inventory_update',addAct:'inventory_add',
-    fields:[{h:'ingredient_id',l:'ID'},{h:'name',l:'Tên'},{h:'unit',l:'ĐV'},{h:'current_stock',l:'Tồn',t:'num'},{h:'min_stock',l:'Tối thiểu',t:'num'},{h:'cost_per_unit',l:'Giá/ĐV',t:'num'},{h:'supplier',l:'NCC'}],
+    fields:[{h:'ingredient_id',l:'Mã'},{h:'name',l:'Tên'},{h:'unit',l:'ĐV'},{h:'current_stock',l:'Tồn',t:'num'},{h:'min_stock',l:'Tối thiểu',t:'num'},{h:'cost_per_unit',l:'Giá/ĐV',t:'num'},{h:'supplier',l:'NCC'}],
     hint:'Cập nhật tồn kho, ngưỡng cảnh báo, nhà cung cấp. Tồn < tối thiểu sẽ hiện ở Tổng quan.'},
   staff:{title:'👤 Nhân viên',data:'staff',key:'staff_id',updateAct:'staff_update',addAct:'staff_add',
-    fields:[{h:'staff_id',l:'ID'},{h:'name',l:'Tên'},{h:'role',l:'Vai trò'},{h:'active',l:'Đang làm',t:'bool'},{h:'hourly_rate',l:'Lương/giờ',t:'num'},{h:'shift_start',l:'Ca từ'},{h:'shift_end',l:'Ca đến'}],
+    fields:[{h:'staff_id',l:'Mã'},{h:'name',l:'Tên'},{h:'role',l:'Vai trò'},{h:'active',l:'Đang làm',t:'bool'},{h:'hourly_rate',l:'Lương/giờ',t:'num'},{h:'shift_start',l:'Ca từ'},{h:'shift_end',l:'Ca đến'}],
     hint:'Quản lý nhân viên + ca làm.'},
 };
 async function loadAdmin(v){
@@ -276,7 +279,7 @@ async function loadAdmin(v){
   });
   h+='</tbody></table></div>';
   // add new
-  h+=`<div class="toolbar"><button class="btn primary sm" onclick="toggleAdd('${v}')">+ Thêm mới</button><a class="btn sm" href="https://docs.google.com/spreadsheets" target="_blank">Mở Google Sheet</a></div>`;
+  h+=`<div class="toolbar"><button class="btn primary sm" onclick="toggleAdd('${v}')">+ Thêm mới</button><a class="btn sm" href="https://docs.google.com/spreadsheets" target="_blank">Mở Google Trang tính</a></div>`;
   h+=`<div id="add-${v}" style="display:none" class="tablewrap"><table><tbody><tr>`;
   cfg.fields.forEach(f=>h+=`<td><input class="cell" data-h="${f.h}" placeholder="${f.l}" ${f.t==='num'?'type="number"':''}></td>`);
   h+=`<td><button class="btn sm green" onclick="addRow('${v}',this)">Thêm</button></td></tr></tbody></table></div>`;
@@ -302,12 +305,12 @@ async function loadPromo(){
   const el=document.getElementById('v-promo');el.innerHTML='<div class="empty">Đang tải...</div>';
   let d;try{d=await ensureAdmin();}catch(e){el.innerHTML='<div class="err">⚠ '+esc(e.message)+'</div>';return;}
   const rows=d.promotions||[];
-  let h='<div class="sectitle">🏷️ Chiến dịch khuyến mãi</div><div class="hint">Bật/tắt campaign. Tạo campaign mới dùng /promo trong tab Agents (tự áp brand voice + sinh nội dung).</div>';
-  if(!rows.length)h+='<div class="empty">Chưa có campaign. Vào tab Agents → nút /promo để tạo.</div>';
+  let h='<div class="sectitle">🏷️ Chiến dịch khuyến mãi</div><div class="hint">Bật/tắt chiến dịch. Tạo chiến dịch mới dùng /promo ở tab Trợ lý (tự áp giọng thương hiệu + sinh nội dung).</div>';
+  if(!rows.length)h+='<div class="empty">Chưa có chiến dịch. Vào tab Trợ lý → nút /promo để tạo.</div>';
   else{
-    h+='<div class="tablewrap"><table><thead><tr><th>ID</th><th>Tên</th><th>Loại</th><th>Giảm</th><th>Active</th></tr></thead><tbody>';
+    h+='<div class="tablewrap"><table><thead><tr><th>Mã</th><th>Tên</th><th>Loại</th><th>Giảm</th><th>Đang chạy</th></tr></thead><tbody>';
     rows.forEach(r=>{const on=(r.is_active===true||r.is_active==='TRUE'||r.is_active==='true');
-      h+=`<tr><td>${esc(r.campaign_id)}</td><td>${esc(r.name)}</td><td>${esc(r.type)}</td><td>${esc(r.discount_value)} ${esc(r.discount_type||'')}</td><td><button class="btn sm ${on?'green':''}" onclick="togglePromo('${esc(r.campaign_id)}',${!on})">${on?'ĐANG BẬT':'TẮT'}</button></td></tr>`;});
+      h+=`<tr><td>${esc(r.campaign_id)}</td><td>${esc(r.name)}</td><td>${esc(vis(r.type))}</td><td>${esc(r.discount_value)} ${esc(vis(r.discount_type||''))}</td><td><button class="btn sm ${on?'green':''}" onclick="togglePromo('${esc(r.campaign_id)}',${!on})">${on?'ĐANG BẬT':'TẮT'}</button></td></tr>`;});
     h+='</tbody></table></div>';
   }
   el.innerHTML=h;
@@ -322,7 +325,7 @@ async function loadConfig(){
   const el=document.getElementById('v-config');el.innerHTML='<div class="empty">Đang tải...</div>';
   let d;try{d=await ensureAdmin();}catch(e){el.innerHTML='<div class="err">⚠ '+esc(e.message)+'</div>';return;}
   const keys=d.config_keys||[];const cfg=d.config||{};
-  let h='<div class="sectitle">⚙️ Cấu hình quán</div><div class="hint">Chỉ các thiết lập an toàn. Token/secret/mật khẩu KHÔNG sửa được ở đây (bảo mật) — dùng Apps Script.</div><div class="tablewrap"><table><tbody>';
+  let h='<div class="sectitle">⚙️ Cấu hình quán</div><div class="hint">Chỉ các thiết lập an toàn. Mã bảo mật/mật khẩu KHÔNG sửa được ở đây (vì bảo mật).</div><div class="tablewrap"><table><tbody>';
   keys.forEach((k,i)=>{h+=`<tr><td style="color:var(--muted);white-space:nowrap">${esc(k)}</td><td><input class="cell" id="cfg-${i}" value="${esc(cfg[k])}"></td><td><button class="btn sm green" onclick="saveConfig('${esc(k)}',${i})">Lưu</button></td></tr>`;});
   h+='</tbody></table></div>';el.innerHTML=h;
 }
@@ -337,7 +340,7 @@ async function loadDevices(){
   let d;try{d=await apiGet('action=device_list&token='+encodeURIComponent(tk()));}catch(e){el.innerHTML='<div class="err">Lỗi kết nối</div>';return;}
   if(!d||!d.ok){if(d&&d.error==='unauthorized')return logout();el.innerHTML='<div class="err">⚠ '+esc((d&&d.error)||'?')+'</div>';return;}
   const rows=d.devices||[];
-  let h='<div class="sectitle">📱 Thiết bị được cấp quyền</div><div class="hint">Trang nội bộ (KDS/Dashboard) trên thiết bị mới phải được duyệt ở đây mới chạy. Thu hồi khi mất/đổi máy.</div>';
+  let h='<div class="sectitle">📱 Thiết bị được cấp quyền</div><div class="hint">Danh sách thiết bị từng truy cập trang nội bộ (Màn bếp/Bảng điều hành). Thu hồi khi mất/đổi máy.</div>';
   if(!rows.length){h+='<div class="empty">Chưa có thiết bị nào đăng ký.</div>';}
   else{
     h+='<div class="tablewrap"><table><thead><tr><th>Nhãn / ID</th><th>Trạng thái</th><th>Lần cuối</th><th></th></tr></thead><tbody>';
@@ -346,7 +349,7 @@ async function loadDevices(){
       const stcls=r.status==='approved'?'b-green':(r.status==='revoked'?'b-red':'b-yellow');
       const label=r.label?esc(r.label):'<i style="color:var(--muted)">(chưa đặt tên)</i>';
       h+=`<tr><td>${label}${me}<div class="small" style="font-family:monospace;color:var(--muted)">${esc(String(r.device_id).slice(0,12))}…</div></td>`
-        +`<td><span class="badge ${stcls}">${esc(r.status)}</span></td>`
+        +`<td><span class="badge ${stcls}">${esc(vis(r.status))}</span></td>`
         +`<td class="small">${esc(String(r.last_seen||'').slice(5,16).replace('T',' '))}</td>`
         +`<td style="white-space:nowrap">${r.status!=='approved'?`<button class="btn sm green" onclick="devApprove('${esc(r.device_id)}')">Duyệt</button> `:''}${r.status!=='revoked'?`<button class="btn sm" onclick="devRevoke('${esc(r.device_id)}')">Thu hồi</button>`:''}</td></tr>`;
     });
@@ -359,29 +362,29 @@ async function devRevoke(id){if(!confirm('Thu hồi quyền thiết bị này? T
 
 /* ---------- AGENTS & CHAT ---------- */
 const AGENTS=[
-  {c:'/sang',n:'Brief sáng',d:'KPI + ưu tiên hôm nay'},
-  {c:'/tuan',n:'Brief tuần',d:'Tổng kết + plan tuần'},
-  {c:'/roi tuần',n:'Đo ROI',d:'Post/promo nào ra đơn'},
-  {c:'/menu-eng',n:'Menu Engineering',d:'Stars/Dogs matrix'},
+  {c:'/sang',n:'Tóm tắt sáng',d:'Chỉ số + ưu tiên hôm nay'},
+  {c:'/tuan',n:'Tóm tắt tuần',d:'Tổng kết + kế hoạch tuần'},
+  {c:'/roi tuần',n:'Đo hiệu quả',d:'Bài/khuyến mãi nào ra đơn'},
+  {c:'/menu-eng',n:'Phân tích thực đơn',d:'Món bán chạy / món ế'},
   {c:'/doi-thu',n:'Đối thủ',d:'Quét đối thủ Lâm Hà'},
-  {c:'/trend',n:'Trend scout',d:'Trend đồ uống/format'},
-  {c:'/khach',n:'Khách (RFM)',d:'Segment + winback'},
-  {c:'/review',n:'Review',d:'Phản hồi đánh giá'},
-  {c:'/promo',n:'Tạo promo',d:'Flash sale/happy hour'},
-  {c:'/post',n:'Viết post',d:'FB/IG/TikTok'},
-  {c:'/winback-loop',n:'Chuỗi giữ khách',d:'khach→promo→post'},
-  {c:'/trend-loop',n:'Chuỗi bắt trend',d:'trend→menu/post'},
+  {c:'/trend',n:'Dò xu hướng',d:'Xu hướng đồ uống/định dạng'},
+  {c:'/khach',n:'Nhóm khách',d:'Phân nhóm + kéo khách quay lại'},
+  {c:'/review',n:'Đánh giá',d:'Phản hồi đánh giá khách'},
+  {c:'/promo',n:'Tạo khuyến mãi',d:'Sale chớp / giờ vàng'},
+  {c:'/post',n:'Viết bài',d:'Facebook/Instagram/TikTok'},
+  {c:'/winback-loop',n:'Chuỗi giữ khách',d:'khách → khuyến mãi → bài'},
+  {c:'/trend-loop',n:'Chuỗi bắt xu hướng',d:'xu hướng → thực đơn/bài'},
   {c:'/bao-tri',n:'Bảo trì',d:'Thiết bị tới hạn'},
-  {c:'/chot-ca',n:'Chốt ca',d:'Đối soát két'},
-  {c:'/huy',n:'Log hao hụt',d:'Waste cuối ngày'},
-  {c:'/mo-rong',n:'Mở rộng',d:'Brainstorm chiến lược'},
+  {c:'/chot-ca',n:'Chốt ca',d:'Đối soát két tiền'},
+  {c:'/huy',n:'Ghi hao hụt',d:'Hao hụt cuối ngày'},
+  {c:'/mo-rong',n:'Mở rộng',d:'Lên ý tưởng chiến lược'},
 ];
 function loadAgents(){
   const el=document.getElementById('v-agents');
-  let h='<div class="sectitle">🤖 Agents</div><div class="hint">Bấm để gửi lệnh cho Claude Code (qua hàng đợi). Claude Code trên máy anh sẽ nhặt & chạy — KHÔNG real-time, máy phải bật + chạy lệnh <b>/inbox</b>.</div>';
-  h+='<div class="agent-grid">'+AGENTS.map(a=>`<div class="agent-btn" onclick="sendCmd('${a.c}')"><div class="n">${esc(a.n)}</div><div class="d">${esc(a.c)} · ${esc(a.d)}</div></div>`).join('')+'</div>';
-  h+='<div class="sectitle">💬 Chat ra lệnh Claude</div>';
-  h+='<div class="chatbox"><div class="chatlog" id="chatlog"></div><div class="chatinput"><input id="chatin" placeholder="VD: tạo promo happy hour trà -15% T6-T7..." onkeydown="if(event.key===\'Enter\')sendChat()"><button class="btn primary" onclick="sendChat()">Gửi</button></div><div class="small" style="margin-top:8px">Lệnh vào hàng đợi → Claude Code chạy /inbox để xử lý → kết quả hiện ở đây.</div></div>';
+  let h='<div class="sectitle">🤖 Trợ lý</div><div class="hint">Bấm để gửi việc cho trợ lý (qua hàng đợi). Máy trợ lý sẽ nhận & xử lý — KHÔNG tức thời, máy phải đang bật.</div>';
+  h+='<div class="agent-grid">'+AGENTS.map(a=>`<div class="agent-btn" onclick="sendCmd('${a.c}')"><div class="n">${esc(a.n)}</div><div class="d">${esc(a.d)}</div></div>`).join('')+'</div>';
+  h+='<div class="sectitle">💬 Trò chuyện ra lệnh cho trợ lý</div>';
+  h+='<div class="chatbox"><div class="chatlog" id="chatlog"></div><div class="chatinput"><input id="chatin" placeholder="VD: tạo khuyến mãi giờ vàng trà -15% T6-T7..." onkeydown="if(event.key===\'Enter\')sendChat()"><button class="btn primary" onclick="sendChat()">Gửi</button></div><div class="small" style="margin-top:8px">Lệnh vào hàng đợi → máy trợ lý xử lý → kết quả hiện ở đây.</div></div>';
   el.innerHTML=h;
   loadChat();
   if(chatTimer)clearInterval(chatTimer);
@@ -394,10 +397,10 @@ async function loadChat(){
   let d;try{d=await apiGet('action=command_queue&token='+encodeURIComponent(tk())+'&limit=25');}catch(e){return;}
   if(!d||!d.ok)return;
   const cmds=(d.commands||[]).slice().reverse();
-  if(!cmds.length){log.innerHTML='<div class="empty">Chưa có lệnh nào. Bấm agent hoặc gõ lệnh bên dưới.</div>';return;}
+  if(!cmds.length){log.innerHTML='<div class="empty">Chưa có lệnh nào. Bấm trợ lý hoặc gõ lệnh bên dưới.</div>';return;}
   log.innerHTML=cmds.map(c=>{
     const st=c.status==='done'?'b-green':c.status==='pending'?'b-yellow':c.status==='error'?'b-red':'b-muted';
-    let h=`<div class="msg me">${esc(c.text)}<div class="st"><span class="badge ${st}">${esc(c.status)}</span> ${esc((c.created_at||'').slice(11,16))}</div></div>`;
+    let h=`<div class="msg me">${esc(c.text)}<div class="st"><span class="badge ${st}">${esc(vis(c.status))}</span> ${esc((c.created_at||'').slice(11,16))}</div></div>`;
     if(c.result)h+=`<div class="msg bot">${esc(c.result)}</div>`;
     return h;
   }).join('');
