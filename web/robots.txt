@@ -1,4 +1,8 @@
 User-agent: *
+# Trang điều hành nội bộ — không cho search engine index
+Disallow: /dashboard.html
+Disallow: /kds.html
+Disallow: /camera.html
 Allow: /
 
-Sitemap: https://hibbman23-dpd.github.io/kaerukaphe/sitemap.xml
+Sitemap: https://kaerukaphe.kaerukaphe.workers.dev/sitemap.xml

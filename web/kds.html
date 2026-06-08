@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
   <title>KDS · KaeruKàphê</title>
   <script src="menu-data.js?v=20260523"></script>
   <style>
@@ -426,6 +427,20 @@
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const GAS_URL  = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
 const POLL_MS  = 15000;
+// Token cho các endpoint cần xác thực. Worker thay '__REPORT_API_TOKEN__' lúc serve (xem src/index.js).
+// Chưa thay → GAS từ chối (fail-closed, không lộ data).
+const REPORT_TOKEN = '__REPORT_API_TOKEN__';
+const TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
+// Device approval: mỗi thiết bị 1 id (localStorage). Thiết bị mới phải được Mac Mini/Dashboard duyệt.
+function _kaeruDeviceId() {
+  try {
+    let id = localStorage.getItem('kaeru_device_id');
+    if (!id) { id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2); localStorage.setItem('kaeru_device_id', id); }
+    return id;
+  } catch (e) { return 'dev-nostore'; }
+}
+const DEVICE_ID = _kaeruDeviceId();
+const DQ = '&device_id=' + encodeURIComponent(DEVICE_ID);
 
 // ─── MENU CONSTANTS ──────────────────────────────────────────────────────────
 const CAT_EMOJI = {
@@ -617,7 +632,7 @@ async function activatePromo() {
   btn.textContent = 'Đang kích hoạt...';
   
   try {
-    const url = `${GAS_URL}?action=set_promo&active=true&duration=${selectedDuration}&message=${encodeURIComponent(msg)}`;
+    const url = `${GAS_URL}?action=set_promo&active=true&duration=${selectedDuration}&message=${encodeURIComponent(msg)}${TQ}${DQ}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.ok) {
@@ -640,7 +655,7 @@ async function deactivatePromo() {
   btn.textContent = 'Đang tắt...';
   
   try {
-    const url = `${GAS_URL}?action=set_promo&active=false`;
+    const url = `${GAS_URL}?action=set_promo&active=false${TQ}${DQ}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.ok) {
@@ -723,7 +738,7 @@ function renderOrders() {
 
 async function loadOrders() {
   try {
-    const res  = await fetch(`${GAS_URL}?action=orders`);
+    const res  = await fetch(`${GAS_URL}?action=orders${TQ}${DQ}`);
     const data = await res.json();
     if (data.ok) {
       allOrders = data.orders;
@@ -739,7 +754,7 @@ async function loadOrders() {
 async function markPaid(orderId, total, shortCode, btn) {
   btn.classList.add('loading'); btn.textContent = 'Đang lưu...';
   try {
-    await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}`, { mode:'no-cors' });
+    await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}${DQ}`, { mode:'no-cors' });
     const o = allOrders.find(x => x.order_id === orderId);
     if (o) o.payment_status = 'PAID';
     renderOrders();
@@ -1097,15 +1112,53 @@ async function submitStaffOrder() {
   }
 }
 
+// ─── DEVICE GATE ─────────────────────────────────────────────────────────────
+function _showDeviceGate(statusText) {
+  let el = document.getElementById('device-gate');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'device-gate';
+    el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0d1117;color:#e6edf3;display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;padding:24px';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<div style="max-width:440px">'
+    + '<div style="font-size:48px">🔒</div>'
+    + '<h2 style="margin:12px 0 6px">Thiết bị chưa được cấp quyền</h2>'
+    + '<p style="color:#8b949e;line-height:1.5">' + statusText + '</p>'
+    + '<div style="margin:16px 0;padding:12px;background:#161b22;border:1px solid #30363d;border-radius:10px;font-family:monospace;font-size:12px;word-break:break-all">' + DEVICE_ID + '</div>'
+    + '<p style="color:#8b949e;font-size:13px">Duyệt ở Dashboard → tab “Thiết bị”, hoặc Mac Mini duyệt bằng REPORT_API_TOKEN.</p>'
+    + '</div>';
+}
+function _hideDeviceGate() { const el = document.getElementById('device-gate'); if (el) el.remove(); }
+
+function startKDS() {
+  if (window.__kdsStarted) return; window.__kdsStarted = true;
+  _hideDeviceGate();
+  if (!window.speechSynthesis) document.getElementById('tts-banner').classList.add('hidden');
+  renderTableGrid();
+  loadPromoStatus();
+  loadOrders();
+  setInterval(loadOrders, POLL_MS);
+}
+
+async function deviceGate() {
+  try {
+    const r = await fetch(`${GAS_URL}?action=device_check${DQ}`).then(x => x.json());
+    if (r && r.status === 'approved') { startKDS(); return; }
+    if (!r || r.status === 'unknown') {
+      await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'device_register', device_id: DEVICE_ID, label: 'KDS', user_agent: navigator.userAgent }) });
+    }
+    _showDeviceGate('Đang chờ cấp quyền cho thiết bị này. Màn hình tự mở khi được duyệt.');
+    setTimeout(deviceGate, 5000);
+  } catch (e) {
+    _showDeviceGate('Lỗi kết nối máy chủ — đang thử lại…');
+    setTimeout(deviceGate, 6000);
+  }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
-if (!window.speechSynthesis) document.getElementById('tts-banner').classList.add('hidden');
-
-// Build table-grid on load
-renderTableGrid();
-
-loadPromoStatus();
-loadOrders();
-setInterval(loadOrders, POLL_MS);
+deviceGate();
 </script>
 </body>
 </html>

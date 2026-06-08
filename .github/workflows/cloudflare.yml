@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - web/**
+      - src/**
       - wrangler.jsonc
       - .github/workflows/cloudflare.yml
   workflow_dispatch:

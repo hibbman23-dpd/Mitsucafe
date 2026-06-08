@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
 <title>Kaeru Ops — Trung tâm điều hành</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,6 +119,7 @@
     <div class="tab" data-v="staff" onclick="switchTab('staff')">👤 Nhân viên</div>
     <div class="tab" data-v="config" onclick="switchTab('config')">⚙️ Cấu hình</div>
     <div class="tab" data-v="agents" onclick="switchTab('agents')">🤖 Agents & Chat</div>
+    <div class="tab" data-v="devices" onclick="switchTab('devices')">📱 Thiết bị</div>
   </div>
 
   <div id="v-overview" class="view active"><div class="grid" id="ovGrid"></div></div>
@@ -127,6 +129,7 @@
   <div id="v-staff" class="view"></div>
   <div id="v-config" class="view"></div>
   <div id="v-agents" class="view"></div>
+  <div id="v-devices" class="view"></div>
 </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -136,8 +139,12 @@ const GAS_URL='https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnF
 const TKEY='dash_token';
 let timer=null, chatTimer=null, dispTimer=null, adminCache=null;
 
-async function apiPost(d){const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(d)});return r.json();}
-async function apiGet(p){const r=await fetch(GAS_URL+'?'+p);return r.json();}
+// Device approval: id thiết bị (localStorage), gửi kèm mọi request.
+function _kaeruDeviceId(){try{let id=localStorage.getItem('kaeru_device_id');if(!id){id=(crypto&&crypto.randomUUID)?crypto.randomUUID():'dev-'+Date.now()+'-'+Math.random().toString(36).slice(2);localStorage.setItem('kaeru_device_id',id);}return id;}catch(e){return 'dev-nostore';}}
+const DEVICE_ID=_kaeruDeviceId();
+
+async function apiPost(d){const body=Object.assign({device_id:DEVICE_ID},d);const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)});return r.json();}
+async function apiGet(p){const r=await fetch(GAS_URL+'?'+p+'&device_id='+encodeURIComponent(DEVICE_ID));return r.json();}
 const vnd=n=>(Number(n)||0).toLocaleString('vi-VN')+'đ';
 const esc=s=>String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const tk=()=>sessionStorage.getItem(TKEY);
@@ -153,7 +160,30 @@ async function login(){
   }catch(e){err.textContent='Lỗi kết nối máy chủ.';}
 }
 function logout(){sessionStorage.removeItem(TKEY);if(timer)clearInterval(timer);if(chatTimer)clearInterval(chatTimer);if(dispTimer)clearInterval(dispTimer);document.getElementById('app').style.display='none';document.getElementById('login').classList.remove('hidden');}
-function showApp(){document.getElementById('login').classList.add('hidden');document.getElementById('app').style.display='block';switchTab('overview');loadOverview();timer=setInterval(()=>{if(curTab==='overview')loadOverview();},90000);pollDispatcher();dispTimer=setInterval(pollDispatcher,30000);}
+async function showApp(){
+  // Cổng thiết bị: máy chưa duyệt → màn chờ (vẫn cho self-approve vì đã đăng nhập = chủ quán).
+  let st='unknown';
+  try{const r=await apiGet('action=device_check');st=r&&r.status;}catch(e){}
+  if(st!=='approved'){return showDevicePending();}
+  _enterApp();
+}
+function _enterApp(){const dp=document.getElementById('devpending');if(dp)dp.style.display='none';document.getElementById('login').classList.add('hidden');document.getElementById('app').style.display='block';switchTab('overview');loadOverview();timer=setInterval(()=>{if(curTab==='overview')loadOverview();},90000);pollDispatcher();dispTimer=setInterval(pollDispatcher,30000);}
+function showDevicePending(){
+  document.getElementById('login').classList.add('hidden');document.getElementById('app').style.display='none';
+  let el=document.getElementById('devpending');
+  if(!el){el=document.createElement('div');el.id='devpending';el.style.cssText='position:fixed;inset:0;z-index:55;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px';document.body.appendChild(el);}
+  el.style.display='flex';
+  el.innerHTML='<div class="loginbox" style="text-align:center"><div style="font-size:42px">🔒</div>'
+    +'<h1 style="font-size:1.2rem;margin:8px 0">Thiết bị chưa được duyệt</h1>'
+    +'<p class="small" style="margin-bottom:10px">Máy này cần được cấp quyền. Bạn đã đăng nhập nên có thể duyệt ngay, hoặc duyệt từ Mac Mini.</p>'
+    +'<div style="font-family:monospace;font-size:11px;word-break:break-all;background:var(--panel2);padding:10px;border-radius:8px;margin-bottom:12px">'+DEVICE_ID+'</div>'
+    +'<button class="btn primary" style="width:100%" onclick="approveThisDevice()">Duyệt thiết bị này</button>'
+    +'<button class="btn" style="width:100%;margin-top:8px" onclick="logout()">Đăng xuất</button></div>';
+}
+async function approveThisDevice(){
+  const r=await apiPost({action:'device_approve',token:tk(),device_id:DEVICE_ID});
+  if(r&&r.ok){_enterApp();}else toast('Lỗi duyệt: '+((r&&r.error)||'?'));
+}
 async function pollDispatcher(){
   const el=document.getElementById('dispPill');if(!el||!tk())return;
   let d;try{d=await apiGet('action=dispatcher_status&token='+encodeURIComponent(tk()));}catch(e){return;}
@@ -171,6 +201,7 @@ function switchTab(v){
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='v-'+v));
   if(v==='overview')loadOverview();
   else if(v==='agents')loadAgents();
+  else if(v==='devices')loadDevices();
   else loadAdmin(v);
 }
 function refreshActive(){adminCache=null;switchTab(curTab);}
@@ -302,6 +333,32 @@ async function saveConfig(k,i){
   const res=await apiPost({action:'config_set',token:tk(),key:k,value:document.getElementById('cfg-'+i).value});
   if(res&&res.ok){toast('Đã lưu '+k);adminCache=null;}else toast('Lỗi: '+((res&&res.error)||'?'));
 }
+
+/* ---------- DEVICES (cấp quyền thiết bị) ---------- */
+async function loadDevices(){
+  const el=document.getElementById('v-devices');el.innerHTML='<div class="empty">Đang tải...</div>';
+  let d;try{d=await apiGet('action=device_list&token='+encodeURIComponent(tk()));}catch(e){el.innerHTML='<div class="err">Lỗi kết nối</div>';return;}
+  if(!d||!d.ok){if(d&&d.error==='unauthorized')return logout();el.innerHTML='<div class="err">⚠ '+esc((d&&d.error)||'?')+'</div>';return;}
+  const rows=d.devices||[];
+  let h='<div class="sectitle">📱 Thiết bị được cấp quyền</div><div class="hint">Trang nội bộ (KDS/Dashboard) trên thiết bị mới phải được duyệt ở đây mới chạy. Thu hồi khi mất/đổi máy.</div>';
+  if(!rows.length){h+='<div class="empty">Chưa có thiết bị nào đăng ký.</div>';}
+  else{
+    h+='<div class="tablewrap"><table><thead><tr><th>Nhãn / ID</th><th>Trạng thái</th><th>Lần cuối</th><th></th></tr></thead><tbody>';
+    rows.forEach(r=>{
+      const me=r.device_id===DEVICE_ID?' <span class="badge b-cyan">máy này</span>':'';
+      const stcls=r.status==='approved'?'b-green':(r.status==='revoked'?'b-red':'b-yellow');
+      const label=r.label?esc(r.label):'<i style="color:var(--muted)">(chưa đặt tên)</i>';
+      h+=`<tr><td>${label}${me}<div class="small" style="font-family:monospace;color:var(--muted)">${esc(String(r.device_id).slice(0,12))}…</div></td>`
+        +`<td><span class="badge ${stcls}">${esc(r.status)}</span></td>`
+        +`<td class="small">${esc(String(r.last_seen||'').slice(5,16).replace('T',' '))}</td>`
+        +`<td style="white-space:nowrap">${r.status!=='approved'?`<button class="btn sm green" onclick="devApprove('${esc(r.device_id)}')">Duyệt</button> `:''}${r.status!=='revoked'?`<button class="btn sm" onclick="devRevoke('${esc(r.device_id)}')">Thu hồi</button>`:''}</td></tr>`;
+    });
+    h+='</tbody></table></div>';
+  }
+  el.innerHTML=h;
+}
+async function devApprove(id){const r=await apiPost({action:'device_approve',token:tk(),device_id:id});if(r&&r.ok){toast('Đã duyệt thiết bị');loadDevices();}else toast('Lỗi: '+((r&&r.error)||'?'));}
+async function devRevoke(id){if(!confirm('Thu hồi quyền thiết bị này? Thiết bị sẽ không vào được nữa.'))return;const r=await apiPost({action:'device_revoke',token:tk(),device_id:id});if(r&&r.ok){toast('Đã thu hồi');loadDevices();}else toast('Lỗi: '+((r&&r.error)||'?'));}
 
 /* ---------- AGENTS & CHAT ---------- */
 const AGENTS=[

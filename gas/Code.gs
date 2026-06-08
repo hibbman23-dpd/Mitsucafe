@@ -42,6 +42,21 @@ function doPost(e) {
       return _jsonResponse(res);
     }
 
+    // ── Device approval ──
+    // Đăng ký thiết bị mới (open — thiết bị tự xin quyền, mặc định PENDING).
+    if (payload && payload.action === 'device_register') {
+      return _jsonResponse(deviceRegister(payload.device_id, payload.label, payload.user_agent));
+    }
+    // Duyệt/thu hồi/đặt nhãn từ dashboard — cần admin session (KHÔNG device-gate → bootstrap).
+    if (payload && (payload.action === 'device_approve' || payload.action === 'device_revoke' || payload.action === 'device_label')) {
+      if (!validateSessionToken(payload.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      if (payload.action === 'device_approve') return _jsonResponse(deviceApprove(payload.device_id, 'admin'));
+      if (payload.action === 'device_revoke') return _jsonResponse(deviceRevoke(payload.device_id));
+      return _jsonResponse(deviceLabel(payload.device_id, payload.label));
+    }
+
     // Agent ghi 1 dòng insight lên dashboard (yêu cầu admin session token)
     if (payload && payload.action === 'log_agent_insight') {
       if (!validateSessionToken(payload.token)) {
@@ -62,6 +77,9 @@ function doPost(e) {
       if (!validateSessionToken(payload.token)) {
         return _jsonResponse({ ok: false, error: 'unauthorized' });
       }
+      if (!isDeviceApproved(payload.device_id)) {
+        return _jsonResponse({ ok: false, error: 'device_not_approved' });
+      }
       return _jsonResponse(_ADMIN_WRITE[payload.action](payload));
     }
 
@@ -69,6 +87,9 @@ function doPost(e) {
     if (payload && payload.action === 'queue_command') {
       if (!validateSessionToken(payload.token)) {
         return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      if (!isDeviceApproved(payload.device_id)) {
+        return _jsonResponse({ ok: false, error: 'device_not_approved' });
       }
       return _jsonResponse(queueCommand(payload));
     }
@@ -112,11 +133,16 @@ function doGet(e) {
     var action = e && e.parameter && e.parameter.action;
 
     if (action === 'orders') {
+      // KDS đọc đơn hôm nay (kèm PII khách) — yêu cầu token + thiết bị đã duyệt
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
       var orders = getTodayOrders();
       return _jsonResponse({ ok: true, orders: orders });
     }
 
     if (action === 'mark_paid') {
+      // Mutation tiền: KDS / Mac Mini poller — yêu cầu token (+ device nếu gọi từ KDS)
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var orderId = e.parameter.order_id;
       if (!orderId) return _jsonResponse({ ok: false, error: 'order_id required' });
       markOrderPaid(orderId);
@@ -124,13 +150,15 @@ function doGet(e) {
     }
 
     if (action === 'pending_print') {
-      // Mac Mini poller lấy đơn cần in receipt (DELIVERED + printed_at empty)
+      // Mac Mini poller lấy đơn cần in receipt (DELIVERED + printed_at empty) — yêu cầu token
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var pending = _getPendingPrintOrders();
       return _jsonResponse({ ok: true, orders: pending });
     }
 
     if (action === 'mark_printed') {
-      // Mac Mini poller đánh dấu đã in xong
+      // Mac Mini poller đánh dấu đã in xong — yêu cầu token
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var orderId = e.parameter.order_id;
       if (!orderId) return _jsonResponse({ ok: false, error: 'order_id required' });
       updateField(orderId, 'printed_at', new Date().toISOString());
@@ -138,13 +166,15 @@ function doGet(e) {
     }
 
     if (action === 'pending_labels') {
-      // Mac Mini poller lấy đơn cần in tem (label_printed_at rỗng, chưa bị huỷ, trong 4h)
+      // Mac Mini poller lấy đơn cần in tem (label_printed_at rỗng, chưa bị huỷ, trong 4h) — yêu cầu token
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var pending = _getPendingLabelOrders();
       return _jsonResponse({ ok: true, orders: pending });
     }
 
     if (action === 'mark_labels_printed') {
-      // Mac Mini poller đánh dấu đã in tem xong
+      // Mac Mini poller đánh dấu đã in tem xong — yêu cầu token
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var orderId = e.parameter.order_id;
       if (!orderId) return _jsonResponse({ ok: false, error: 'order_id required' });
       updateField(orderId, 'label_printed_at', new Date().toISOString());
@@ -185,9 +215,11 @@ function doGet(e) {
     }
 
     if (action === 'customer_info') {
+      // Public (order.js dùng để autofill loyalty). KHÔNG trả field nội bộ.
       var phone = e.parameter.phone;
       if (!phone) return _jsonResponse({ ok: false, error: 'phone required' });
       var info = getCustomerInfo(phone);
+      if (info) { delete info.zalo_id; delete info.notes; }
       return _jsonResponse({ ok: true, customer: info });
     }
 
@@ -199,12 +231,14 @@ function doGet(e) {
     }
 
     if (action === 'setup_financials') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var res = setupExpenseForm();
       createFinancialDashboard();
       return _jsonResponse({ ok: true, message: 'Financial system initialized.', form_url: res.formUrl, edit_url: res.editUrl });
     }
 
     if (action === 'compute_cogs') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var date = e.parameter.date;
       if (!date) {
         date = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
@@ -225,6 +259,7 @@ function doGet(e) {
     }
 
     if (action === 'send_daily_report') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       var date = e.parameter.date;
       if (!date) {
         date = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
@@ -234,6 +269,8 @@ function doGet(e) {
     }
 
     if (action === 'set_promo') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
       var active = e.parameter.active === 'true';
       var duration = e.parameter.duration || '60'; // minutes or 'end_of_day'
       var msg = e.parameter.message || 'Khuyến mãi đặc biệt: Giảm giá 5% cho toàn bộ menu!';
@@ -302,17 +339,38 @@ function doGet(e) {
       return _jsonResponse({ ok: true, reviews: getPendingResponses() });
     }
 
-    // ── Ops Dashboard (web/dashboard.html) — yêu cầu admin session token ──
+    // ── Device approval (GET) ──
+    if (action === 'device_check') {
+      // Open — trang nội bộ poll trạng thái thiết bị của chính nó.
+      return _jsonResponse(deviceCheck(e.parameter.device_id));
+    }
+    if (action === 'device_list') {
+      // Dashboard tab "Thiết bị" (session) HOẶC Mac Mini (report token). KHÔNG device-gate → bootstrap.
+      if (!validateSessionToken(e.parameter.token) && !_requireTokenIfSet(e)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      return _jsonResponse(deviceList());
+    }
+    if (action === 'device_approve' || action === 'device_revoke') {
+      // Mac Mini curl bằng REPORT_API_TOKEN (bootstrap thiết bị đầu tiên không cần đăng nhập web).
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      if (action === 'device_approve') return _jsonResponse(deviceApprove(e.parameter.device_id, 'mac-mini'));
+      return _jsonResponse(deviceRevoke(e.parameter.device_id));
+    }
+
+    // ── Ops Dashboard (web/dashboard.html) — admin session token + thiết bị đã duyệt ──
     if (action === 'dashboard_summary') {
       if (!validateSessionToken(e.parameter.token)) {
         return _jsonResponse({ ok: false, error: 'unauthorized' });
       }
+      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
       return _jsonResponse(getDashboardSummary());
     }
     if (action === 'agent_insights') {
       if (!validateSessionToken(e.parameter.token)) {
         return _jsonResponse({ ok: false, error: 'unauthorized' });
       }
+      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
       var insLimit = parseInt(e.parameter.limit, 10) || 20;
       return _jsonResponse({ ok: true, insights: getAgentInsights(insLimit) });
     }
@@ -320,12 +378,14 @@ function doGet(e) {
       if (!validateSessionToken(e.parameter.token)) {
         return _jsonResponse({ ok: false, error: 'unauthorized' });
       }
+      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
       return _jsonResponse(getAdminData());
     }
     if (action === 'command_queue') {
       if (!validateSessionToken(e.parameter.token)) {
         return _jsonResponse({ ok: false, error: 'unauthorized' });
       }
+      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
       var cqStatus = e.parameter.status || null;
       var cqLimit = parseInt(e.parameter.limit, 10) || 30;
       return _jsonResponse({ ok: true, commands: getCommandQueue(cqStatus, cqLimit) });
@@ -465,13 +525,19 @@ function _jsonResponse(obj) {
 }
 
 /**
- * Token guard cho các endpoint phơi PII/sales data.
- * Nếu CONFIG.REPORT_API_TOKEN có giá trị → require query `?token=<value>` khớp.
- * Nếu CONFIG không có → mở (backward-compat cho deploy đầu, sẽ siết khi soft launch).
+ * Token guard cho các endpoint phơi PII/sales data + mutation.
+ * FAIL-CLOSED: nếu CONFIG.REPORT_API_TOKEN khớp `?token=` → cho qua, ngược lại từ chối.
+ *
+ * MIGRATION: nếu chưa kịp cấu hình token, set tạm CONFIG.ALLOW_OPEN_API='true' để giữ
+ * hành vi mở cũ trong lúc cập nhật client. SAU KHI set token + cập nhật KDS/poller →
+ * XOÁ ALLOW_OPEN_API để khoá lại. KHÔNG để ALLOW_OPEN_API='true' khi chạy thật.
  */
 function _requireTokenIfSet(e) {
   var expected = getConfig('REPORT_API_TOKEN');
-  if (!expected) return true; // chưa set → mở
+  if (!expected) {
+    // Chưa cấu hình token: chỉ mở nếu cố ý bật cờ migration tạm thời.
+    return getConfig('ALLOW_OPEN_API') === 'true';
+  }
   var provided = (e && e.parameter && e.parameter.token) || '';
   return String(provided).trim() === String(expected).trim();
 }

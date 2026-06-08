@@ -33,9 +33,8 @@ function initCameraSheets() {
   }
   
   if (!getConfig('ADMIN_PASSWORD_HASH')) {
-    // Mật khẩu mặc định là "123456", băm sang SHA-256
-    var defaultHash = hashSHA256('123456');
-    setConfig('ADMIN_PASSWORD_HASH', defaultHash);
+    // Mật khẩu mặc định "123456" — lưu hash CÓ SALT ngay từ đầu (hashPassword tự tạo salt).
+    setConfig('ADMIN_PASSWORD_HASH', hashPassword('123456'));
   }
   
   if (!getConfig('CAMERA_AI_SECRET')) {
@@ -60,11 +59,19 @@ function adminLogin(username, password) {
     
     var dbUsername = getConfig('ADMIN_USERNAME') || 'admin';
     var dbPasswordHash = getConfig('ADMIN_PASSWORD_HASH');
-    
-    // So sánh tài khoản và băm mật khẩu
-    var inputPasswordHash = hashSHA256(password);
-    
-    if (username !== dbUsername || inputPasswordHash !== dbPasswordHash) {
+    var hasSalt = !!getConfig('ADMIN_PASSWORD_SALT');
+
+    var credOk = false;
+    if (username === dbUsername) {
+      if (hasSalt) {
+        credOk = (hashPassword(password) === dbPasswordHash);
+      } else if (hashSHA256(password) === dbPasswordHash) {
+        // Hash cũ không salt → đúng mật khẩu: nâng cấp sang salted ngay.
+        credOk = true;
+        setConfig('ADMIN_PASSWORD_HASH', hashPassword(password)); // tạo salt + lưu hash mới
+      }
+    }
+    if (!credOk) {
       return { ok: false, error: 'Tên đăng nhập hoặc mật khẩu không chính xác' };
     }
     
@@ -139,16 +146,19 @@ function updateAdminPassword(token, oldPassword, newPassword) {
       return { ok: false, error: 'Phiên làm việc hết hạn hoặc không hợp lệ.' };
     }
     
-    // 2. Xác thực mật khẩu cũ
+    // 2. Xác thực mật khẩu cũ (hỗ trợ cả hash cũ không salt lẫn hash salted)
     var dbPasswordHash = getConfig('ADMIN_PASSWORD_HASH');
-    var oldHash = hashSHA256(oldPassword);
-    if (oldHash !== dbPasswordHash) {
+    var hasSalt = !!getConfig('ADMIN_PASSWORD_SALT');
+    var oldOk = hasSalt
+      ? (hashPassword(oldPassword) === dbPasswordHash)
+      : (hashSHA256(oldPassword) === dbPasswordHash);
+    if (!oldOk) {
       return { ok: false, error: 'Mật khẩu cũ không chính xác.' };
     }
-    
-    // 3. Cập nhật mật khẩu mới
-    var newHash = hashSHA256(newPassword);
-    setConfig('ADMIN_PASSWORD_HASH', newHash);
+
+    // 3. Cập nhật mật khẩu mới — xoay salt mới rồi băm salted.
+    setConfig('ADMIN_PASSWORD_SALT', generateRandomString(24));
+    setConfig('ADMIN_PASSWORD_HASH', hashPassword(newPassword));
     
     // 4. Hủy toàn bộ phiên làm việc khác để bắt buộc đăng nhập lại
     setConfig('ADMIN_SESSIONS', '{}');
@@ -290,16 +300,47 @@ function getCameraEvents(token, limit) {
  * HÀM PHỤ TRỢ: TẠO CHUỖI NGẪU NHIÊN
  */
 function generateRandomString(length) {
-  var chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  // Dùng Utilities.getUuid() (UUID v4, ~122 bit entropy) thay vì Math.random()
+  // (Math.random KHÔNG phải CSPRNG → token đoán được). Ghép nhiều UUID cho đủ độ dài.
   var str = '';
-  for (var i = 0; i < length; i++) {
-    str += chars.charAt(Math.floor(Math.random() * chars.length));
+  while (str.length < length) {
+    str += Utilities.getUuid().replace(/-/g, '');
   }
-  return str;
+  return str.slice(0, length);
 }
 
 /**
- * HÀM PHỤ TRỢ: BĂM SHA-256 CHO BẢO MẬT MẬT KHẨU
+ * Salt + key-stretching cho mật khẩu admin.
+ * GAS không có bcrypt/PBKDF2 → iterate SHA-256 nhiều vòng với salt (poor-man KDF).
+ * Chống rainbow table + làm chậm brute-force nếu hash bị lộ.
+ */
+function _getOrCreatePasswordSalt() {
+  var salt = getConfig('ADMIN_PASSWORD_SALT');
+  if (!salt) {
+    salt = generateRandomString(24);
+    setConfig('ADMIN_PASSWORD_SALT', salt);
+  }
+  return salt;
+}
+
+function hashPassword(password) {
+  var salt = _getOrCreatePasswordSalt();
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256, salt + '::' + String(password), Utilities.Charset.UTF_8);
+  for (var i = 0; i < 1200; i++) {
+    bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes);
+  }
+  var hex = '';
+  for (var j = 0; j < bytes.length; j++) {
+    var b = bytes[j]; if (b < 0) b += 256;
+    var s = b.toString(16); if (s.length === 1) s = '0' + s;
+    hex += s;
+  }
+  return hex;
+}
+
+/**
+ * HÀM PHỤ TRỢ: BĂM SHA-256 (legacy, không salt — chỉ dùng verify hash cũ khi migrate)
  */
 function hashSHA256(input) {
   if (input === null || input === undefined) return '';

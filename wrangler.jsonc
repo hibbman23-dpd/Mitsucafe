@@ -3,11 +3,14 @@
   "name": "kaerukaphe",
   "account_id": "dded21400dfc0fc17e2662f8e143b685",
   "compatibility_date": "2026-06-02",
+  "main": "src/index.js",
   "observability": {
     "enabled": true
   },
   "assets": {
-    "directory": "web"
+    "directory": "web",
+    "binding": "ASSETS",
+    "run_worker_first": true
   },
   "compatibility_flags": [
     "nodejs_compat"
