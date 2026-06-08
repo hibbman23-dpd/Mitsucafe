@@ -28,6 +28,8 @@
     <key>EnvironmentVariables</key>
     <dict>
         <key>GAS_WEBAPP_URL</key><string>https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec</string>
+        <!-- Đặt giá trị THẬT trong plist đã cài ở ~/Library/LaunchAgents/ (đừng commit token thật) -->
+        <key>REPORT_API_TOKEN</key><string>REPLACE_WITH_REPORT_API_TOKEN</string>
         <key>PRINT_SERVER_URL</key><string>http://127.0.0.1:5001</string>
         <key>POLL_INTERVAL</key><string>4</string>
         <key>LOG_LEVEL</key><string>INFO</string>

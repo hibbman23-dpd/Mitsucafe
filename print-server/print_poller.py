@@ -34,6 +34,9 @@ import urllib.error
 
 # ── Config ────────────────────────────────────────────────────────────────────
 GAS_WEBAPP_URL    = os.getenv("GAS_WEBAPP_URL", "")
+# Token bảo mật cho endpoint poller (phải khớp CONFIG.REPORT_API_TOKEN bên GAS).
+REPORT_API_TOKEN  = os.getenv("REPORT_API_TOKEN", "")
+_TQ = ("&token=" + REPORT_API_TOKEN) if REPORT_API_TOKEN else ""
 PRINT_SERVER_URL  = os.getenv("PRINT_SERVER_URL", "http://127.0.0.1:5001")
 POLL_INTERVAL     = float(os.getenv("POLL_INTERVAL", "3"))
 RECEIPT_MODE      = os.getenv("RECEIPT_MODE", "raster")   # raster | text
@@ -725,7 +728,7 @@ def poll_labels_once() -> bool:
     """Poll GAS lấy đơn cần in tem, in từng tem cho từng ly.
     Trả về True nếu có in tem, False nếu không có hoặc lỗi.
     """
-    url = GAS_WEBAPP_URL + "?action=pending_labels"
+    url = GAS_WEBAPP_URL + "?action=pending_labels" + _TQ
     try:
         result = _get_json(url)
     except Exception as exc:
@@ -772,7 +775,7 @@ def poll_labels_once() -> bool:
 
         if all_ok:
             try:
-                mark_url = GAS_WEBAPP_URL + f"?action=mark_labels_printed&order_id={order_id}"
+                mark_url = GAS_WEBAPP_URL + f"?action=mark_labels_printed&order_id={order_id}" + _TQ
                 _get_json(mark_url)
                 log.info("Labels marked: %s (%d cup(s))", order_id, total)
             except Exception as exc:
@@ -785,7 +788,7 @@ def poll_once() -> bool:
     """Poll GAS lấy đơn cần in hoá đơn, in trực tiếp.
     Trả về True nếu có in hoá đơn, False nếu không có hoặc lỗi.
     """
-    url = GAS_WEBAPP_URL + "?action=pending_print"
+    url = GAS_WEBAPP_URL + "?action=pending_print" + _TQ
     try:
         result = _get_json(url)
     except Exception as exc:
@@ -811,7 +814,7 @@ def poll_once() -> bool:
                      order_id, resp.get("bytes", 0), RECEIPT_MODE)
             printed_any = True
 
-            mark_url = GAS_WEBAPP_URL + f"?action=mark_printed&order_id={order_id}"
+            mark_url = GAS_WEBAPP_URL + f"?action=mark_printed&order_id={order_id}" + _TQ
             _get_json(mark_url)
             log.info("Marked printed: %s", order_id)
 
