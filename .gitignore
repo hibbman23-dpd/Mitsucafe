@@ -62,6 +62,9 @@ seed/test_order_*.json.local
 # Wrangler cache
 .wrangler/
 
+# Firecrawl scrape/search cache (regenerate on demand)
+.firecrawl/
+
 # Dispatcher credential (local only)
 .claude/.dispatcher-auth.json
 ops/.dispatcher.lock
