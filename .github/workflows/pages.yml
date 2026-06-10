@@ -1,0 +1,50 @@
+name: Deploy GitHub Pages
+
+# Pages chỉ phục vụ trang marketing/đặt món (web/). 3 trang điều hành
+# (dashboard/kds/camera) bị thay bằng stub redirect → kaerukaphe.workers.dev,
+# vì GitHub Pages KHÔNG chạy Worker (không gate được, không tiêm token).
+# Origin điều hành thật = Cloudflare Worker (sẽ đặt sau Cloudflare Access).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - web/**
+      - pages-redirect/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build artifact (web/ + control pages → redirect)
+        run: |
+          mkdir -p _site
+          cp -R web/. _site/
+          cp pages-redirect/dashboard.html _site/dashboard.html
+          cp pages-redirect/kds.html       _site/kds.html
+          cp pages-redirect/camera.html    _site/camera.html
+          echo "Control pages thay bằng redirect stub:"
+          grep -l "location.replace" _site/dashboard.html _site/kds.html _site/camera.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
