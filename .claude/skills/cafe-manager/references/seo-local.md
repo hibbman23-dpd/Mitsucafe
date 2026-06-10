@@ -10,7 +10,7 @@ Khi khách Lâm Hà / Lâm Đồng / Đà Lạt search "cà phê gần đây", "
 - [ ] Claim địa chỉ: KaeruKàphê, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
 - [ ] Category chính: **Bubble tea store** (primary) + **Café** (secondary)
 - [ ] Phone: 0975 087 429
-- [ ] Website: https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html
+- [ ] Website: https://kaerukaphe.kaerukaphe.workers.dev/kaeru
 - [ ] Hours: 6:00-0:00 hàng ngày
 - [ ] Cover photo: mascot outdoor / hero brand
 - [ ] Logo: round mascot
