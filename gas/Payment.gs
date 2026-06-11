@@ -247,3 +247,73 @@ function testReconcileVcbNotification() {
   }
   Logger.log("--- UNIT TESTS COMPLETED ---");
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WATCHDOG — cảnh báo khi điện thoại báo ngân hàng (MacroDroid) ngừng gửi nhịp tim.
+// Listener chạy trên 1 điện thoại Android riêng (KHÔNG gộp với màn signage).
+// Điện thoại gửi GET ?action=payment_heartbeat&token=... mỗi ~10 phút (macro MacroDroid).
+// Watchdog GAS chạy trigger 15 phút/lần: im quá ngưỡng trong giờ mở cửa → Telegram.
+// ─────────────────────────────────────────────────────────────────────────────
+
+var PAYMENT_HEARTBEAT_SILENCE_MIN = 25; // im quá ngần này phút → cảnh báo
+var PAYMENT_OPEN_HOUR  = 6;             // chỉ cảnh báo trong giờ mở cửa (giờ VN)
+var PAYMENT_CLOSE_HOUR = 23;            // 6:00–23:00; ngoài giờ điện thoại có thể tắt → im
+
+/** MacroDroid trên điện thoại ping mỗi ~10 phút để báo "còn sống". */
+function recordPaymentHeartbeat() {
+  setConfig('PAYMENT_LISTENER_LAST_SEEN', new Date().toISOString());
+  // Nếu trước đó đã cảnh báo mất tín hiệu → giờ sống lại: báo phục hồi + reset cờ.
+  if (getConfig('PAYMENT_LISTENER_ALERTED') === 'true') {
+    setConfig('PAYMENT_LISTENER_ALERTED', 'false');
+    try {
+      sendTelegramAlert('✅ App báo ngân hàng đã hoạt động lại — điện thoại gửi tín hiệu trở lại.');
+    } catch (e) { logError('recordPaymentHeartbeat.telegram', e); }
+  }
+  return { ok: true };
+}
+
+/** Trạng thái listener (cho dashboard/kiểm tra nhanh). online nếu < ngưỡng im lặng. */
+function getPaymentListenerStatus() {
+  var last = getConfig('PAYMENT_LISTENER_LAST_SEEN');
+  if (!last) return { ok: true, online: false, last_seen: null, age_sec: null };
+  var age = Math.round((Date.now() - new Date(last).getTime()) / 1000);
+  return { ok: true, online: age < PAYMENT_HEARTBEAT_SILENCE_MIN * 60, last_seen: last, age_sec: age };
+}
+
+/**
+ * Watchdog — chạy bằng trigger 15 phút/lần (installPaymentWatchdogTrigger).
+ * Quá ngưỡng im lặng trong giờ mở cửa → Telegram cảnh báo (đúng 1 lần/đợt).
+ */
+function checkPaymentListenerWatchdog() {
+  try {
+    var hour = parseInt(Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'H'), 10);
+    if (hour < PAYMENT_OPEN_HOUR || hour >= PAYMENT_CLOSE_HOUR) return; // ngoài giờ → bỏ qua
+
+    var last = getConfig('PAYMENT_LISTENER_LAST_SEEN');
+    if (!last) return; // chưa từng nhận nhịp tim → điện thoại chưa cấu hình, không cảnh báo
+
+    var ageMin = (Date.now() - new Date(last).getTime()) / 60000;
+    var alerted = getConfig('PAYMENT_LISTENER_ALERTED') === 'true';
+
+    if (ageMin > PAYMENT_HEARTBEAT_SILENCE_MIN && !alerted) {
+      setConfig('PAYMENT_LISTENER_ALERTED', 'true');
+      sendTelegramAlert(
+        '⚠️ Điện thoại báo ngân hàng có thể đã TẮT app — ' + Math.round(ageMin) +
+        ' phút không thấy tín hiệu.\n' +
+        'Mở lại MacroDroid + app Vietcombank trên điện thoại, kiểm tra mạng/pin.\n' +
+        'Trong lúc đó đơn chuyển khoản sẽ KHÔNG tự gạch nợ — để ý đối soát tay.'
+      );
+    }
+  } catch (e) {
+    logError('checkPaymentListenerWatchdog', e);
+  }
+}
+
+/** Chạy 1 LẦN trong Apps Script editor để cài trigger 15 phút (xoá trigger cũ trùng tên trước). */
+function installPaymentWatchdogTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'checkPaymentListenerWatchdog') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('checkPaymentListenerWatchdog').timeBased().everyMinutes(15).create();
+  return { ok: true };
+}
