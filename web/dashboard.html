@@ -120,6 +120,7 @@
     <div class="tab" data-v="config" onclick="switchTab('config')">⚙️ Cấu hình</div>
     <div class="tab" data-v="agents" onclick="switchTab('agents')">🤖 Trợ lý & Trò chuyện</div>
     <div class="tab" data-v="devices" onclick="switchTab('devices')">📱 Thiết bị</div>
+    <div class="tab" data-v="signage" onclick="switchTab('signage')">📺 Màn hình</div>
   </div>
 
   <div id="v-overview" class="view active"><div class="grid" id="ovGrid"></div></div>
@@ -130,6 +131,50 @@
   <div id="v-config" class="view"></div>
   <div id="v-agents" class="view"></div>
   <div id="v-devices" class="view"></div>
+  <div id="v-signage" class="view">
+    <div class="sectitle">📺 Màn hình quảng cáo</div>
+    <div class="hint">Điều khiển nội dung màn hình mặt tiền. Thay đổi có hiệu lực trong ~60 giây.</div>
+    <div class="card" style="max-width:640px;margin-top:10px">
+      <h2>Khối nội dung</h2>
+      <div id="sg-blocks" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px"></div>
+
+      <label class="hint" style="display:block;margin-bottom:4px">Món nổi bật (SKU, cách nhau dấu phẩy)</label>
+      <input id="sg-featured" class="cell" placeholder="DR014,DR003,DR005" style="width:100%;margin-bottom:10px">
+
+      <label class="hint" style="display:block;margin-bottom:4px">Combo: mã SKU các món</label>
+      <input id="sg-combo-items" class="cell" placeholder="DR005,BK001" style="width:100%;margin-bottom:6px">
+      <label class="hint" style="display:block;margin-bottom:4px">Giá combo (đồng)</label>
+      <input id="sg-combo-price" class="cell" type="number" placeholder="50000" style="width:100%;margin-bottom:10px">
+
+      <label class="hint" style="display:block;margin-bottom:4px">Thông báo đột xuất</label>
+      <input id="sg-ann-text" class="cell" placeholder="Nghỉ lễ 30/4…" style="width:100%;margin-bottom:6px">
+      <label style="font-size:.84rem;display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <input type="checkbox" id="sg-ann-active"> Bật thông báo
+      </label>
+
+      <label class="hint" style="display:block;margin-bottom:4px">Số giây mỗi cảnh</label>
+      <input id="sg-rotate" class="cell" type="number" value="11" style="width:120px;margin-bottom:10px">
+
+      <label style="font-size:.84rem;display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <input type="checkbox" id="sg-daypart" checked> Đổi thứ tự theo khung giờ
+      </label>
+
+      <label class="hint" style="display:block;margin-bottom:4px">Giao diện (theme)</label>
+      <select id="sg-theme" class="cell" style="width:180px;margin-bottom:10px">
+        <option value="auto">Tự động (ngày/đêm)</option>
+        <option value="day">Ngày (sáng — washi)</option>
+        <option value="night">Đêm (tối — indigo)</option>
+      </select>
+
+      <label class="hint" style="display:block;margin-bottom:4px">YouTube ID video</label>
+      <input id="sg-video" class="cell" placeholder="AQBbF4V4wRg" style="width:100%;margin-bottom:14px">
+
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn primary" onclick="signageSave()">Lưu cấu hình</button>
+        <a class="btn" href="/signage" target="_blank">Xem trước ↗</a>
+      </div>
+    </div>
+  </div>
 </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -202,6 +247,7 @@ function switchTab(v){
   if(v==='overview')loadOverview();
   else if(v==='agents')loadAgents();
   else if(v==='devices')loadDevices();
+  else if(v==='signage')signageLoad();
   else loadAdmin(v);
 }
 function refreshActive(){adminCache=null;switchTab(curTab);}
@@ -405,6 +451,54 @@ async function loadChat(){
     return h;
   }).join('');
   log.scrollTop=log.scrollHeight;
+}
+
+/* ---------- SIGNAGE ---------- */
+var SG_BLOCKS=['spotlight','promo','menu','video','qr','tem','combo','daypart'];
+function signageLoad(){
+  var el=document.getElementById('v-signage');
+  // show loading state inside the blocks area only; keep the card skeleton
+  document.getElementById('sg-blocks').innerHTML='<span style="color:var(--muted);font-size:.83rem">Đang tải…</span>';
+  fetch(GAS_URL+'?action=signage_config')
+    .then(function(r){return r.json();})
+    .then(function(j){
+      var c=(j&&j.config)||{};c.blocks=c.blocks||{};
+      document.getElementById('sg-blocks').innerHTML=SG_BLOCKS.map(function(b){
+        return '<label style="font-size:.84rem;display:flex;align-items:center;gap:5px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;cursor:pointer">'
+          +'<input type="checkbox" data-blk="'+b+'" '+(c.blocks[b]!==false?'checked':'')+'> '+b+'</label>';
+      }).join('');
+      document.getElementById('sg-featured').value=(c.featured||[]).join(',');
+      var combo=(c.combos||[])[0]||{};
+      document.getElementById('sg-combo-items').value=(combo.items||[]).join(',');
+      document.getElementById('sg-combo-price').value=combo.price||'';
+      var a=c.announcement||{};
+      document.getElementById('sg-ann-text').value=a.text||'';
+      document.getElementById('sg-ann-active').checked=!!a.active;
+      document.getElementById('sg-rotate').value=c.rotateSeconds||11;
+      document.getElementById('sg-daypart').checked=c.blocks.daypart!==false;
+      var themeEl=document.getElementById('sg-theme');
+      var t=c.theme;if(t==='day'||t==='night'||t==='auto')themeEl.value=t;else themeEl.value='auto';
+      document.getElementById('sg-video').value=(c.video&&c.video.youtube_id)||'';
+    })
+    .catch(function(e){document.getElementById('sg-blocks').innerHTML='<span class="err">Lỗi tải cấu hình (GAS chưa deploy hoặc offline)</span>';});
+}
+async function signageSave(){
+  var blocks={};
+  document.querySelectorAll('#sg-blocks input[data-blk]').forEach(function(i){blocks[i.getAttribute('data-blk')]=i.checked;});
+  blocks.daypart=document.getElementById('sg-daypart').checked;
+  var items=document.getElementById('sg-combo-items').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var price=parseInt(document.getElementById('sg-combo-price').value,10);
+  var config={
+    blocks:blocks,
+    featured:document.getElementById('sg-featured').value.split(',').map(function(s){return s.trim();}).filter(Boolean),
+    combos:(items.length>=2&&price)?[{items:items,price:price,label:''}]:[],
+    announcement:{text:document.getElementById('sg-ann-text').value,active:document.getElementById('sg-ann-active').checked,until:''},
+    video:{youtube_id:document.getElementById('sg-video').value.trim()||'AQBbF4V4wRg'},
+    rotateSeconds:parseInt(document.getElementById('sg-rotate').value,10)||11,
+    theme:document.getElementById('sg-theme').value
+  };
+  const res=await apiPost({action:'set_signage',token:tk(),config:config});
+  toast(res&&res.ok?'Đã lưu — màn cập nhật trong ~60s':'Lỗi: '+((res&&res.error)||'?'));
 }
 
 /* boot */
