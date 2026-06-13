@@ -1,26 +1,26 @@
-# Watchdog — cảnh báo điện thoại báo ngân hàng tắt app
+# Watchdog — Alert when banking app on payment phone goes offline
 
-> Listener thanh toán chạy trên **1 điện thoại Android riêng** (MacroDroid đọc thông báo OTT Vietcombank → webhook `bank_notification`). KHÔNG gộp với màn signage.
-> Watchdog này phát hiện khi điện thoại tắt app / mất mạng và **báo Telegram cho chủ**, để đơn chuyển khoản không bị "ngừng tự gạch nợ trong âm thầm".
+> Listener runs on a **dedicated Android phone** (MacroDroid reads Vietcombank OTT notifications → webhook `bank_notification`). NOT combined with the signage display.
+> This watchdog detects when the phone kills the app / loses connectivity and **sends a Telegram alert to the owner**, so bank-transfer orders don't silently stop being auto-matched.
 
-## Cơ chế
+## Mechanism
 
 ```
-[Điện thoại] MacroDroid macro "mỗi 10 phút" → GET ?action=payment_heartbeat&token=<TOKEN>
+[Phone] MacroDroid macro "every 10 minutes" → GET ?action=payment_heartbeat&token=<TOKEN>
         │                                              │
         │                                   GAS: recordPaymentHeartbeat()
         │                                   → CONFIG.PAYMENT_LISTENER_LAST_SEEN = now
         ▼
-[GAS trigger 15 phút] checkPaymentListenerWatchdog()
-   nếu (giờ 6:00–23:00) và (im > 25 phút) và (chưa báo)
-   → Telegram "⚠️ điện thoại có thể đã tắt app…"  + đặt cờ ALERTED
-   khi điện thoại ping lại → "✅ hoạt động lại" + xoá cờ
+[GAS trigger 15 min] checkPaymentListenerWatchdog()
+   if (time 6:00–23:00) and (silent > 25 min) and (not yet alerted)
+   → Telegram "⚠️ điện thoại có thể đã tắt app…"  + set ALERTED flag
+   when phone pings again → "✅ hoạt động lại" + clear flag
 ```
 
 Code: `gas/Payment.gs` (recordPaymentHeartbeat · checkPaymentListenerWatchdog · installPaymentWatchdogTrigger · getPaymentListenerStatus). Route: `gas/Code.gs` action `payment_heartbeat`.
-Tham số (sửa ở đầu khối WATCHDOG trong Payment.gs): `PAYMENT_HEARTBEAT_SILENCE_MIN=25`, giờ `6–23`.
+Parameters (edit at the top of the WATCHDOG block in Payment.gs): `PAYMENT_HEARTBEAT_SILENCE_MIN=25`, hours `6–23`.
 
-## Cài đặt (làm 1 lần)
+## Setup (one-time)
 
 ### 1. Deploy GAS
 ```
@@ -28,29 +28,29 @@ cd gas && clasp push
 ```
 Apps Script editor → Deploy → Manage deployments → Edit → New version.
 
-### 2. Cài trigger watchdog
-Apps Script editor → chọn hàm `installPaymentWatchdogTrigger` → Run (cấp quyền nếu hỏi). Tạo trigger 15 phút/lần. Kiểm tra ở tab Triggers (đồng hồ) thấy `checkPaymentListenerWatchdog` mỗi 15 phút.
+### 2. Install watchdog trigger
+Apps Script editor → select function `installPaymentWatchdogTrigger` → Run (grant permissions if prompted). Creates a 15-minute trigger. Verify in the Triggers tab (clock icon): `checkPaymentListenerWatchdog` every 15 minutes.
 
-### 3. Macro nhịp tim trên điện thoại (MacroDroid)
-Trên ĐÚNG điện thoại đang chạy listener:
-- **Trigger:** Regular Interval → mỗi **10 phút**.
+### 3. Heartbeat macro on phone (MacroDroid)
+On the phone running the listener:
+- **Trigger:** Regular Interval → every **10 minutes**.
 - **Action:** HTTP Request (GET) →
   `https://<GAS_URL>/exec?action=payment_heartbeat&token=<REPORT_API_TOKEN>`
-  (TOKEN = đúng giá trị `CONFIG.REPORT_API_TOKEN`).
-- Lưu, bật macro.
+  (TOKEN = value of `CONFIG.REPORT_API_TOKEN`).
+- Save and enable the macro.
 
-> Đây là macro THỨ HAI, độc lập với macro đọc thông báo ngân hàng đã có.
+> This is the SECOND macro, independent from the existing bank-notification reader macro.
 
-### 4. Chống MacroDroid bị Android giết (quan trọng)
-Trên điện thoại: Settings → Battery → MacroDroid = **Không tối ưu pin / Unrestricted**; bật **persistent notification** của MacroDroid; whitelist khỏi mọi task-killer. (Cùng cấu hình áp cho cả macro đọc thông báo ngân hàng.)
+### 4. Prevent MacroDroid from being killed by Android (important)
+On the phone: Settings → Battery → MacroDroid = **Unrestricted**; enable MacroDroid **persistent notification**; whitelist from all task-killers. (Apply the same config to the bank-notification reader macro.)
 
-## Kiểm thử
+## Testing
 
-- Gọi tay: `curl "https://<GAS_URL>/exec?action=payment_heartbeat&token=<TOKEN>"` → `{"ok":true}`; CONFIG có `PAYMENT_LISTENER_LAST_SEEN` mới.
-- Giả lập mất tín hiệu (trong giờ mở cửa): sửa tạm `PAYMENT_HEARTBEAT_SILENCE_MIN` xuống `0`, chạy tay `checkPaymentListenerWatchdog` trong editor → phải nhận Telegram cảnh báo. Trả lại `25` sau khi test.
-- Ping lại 1 cái → lần chạy watchdog kế hoặc heartbeat kế phải gửi "✅ hoạt động lại".
+- Manual call: `curl "https://<GAS_URL>/exec?action=payment_heartbeat&token=<TOKEN>"` → `{"ok":true}`; CONFIG shows updated `PAYMENT_LISTENER_LAST_SEEN`.
+- Simulate lost signal (during open hours): temporarily set `PAYMENT_HEARTBEAT_SILENCE_MIN` to `0`, run `checkPaymentListenerWatchdog` manually in the editor → must receive Telegram alert. Restore to `25` after testing.
+- Send one ping → the next watchdog or heartbeat run must send "✅ hoạt động lại".
 
-## Lưu ý
-- Trigger 15 phút tuân thủ luật "không trigger < 15 phút" (CLAUDE.md §4).
-- Ngoài giờ 6:00–23:00 watchdog im (điện thoại có thể tắt khi đóng quán) → không báo nhầm ban đêm.
-- Nâng cấp tương lai bỏ hẳn điện thoại: chuyển nguồn `bank_notification` sang webhook đám mây (SePay/Casso) — khi đó watchdog này không còn cần.
+## Notes
+- 15-minute trigger complies with the "no trigger < 15 minutes" rule (CLAUDE.md §4).
+- Outside 6:00–23:00 the watchdog is silent (phone may be off when shop is closed) → no false alerts at night.
+- Future upgrade to remove the phone entirely: switch `bank_notification` source to a cloud webhook (SePay/Casso) — this watchdog would then be unnecessary.

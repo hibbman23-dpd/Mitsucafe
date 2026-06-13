@@ -1,35 +1,43 @@
 # CLAUDE.md — Kissaten Ordering System (Index)
-# Master Workflow v2.2 · Drink & Pastry Shop · Lâm Hà
+# Master Workflow v2.3 · Drink & Pastry Shop · Lâm Hà
 
-> **File này = bản đồ + luật cốt lõi (đọc trước mọi task).**
-> Chi tiết đầy đủ nằm trong `docs/system/*`. Khi task chạm mảng nào, **ĐỌC đúng file đó** —
-> đó là nguồn sự thật của mảng đó. Nội dung không mất, chỉ tách ra để tiết kiệm context.
-> (v2.1→v2.2: tách §2–§6, §8–§12, §14–§15 vào docs/system/. Lõi giữ lại: kiến trúc, status flow, naming, KHÔNG LÀM.)
+> **This file = map + core rules (read before every task).**
+> Full details live in `docs/system/*`. When a task touches an area, **READ that file** —
+> it is the source of truth for that area. Nothing was deleted, only split out to save context.
+> (v2.2→v2.3: docs translated to English for token efficiency; language conventions added.)
 
 ---
 
-## 0. INDEX — đọc file nào khi nào
+## 0. LANGUAGE CONVENTIONS
 
-| Mảng | File | Đọc khi |
+- **Respond to the user in Vietnamese**, concise; don't re-echo file contents already shown.
+- **All artifacts in English**: code, comments, commit messages, docs, internal notes.
+- `docs/system/offline-failover.md` stays **Vietnamese** (staff-facing emergency SOP).
+- Domain glossary (use these exact translations): tem dán ly = cup label · chốt ca = shift reconciliation · hao hụt = waste/shrinkage · két tiền mặt = cash drawer · hủy nguyên liệu = ingredient write-off · con dấu tích lũy = loyalty stamp · bill nhiệt = thermal receipt.
+
+## 1. INDEX — which file to read when
+
+| Area | File | Read when |
 |------|------|---------|
-| Event schema (payload chuẩn) | `docs/system/event-schema.md` | Sửa doPost / validate / payload webhook |
-| Google Sheets schema (7 tab) | `docs/system/sheets-schema.md` | Đụng cột Sheets, CONFIG keys |
-| Tem dán ly + phần cứng in | `docs/system/labels-print.md` | ESC/POS, Xprinter, Flask print server |
-| GAS function map + subagent | `docs/system/gas-functions.md` | Tìm hàm nằm ở file .gs nào, giao task subagent |
+| Event schema (canonical payload) | `docs/system/event-schema.md` | Editing doPost / validation / webhook payload |
+| Google Sheets schema (7 tabs) | `docs/system/sheets-schema.md` | Touching Sheets columns, CONFIG keys |
+| Cup labels + print hardware | `docs/system/labels-print.md` | ESC/POS, Xprinter, Flask print server |
+| GAS function map + subagents | `docs/system/gas-functions.md` | Finding which .gs file holds a function, delegating tasks |
 | API integrations | `docs/system/api-integrations.md` | Telegram / Zalo / VietQR / Google Docs |
-| Offline & failover 4 cấp | `docs/system/offline-failover.md` | SOP mất mạng / Mac crash / cúp điện |
+| Offline & 4-level failover | `docs/system/offline-failover.md` | Network-loss / Mac-crash / power-cut SOP |
 | Loyalty stamps | `docs/system/loyalty-stamps.md` | addStamp, redeem, Zalo stamp template |
-| Campaign promo | `docs/system/campaign-promo.md` | checkAndRunCampaigns, scheduling |
-| Roadmap (module tiers + checklist) | `docs/system/roadmap.md` | Plan phase, module thuộc tier nào |
+| Campaign promos | `docs/system/campaign-promo.md` | checkAndRunCampaigns, scheduling |
+| Payment watchdog | `docs/system/payment-watchdog.md` | Bank-app-killed Telegram alerts |
+| Roadmap (module tiers + checklist) | `docs/system/roadmap.md` | Phase planning, module tier lookup |
 
-Docs khác: `docs/architecture.md` (kiến trúc chi tiết) · `docs/agent-map.md` (skill/agent vận hành quán) · `docs/TOKEN_EFFICIENCY.md` (cách làm việc tiết kiệm token).
+Other docs: `docs/architecture.md` (detailed architecture) · `docs/agent-map.md` (shop-ops skills/agents) · `docs/TOKEN_EFFICIENCY.md` (token-lean working guide).
 
 ---
 
-## 1. KIẾN TRÚC (cốt lõi)
+## 2. ARCHITECTURE (core)
 
 ```
-[8 Kênh] web|qr|zalo|phone|maps|facebook|instagram|tiktok
+[8 channels] web|qr|zalo|phone|maps|facebook|instagram|tiktok
    ↓ webhook POST / UTM link
 [Google Apps Script — EVENT BUS]
    doPost() → validate → route → printLabel → track → invoice → promo → log
@@ -37,30 +45,30 @@ Docs khác: `docs/architecture.md` (kiến trúc chi tiết) · `docs/agent-map.
 [Google Sheets — DATABASE]
    ORDERS | MENU | INVENTORY | CUSTOMERS | STAFF | PROMOTIONS | CONFIG
    ↓
-[Output] Xprinter POS-58L/XP-365B (tem khi CONFIRMED) · Telegram (alert chủ)
-         Zalo OA (status+stamp+invoice) · KDS tab · Bill nhiệt/PDF (khi DELIVERED)
+[Output] Xprinter POS-58L/XP-365B (label on CONFIRMED) · Telegram (owner alerts)
+         Zalo OA (status+stamp+invoice) · KDS tab · thermal/PDF bill (on DELIVERED)
 ```
 
-**Nguyên tắc bất biến:**
-- GAS = event bus duy nhất · Sheets = database duy nhất · **không** external DB.
-- ORDERS **append-only** — không update-in-place, chỉ ghi thêm cột trạng thái.
-- `order_id` = khóa chính xuyên suốt. `customer_id` = SĐT chuẩn hóa (bỏ +84, giữ 0xxx).
-- In tem dán ly **ngay khi CONFIRMED** — trước khi pha chế.
+**Invariants:**
+- GAS = the only event bus · Sheets = the only database · **no** external DB.
+- ORDERS is **append-only** — never update in place; append status columns only.
+- `order_id` = primary key throughout. `customer_id` = normalized phone (strip +84, keep 0xxx).
+- Print cup label **immediately on CONFIRMED** — before brewing starts.
 
 ---
 
-## 2. ORDER STATUS FLOW (state machine — cốt lõi)
+## 3. ORDER STATUS FLOW (state machine — core)
 
 ```
 dine_in/pickup: NEW → CONFIRMED → MAKING → READY → DELIVERED
 delivery:       NEW → CONFIRMED → MAKING → READY → DELIVERING → DELIVERED
 
-Transitions hợp lệ: NEW→CONFIRMED · CONFIRMED→MAKING · MAKING→READY
-                    READY→DELIVERED · READY→DELIVERING · DELIVERING→DELIVERED
+Valid transitions: NEW→CONFIRMED · CONFIRMED→MAKING · MAKING→READY
+                   READY→DELIVERED · READY→DELIVERING · DELIVERING→DELIVERED
 
-Side effects theo state:
-NEW        → sendTelegramAlert()                  (alert chủ quán ngay)
-CONFIRMED  → printOrderLabels()                   ← IN TEM DÁN LY
+Side effects per state:
+NEW        → sendTelegramAlert()                  (owner alert immediately)
+CONFIRMED  → printOrderLabels()                   ← PRINT CUP LABEL
 MAKING     → sendZaloNotify("Đang pha chế ☕")
 READY      → sendZaloNotify("Xong rồi! Mời ra lấy 🔔")
 DELIVERING → sendZaloNotify("Shipper en route 🛵")
@@ -68,9 +76,11 @@ DELIVERED  → printThermalReceipt() · generatePDFInvoice() → sendInvoiceViaZ
              addStamp(customer_id) [beverage only] · notifyStampUpdate()
 ```
 
+(Customer-facing Zalo strings stay Vietnamese — they are product copy, not docs.)
+
 ---
 
-## 3. NAMING CONVENTIONS
+## 4. NAMING CONVENTIONS
 
 ```
 GAS files:  Code.gs · Orders.gs · LabelPrint.gs · Invoice.gs · Payment.gs
@@ -79,27 +89,27 @@ Sheets:     UPPERCASE (ORDERS, MENU, CUSTOMERS...)
 Variables:  camelCase (orderId, stampCount)   Constants: UPPER_SNAKE (STAMPS_FOR_FREE)
 Functions:  verbNoun (printLabel, addStamp, startCampaign)
 order_id: ORD-YYYYMMDD-XXXX · event_id: EVT-YYYYMMDD-XXXXXX · campaign: promo-YYYYMMDD-XXX
-SKU: DR001 (drink) · BK001 (bánh) · RT001 (retail)
+SKU: DR001 (drink) · BK001 (pastry) · RT001 (retail)
 ```
 
 ---
 
-## 4. KHÔNG LÀM (guardrails)
+## 5. NEVER DO (guardrails)
 
 ```
-❌ External database — Sheets đủ
-❌ Token/key trong code — luôn đọc từ CONFIG sheet
-❌ GAS trigger < 15 phút — Google giới hạn
-❌ Update in-place ORDERS — append only
+❌ External database — Sheets is enough
+❌ Tokens/keys in code — always read from CONFIG sheet
+❌ GAS trigger < 15 minutes — Google limit
+❌ Update ORDERS in place — append only
 ❌ Hardcode location_id
-❌ Bỏ qua logError()
-❌ In tem sau MAKING — phải là CONFIRMED
-❌ Points system — đã chuyển sang stamp card
-❌ Trigger 8am cố định cho promo — dùng 15-phút interval
-❌ Bật auto-update macOS — gây reboot không báo
-❌ Cộng stamp cho pastry/retail — chỉ beverage
+❌ Skip logError()
+❌ Print label after MAKING — must be at CONFIRMED
+❌ Points system — replaced by stamp cards
+❌ Fixed 8am promo trigger — use the 15-minute interval
+❌ macOS auto-update on — causes unannounced reboots
+❌ Stamps for pastry/retail — beverages only
 ```
 
 ---
 
-*CLAUDE.md v2.2 (index) · Kissaten Ordering System · chi tiết: docs/system/*
+*CLAUDE.md v2.3 (index) · Kissaten Ordering System · details: docs/system/*

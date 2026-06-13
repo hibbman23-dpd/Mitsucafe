@@ -1,29 +1,29 @@
 # GAS Function Map + Subagent Rules
-> Tách từ CLAUDE.md §6 + §15. Index: ../../CLAUDE.md · Đọc khi cần biết hàm nằm ở file .gs nào, hoặc khi giao task subagent.
+> Split from CLAUDE.md §6 + §15. Index: ../../CLAUDE.md · Read to find which .gs file a function lives in, or when assigning subagent tasks.
 
 ## Function Map
 
 ### Core — Orders.gs
 ```
 doPost(e)                    Webhook entry point
-validateOrderPayload(data)   Required fields + chuẩn hóa customer_id
-appendOrderToSheet(order)    Append vào ORDERS tab
+validateOrderPayload(data)   Validate required fields + normalize customer_id
+appendOrderToSheet(order)    Append to ORDERS tab
 generateOrderId()            ORD-YYYYMMDD-XXXX
 generateEventId()            EVT-YYYYMMDD-XXXXXX
 ```
 
 ### Label — LabelPrint.gs
 ```
-printOrderLabels(order)      Tách items → in từng tem
+printOrderLabels(order)      Split items → print one cup label each
 buildLabelEscPos(order, item) ESC/POS string 58mm
-sendToPrinter(escposData)    POST tới Flask server trên Mac Mini/RPi
+sendToPrinter(escposData)    POST to Flask server on Mac Mini/RPi
 ```
 
 ### Tracking — Orders.gs
 ```
 updateOrderStatus(order_id, newStatus)
-  → CONFIRMED: gọi printOrderLabels()
-  → DELIVERED: gọi printThermalReceipt() + addStamp() + generatePDFInvoice()
+  → CONFIRMED: calls printOrderLabels()
+  → DELIVERED: calls printThermalReceipt() + addStamp() + generatePDFInvoice()
 isValidTransition(from, to)
 getStatusTimestampColumn(status)
 ```
@@ -47,10 +47,10 @@ markOrderPaid(order_id)
 
 ### Invoice — Invoice.gs
 ```
-printThermalReceipt(order_id)      Bill nhiệt 58mm khi DELIVERED
+printThermalReceipt(order_id)      Thermal receipt 58mm on DELIVERED
 generatePDFInvoice(order_id)       Google Docs → PDF → URL
-sendInvoiceViaZalo(order_id)       URL PDF qua Zalo
-generateVATInvoice(order_id)       MISA/Viettel-S (tuỳ chọn)
+sendInvoiceViaZalo(order_id)       PDF URL via Zalo
+generateVATInvoice(order_id)       MISA/Viettel-S (optional)
 ```
 
 ### Menu — Menu.gs
@@ -63,20 +63,20 @@ restoreOriginalPrice(sku)
 
 ### Campaign Promo — Promo.gs
 ```
-checkAndRunCampaigns()         Time trigger mỗi 15 phút
+checkAndRunCampaigns()         Time trigger every 15 minutes
 getActiveCampaigns()
 isCampaignActiveNow(c, now)    Check date + day_of_week + time range
-startCampaign(campaign_id)     BẬT giá + broadcast Zalo + update Slides
-endCampaign(campaign_id)       TẮT giá + Telegram report
+startCampaign(campaign_id)     Enable prices + broadcast Zalo + update Slides
+endCampaign(campaign_id)       Restore prices + Telegram report
 broadcastZaloCampaign(campaign)
 updatePromoSlides(campaign)
 ```
 
 ### Loyalty Stamps — Loyalty.gs
 ```
-addStamp(customer_id)              +1 stamp (chỉ beverage)
-checkAndRedeemFreedrink(customer_id) Đủ 10 → trừ 10, +1 free earned
-redeemFreeDrink(customer_id)       Dùng 1 free drink
+addStamp(customer_id)              +1 stamp (beverages only)
+checkAndRedeemFreedrink(customer_id) At 10 → deduct 10, +1 free earned
+redeemFreeDrink(customer_id)       Redeem 1 free drink
 getStampBalance(customer_id)       {current, total, free_available}
 notifyStampUpdate(customer_id, count) Zalo notify
 ```
@@ -103,9 +103,9 @@ logError(context, error)      → ERROR_LOG tab + Telegram
 
 ```
 HAIKU (CLAUDE_CODE_SUBAGENT_MODEL=haiku):
-  Đọc schema Sheets / không write code
+  Read Sheets schema / no code writing
   Boilerplate: getConfig, formatCurrency, logError
-  ESC/POS string cơ bản 58mm
+  Basic ESC/POS string 58mm
   Sheets formulas: FILTER, ARRAYFORMULA
 
 SONNET (main session):
@@ -117,6 +117,6 @@ SONNET (main session):
   addStamp() loyalty logic
   VietQR reconciliation
 
-/compact sau mỗi module hoàn thành
-Mỗi GAS file = 1 subagent task riêng
+/compact after each module is complete
+Each GAS file = 1 separate subagent task
 ```

@@ -1,35 +1,35 @@
-# Tem dán ly + Phần cứng & Print Server
-> Tách từ CLAUDE.md §4 + §5. Index: ../../CLAUDE.md · Đọc khi đụng ESC/POS, Xprinter, Flask print server.
+# Cup Labels + Hardware & Print Server
+> Split from CLAUDE.md §4 + §5. Index: ../../CLAUDE.md · Read when touching ESC/POS, Xprinter, Flask print server.
 
 ## Hardware
 
-### Mac Mini M4 (Hiện tại)
+### Mac Mini M4 (Current)
 ```
 Role: Print server + GAS webhook proxy · 24/7
-Bắt buộc setup:
+Required setup:
   System Settings → Energy → Prevent sleep: ON
   System Settings → General → Login Items → print_server.py: ON
-  System Settings → Software Update → Auto update: OFF (tránh reboot tự động)
+  System Settings → Software Update → Auto update: OFF (prevent unexpected reboots)
   Wake for network access: ON
 ```
 
-### Raspberry Pi 3+ (Tương lai)
+### Raspberry Pi 3+ (Future)
 ```
-Role: Thay Mac Mini · nhỏ gọn, < 5W, không bao giờ tự update
+Role: Replace Mac Mini · compact, < 5W, never self-updates
 OS: Raspberry Pi OS (Debian)
 Setup: pip install python-escpos flask
-Boot < 15 giây · Giá ~1.2M
-Ưu điểm: Không crash vì update · Headless · Tiêu thụ điện thấp
+Boot < 15 sec · Cost ~1.2M VND
+Advantages: No crash-from-update · Headless · Low power draw
 ```
 
-### Local Print Server (chạy trên Mac Mini hoặc RPi)
+### Local Print Server (runs on Mac Mini or RPi)
 ```python
-# print_server.py — Flask server nhận lệnh in từ GAS
+# print_server.py — Flask server that receives print commands from GAS
 from flask import Flask, request
 import socket
 
 app = Flask(__name__)
-PRINTER_IP   = "192.168.1.xxx"  # IP Xprinter trên LAN
+PRINTER_IP   = "192.168.1.xxx"  # Xprinter IP on LAN
 PRINTER_PORT = 9100              # RAW TCP port
 
 @app.route('/print', methods=['POST'])
@@ -44,23 +44,23 @@ def print_label():
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
 
-# Hoặc nếu POS-58L cắm USB trực tiếp:
+# If POS-58L is connected via USB directly:
 # from escpos.printer import Usb
 # printer = Usb(0x0FE6, 0x811E)
 ```
 
-## Tem dán ly — Order Label System
+## Cup Label — Order Label System
 
-**Trigger**: `updateOrderStatus(order_id, "CONFIRMED")` → tự gọi `printOrderLabels()`.
-**Rule**: Mỗi item trong đơn = 1 tem riêng. qty=2 → in 2 tem giống nhau.
+**Trigger**: `updateOrderStatus(order_id, "CONFIRMED")` → automatically calls `printOrderLabels()`.
+**Rule**: Each item in the order gets its own cup label. qty=2 → print 2 identical labels.
 
 ### Xprinter POS-58L (Primary)
 ```
-Khổ: 58mm thermal sticker roll
-Kết nối: USB hoặc Bluetooth vào Mac Mini/RPi
-Use: In nhanh, queue nhiều đơn liên tiếp
+Width: 58mm thermal sticker roll
+Connection: USB or Bluetooth to Mac Mini/RPi
+Use: Fast print, queues multiple orders back-to-back
 
-Preview tem 58mm:
+Cup label preview 58mm:
 ┌──────────────────────────┐
 │ ORD-0089      Bàn 03     │
 │ ────────────────────────  │
@@ -73,11 +73,11 @@ Preview tem 58mm:
 
 ### Xprinter XP-365B (Secondary)
 ```
-Khổ: 20–80mm die-cut label (tối ưu: 40×30mm)
-Kết nối: USB
-Use: Đơn takeaway, nhiều modifier, cần QR code order_id
+Width: 20–80mm die-cut label (optimal: 40×30mm)
+Connection: USB
+Use: Takeaway orders, many modifiers, needs QR code for order_id
 
-Preview tem 40×30mm:
+Cup label preview 40×30mm:
 ┌───────────────────────────┐
 │ [QR: ORD-0089]  14:32     │
 │ Cappuccino × 2            │
