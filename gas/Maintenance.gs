@@ -237,14 +237,18 @@ function cronEquipmentMaintReminder() {
       msg += '\n<b>❌ QUÁ HẠN (' + overdue.length + ')</b>\n';
       overdue.slice(0, 8).forEach(function (t) {
         var daysOverdue = Math.floor((Date.now() - new Date(t.next_due_at).getTime()) / 86400000);
-        msg += '- ' + t.equipment + ' ' + t.task_type + ' — ' + daysOverdue + ' ngày\n';
+        var eqName = translateMaintTerm(t.equipment);
+        var taskName = translateMaintTerm(t.task_type);
+        msg += '- ' + eqName + ' (' + taskName + ') — quá hạn ' + daysOverdue + ' ngày\n';
       });
       if (overdue.length > 8) msg += '... +' + (overdue.length - 8) + ' mục nữa\n';
     }
     if (due.length > 0) {
       msg += '\n<b>⏰ TỚI HẠN (' + due.length + ')</b>\n';
       due.slice(0, 8).forEach(function (t) {
-        msg += '- ' + t.equipment + ' ' + t.task_type + '\n';
+        var eqName = translateMaintTerm(t.equipment);
+        var taskName = translateMaintTerm(t.task_type);
+        msg += '- ' + eqName + ' (' + taskName + ')\n';
       });
       if (due.length > 8) msg += '... +' + (due.length - 8) + ' mục nữa\n';
     }

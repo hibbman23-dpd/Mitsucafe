@@ -1,5 +1,12 @@
 'use strict';
 
+const esc = s => String(s == null ? '' : s).replace(/[<>&"]/g, c => ({
+  '<': '&lt;',
+  '>': '&gt;',
+  '&': '&amp;',
+  '"': '&quot;'
+}[c]));
+
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
 
@@ -417,14 +424,14 @@ function renderCheckoutScreen() {
       <div class="form-section">
         <label class="form-label" id="lbl-phone">${phoneLabel}</label>
         <input class="form-input" id="inp-phone" type="tel" placeholder="09xx xxx xxx" inputmode="numeric"
-               value="${checkoutFormState.phone}">
+               value="${esc(checkoutFormState.phone)}">
         ${renderLoyaltySection()}
       </div>
 
       <div class="form-section">
         <label class="form-label">Tên khách <span class="form-label-hint">(không bắt buộc)</span></label>
         <input class="form-input" id="inp-name" type="text" placeholder="Ví dụ: Minh" autocomplete="name"
-               value="${checkoutFormState.name}">
+               value="${esc(checkoutFormState.name)}">
       </div>
 
       <div class="form-section">
@@ -447,7 +454,7 @@ function renderCheckoutScreen() {
         <input class="form-input" id="inp-address" type="text"
                placeholder="Số nhà, tên đường..."
                autocomplete="street-address"
-               value="${checkoutFormState.address}">
+               value="${esc(checkoutFormState.address)}">
         <div class="address-region-hint">📍 Khu vực giao: <strong>Lâm Hà, Lâm Đồng</strong></div>
       </div>` : (tableId ? '' : `
       <div class="form-section table-row">
@@ -455,7 +462,7 @@ function renderCheckoutScreen() {
         <span class="table-chip-lg">${tableLabel}</span>
         <input class="form-input table-input" id="inp-table" type="text"
                placeholder="Nhập số bàn (01, 02...)" maxlength="2" inputmode="numeric"
-               value="${checkoutFormState.table}">
+               value="${esc(checkoutFormState.table)}">
       </div>`)}
 
       <div class="form-section">
@@ -475,7 +482,7 @@ function renderCheckoutScreen() {
       <div class="form-section">
         <label class="form-label">Ghi chú</label>
         <input class="form-input" id="inp-notes" type="text" placeholder="Ít ngọt, không đá, không hành..."
-               value="${checkoutFormState.notes}">
+               value="${esc(checkoutFormState.notes)}">
       </div>
 
       <div class="order-summary">

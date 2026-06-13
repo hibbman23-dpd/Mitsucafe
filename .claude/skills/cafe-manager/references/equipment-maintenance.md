@@ -95,33 +95,73 @@ Status auto-update:
 - `ok`: `now < next_due_at`
 - `due`: `now >= next_due_at AND now < next_due_at + grace_period (3 days)`
 - `overdue`: `now >= next_due_at + grace_period`
+## Từ điển dịch nghĩa sang tiếng Việt (Bắt buộc dùng khi phản hồi)
+
+Khi hiển thị danh sách bảo trì, trợ lý AI **bắt buộc** dịch các mã và thuật ngữ sau sang tiếng Việt:
+
+### Thiết bị (Equipment)
+- `EQ-ESP`: Máy pha Espresso
+- `EQ-GRD`: Máy xay cafe
+- `EQ-ICE`: Máy làm đá
+- `EQ-WTR`: Máy lọc nước sinh hoạt
+- `EQ-FRG`: Tủ lạnh
+- `EQ-FRZ`: Tủ đông
+- `EQ-PRN`: Máy in hóa đơn
+- `EQ-PRT`: Máy in tem
+- `EQ-BLD`: Máy xay sinh tố
+- `EQ-SEL`: Máy dập nắp cốc
+- `EQ-SHK`: Máy lắc trà sữa
+- `EQ-MLK`: Máy đánh sữa
+
+### Loại tác vụ (Task Type)
+- `backflush_chemical`: Vệ sinh họng pha bằng thuốc
+- `soak_screen_gasket`: Ngâm filter & gioăng họng pha
+- `descale_boiler`: Tẩy cặn nồi hơi
+- `replace_group_gasket`: Thay gioăng họng pha
+- `professional_service`: Bảo dưỡng hãng
+- `burr_brush`: Vệ sinh lưỡi xay (chổi)
+- `disassemble_clean`: Tháo rời vệ sinh máy xay
+- `weekly_clean`: Vệ sinh máy làm đá hàng tuần
+- `deep_sanitize`: Khử trùng sâu máy làm đá
+- `replace_water_filter`: Thay lõi lọc nước máy đá
+- `cartridge_replace`: Thay lõi lọc nước sinh hoạt
+- `weekly_wipe`: Lau chùi tủ lạnh hàng tuần
+- `monthly_defrost_check`: Kiểm tra xả tuyết tủ lạnh
+- `monthly_defrost`: Xả tuyết tủ đông
+- `head_clean`: Vệ sinh đầu in
+- `blade_clean`: Vệ sinh lưỡi dao máy xay
+- `belt_check`: Kiểm tra dây curoa/băng tải
+
+### Trạng thái (Status)
+- `due`: Tới hạn
+- `overdue`: Quá hạn
+- `ok`: Đã hoàn thành
 
 ## Workflow `/bao-tri`
 
 User nói "/bao-tri":
 1. Pull MAINTENANCE_LOG → group by equipment
-2. Output:
+2. Output (dịch toàn bộ tên thiết bị và tác vụ bảo trì sang tiếng Việt, giữ nguyên ID trong ngoặc vuông để phục vụ việc mark done):
 
 ```
-🔧 Maintenance status — DD/MM/YYYY
+🔧 Trạng thái bảo trì thiết bị — DD/MM/YYYY
 
-OVERDUE (cần làm ngay):
-  ❌ EQ-ESP backflush_chemical — overdue 2 ngày
-  ❌ EQ-ICE deep_sanitize — overdue 5 ngày
+❌ QUÁ HẠN (Cần làm ngay):
+  - Máy pha Espresso (Vệ sinh họng pha bằng thuốc) — quá hạn 2 ngày [ID: MTN-EQ-ESP-BACKFLUSH_CHEMICAL]
+  - Máy làm đá (Khử trùng sâu) — quá hạn 5 ngày [ID: MTN-EQ-ICE-DEEP_SANITIZE]
 
-DUE hôm nay/ngày mai:
-  ⏰ EQ-FRG weekly_wipe — hôm nay
-  ⏰ EQ-GRD burr_brush — mai
+⏰ TỚI HẠN (Hôm nay/Ngày mai):
+  - Tủ lạnh (Lau chùi tủ lạnh hàng tuần) — hôm nay [ID: MTN-EQ-FRG-WEEKLY_WIPE]
+  - Máy xay cafe (Vệ sinh lưỡi xay (chổi)) — ngày mai [ID: MTN-EQ-GRD-BURR_BRUSH]
 
-SẮP TỚI (7 ngày):
-  📅 EQ-ESP descale_monthly — 4 ngày nữa
-  📅 EQ-WTR cartridge_replace — 6 ngày nữa
+📅 SẮP TỚI (Trong 7 ngày):
+  - Máy pha Espresso (Tẩy cặn nồi hơi) — 4 ngày nữa [ID: MTN-EQ-ESP-DESCALE_BOILER]
+  - Máy lọc nước sinh hoạt (Thay lõi lọc nước) — 6 ngày nữa [ID: MTN-EQ-WTR-CARTRIDGE_REPLACE]
 
-OK:
-  ✅ 12 task in green
+✅ HOÀN THÀNH: 12 tác vụ đã hoàn thành tốt
 ```
 
-Sau output → hỏi: "Đánh dấu task nào đã xong?" → user list → markDone() bulk.
+Sau output → hỏi: "Đánh dấu tác vụ nào đã hoàn thành? (dán mã ID tác vụ hoặc gõ 'tất cả quá hạn')" → user list → markDone() bulk.
 
 ## Cron reminder
 

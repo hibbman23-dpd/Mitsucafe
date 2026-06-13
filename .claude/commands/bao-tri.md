@@ -7,30 +7,30 @@ Invoke skill `cafe-manager` với chế độ **equipment-maintenance**.
 Workflow:
 1. Skill load `references/equipment-maintenance.md`
 2. Gọi `Maintenance.gs:getAllMaintenanceTasks()` (đã auto-refresh status)
-3. Group theo status:
-   - **❌ OVERDUE** (overdue >grace_period 3 ngày)
-   - **⏰ DUE** (đến hạn nhưng còn trong grace_period)
-   - **📅 UPCOMING** (next_due_at trong 7 ngày tới)
-   - **✅ OK** (count tóm tắt, không list)
-4. Output:
+3. Group theo status và dịch các thuật ngữ sang tiếng Việt:
+   - **❌ QUÁ HẠN** (overdue >grace_period 3 ngày)
+   - **⏰ TỚI HẠN** (đến hạn nhưng còn trong grace_period)
+   - **📅 SẮP TỚI** (next_due_at trong 7 ngày tới)
+   - **✅ HOÀN THÀNH** (tóm tắt số lượng)
+4. Output (Dịch toàn bộ mã thiết bị, loại tác vụ, trạng thái sang tiếng Việt theo từ điển của dự án):
    ```
-   🔧 Maintenance status — DD/MM/YYYY
+   🔧 Trạng thái bảo trì thiết bị — DD/MM/YYYY
 
-   OVERDUE (cần làm ngay):
-     ❌ EQ-ESP backflush_chemical — overdue 2d
-     ❌ EQ-ICE deep_sanitize — overdue 5d
+   ❌ QUÁ HẠN (Cần làm ngay):
+     - Máy pha Espresso (Vệ sinh họng pha bằng thuốc) — quá hạn 2 ngày [ID: MTN-EQ-ESP-BACKFLUSH_CHEMICAL]
+     - Máy làm đá (Khử trùng sâu) — quá hạn 5 ngày [ID: MTN-EQ-ICE-DEEP_SANITIZE]
 
-   DUE hôm nay/ngày mai:
-     ⏰ EQ-FRG weekly_wipe — hôm nay
-     ⏰ EQ-GRD burr_brush — mai
+   ⏰ TỚI HẠN (Hôm nay/Ngày mai):
+     - Tủ lạnh (Lau chùi tủ lạnh hàng tuần) — hôm nay [ID: MTN-EQ-FRG-WEEKLY_WIPE]
+     - Máy xay cafe (Vệ sinh lưỡi xay (chổi)) — ngày mai [ID: MTN-EQ-GRD-BURR_BRUSH]
 
-   SẮP TỚI (7 ngày):
-     📅 EQ-ESP descale_boiler — 4d
-     📅 EQ-WTR cartridge_replace — 6d
+   📅 SẮP TỚI (Trong 7 ngày):
+     - Máy pha Espresso (Tẩy cặn nồi hơi) — 4 ngày nữa [ID: MTN-EQ-ESP-DESCALE_BOILER]
+     - Máy lọc nước sinh hoạt (Thay lõi lọc nước) — 6 ngày nữa [ID: MTN-EQ-WTR-CARTRIDGE_REPLACE]
 
-   OK: 12 task in green
+   ✅ HOÀN THÀNH: 12 tác vụ đã hoàn thành tốt
    ```
-5. Hỏi user: "Đánh dấu task nào đã xong? (paste task_id hoặc 'all overdue')"
+5. Hỏi user: "Đánh dấu tác vụ nào đã hoàn thành? (Dán Mã ID tác vụ hoặc gõ 'tất cả quá hạn')"
 6. Mark done bulk qua `markMaintenanceDone(task_id, {staff_id, notes, photo_url})`
 7. Output: "Đã mark done X tasks. Next due: <list>."
 

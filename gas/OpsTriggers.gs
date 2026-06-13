@@ -279,10 +279,10 @@ function setupPhaseD() {
   Logger.log('Phase D setup complete');
   try {
     sendTelegramAlert(
-      '✅ <b>PHASE D SETUP COMPLETE</b>\n' +
-      'CUSTOMERS extended với 9 columns RFM.\n' +
-      'Run <code>computeRfmScores()</code> để segment lần đầu.\n\n' +
-      'Claude scheduled tasks (RFM weekly, content daily, ...) cần setup riêng qua mcp__scheduled-tasks.'
+      '✅ <b>THIẾT LẬP PHÂN NHÓM KHÁCH HÀNG (RFM) THÀNH CÔNG</b>\n' +
+      'Bảng dữ liệu CUSTOMERS đã được mở rộng thêm 9 cột chỉ số RFM.\n' +
+      'Hãy chạy thử <code>computeRfmScores()</code> để bắt đầu phân nhóm lần đầu.\n\n' +
+      'Các tác vụ định kỳ của trợ lý (báo cáo RFM tuần, viết bài hàng ngày, ...) cần cấu hình riêng.'
     );
   } catch (_) {}
   return { ok: true };
@@ -304,11 +304,11 @@ function setupPhaseC() {
   Logger.log('Phase C setup complete');
   try {
     sendTelegramAlert(
-      '✅ <b>PHASE C SETUP COMPLETE</b>\n' +
-      'Sheets: WASTE_LOG, CASH_LOG, MAINTENANCE_LOG, REVIEWS_LOG\n' +
-      'CONFIG defaults: CASH_VARIANCE_WARN_VND=20k, ALERT_VND=50k, FLOAT=500k\n' +
-      'Maintenance seeded với cadence chuẩn industry.\n\n' +
-      'Tiếp: chạy <code>setupOpsTriggers()</code> để bật cron.'
+      '✅ <b>THIẾT LẬP PHÂN HỆ VẬN HÀNH (PHASE C) THÀNH CÔNG</b>\n' +
+      'Đã khởi tạo các bảng: WASTE_LOG (Hao hụt), CASH_LOG (Két tiền), MAINTENANCE_LOG (Bảo trì thiết bị), REVIEWS_LOG (Đánh giá khách hàng)\n' +
+      'Cấu hình két tiền mặc định: Lệch cảnh báo = 20.000đ, Lệch báo động = 50.000đ, Quỹ két ca = 500.000đ\n' +
+      'Danh sách bảo trì mẫu đã được nạp theo đúng tần suất chuẩn của ngành.\n\n' +
+      'Tiếp theo: Hãy chạy <code>setupOpsTriggers()</code> để kích hoạt lịch nhắc việc.'
     );
   } catch (_) {}
   return { ok: true };

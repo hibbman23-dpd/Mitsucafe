@@ -180,3 +180,51 @@ function getLastRows(sheet, count) {
   data.unshift(header);
   return data;
 }
+
+/**
+ * Dịch mã thiết bị, loại tác vụ và trạng thái bảo trì sang tiếng Việt.
+ * @param {string} key
+ * @return {string}
+ */
+function translateMaintTerm(key) {
+  var dict = {
+    'due': 'Tới hạn',
+    'overdue': 'Quá hạn',
+    'ok': 'Đã hoàn thành',
+    'Champions': 'Khách VIP (Champions)',
+    'Loyal': 'Khách thân thiết (Loyal)',
+    'Promising': 'Khách tiềm năng',
+    'Hibernating': 'Khách ngủ đông (sắp rời bỏ)',
+    'Lost': 'Khách đã mất',
+    'EQ-ESP': 'Máy pha Espresso',
+    'EQ-GRD': 'Máy xay cafe',
+    'EQ-ICE': 'Máy làm đá',
+    'EQ-WTR': 'Máy lọc nước sinh hoạt',
+    'EQ-FRG': 'Tủ lạnh',
+    'EQ-FRZ': 'Tủ đông',
+    'EQ-PRN': 'Máy in hóa đơn',
+    'EQ-PRT': 'Máy in tem',
+    'EQ-BLD': 'Máy xay sinh tố',
+    'EQ-SEL': 'Máy dập nắp cốc',
+    'EQ-SHK': 'Máy lắc trà sữa',
+    'EQ-MLK': 'Máy đánh sữa',
+    'backflush_chemical': 'Vệ sinh họng pha bằng thuốc',
+    'soak_screen_gasket': 'Ngâm filter & gioăng họng pha',
+    'descale_boiler': 'Tẩy cặn nồi hơi',
+    'replace_group_gasket': 'Thay gioăng họng pha',
+    'professional_service': 'Bảo dưỡng hãng',
+    'burr_brush': 'Vệ sinh lưỡi xay (chổi)',
+    'disassemble_clean': 'Tháo rời vệ sinh máy xay',
+    'weekly_clean': 'Vệ sinh máy làm đá hàng tuần',
+    'deep_sanitize': 'Khử trùng sâu máy làm đá',
+    'replace_water_filter': 'Thay lõi lọc nước máy đá',
+    'cartridge_replace': 'Thay lõi lọc nước sinh hoạt',
+    'weekly_wipe': 'Lau chùi tủ lạnh hàng tuần',
+    'monthly_defrost_check': 'Kiểm tra xả tuyết tủ lạnh',
+    'monthly_defrost': 'Xả tuyết tủ đông',
+    'head_clean': 'Vệ sinh đầu in',
+    'blade_clean': 'Vệ sinh lưỡi dao máy xay',
+    'belt_check': 'Kiểm tra dây curoa/băng tải'
+  };
+  return dict[key] || key;
+}
