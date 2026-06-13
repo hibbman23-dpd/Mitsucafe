@@ -311,7 +311,7 @@
 <div id="view-promo" class="hidden" style="padding: 20px 14px;">
   <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; max-width: 600px; margin: 0 auto;">
     <h2 style="font-size: 1.25rem; margin-bottom: 18px; color: var(--coral); display: flex; align-items: center; gap: 8px;">
-      <span>⭐</span> Cấu hình Khuyến mãi 5% toàn trang web
+      <span>⭐</span> Cấu hình Khuyến mãi toàn quán
     </h2>
     
     <div style="margin-bottom: 22px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px;">
@@ -324,9 +324,17 @@
     <div id="promo-settings-panel">
       <div style="margin-bottom: 18px;">
         <label class="form-label" style="margin-bottom: 8px; display: block;">Thông điệp hiển thị trên Banner</label>
-        <input class="form-input" id="promo-message-input" type="text" value="Khuyến mãi đặc biệt: Giảm giá 5% cho toàn bộ menu!" style="width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--cream); font-size: 0.9rem;">
+        <input class="form-input" id="promo-message-input" type="text" value="Ưu đãi đặc biệt: Giảm giá toàn bộ menu!" style="width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--cream); font-size: 0.9rem;">
       </div>
-      
+
+      <div style="margin-bottom: 18px;">
+        <label class="form-label" style="margin-bottom: 8px; display: block;">Mức giảm</label>
+        <div class="mode-btns" style="display: flex; gap: 8px;">
+          <div class="mode-btn active" id="percent-5"  onclick="setPromoPercent('5')"  style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;">Giảm 5%</div>
+          <div class="mode-btn"        id="percent-10" onclick="setPromoPercent('10')" style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;">Giảm 10%</div>
+        </div>
+      </div>
+
       <div style="margin-bottom: 22px;">
         <label class="form-label" style="margin-bottom: 8px; display: block;">Thời lượng áp dụng</label>
         <div class="mode-btns" style="display: flex; gap: 8px;">
@@ -487,16 +495,19 @@ let orderMode    = 'dine_in';
 let selectedTable = '';
 
 let selectedDuration = '60'; // Default 1 hour
+let selectedPercent = '5'; // Default tier
 let promoInterval = null;
 
 const ICE_LABEL   = { full: 'Nhiều đá', less: 'Ít đá', none: 'Không đá', blended: 'Xay' };
 const SUGAR_LABEL = { '0%':'Không ngọt','30%':'Ít ngọt','50%':'Vừa','70%':'Ngọt','100%':'Rất ngọt' };
 
-function applyPromo5Percent(active) {
+function applyPromoPercent(active) {
+  const pct = (activePromo && activePromo.percent) ? activePromo.percent : 5;
+  const factor = 1 - pct / 100;
   MENU_DATA.forEach(item => {
     if (active) {
-      item.price_m = Math.round(item.price_m_old * 0.95);
-      if (item.price_l_old) item.price_l = Math.round(item.price_l_old * 0.95);
+      item.price_m = Math.round(item.price_m_old * factor);
+      if (item.price_l_old) item.price_l = Math.round(item.price_l_old * factor);
     } else {
       item.price_m = item.price_m_old;
       if (item.price_l_old) item.price_l = item.price_l_old;
@@ -566,6 +577,12 @@ function setPromoDuration(dur) {
   document.getElementById('duration-day').classList.toggle('active', dur === 'end_of_day');
 }
 
+function setPromoPercent(pct) {
+  selectedPercent = pct;
+  document.getElementById('percent-5').classList.toggle('active', pct === '5');
+  document.getElementById('percent-10').classList.toggle('active', pct === '10');
+}
+
 async function loadPromoStatus() {
   try {
     const res = await fetch(`${GAS_URL}?action=promo_info`);
@@ -573,7 +590,7 @@ async function loadPromoStatus() {
     if (data.ok) {
       activePromo = data.promo;
       updatePromoUI(data.promo);
-      applyPromo5Percent(data.promo && data.promo.active);
+      applyPromoPercent(data.promo && data.promo.active);
       renderMenuGrid();
     }
   } catch (err) {
@@ -591,9 +608,10 @@ function updatePromoUI(promo) {
   if (promoInterval) clearInterval(promoInterval);
 
   if (promo && promo.active) {
-    statusTxt.textContent = '🟢 ĐANG HOẠT ĐỘNG (Giảm 5%)';
+    statusTxt.textContent = '🟢 ĐANG HOẠT ĐỘNG (Giảm ' + (promo.percent || 5) + '%)';
     statusTxt.style.color = '#81C784';
     msgInput.value = promo.message;
+    setPromoPercent(String(promo.percent || 5));
     btnDeactivate.style.display = 'block';
     btnActivate.textContent = 'Cập nhật tin nhắn KM';
     
@@ -641,15 +659,15 @@ async function activatePromo() {
   btn.textContent = 'Đang kích hoạt...';
   
   try {
-    const url = `${GAS_URL}?action=set_promo&active=true&duration=${selectedDuration}&message=${encodeURIComponent(msg)}${TQ}${DQ}`;
+    const url = `${GAS_URL}?action=set_promo&active=true&percent=${selectedPercent}&duration=${selectedDuration}&message=${encodeURIComponent(msg)}${TQ}${DQ}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.ok) {
       activePromo = data.promo;
       updatePromoUI(data.promo);
-      applyPromo5Percent(data.promo && data.promo.active);
+      applyPromoPercent(data.promo && data.promo.active);
       renderMenuGrid();
-      alert('Đã kích hoạt chương trình giảm giá 5%!');
+      alert('Đã kích hoạt chương trình giảm giá ' + selectedPercent + '%!');
     }
   } catch (err) {
     alert('Lỗi kết nối — vui lòng thử lại.');
@@ -670,7 +688,7 @@ async function deactivatePromo() {
     if (data.ok) {
       activePromo = data.promo;
       updatePromoUI(data.promo);
-      applyPromo5Percent(data.promo && data.promo.active);
+      applyPromoPercent(data.promo && data.promo.active);
       renderMenuGrid();
       alert('Đã tắt chương trình khuyến mãi!');
     }
