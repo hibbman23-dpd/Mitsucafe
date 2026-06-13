@@ -1246,11 +1246,13 @@ async function checkPromoStatus() {
   }
 }
 
-function applyPromo5Percent(active) {
+function applyPromoPercent(active) {
+  const pct = (activePromo && activePromo.percent) ? activePromo.percent : 5;
+  const factor = 1 - pct / 100;
   MENU_DATA.forEach(item => {
     if (active) {
-      item.price_m = Math.round(item.price_m_old * 0.95);
-      if (item.price_l_old) item.price_l = Math.round(item.price_l_old * 0.95);
+      item.price_m = Math.round(item.price_m_old * factor);
+      if (item.price_l_old) item.price_l = Math.round(item.price_l_old * factor);
     } else {
       item.price_m = item.price_m_old;
       if (item.price_l_old) item.price_l = item.price_l_old;
@@ -1301,7 +1303,7 @@ function updatePromoTimerDisplay() {
       promoTimer = null;
     }
     activePromo.active = false;
-    applyPromo5Percent(false);
+    applyPromoPercent(false);
     syncCartPrices();
     if (bannerEl) bannerEl.classList.add('hidden');
     render();
@@ -1344,11 +1346,11 @@ function updatePromoState(promo) {
   activePromo = promo;
   
   if (activePromo && activePromo.active) {
-    applyPromo5Percent(true);
+    applyPromoPercent(true);
     syncCartPrices();
     startPromoCountdown();
   } else {
-    applyPromo5Percent(false);
+    applyPromoPercent(false);
     syncCartPrices();
   }
 }
