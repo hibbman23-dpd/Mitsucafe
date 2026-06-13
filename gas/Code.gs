@@ -106,6 +106,12 @@ function doPost(e) {
       return _jsonResponse(recordDispatcherHeartbeat());
     }
 
+    if (payload && payload.action === 'set_signage') {
+      if (!validateSessionToken(payload.token)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      if (!isDeviceApproved(payload.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
+      return _jsonResponse(setSignageConfig(payload));
+    }
+
     // Route xử lý webhook biến động số dư từ MacroDroid
     if (payload && payload.action === 'bank_notification') {
       return handleBankNotification(payload);
@@ -212,6 +218,11 @@ function doGet(e) {
     if (action === 'promo_info') {
       var promo = _getPromoInfoInternal();
       return _jsonResponse({ ok: true, promo: promo });
+    }
+
+    if (action === 'signage_config') {
+      // Public: màn signage chỉ đọc dữ liệu marketing.
+      return _jsonResponse(getSignageConfig());
     }
 
     if (action === 'customer_info') {
