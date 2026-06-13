@@ -112,6 +112,14 @@ function doPost(e) {
       return _jsonResponse(setSignageConfig(payload));
     }
 
+    if (payload && payload.action === 'set_promo') {
+      if (!validateSessionToken(payload.token)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      if (!isDeviceApproved(payload.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
+      var result = setStorePromo(payload.percent, payload.active === true || payload.active === 'true', payload.duration || '60', payload.message);
+      if (!result.ok) return _jsonResponse({ ok: false, error: result.error || 'set_promo_failed' });
+      return _jsonResponse({ ok: true, promo: _getPromoInfoInternal() });
+    }
+
     // Route xử lý webhook biến động số dư từ MacroDroid
     if (payload && payload.action === 'bank_notification') {
       return handleBankNotification(payload);
