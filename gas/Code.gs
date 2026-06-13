@@ -412,8 +412,8 @@ function doGet(e) {
       endpoints: {
         'POST /': 'Submit order (JSON body — see CLAUDE.md §2)',
         'GET /?action=menu': 'Return active menu items as JSON',
-        'GET /?action=promo_info': 'Get active 5% promo status',
-        'GET /?action=set_promo&active=true&duration=60&message=...': 'Turn on/off 5% promo',
+        'GET /?action=promo_info': 'Get active store promo status',
+        'GET /?action=set_promo&active=true&duration=60&message=...': 'Turn on/off store promo (add &percent=5 or 10)',
         'GET /?action=orders': 'Today orders for KDS',
         'GET /?action=mark_paid&order_id=ORD-...': 'Mark paid + print receipt',
         'GET /?action=pending_print': 'Pending receipt print jobs (Mac Mini poller)',
