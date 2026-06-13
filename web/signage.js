@@ -158,7 +158,7 @@ if (typeof window !== 'undefined') (function () {
 
   var cfg = normalizeConfig(safeJSON(localStorage.getItem(CACHE_KEY)));
   var promo = safeJSON(localStorage.getItem(PROMO_KEY)) || { active: false };
-  var queue = [], idx = -1, timer = null, RELOADED = false;
+  var queue = [], idx = -1, timer = null;
 
   function menuData() { return (typeof MENU_DATA !== 'undefined') ? MENU_DATA : []; }
   function catsData() { return (typeof CATEGORIES !== 'undefined') ? CATEGORIES : []; }
@@ -254,7 +254,12 @@ if (typeof window !== 'undefined') (function () {
     var open = hh >= 6 && hh < 23;
     document.getElementById('open-txt').textContent = open ? 'Đang mở cửa' : 'Đã đóng cửa';
     applyTheme();
-    if (hh === 4 && !RELOADED) { RELOADED = true; location.reload(); }
+    // Reload 1 lần/ngày lúc 4h (chống rò bộ nhớ 24/7). Khoá theo ngày trong localStorage
+    // vì location.reload() xoá biến in-memory → nếu không persist sẽ lặp vô hạn cả tiếng 4h.
+    var rkey = d.toDateString();
+    if (hh === 4 && localStorage.getItem('lhk_signage_reload') !== rkey) {
+      localStorage.setItem('lhk_signage_reload', rkey); location.reload();
+    }
   }
 
   function poll() {

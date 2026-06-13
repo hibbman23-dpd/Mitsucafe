@@ -148,6 +148,8 @@
 
       <label class="hint" style="display:block;margin-bottom:4px">Thông báo đột xuất</label>
       <input id="sg-ann-text" class="cell" placeholder="Nghỉ lễ 30/4…" style="width:100%;margin-bottom:6px">
+      <label class="hint" style="display:block;margin-bottom:4px">Tự tắt sau (để trống = không hẹn)</label>
+      <input type="datetime-local" id="sg-ann-until" class="cell" style="width:100%;margin-bottom:6px">
       <label style="font-size:.84rem;display:flex;align-items:center;gap:6px;margin-bottom:10px">
         <input type="checkbox" id="sg-ann-active"> Bật thông báo
       </label>
@@ -454,7 +456,7 @@ async function loadChat(){
 }
 
 /* ---------- SIGNAGE ---------- */
-var SG_BLOCKS=['spotlight','promo','menu','video','qr','tem','combo','daypart'];
+var SG_BLOCKS=['spotlight','promo','menu','video','qr','tem','combo'];
 function signageLoad(){
   var el=document.getElementById('v-signage');
   // show loading state inside the blocks area only; keep the card skeleton
@@ -473,6 +475,7 @@ function signageLoad(){
       document.getElementById('sg-combo-price').value=combo.price||'';
       var a=c.announcement||{};
       document.getElementById('sg-ann-text').value=a.text||'';
+      document.getElementById('sg-ann-until').value=a.until||'';
       document.getElementById('sg-ann-active').checked=!!a.active;
       document.getElementById('sg-rotate').value=c.rotateSeconds||11;
       document.getElementById('sg-daypart').checked=c.blocks.daypart!==false;
@@ -492,7 +495,7 @@ async function signageSave(){
     blocks:blocks,
     featured:document.getElementById('sg-featured').value.split(',').map(function(s){return s.trim();}).filter(Boolean),
     combos:(items.length>=2&&price)?[{items:items,price:price,label:''}]:[],
-    announcement:{text:document.getElementById('sg-ann-text').value,active:document.getElementById('sg-ann-active').checked,until:''},
+    announcement:{text:document.getElementById('sg-ann-text').value,active:document.getElementById('sg-ann-active').checked,until:document.getElementById('sg-ann-until').value||''},
     video:{youtube_id:document.getElementById('sg-video').value.trim()||'AQBbF4V4wRg'},
     rotateSeconds:parseInt(document.getElementById('sg-rotate').value,10)||11,
     theme:document.getElementById('sg-theme').value
