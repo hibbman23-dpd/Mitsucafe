@@ -65,3 +65,9 @@ var qe = S.buildQueue(cfgEve, new Date('2026-06-11T20:00:00+07:00'), MENU);
 assert.ok(qe.findIndex(function(s){ return s.type==='video'; }) < qe.findIndex(function(s){ return s.type==='menu'; }));
 
 console.log('Task3 OK');
+
+// --- Task 4 --- renderers return strings, escape input
+assert.ok(S.renderSpotlight({name:'Trà sữa',price_m:38000,subcategory:'milk_tea'}).indexOf('Trà sữa')!==-1);
+assert.ok(S.renderAnnouncement('<script>x').indexOf('&lt;script&gt;')!==-1); // escaped
+assert.ok(S.renderTem().indexOf('10 tem')!==-1);
+console.log('Task4 OK');

@@ -162,6 +162,22 @@ body{font-family:var(--body);color:var(--cream)}
 .stamp.free{border:2px solid var(--gold);background:var(--gold);color:var(--ink)}
 .tem-steps{font-family:var(--body);font-size:2.4vh;color:var(--cream-dim);text-align:center;line-height:1.65}
 .tem-steps b{color:var(--cream)}
+
+/* ---- R1: Legibility ---- */
+.sp-story{font-style:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mitem .nm{font-weight:500}
+.mitem .pr{font-weight:700}
+.mtag{font-family:var(--body);font-size:1.4vh;font-weight:700;letter-spacing:.02em;padding:.2vh .8vh;border-radius:3px;margin-left:1vh;vertical-align:.2vh}
+.mtag.hot{background:var(--coral);color:#fff}
+.mtag.sig{background:rgba(224,169,63,.25);color:var(--gold-lt)}
+.cprice{position:relative;overflow:visible}
+.save-seal{position:absolute;top:-2vh;right:-2vh;width:8vh;height:8vh;border-radius:50%;background:var(--seal);color:#fff;font-family:var(--jp);font-weight:900;font-size:2.4vh;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg);box-shadow:.4vh .4vh 0 rgba(8,23,28,.4);border:2px dashed rgba(255,255,255,.6)}
+
+/* ---- R3: Mascot ---- */
+.brand-frog{width:30vh;height:auto;display:block;margin:0 auto 2vh;animation:bow 5s ease-in-out infinite}
+@keyframes bow{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-1.4vh) rotate(1deg)}}
+.tem-frog{position:absolute;right:4vh;bottom:4vh;width:16vh;height:auto;opacity:.9;animation:bow 6s ease-in-out infinite}
+.tem{position:relative}
 </style>
 </head>
 <body>

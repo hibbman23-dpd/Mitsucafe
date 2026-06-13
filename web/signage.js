@@ -68,7 +68,88 @@ function buildQueue(config, now, menu) {
   return q;
 }
 
+// ── Scene renderers ──
+
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function fmt(n){return Number(n||0).toLocaleString('vi-VN')+'đ';}
+function fmtK(n){return Math.round(Number(n||0)/1000)+'k';}
+
+// SVG cup fallbacks (no photos yet). Returns an <svg> string by category.
+function cupSvg(cat){
+  if (cat==='milk_tea'||cat==='fruit_tea') return '<svg class="sp-cup r" style="--d:.5s" viewBox="0 0 200 280" fill="none"><ellipse cx="100" cy="60" rx="62" ry="16" fill="#15485A" stroke="#E0A93F" stroke-width="2.6"/><rect x="116" y="6" width="9" height="70" rx="4" fill="#FF5E40" stroke="#08171c" stroke-width="1.5"/><path d="M40 92 L160 92 L146 250 Q145 264 131 264 L69 264 Q55 264 54 250 Z" fill="#2D5F6B" stroke="#E0A93F" stroke-width="2.8"/><ellipse cx="100" cy="92" rx="60" ry="15" fill="#488aa0" stroke="#E0A93F" stroke-width="2.6"/></svg>';
+  return '<svg class="sp-cup r" style="--d:.5s" viewBox="0 0 200 280" fill="none"><ellipse cx="100" cy="60" rx="60" ry="15" fill="#15485A" stroke="#E0A93F" stroke-width="2.4"/><path d="M48 90 L152 90 L150 120 Q150 250 100 250 Q50 250 50 120 Z" fill="#3a2218" stroke="#E0A93F" stroke-width="2.6"/><path d="M50 175 L150 175 L148 210 Q120 230 100 230 Q80 230 52 210 Z" fill="#D8B877"/><ellipse cx="100" cy="90" rx="52" ry="12" fill="#5a3a28" stroke="#E0A93F" stroke-width="2"/></svg>';
+}
+
+function renderSpotlight(item){
+  var img = item.image ? '<img class="sp-cup r" style="--d:.5s" src="'+esc(item.image)+'" alt="">' : cupSvg(item.subcategory);
+  var jp = item.name_jp ? '<div class="sp-jp r" style="--d:.85s">'+esc(item.name_jp)+'</div>' : '';
+  var story = item.story ? '<div class="sp-story r" style="--d:1.2s">'+esc(item.story)+'</div>' : '';
+  var sizehint = item.price_l ? 'size M · L thêm '+fmt(item.price_l-item.price_m) : '';
+  return '<section class="scene show"><div class="sp"><div class="sp-left"><div class="steam"><span></span><span></span><span></span></div>'+img+'</div>'
+    +'<div class="sp-right"><div class="eyebrow r" style="--d:.7s"><span class="seal">推</span><span class="lbl">Món nên thử</span></div>'
+    +jp+'<div class="sp-name r" style="--d:1s">'+esc(item.name)+'</div>'+story
+    +'<div class="sp-pricewrap"><div class="pricetag r pop" style="--d:1.35s">'+fmt(item.price_m).replace('đ','')+'<span class="d">đ</span></div>'
+    +(sizehint?'<span class="sizehint r" style="--d:1.5s">'+esc(sizehint)+'</span>':'')+'</div></div></div>'
+    +'<div class="waveband r fade" style="--d:.35s">'+WAVE_BAND_SVG+'</div></section>';
+}
+
+function renderMenu(menu, categories){
+  // up to 3 category columns, ~4 items each, available only
+  var cats = categories.slice(0,3);
+  var kanji = {phin_coffee:'珈',machine_coffee:'琲',milk_tea:'茶',fruit_tea:'果',blended:'氷',kissaten:'菓',pastry:'麭'};
+  var cols = cats.map(function(c,i){
+    var items = menu.filter(function(m){return m.available && m.subcategory===c.id;}).slice(0,4);
+    var rows = items.map(function(m){var bdg=m.role==='hero'?'<span class="mtag hot">Bán chạy</span>':m.role==='signature'?'<span class="mtag sig">Đặc biệt</span>':''; return '<div class="mitem"><span class="nm">'+esc(m.name)+bdg+'</span><span class="ln"></span><span class="pr">'+fmtK(m.price_m)+'</span></div>';}).join('');
+    return '<div class="mcol r" style="--d:'+(0.5+i*0.15)+'s"><div class="mcat"><span class="k">'+(kanji[c.id]||'品')+'</span><span class="n">'+esc(c.label)+'</span></div>'+rows+'</div>';
+  }).join('');
+  return '<section class="scene show"><div class="menu"><div class="menu-h r" style="--d:.3s"><div class="jp">お品書き</div><div class="vi">Thực đơn hôm nay</div></div><div class="menu-cols">'+cols+'</div></div></section>';
+}
+
+function renderCombo(combo, menu){
+  var byId={}; menu.forEach(function(m){byId[m.sku]=m;});
+  var its=(combo.items||[]).map(function(sku){return byId[sku];}).filter(Boolean);
+  if (its.length<2) return renderBrand();
+  var sum=its.reduce(function(s,m){return s+(m.price_m||0);},0);
+  var save=sum-combo.price;
+  var pct=sum>0?Math.round(save/sum*100):0;
+  var seal=save>0?'<span class="save-seal">-'+fmtK(save)+'</span>':''; // triện tròn đỏ đè góc giá
+  var cells=its.map(function(m,i){return '<div class="citem r" style="--d:'+(0.5+i*0.1)+'s">'+cupSvg(m.subcategory).replace('sp-cup','')+'<span class="nm">'+esc(m.name)+'</span><span class="op">'+fmt(m.price_m)+'</span></div>'+(i<its.length-1?'<div class="cplus r pop" style="--d:.7s">＋</div>':'');}).join('');
+  return '<section class="scene show"><div class="combo"><div class="combo-badge r pop" style="--d:.3s">本日のセット · '+esc(combo.label||'Combo hôm nay')+'</div>'
+    +'<div class="combo-row">'+cells+'<div class="cequals r pop" style="--d:.9s">＝</div><div class="cprice r pop" style="--d:1.05s">'+seal+fmt(combo.price).replace('đ','')+'<span class="d">đ</span></div></div>'
+    +(save>0?'<div class="csave r" style="--d:1.2s">Tiết kiệm '+fmt(save)+(pct?' ('+pct+'%)':'')+' so với mua lẻ</div>':'')+'</div></section>';
+}
+
+function renderTem(){
+  var slots='';
+  for(var i=1;i<=10;i++){ slots += i<=7 ? '<span class="stamp on">茶</span>' : (i===10?'<span class="stamp free">無</span>':'<span class="stamp">'+i+'</span>'); }
+  return '<section class="scene show"><div class="tem"><div class="tem-h r" style="--d:.3s">スタンプカード · THẺ TÍCH TEM</div>'
+    +'<div class="tem-big r" style="--d:.45s">Đủ <b>10 tem</b> = <b>1 ly miễn phí</b></div>'
+    +'<div class="tem-card r pop" style="--d:.6s">'+slots+'</div>'
+    +'<div class="tem-steps r" style="--d:1.1s">Mỗi ly nước mua = <b>1 tem</b> · đọc số điện thoại khi đặt để tích.<br>Đủ 10 tem → nhắc nhân viên đổi <b>1 ly miễn phí</b>.</div>'
+    +'<img class="tem-frog r" style="--d:.9s" src="kaeru-mascot.webp" alt=""></div></section>';
+}
+
+function renderVideo(youtubeId, leftItem, rightItem){
+  var side=function(it,delay,extra){ if(!it) return '<div class="vside">'+WAVE_SIDE_SVG+'</div>';
+    return '<div class="vside">'+WAVE_SIDE_SVG+cupSvg(it.subcategory).replace('sp-cup','vcup'+(extra||''))+'<div class="vcaption r" style="--d:'+delay+'s">'+esc(it.name)+'<span class="p">'+fmt(it.price_m)+'</span></div></div>'; };
+  return '<section class="scene show"><div class="vid">'+side(leftItem,0.9)
+    +'<div class="vcenter"><div class="vframe r pop" style="--d:.4s"><iframe src="https://www.youtube-nocookie.com/embed/'+encodeURIComponent(youtubeId)+'?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&modestbranding=1&loop=1&playlist='+encodeURIComponent(youtubeId)+'" allow="autoplay; encrypted-media" frameborder="0"></iframe></div>'
+    +'<div class="vtitle r" style="--d:.7s">かえるの物語<span class="s">Câu chuyện của Kaeru</span></div></div>'
+    +side(rightItem,1,' two')+'</div></section>';
+}
+
+function renderAnnouncement(text){
+  return '<section class="scene show"><div class="combo"><div class="combo-badge r pop" style="--d:.3s">お知らせ · THÔNG BÁO</div><div class="sp-name r" style="--d:.5s;text-align:center;max-width:80vw">'+esc(text)+'</div></div></section>';
+}
+
+function renderBrand(){
+  return '<section class="scene show"><div class="combo"><img class="brand-frog r" style="--d:.3s" src="kaeru-mascot.webp" alt=""><div class="sp-name r" style="--d:.6s;text-align:center">KaeruKàphê</div><div class="sp-story r" style="--d:.9s;text-align:center;font-style:normal">お茶の心を、ふるさとへ。</div></div></section>';
+}
+
+var WAVE_BAND_SVG = '<svg viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 120 Q120 70 240 110 T480 110 T720 110 T960 110 T1200 110 T1440 110 L1440 200 L0 200 Z" fill="#07232c"/><path d="M0 140 Q120 100 240 132 T480 132 T720 132 T960 132 T1200 132 T1440 132 L1440 200 L0 200 Z" fill="#0c2e38"/></svg><svg class="b" viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 150 Q160 110 320 144 T640 144 T960 144 T1280 144 T1600 144 L1600 200 L0 200 Z" fill="#15384a"/></svg>';
+var WAVE_SIDE_SVG = '<div class="wavewrap r fade" style="--d:.2s"><svg viewBox="0 0 240 600" preserveAspectRatio="xMidYMax slice" fill="none"><path d="M0 600 L240 600 L240 300 Q160 250 230 180 Q120 230 110 130 Q150 70 60 40 Q110 130 0 170 Z" fill="#0c2e38"/><path d="M0 600 L240 600 L240 420 Q150 380 210 300 Q110 360 70 270 Q40 360 0 350 Z" fill="#15384a"/><g fill="#FCF7EC" opacity=".6"><circle cx="60" cy="42" r="7"/><circle cx="110" cy="132" r="6"/><circle cx="230" cy="182" r="6"/></g></svg></div>';
+
 // ── CommonJS export for Node tests (ignored in browser) ──
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { defaultConfig: defaultConfig, normalizeConfig: normalizeConfig, resolveFeatured: resolveFeatured, dayPart: dayPart, announcementActive: announcementActive, buildQueue: buildQueue };
+  module.exports = { defaultConfig: defaultConfig, normalizeConfig: normalizeConfig, resolveFeatured: resolveFeatured, dayPart: dayPart, announcementActive: announcementActive, buildQueue: buildQueue, esc: esc, renderSpotlight: renderSpotlight, renderMenu: renderMenu, renderCombo: renderCombo, renderTem: renderTem, renderVideo: renderVideo, renderAnnouncement: renderAnnouncement, renderBrand: renderBrand };
 }
