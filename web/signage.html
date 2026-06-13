@@ -180,6 +180,13 @@ body{font-family:var(--body);color:var(--cream)}
 @keyframes bow{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-1.4vh) rotate(1deg)}}
 .tem-frog{position:absolute;right:4vh;bottom:4vh;width:16vh;height:auto;opacity:.9;animation:bow 6s ease-in-out infinite}
 .tem{position:relative}
+/* ---- R2: Real scannable QR ---- */
+.qrrail{right:3.4vh;bottom:3.4vh;padding:2vh;position:absolute}
+.qr{width:17vh;height:17vh;border-radius:6px;background:#fff;padding:1vh;object-fit:contain}
+.qr::before,.qr::after{content:none}
+.qrrail::before{content:'';position:absolute;inset:-.6vh;border:2px solid var(--coral);border-radius:9px;animation:qpulse 1.8s ease-in-out infinite;pointer-events:none}
+@keyframes qpulse{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:.9;transform:scale(1.03)}}
+.qrrail .qtxt{font-size:2.1vh}
 </style>
 </head>
 <body>
@@ -195,8 +202,8 @@ body{font-family:var(--body);color:var(--cream)}
   <div class="ribbon" id="ribbon" style="display:none"></div>
   <div id="stage"></div>
   <div class="qrrail" id="qrrail">
-    <div class="qr"><span class="qr-fp tl"></span><span class="qr-fp tr"></span><span class="qr-fp bl"></span></div>
-    <div class="qtxt">Quét đặt món</div><div class="qsub">tại bàn · mang đi</div>
+    <img class="qr" src="img/qr-order.png" alt="QR đặt món">
+    <div class="qtxt">Quét đặt món</div><div class="qsub">miễn xếp hàng</div>
   </div>
   <div class="dots" id="dots"></div>
 </div>

@@ -20,12 +20,14 @@ const SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(self), microphone=(), geolocation=()',
 };
 
-// Trang chỉ dùng nội bộ — chặn index ở tầng header (phòng khi quên meta).
+// Trang điều khiển nội bộ — nhận cả X-Robots-Tag LẪN CONTROL_CSP chặt.
 // Gồm cả biến thể extensionless do assets html_handling redirect .html → /path.
-const NOINDEX_PATHS = [
+const CONTROL_PATHS = [
   '/dashboard.html', '/kds.html', '/camera.html',
   '/dashboard', '/kds', '/camera',
 ];
+// Trang không muốn index nhưng KHÔNG phải control (signage giữ CSP YouTube-friendly của riêng nó).
+const NOINDEX_PATHS = CONTROL_PATHS.concat(['/signage.html', '/signage']);
 
 // CSP chặt CHỈ cho trang control (không áp cho trang marketing vì có embed YouTube/social).
 // Giữ 'unsafe-inline' vì các trang dùng nhiều onclick + inline script/style; ĐÃ bỏ 'unsafe-eval'.
@@ -65,10 +67,8 @@ export default {
     }
 
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
-    if (NOINDEX_PATHS.includes(url.pathname)) {
-      res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
-      res.headers.set('Content-Security-Policy', CONTROL_CSP);
-    }
+    if (NOINDEX_PATHS.includes(url.pathname)) res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    if (CONTROL_PATHS.includes(url.pathname)) res.headers.set('Content-Security-Policy', CONTROL_CSP);
     return res;
   },
 };
