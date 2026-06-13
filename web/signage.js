@@ -149,6 +149,145 @@ function renderBrand(){
 var WAVE_BAND_SVG = '<svg viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 120 Q120 70 240 110 T480 110 T720 110 T960 110 T1200 110 T1440 110 L1440 200 L0 200 Z" fill="#07232c"/><path d="M0 140 Q120 100 240 132 T480 132 T720 132 T960 132 T1200 132 T1440 132 L1440 200 L0 200 Z" fill="#0c2e38"/></svg><svg class="b" viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 150 Q160 110 320 144 T640 144 T960 144 T1280 144 T1600 144 L1600 200 L0 200 Z" fill="#15384a"/></svg>';
 var WAVE_SIDE_SVG = '<div class="wavewrap r fade" style="--d:.2s"><svg viewBox="0 0 240 600" preserveAspectRatio="xMidYMax slice" fill="none"><path d="M0 600 L240 600 L240 300 Q160 250 230 180 Q120 230 110 130 Q150 70 60 40 Q110 130 0 170 Z" fill="#0c2e38"/><path d="M0 600 L240 600 L240 420 Q150 380 210 300 Q110 360 70 270 Q40 360 0 350 Z" fill="#15384a"/><g fill="#FCF7EC" opacity=".6"><circle cx="60" cy="42" r="7"/><circle cx="110" cy="132" r="6"/><circle cx="230" cy="182" r="6"/></g></svg></div>';
 
+// ── Browser-only rotation runtime (guarded; Node tests never enter here) ──
+if (typeof window !== 'undefined') (function () {
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+  var CACHE_KEY = 'lhk_signage_cfg', PROMO_KEY = 'lhk_signage_promo';
+
+  function safeJSON(s) { try { return JSON.parse(s); } catch (e) { return null; } }
+
+  var cfg = normalizeConfig(safeJSON(localStorage.getItem(CACHE_KEY)));
+  var promo = safeJSON(localStorage.getItem(PROMO_KEY)) || { active: false };
+  var queue = [], idx = -1, timer = null, RELOADED = false;
+
+  function menuData() { return (typeof MENU_DATA !== 'undefined') ? MENU_DATA : []; }
+  function catsData() { return (typeof CATEGORIES !== 'undefined') ? CATEGORIES : []; }
+
+  function applyTheme() {
+    var m = cfg.theme || 'auto', h = new Date().getHours();
+    var day = (m === 'day') || (m === 'auto' && h >= 6 && h < 18);
+    var tv = document.getElementById('tv');
+    tv.classList.toggle('day', day);
+    tv.classList.toggle('night', !day);
+  }
+
+  function mountScene(d) {
+    var stage = document.getElementById('stage'), html;
+    var byId = {}; menuData().forEach(function (m) { byId[m.sku] = m; });
+    if (d.type === 'spotlight') {
+      html = renderSpotlight(byId[d.sku] || { name: '', price_m: 0, subcategory: '' });
+    } else if (d.type === 'menu') {
+      html = renderMenu(menuData(), catsData());
+    } else if (d.type === 'combo') {
+      html = renderCombo(d.combo, menuData());
+    } else if (d.type === 'tem') {
+      html = renderTem();
+    } else if (d.type === 'video') {
+      if (!navigator.onLine || !cfg.video.youtube_id) {
+        html = renderBrand();
+      } else {
+        html = renderVideo(
+          cfg.video.youtube_id,
+          menuData().filter(function (m) { return m.available && m.subcategory === 'milk_tea'; })[0],
+          menuData().filter(function (m) { return m.available && m.subcategory === 'phin_coffee'; })[0]
+        );
+      }
+    } else if (d.type === 'announcement') {
+      html = renderAnnouncement(cfg.announcement.text);
+    } else {
+      html = renderBrand();
+    }
+    stage.innerHTML = html;
+    // video scene hides QR rail (it has side panels)
+    document.getElementById('qrrail').style.display = (d.type === 'video') ? 'none' : '';
+    // replay cascade reveal
+    var tv = document.getElementById('tv');
+    tv.classList.remove('run'); void tv.offsetWidth; tv.classList.add('run');
+    renderDots();
+  }
+
+  function renderDots() {
+    var el = document.getElementById('dots'), h = '';
+    for (var i = 0; i < queue.length; i++) { h += '<i class="' + (i === idx ? 'on' : '') + '"></i>'; }
+    el.innerHTML = h;
+  }
+
+  function advance() {
+    if (!queue.length) return;
+    idx = (idx + 1) % queue.length;
+    var d = queue[idx];
+    mountScene(d);
+    clearTimeout(timer);
+    var dwell = (d.type === 'video') ? 45000 : cfg.rotateSeconds * 1000;
+    timer = setTimeout(advance, dwell);
+  }
+
+  function rebuild() {
+    queue = buildQueue(cfg, new Date(), menuData());
+    idx = -1;
+    advance();
+  }
+
+  function applyPromo() {
+    var r = document.getElementById('ribbon');
+    if (cfg.blocks.promo && promo && promo.active) {
+      r.style.display = '';
+      r.innerHTML = '十 ' + esc(promo.message || 'Ưu đãi') + ' <b id="pc"></b>';
+      tickCountdown();
+    } else {
+      r.style.display = 'none';
+    }
+  }
+
+  function tickCountdown() {
+    var pc = document.getElementById('pc'); if (!pc || !promo.end) return;
+    var ms = new Date(promo.end).getTime() - Date.now();
+    if (ms <= 0) { promo.active = false; applyPromo(); return; }
+    var m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+    pc.textContent = '· còn ' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function tickClock() {
+    var d = new Date();
+    var hh = d.getHours(), mm = d.getMinutes();
+    document.getElementById('clock').textContent = (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+    var open = hh >= 6 && hh < 23;
+    document.getElementById('open-txt').textContent = open ? 'Đang mở cửa' : 'Đã đóng cửa';
+    applyTheme();
+    if (hh === 4 && !RELOADED) { RELOADED = true; location.reload(); }
+  }
+
+  function poll() {
+    fetch(GAS_URL + '?action=signage_config').then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.ok && j.config) {
+        cfg = normalizeConfig(j.config);
+        localStorage.setItem(CACHE_KEY, JSON.stringify(j.config));
+        applyTheme();
+        rebuild();
+      }
+    }).catch(function () {});
+
+    fetch(GAS_URL + '?action=promo_info').then(function (r) { return r.json(); }).then(function (j) {
+      var p = j && j.promo;
+      if (p) {
+        promo = p;
+        localStorage.setItem(PROMO_KEY, JSON.stringify(p));
+        applyPromo();
+      }
+    }).catch(function () {});
+  }
+
+  window.addEventListener('online', function () { if (queue.length === 0) location.reload(); });
+
+  // boot: render from cache immediately, then poll
+  applyTheme();
+  rebuild();
+  applyPromo();
+  tickClock(); setInterval(tickClock, 1000);
+  setInterval(tickCountdown, 1000);
+  poll(); setInterval(poll, 60000);
+})();
+
 // ── CommonJS export for Node tests (ignored in browser) ──
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { defaultConfig: defaultConfig, normalizeConfig: normalizeConfig, resolveFeatured: resolveFeatured, dayPart: dayPart, announcementActive: announcementActive, buildQueue: buildQueue, esc: esc, renderSpotlight: renderSpotlight, renderMenu: renderMenu, renderCombo: renderCombo, renderTem: renderTem, renderVideo: renderVideo, renderAnnouncement: renderAnnouncement, renderBrand: renderBrand };
