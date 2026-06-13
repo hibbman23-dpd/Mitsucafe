@@ -40,7 +40,7 @@ IG: https://www.instagram.com/kaerukaphe/
 TikTok: https://www.tiktok.com/@kaerukaphe
 Threads: https://www.threads.com/@kaerukaphe
 Maps: https://maps.app.goo.gl/zRE1hNLej9oWhtEP6
-Web: https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html
+Web: https://kaerukaphe.kaerukaphe.workers.dev/kaeru
 Phone: 0975 087 429
 Address: KaeruKàphê, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
 ```
