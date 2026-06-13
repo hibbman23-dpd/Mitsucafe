@@ -41,9 +41,11 @@
   "combos": [ { "items": ["DR005", "BK001"], "price": 50000, "label": "" } ],
   "announcement": { "text": "", "active": false, "until": "" },
   "video": { "youtube_id": "AQBbF4V4wRg" },
-  "rotateSeconds": 11
+  "rotateSeconds": 11,
+  "theme": "auto"
 }
 ```
+(`theme`: `auto` | `day` | `night`, added by R5.)
 
 Scene descriptor (output of `buildQueue`): `{ type: 'spotlight'|'menu'|'combo'|'tem'|'video'|'announcement'|'brand', sku?, combo? }`.
 
@@ -358,7 +360,7 @@ function renderMenu(menu, categories){
   var kanji = {phin_coffee:'珈',machine_coffee:'琲',milk_tea:'茶',fruit_tea:'果',blended:'氷',kissaten:'菓',pastry:'麭'};
   var cols = cats.map(function(c,i){
     var items = menu.filter(function(m){return m.available && m.subcategory===c.id;}).slice(0,4);
-    var rows = items.map(function(m){return '<div class="mitem"><span class="nm">'+esc(m.name)+'</span><span class="ln"></span><span class="pr">'+fmtK(m.price_m)+'</span></div>';}).join('');
+    var rows = items.map(function(m){var bdg=m.role==='hero'?'<span class="mtag hot">Bán chạy</span>':m.role==='signature'?'<span class="mtag sig">Đặc biệt</span>':''; return '<div class="mitem"><span class="nm">'+esc(m.name)+bdg+'</span><span class="ln"></span><span class="pr">'+fmtK(m.price_m)+'</span></div>';}).join('');
     return '<div class="mcol r" style="--d:'+(0.5+i*0.15)+'s"><div class="mcat"><span class="k">'+(kanji[c.id]||'品')+'</span><span class="n">'+esc(c.label)+'</span></div>'+rows+'</div>';
   }).join('');
   return '<section class="scene show"><div class="menu"><div class="menu-h r" style="--d:.3s"><div class="jp">お品書き</div><div class="vi">Thực đơn hôm nay</div></div><div class="menu-cols">'+cols+'</div></div></section>';
@@ -370,11 +372,19 @@ function renderCombo(combo, menu){
   if (its.length<2) return renderBrand();
   var sum=its.reduce(function(s,m){return s+(m.price_m||0);},0);
   var save=sum-combo.price;
+  var pct=sum>0?Math.round(save/sum*100):0;
+  var seal=save>0?'<span class="save-seal">-'+fmtK(save)+'</span>':''; // triện tròn đỏ đè góc giá
   var cells=its.map(function(m,i){return '<div class="citem r" style="--d:'+(0.5+i*0.1)+'s">'+cupSvg(m.subcategory).replace('sp-cup','')+'<span class="nm">'+esc(m.name)+'</span><span class="op">'+fmt(m.price_m)+'</span></div>'+(i<its.length-1?'<div class="cplus r pop" style="--d:.7s">＋</div>':'');}).join('');
   return '<section class="scene show"><div class="combo"><div class="combo-badge r pop" style="--d:.3s">本日のセット · '+esc(combo.label||'Combo hôm nay')+'</div>'
-    +'<div class="combo-row">'+cells+'<div class="cequals r pop" style="--d:.9s">＝</div><div class="cprice r pop" style="--d:1.05s">'+fmt(combo.price).replace('đ','')+'<span class="d">đ</span></div></div>'
-    +(save>0?'<div class="csave r" style="--d:1.2s">Tiết kiệm '+fmt(save)+' so với mua lẻ</div>':'')+'</div></section>';
+    +'<div class="combo-row">'+cells+'<div class="cequals r pop" style="--d:.9s">＝</div><div class="cprice r pop" style="--d:1.05s">'+seal+fmt(combo.price).replace('đ','')+'<span class="d">đ</span></div></div>'
+    +(save>0?'<div class="csave r" style="--d:1.2s">Tiết kiệm '+fmt(save)+(pct?' ('+pct+'%)':'')+' so với mua lẻ</div>':'')+'</div></section>';
 }
+```
+
+Add this CSS to `signage.html` `<style>` (the seal is a coral disc overlapping the price's top-right):
+```css
+.cprice{position:relative;overflow:visible}
+.save-seal{position:absolute;top:-2vh;right:-2vh;width:8vh;height:8vh;border-radius:50%;background:var(--seal);color:#fff;font-family:var(--jp);font-weight:900;font-size:2.4vh;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg);box-shadow:.4vh .4vh 0 rgba(8,23,28,.4);border:2px dashed rgba(255,255,255,.6)}
 
 function renderTem(){
   var slots='';
@@ -389,7 +399,7 @@ function renderVideo(youtubeId, leftItem, rightItem){
   var side=function(it,delay,extra){ if(!it) return '<div class="vside">'+WAVE_SIDE_SVG+'</div>';
     return '<div class="vside">'+WAVE_SIDE_SVG+cupSvg(it.subcategory).replace('sp-cup','vcup'+(extra||''))+'<div class="vcaption r" style="--d:'+delay+'s">'+esc(it.name)+'<span class="p">'+fmt(it.price_m)+'</span></div></div>'; };
   return '<section class="scene show"><div class="vid">'+side(leftItem,0.9)
-    +'<div class="vcenter"><div class="vframe r pop" style="--d:.4s"><iframe src="https://www.youtube-nocookie.com/embed/'+encodeURIComponent(youtubeId)+'?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media" frameborder="0"></iframe></div>'
+    +'<div class="vcenter"><div class="vframe r pop" style="--d:.4s"><iframe src="https://www.youtube-nocookie.com/embed/'+encodeURIComponent(youtubeId)+'?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&modestbranding=1&loop=1&playlist='+encodeURIComponent(youtubeId)+'" allow="autoplay; encrypted-media" frameborder="0"></iframe></div>'
     +'<div class="vtitle r" style="--d:.7s">かえるの物語<span class="s">Câu chuyện của Kaeru</span></div></div>'
     +side(rightItem,1,' two')+'</div></section>';
 }
@@ -785,6 +795,115 @@ git commit -m "feat(signage): worker noindex route + hardware runbook; remove dr
 
 ---
 
+## Feedback revisions (v2) — incorporated
+
+These refine earlier tasks. Apply each delta to the referenced task.
+
+### R1 — Legibility CSS (Task 1 `<style>` additions)
+Serif identity stays for big titles; small text gets weight + no italic; menu tags + combo seal styled on-brand.
+```css
+.sp-story{font-style:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mitem .nm{font-weight:500}
+.mitem .pr{font-weight:700}
+.mtag{font-family:var(--body);font-size:1.4vh;font-weight:700;letter-spacing:.02em;padding:.2vh .8vh;border-radius:3px;margin-left:1vh;vertical-align:.2vh}
+.mtag.hot{background:var(--coral);color:#fff}
+.mtag.sig{background:rgba(224,169,63,.25);color:var(--gold-lt)}
+.cprice{position:relative;overflow:visible}
+.save-seal{position:absolute;top:-2vh;right:-2vh;width:8vh;height:8vh;border-radius:50%;background:var(--seal);color:#fff;font-family:var(--jp);font-weight:900;font-size:2.4vh;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg);box-shadow:.4vh .4vh 0 rgba(8,23,28,.4);border:2px dashed rgba(255,255,255,.6)}
+```
+
+### R2 — Real scannable QR (replaces the decorative CSS QR)
+The draft `.qr` was decorative stripes — not scannable, which defeats the street-scan goal. Generate a real QR and enlarge it.
+
+Pre-step (run once, commit the PNG):
+```bash
+cd qr && python3 generate_qr.py --base-url https://kaerukaphe.kaerukaphe.workers.dev/ --tables 0
+cp qr/labels/takeaway.png ../web/img/qr-order.png   # generate_qr.py makes takeaway.png = base URL, no table param
+```
+In `web/signage.html`, replace the decorative QR block with a real image + bigger rail + pulsing scan border + CTA:
+```html
+<div class="qrrail" id="qrrail">
+  <img class="qr" src="img/qr-order.png" alt="QR đặt món">
+  <div class="qtxt">Quét đặt món</div><div class="qsub">miễn xếp hàng</div>
+</div>
+```
+CSS (override the draft's `.qr`/`.qrrail`):
+```css
+.qrrail{right:3.4vh;bottom:3.4vh;padding:2vh;position:absolute}
+.qr{width:17vh;height:17vh;border-radius:6px;background:#fff;padding:1vh;object-fit:contain}
+.qr::before,.qr::after{content:none}
+.qrrail::before{content:'';position:absolute;inset:-.6vh;border:2px solid var(--coral);border-radius:9px;animation:qpulse 1.8s ease-in-out infinite;pointer-events:none}
+@keyframes qpulse{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:.9;transform:scale(1.03)}}
+.qrrail .qtxt{font-size:2.1vh}
+```
+Verify: open `/signage.html`, scan `img/qr-order.png` with a phone → lands on the order page. Add this to Task 8 Step 5 verification.
+
+### R3 — Mascot in brand + tem (light version; per-stamp jump deferred to phase 2)
+`web/kaeru-mascot.webp` already exists. Update `renderBrand` (Task 4) to:
+```js
+function renderBrand(){
+  return '<section class="scene show"><div class="combo"><img class="brand-frog r" style="--d:.3s" src="kaeru-mascot.webp" alt=""><div class="sp-name r" style="--d:.6s;text-align:center">KaeruKàphê</div><div class="sp-story r" style="--d:.9s;text-align:center;font-style:normal">お茶の心を、ふるさとへ。</div></div></section>';
+}
+```
+Append to `renderTem`'s outer `.tem` div a corner frog: add `<img class="tem-frog r" style="--d:.9s" src="kaeru-mascot.webp" alt="">` just before `</div></section>`.
+CSS:
+```css
+.brand-frog{width:30vh;height:auto;display:block;margin:0 auto 2vh;animation:bow 5s ease-in-out infinite}
+@keyframes bow{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-1.4vh) rotate(1deg)}}
+.tem-frog{position:absolute;right:4vh;bottom:4vh;width:16vh;height:auto;opacity:.9;animation:bow 6s ease-in-out infinite}
+.tem{position:relative}
+```
+
+### R4 — Video offline fallback (Task 5 `mountScene`)
+Replace the video branch in `mountScene` with a network guard:
+```js
+    else if (d.type==='video') {
+      if (!navigator.onLine || !cfg.video.youtube_id) { html = renderBrand(); }
+      else html = renderVideo(cfg.video.youtube_id, menu().filter(function(m){return m.available&&m.subcategory==='milk_tea';})[0], menu().filter(function(m){return m.available&&m.subcategory==='phin_coffee';})[0]);
+    }
+```
+
+### R5 — NEW Task 4b: Day/Night theme (anti-glare)
+**Why:** a street-facing TV behind glass acts as a mirror in daylight; the dark ukiyo-e palette is unreadable then. Day = light washi + dark ink (kills glare); Night = current deep-indigo glow.
+
+**This is the largest single addition** because scene colors are currently hardcoded in SVG `fill=` attributes. The fix is to route theme-sensitive colors through CSS variables (inline SVG supports `fill="var(--x)"`), then swap the variable set with a `.day`/`.night` class on `#tv`.
+
+**Files:** Modify `web/signage.html` (palettes), `web/signage.js` (SVG constants use vars + `applyTheme` runtime + config `theme`), and the config schema in Tasks 2/6/7.
+
+- [ ] **Step 1 — config `theme` field.** Add `theme: 'auto'` to `defaultConfig()` (Task 2), `_defaultSignageConfig()` (Task 6), and the dashboard form (Task 7) as a select `auto | day | night`. In `normalizeConfig`, carry it: `theme: (['auto','day','night'].indexOf(raw.theme)>=0?raw.theme:'auto')`. Update the Task 2 node test to assert the default is `'auto'` and junk falls back to `'auto'`.
+
+- [ ] **Step 2 — parameterize theme colors.** In `web/signage.html` define theme variables on `.tv.night` (current values) and `.tv.day`:
+```css
+.tv.night{--bg1:#2a6e80;--bg2:#15485A;--bg3:#0D3340;--bg4:#07232c;--ink:#FCF7EC;--ink-dim:#e2d8c2;--wave1:#07232c;--wave2:#0c2e38;--wave3:#15384a;--sun-a:rgba(255,94,64,.55);--sun-b:rgba(255,94,64,.28)}
+.tv.day{--bg1:#FCF7EC;--bg2:#F3EAD6;--bg3:#E9DCC0;--bg4:#DFCEAA;--ink:#0D3340;--ink-dim:#3a5b66;--wave1:#cdb98c;--wave2:#b9d3d6;--wave3:#9fc0c4;--sun-a:rgba(224,140,90,.30);--sun-b:rgba(224,169,63,.18)}
+.tv{background:radial-gradient(125% 95% at 50% -12%,var(--bg1) 0%,var(--bg2) 34%,var(--bg3) 68%,var(--bg4) 100%)}
+.tv .sun{background:radial-gradient(circle,var(--sun-a) 0%,var(--sun-b) 34%,transparent 74%)}
+```
+Then change the draft's hardcoded text/background uses from `--cream`/`--indigo` to `--ink`/`--bg3` (search-replace within the scene CSS: `var(--cream)`→`var(--ink)`, `var(--cream-dim)`→`var(--ink-dim)`). Keep `--coral`, `--gold`, `--gold-lt`, `--seal` unchanged (they read on both grounds).
+
+- [ ] **Step 3 — SVG fills via vars.** In `web/signage.js`, change `WAVE_BAND_SVG`/`WAVE_SIDE_SVG` fills `#07232c`→`var(--wave1)`, `#0c2e38`→`var(--wave2)`, `#15384a`→`var(--wave3)`. Cup teal/coffee fills may stay (they read on both); foam circles stay `#FCF7EC` (or `var(--ink)` if you want them dark on day — prefer keeping cream foam for contrast on day's lighter waves → use `var(--wave-foam)` = night `#FCF7EC`, day `#0D3340`).
+
+- [ ] **Step 4 — runtime switch.** Add to the runtime IIFE (Task 5) and call in boot + `tickClock`:
+```js
+function applyTheme(){
+  var m = cfg.theme||'auto', h = new Date().getHours();
+  var day = (m==='day') || (m==='auto' && h>=6 && h<18); // 6:00–18:00 = day
+  var tv = document.getElementById('tv');
+  tv.classList.toggle('day', day); tv.classList.toggle('night', !day);
+}
+```
+Call `applyTheme()` once at boot, inside `tickClock()` (cheap, keeps it correct across the 18:00 flip), and after each `poll()` config update.
+
+- [ ] **Step 5 — verify both themes.** preview `preview_resize 1280x720`; force day: `preview_eval("document.getElementById('tv').className='tv day';")` → screenshot (light washi, dark ink, readable). Force night → screenshot (current look). Confirm coral/gold accents legible in both.
+
+- [ ] **Step 6 — commit**
+```bash
+git add web/signage.html web/signage.js web/tools/test_signage.js
+git commit -m "feat(signage): day/night anti-glare theme (auto by hour + config)"
+```
+
+> Phasing option: if you want to ship sooner, R5 can be a fast-follow — launch night-only first, add the day theme next. Everything else (R1–R4) ships with v1.
+
 ## Self-Review
 
 **Spec coverage:**
@@ -799,9 +918,16 @@ git commit -m "feat(signage): worker noindex route + hardware runbook; remove dr
 - Dashboard tab → Task 7. ✓
 - Worker noindex + YouTube CSP → Task 8. ✓
 - Hardware runbook → Task 8. ✓
+- **(v2) Day/Night anti-glare theme** → Task 4b (R5). ✓
+- **(v2) Real scannable QR + pulse + CTA** → R2 (+Task 8 verify). ✓
+- **(v2) Legibility: no italic, bold menu/price, on-brand tags** → R1. ✓
+- **(v2) Combo savings seal + best-seller menu badges** → renderCombo/renderMenu edits + R1 CSS. ✓
+- **(v2) Story 2-line clamp** → R1 CSS. ✓
+- **(v2) Mascot in brand/tem** → R3. ✓
+- **(v2) Video loop=1&playlist + offline→mascot fallback** → renderVideo + R4. ✓
 
 **Placeholder scan:** No TBD/TODO; all steps have runnable commands or complete code. The one external reference ("paste the `<style>` from the draft") points to a committed file on this branch — acceptable since re-typing ~250 lines of verbatim CSS would be error-prone; the draft is the source of truth.
 
-**Type consistency:** `normalizeConfig`/`defaultConfig`/`buildQueue`/`resolveFeatured`/`dayPart`/`announcementActive`/`esc`/renderers are exported in Task 2–4 and consumed in Task 5 with matching names. Config keys (`blocks`, `featured`, `combos`, `announcement`, `video.youtube_id`, `rotateSeconds`) are identical across signage.js, GAS `_defaultSignageConfig`, and the Dashboard form. Scene `type` strings match between `buildQueue` and `mountScene`.
+**Type consistency:** `normalizeConfig`/`defaultConfig`/`buildQueue`/`resolveFeatured`/`dayPart`/`announcementActive`/`esc`/renderers are exported in Task 2–4 and consumed in Task 5 with matching names. Config keys (`blocks`, `featured`, `combos`, `announcement`, `video.youtube_id`, `rotateSeconds`, `theme`) are identical across signage.js, GAS `_defaultSignageConfig`, and the Dashboard form — note `theme` is added by R5 to all three; keep them in sync. Scene `type` strings match between `buildQueue` and `mountScene`.
 
 **Open verification items (cannot run here, flagged for operator):** GAS deploy + curl tests (Task 6 Step 4), dashboard save with real session token (Task 7 Step 4), worker CSP header after deploy (Task 8 Step 2), and real Android-box smoke. `promo_info` field names must be confirmed against `gas/Code.gs` during Task 5.
