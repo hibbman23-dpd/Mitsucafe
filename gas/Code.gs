@@ -112,6 +112,14 @@ function doPost(e) {
       return _jsonResponse(setSignageConfig(payload));
     }
 
+    if (payload && payload.action === 'set_promo') {
+      if (!validateSessionToken(payload.token)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      if (!isDeviceApproved(payload.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
+      var result = setStorePromo(payload.percent, payload.active === true || payload.active === 'true', payload.duration || '60', payload.message);
+      if (!result.ok) return _jsonResponse({ ok: false, error: result.error || 'set_promo_failed' });
+      return _jsonResponse({ ok: true, promo: _getPromoInfoInternal() });
+    }
+
     // Route xử lý webhook biến động số dư từ MacroDroid
     if (payload && payload.action === 'bank_notification') {
       return handleBankNotification(payload);
@@ -284,28 +292,12 @@ function doGet(e) {
       if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
       var active = e.parameter.active === 'true';
       var duration = e.parameter.duration || '60'; // minutes or 'end_of_day'
-      var msg = e.parameter.message || 'Khuyến mãi đặc biệt: Giảm giá 5% cho toàn bộ menu!';
-      
-      if (active) {
-        var start = new Date();
-        var end;
-        if (duration === 'end_of_day') {
-          end = new Date();
-          end.setHours(23, 59, 59, 999);
-        } else {
-          var mins = parseInt(duration, 10) || 60;
-          end = new Date(start.getTime() + mins * 60 * 1000);
-        }
-        setConfig('PROMO_5PERCENT_ACTIVE', 'true');
-        setConfig('PROMO_5PERCENT_START', start.toISOString());
-        setConfig('PROMO_5PERCENT_END', end.toISOString());
-        setConfig('PROMO_5PERCENT_MSG', msg);
-      } else {
-        setConfig('PROMO_5PERCENT_ACTIVE', 'false');
-        setConfig('PROMO_5PERCENT_START', '');
-        setConfig('PROMO_5PERCENT_END', '');
-      }
-      
+      var percent = e.parameter.percent || '5';     // default 5 for backward-compat
+      var msg = e.parameter.message || 'Ưu đãi đặc biệt: Giảm giá toàn bộ menu!';
+
+      var result = setStorePromo(percent, active, duration, msg);
+      if (!result.ok) return _jsonResponse({ ok: false, error: result.error || 'set_promo_failed' });
+
       var promo = _getPromoInfoInternal();
       return _jsonResponse({ ok: true, promo: promo });
     }
@@ -428,8 +420,8 @@ function doGet(e) {
       endpoints: {
         'POST /': 'Submit order (JSON body — see CLAUDE.md §2)',
         'GET /?action=menu': 'Return active menu items as JSON',
-        'GET /?action=promo_info': 'Get active 5% promo status',
-        'GET /?action=set_promo&active=true&duration=60&message=...': 'Turn on/off 5% promo',
+        'GET /?action=promo_info': 'Get active store promo status',
+        'GET /?action=set_promo&active=true&duration=60&message=...': 'Turn on/off store promo (add &percent=5 or 10)',
         'GET /?action=orders': 'Today orders for KDS',
         'GET /?action=mark_paid&order_id=ORD-...': 'Mark paid + print receipt',
         'GET /?action=pending_print': 'Pending receipt print jobs (Mac Mini poller)',
@@ -557,7 +549,7 @@ function _getPromoInfoInternal() {
   var activeStr = getConfig('PROMO_5PERCENT_ACTIVE') || 'false';
   var startVal  = getConfig('PROMO_5PERCENT_START') || '';
   var endVal    = getConfig('PROMO_5PERCENT_END') || '';
-  var message   = getConfig('PROMO_5PERCENT_MSG') || 'Khuyến mãi đặc biệt: Giảm 5% toàn bộ menu!';
+  var message   = getConfig('PROMO_5PERCENT_MSG') || 'Ưu đãi đặc biệt: Giảm giá toàn bộ menu!';
   
   var active = activeStr === true || String(activeStr).trim().toLowerCase() === 'true';
   var now = new Date();
@@ -573,9 +565,53 @@ function _getPromoInfoInternal() {
   
   return {
     active: active,
-    percent: 5,
+    percent: parseInt(getConfig('PROMO_PERCENT') || '5', 10),
     start: start && !isNaN(start.getTime()) ? start.toISOString() : String(startVal),
     end: end && !isNaN(end.getTime()) ? end.toISOString() : String(endVal),
     message: String(message)
   };
+}
+
+/**
+ * Shared store-wide promo writer used by both the doGet (KDS/report-token)
+ * and doPost (Dashboard/session) entry points.
+ * @param {number|string} percent  5 or 10 (the discount tier when active)
+ * @param {boolean} active         turn promo on/off
+ * @param {string} duration        minutes as string, or 'end_of_day'
+ * @param {string} msg             banner message
+ * @return {{ok:boolean, percent?:number, active?:boolean, end?:string, error?:string}}
+ */
+function setStorePromo(percent, active, duration, msg) {
+  try {
+    if (active) {
+      var pct = parseInt(percent, 10);
+      if (pct !== 5 && pct !== 10) {
+        return { ok: false, error: 'invalid_percent' };
+      }
+      var start = new Date();
+      var end;
+      if (duration === 'end_of_day') {
+        end = new Date();
+        end.setHours(23, 59, 59, 999);
+      } else {
+        var mins = parseInt(duration, 10) || 60;
+        end = new Date(start.getTime() + mins * 60 * 1000);
+      }
+      setConfig('PROMO_PERCENT', String(pct));
+      setConfig('PROMO_5PERCENT_ACTIVE', 'true');
+      setConfig('PROMO_5PERCENT_START', start.toISOString());
+      setConfig('PROMO_5PERCENT_END', end.toISOString());
+      setConfig('PROMO_5PERCENT_MSG', msg || 'Ưu đãi đặc biệt: Giảm giá toàn bộ menu!');
+      return { ok: true, percent: pct, active: true, end: end.toISOString() };
+    } else {
+      // Tắt: giữ PROMO_PERCENT để nhớ tier gần nhất.
+      setConfig('PROMO_5PERCENT_ACTIVE', 'false');
+      setConfig('PROMO_5PERCENT_START', '');
+      setConfig('PROMO_5PERCENT_END', '');
+      return { ok: true, active: false };
+    }
+  } catch (err) {
+    logError('setStorePromo', err);
+    return { ok: false, error: String(err) };
+  }
 }

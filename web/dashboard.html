@@ -352,6 +352,27 @@ function toggleAdd(v){const e=document.getElementById('add-'+v);e.style.display=
 async function loadPromo(){
   const el=document.getElementById('v-promo');el.innerHTML='<div class="empty">Đang tải...</div>';
   let d;try{d=await ensureAdmin();}catch(e){el.innerHTML='<div class="err">⚠ '+esc(e.message)+'</div>';return;}
+
+  // ── Store-wide % promo mini-panel ──
+  let sp='<div class="sectitle">🏷️ Giảm giá toàn quán</div>'
+    +'<div class="hint">Bật giảm % cho TẤT CẢ món. Tự hết hạn theo thời lượng. Áp dụng ngay trên web khách + biển hiệu.</div>'
+    +'<div id="storepromo-status" class="hint" style="margin:6px 0 10px">Đang tải trạng thái…</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+    +'<button class="btn sm" id="sp-off"  onclick="setSpPercent(\'0\')">Tắt</button>'
+    +'<button class="btn sm" id="sp-5"    onclick="setSpPercent(\'5\')">5%</button>'
+    +'<button class="btn sm" id="sp-10"   onclick="setSpPercent(\'10\')">10%</button>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+    +'<select class="cell" id="sp-duration" style="max-width:180px">'
+    +'<option value="60">1 giờ</option><option value="120">2 giờ</option>'
+    +'<option value="240">4 giờ</option><option value="end_of_day">Đến hết ngày</option>'
+    +'</select></div>'
+    +'<input class="cell" id="sp-message" placeholder="Lời nhắn hiển thị" value="Ưu đãi đặc biệt: Giảm giá toàn bộ menu!" style="margin-bottom:10px;width:100%">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<button class="btn green" onclick="saveStorePromo()">💾 Lưu</button>'
+    +'<button class="btn" onclick="postPromoSocial()">📣 Đăng tin lên MXH</button>'
+    +'</div><hr style="margin:18px 0;border:none;border-top:1px solid var(--border)">';
+
   const rows=d.promotions||[];
   let h='<div class="sectitle">🏷️ Chiến dịch khuyến mãi</div><div class="hint">Bật/tắt chiến dịch. Tạo chiến dịch mới dùng /promo ở tab Trợ lý (tự áp giọng thương hiệu + sinh nội dung).</div>';
   if(!rows.length)h+='<div class="empty">Chưa có chiến dịch. Vào tab Trợ lý → nút /promo để tạo.</div>';
@@ -361,11 +382,47 @@ async function loadPromo(){
       h+=`<tr><td>${esc(r.campaign_id)}</td><td>${esc(r.name)}</td><td>${esc(vis(r.type))}</td><td>${esc(r.discount_value)} ${esc(vis(r.discount_type||''))}</td><td><button class="btn sm ${on?'green':''}" onclick="togglePromo('${esc(r.campaign_id)}',${!on})">${on?'ĐANG BẬT':'TẮT'}</button></td></tr>`;});
     h+='</tbody></table></div>';
   }
-  el.innerHTML=h;
+  el.innerHTML=sp+h;
+  loadStorePromoStatus();
 }
 async function togglePromo(id,on){
   const res=await apiPost({action:'promo_toggle',token:tk(),campaign_id:id,is_active:on});
   if(res&&res.ok){toast('Đã '+(on?'bật':'tắt')+' '+id);adminCache=null;loadPromo();}else toast('Lỗi: '+((res&&res.error)||'?'));
+}
+let spSelectedPercent='0';
+function setSpPercent(p){
+  spSelectedPercent=p;
+  ['0','5','10'].forEach(x=>{const b=document.getElementById('sp-'+(x==='0'?'off':x));if(b)b.classList.toggle('green',x===p);});
+}
+async function loadStorePromoStatus(){
+  const st=document.getElementById('storepromo-status');if(!st)return;
+  try{
+    const res=await fetch(GAS_URL+'?action=promo_info');const data=await res.json();
+    const p=data&&data.promo;
+    if(p&&p.active){
+      setSpPercent(String(p.percent||5));
+      const end=new Date(p.end);
+      st.innerHTML='🟢 Đang giảm <b>'+(p.percent||5)+'%</b> · hết hạn '+(isNaN(end)?'?':end.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}));
+    }else{setSpPercent('0');st.textContent='🔴 Đang tắt';}
+  }catch(e){st.textContent='⚠ Không tải được trạng thái';}
+}
+async function saveStorePromo(){
+  const active=spSelectedPercent!=='0';
+  const body={action:'set_promo',token:tk(),percent:spSelectedPercent,active:active,
+    duration:document.getElementById('sp-duration').value,
+    message:document.getElementById('sp-message').value.trim()};
+  const res=await apiPost(body);
+  if(res&&res.ok){toast(active?('Đã bật giảm '+spSelectedPercent+'%'):'Đã tắt giảm giá');loadStorePromoStatus();}
+  else toast('Lỗi: '+((res&&res.error)||'?'));
+}
+async function postPromoSocial(){
+  if(spSelectedPercent==='0'){toast('Chọn mức giảm 5% hoặc 10% trước');return;}
+  const msg=document.getElementById('sp-message').value.trim();
+  const dur=document.getElementById('sp-duration').value;
+  const durTxt=dur==='end_of_day'?'đến hết ngày':('trong '+dur+' phút');
+  const text='/post khuyến mãi giảm '+spSelectedPercent+'% toàn quán '+durTxt+', nội dung: "'+msg+'"';
+  const res=await apiPost({action:'queue_command',token:tk(),text:text});
+  if(res&&res.ok){toast('Đã đẩy vào hàng đợi trợ lý');}else toast('Lỗi gửi lệnh');
 }
 
 /* ---------- CONFIG ---------- */

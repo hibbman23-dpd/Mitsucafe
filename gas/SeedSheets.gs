@@ -152,7 +152,8 @@ function seedConfigDefaults() {
     'PROMO_5PERCENT_ACTIVE': 'false',
     'PROMO_5PERCENT_START': '',
     'PROMO_5PERCENT_END': '',
-    'PROMO_5PERCENT_MSG': 'Khuyến mãi đặc biệt: Giảm giá 5% cho toàn bộ menu!',
+    'PROMO_5PERCENT_MSG': 'Ưu đãi đặc biệt: Giảm giá toàn bộ menu!',
+    'PROMO_PERCENT': '5',
   };
   Object.keys(defaults).forEach(function (k) {
     if (!getConfig(k)) setConfig(k, defaults[k]);
