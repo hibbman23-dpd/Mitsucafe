@@ -36,6 +36,19 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Public read-only image serving for signage (R2). Stable, cacheable, same-origin.
+    if (url.pathname.startsWith('/sig-img/')) {
+      const key = url.pathname.slice('/sig-img/'.length);
+      if (!key) return new Response('Not found', { status: 404 });
+      const obj = await env.SIGN_IMG.get(key);
+      if (!obj) return new Response('Not found', { status: 404 });
+      const headers = new Headers();
+      headers.set('Content-Type', (obj.httpMetadata && obj.httpMetadata.contentType) || 'application/octet-stream');
+      headers.set('Cache-Control', 'public, max-age=604800, immutable');
+      for (const [k, v] of Object.entries(SECURITY_HEADERS)) headers.set(k, v);
+      return new Response(obj.body, { headers });
+    }
+
     // Chặn trang nội bộ: trả 404 trước khi chạm assets → không lộ sự tồn tại.
     if (BLOCKED_PATHS.includes(url.pathname)) {
       const res = new Response('Not found', { status: 404 });

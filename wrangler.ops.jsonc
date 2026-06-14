@@ -14,5 +14,8 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  "r2_buckets": [
+    { "binding": "SIGN_IMG", "bucket_name": "kaeru-signage-img" }
   ]
 }
