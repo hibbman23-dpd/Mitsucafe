@@ -1,70 +1,73 @@
 'use strict';
 
 function defaultConfig() {
-  return {
-    blocks: { spotlight: true, promo: true, menu: true, video: true,
-              qr: true, tem: true, combo: true, daypart: true },
-    featured: [],
-    combos: [],
-    announcement: { text: '', active: false, until: '' },
-    video: { youtube_id: 'AQBbF4V4wRg' },
-    rotateSeconds: 11,
-    theme: 'auto'
-  };
+  return { version: 2, scenes: [], theme: 'auto', promoRibbon: true };
+}
+
+var SCENE_TYPES = ['spotlight','image','video','menu','combo','tem','announcement','brand'];
+
+function clampDuration(d, fallback) {
+  var n = parseInt(d, 10);
+  if (isNaN(n)) return (fallback && fallback >= 5) ? fallback : 11;
+  return n < 5 ? 5 : n;
+}
+
+// One-way migrate old v1 config (blocks/featured/combos/announcement/video/rotateSeconds) → v2 scenes[].
+function migrateV1(raw) {
+  var d = defaultConfig();
+  var blocks = (raw && raw.blocks) || {};
+  var dur = clampDuration(raw && raw.rotateSeconds, 11);
+  var scenes = [];
+  var n = 0;
+  function add(s) { s.id = 'm' + (++n); s.enabled = true; if (!s.duration) s.duration = dur; scenes.push(s); }
+  var ann = (raw && raw.announcement) || {};
+  if (blocks.announcement !== false && ann.active && ann.text) add({ type: 'announcement', text: ann.text, until: ann.until || '' });
+  if (blocks.spotlight !== false && Array.isArray(raw && raw.featured)) raw.featured.forEach(function (sku) { if (sku) add({ type: 'spotlight', sku: sku }); });
+  if (blocks.menu !== false) add({ type: 'menu' });
+  var combo = (raw && raw.combos && raw.combos[0]) || null;
+  if (blocks.combo !== false && combo && Array.isArray(combo.items) && combo.items.length >= 2 && combo.price) add({ type: 'combo', items: combo.items.slice(), price: combo.price, label: combo.label || '' });
+  if (blocks.tem !== false) add({ type: 'tem' });
+  var yt = raw && raw.video && raw.video.youtube_id;
+  if (blocks.video !== false && yt) add({ type: 'video', youtube_id: yt, duration: 45 });
+  d.scenes = scenes;
+  d.theme = (['auto','day','night'].indexOf(raw && raw.theme) >= 0) ? raw.theme : 'auto';
+  d.promoRibbon = (raw && raw.blocks && raw.blocks.promo === false) ? false : true;
+  return d;
+}
+
+function normalizeScene(s, i) {
+  if (!s || typeof s !== 'object' || SCENE_TYPES.indexOf(s.type) < 0) return null;
+  var out = { id: String(s.id || ('s' + i)), type: s.type, enabled: s.enabled !== false, duration: clampDuration(s.duration, 11) };
+  if (s.type === 'spotlight') out.sku = String(s.sku || '');
+  if (s.type === 'image') { out.image = String(s.image || ''); out.caption = String(s.caption || ''); }
+  if (s.type === 'video') out.youtube_id = String(s.youtube_id || '');
+  if (s.type === 'announcement') { out.text = String(s.text || ''); out.until = String(s.until || ''); }
+  if (s.type === 'combo') { out.items = Array.isArray(s.items) ? s.items.slice() : []; out.price = parseInt(s.price, 10) || 0; out.label = String(s.label || ''); }
+  return out;
 }
 
 function normalizeConfig(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return defaultConfig();
+  if (raw.version !== 2) return migrateV1(raw); // old schema
   var d = defaultConfig();
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return d;
-  return {
-    blocks:       Object.assign({}, d.blocks, raw.blocks || {}),
-    featured:     Array.isArray(raw.featured) ? raw.featured.slice() : d.featured,
-    combos:       Array.isArray(raw.combos) ? raw.combos.slice() : d.combos,
-    announcement: Object.assign({}, d.announcement, raw.announcement || {}),
-    video:        Object.assign({}, d.video, raw.video || {}),
-    rotateSeconds: (typeof raw.rotateSeconds === 'number' && raw.rotateSeconds >= 5) ? raw.rotateSeconds : d.rotateSeconds,
-    theme:        (['auto', 'day', 'night'].indexOf(raw.theme) >= 0 ? raw.theme : 'auto')
-  };
-}
-
-function resolveFeatured(featured, menu) {
-  var byId = {};
-  menu.forEach(function (m) { byId[m.sku] = m; });
-  if (featured && featured.length) {
-    return featured.filter(function (sku) { return byId[sku] && byId[sku].available; });
-  }
-  // derive: available hero/signature, up to 5
-  return menu.filter(function (m) { return m.available && (m.role === 'hero' || m.role === 'signature'); })
-             .map(function (m) { return m.sku; }).slice(0, 5);
-}
-
-function dayPart(hour) { return hour < 11 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'; }
-
-var DAYPART_PRIORITY = {
-  morning:   ['announcement','spotlight','menu','combo','tem','video','brand'],
-  afternoon: ['announcement','spotlight','combo','tem','menu','video','brand'],
-  evening:   ['announcement','video','spotlight','tem','menu','combo','brand']
-};
-
-function announcementActive(ann, now) {
-  if (!ann || !ann.active || !ann.text) return false;
-  if (ann.until) { var t = new Date(ann.until).getTime(); if (!isNaN(t) && t < now.getTime()) return false; }
-  return true;
+  d.scenes = (Array.isArray(raw.scenes) ? raw.scenes : []).map(normalizeScene).filter(Boolean);
+  d.theme = (['auto','day','night'].indexOf(raw.theme) >= 0) ? raw.theme : 'auto';
+  d.promoRibbon = raw.promoRibbon !== false;
+  return d;
 }
 
 function buildQueue(config, now, menu) {
-  var b = config.blocks, q = [];
-  if (announcementActive(config.announcement, now)) q.push({ type: 'announcement' });
-  if (b.spotlight) resolveFeatured(config.featured, menu).forEach(function (sku) { q.push({ type: 'spotlight', sku: sku }); });
-  if (b.menu)  q.push({ type: 'menu' });
-  if (b.combo && config.combos.length) q.push({ type: 'combo', combo: config.combos[0] });
-  if (b.tem)   q.push({ type: 'tem' });
-  if (b.video) q.push({ type: 'video' });
-  if (!q.length) return [{ type: 'brand' }];
-  if (b.daypart) {
-    var order = DAYPART_PRIORITY[dayPart(now.getHours())];
-    q = q.slice().sort(function (a, c) { return order.indexOf(a.type) - order.indexOf(c.type); });
-  }
+  var byId = {}; (menu || []).forEach(function (m) { byId[m.sku] = m; });
+  var q = (config.scenes || []).filter(function (s) {
+    if (!s.enabled) return false;
+    if (s.type === 'spotlight') return byId[s.sku] && byId[s.sku].available;
+    if (s.type === 'image') return !!s.image;
+    if (s.type === 'video') return !!s.youtube_id;
+    if (s.type === 'announcement') return !!s.text;
+    if (s.type === 'combo') return (s.items || []).length >= 2 && s.price > 0;
+    return true; // menu, tem, brand
+  });
+  if (!q.length) return [{ type: 'brand', duration: 11 }];
   return q;
 }
 
@@ -140,6 +143,14 @@ function renderVideo(youtubeId, leftItem, rightItem){
 
 function renderAnnouncement(text){
   return '<section class="scene show"><div class="combo"><div class="combo-badge r pop" style="--d:.3s">お知らせ · THÔNG BÁO</div><div class="sp-name r" style="--d:.5s;text-align:center;max-width:80vw">'+esc(text)+'</div></div></section>';
+}
+
+function renderImage(scene){
+  var cap = scene.caption ? '<div class="img-cap r" style="--d:.6s">'+esc(scene.caption)+'</div>' : '';
+  return '<section class="scene show"><div class="imgscene">'
+    + '<img class="imgfull r fade" style="--d:.2s" src="'+esc(scene.image)+'" alt="" '
+    + 'onerror="this.closest(\'.scene\').outerHTML=window.__renderBrand?window.__renderBrand():\'\'">'
+    + cap + '</div></section>';
 }
 
 function renderBrand(){
@@ -295,5 +306,5 @@ if (typeof window !== 'undefined') (function () {
 
 // ── CommonJS export for Node tests (ignored in browser) ──
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { defaultConfig: defaultConfig, normalizeConfig: normalizeConfig, resolveFeatured: resolveFeatured, dayPart: dayPart, announcementActive: announcementActive, buildQueue: buildQueue, esc: esc, renderSpotlight: renderSpotlight, renderMenu: renderMenu, renderCombo: renderCombo, renderTem: renderTem, renderVideo: renderVideo, renderAnnouncement: renderAnnouncement, renderBrand: renderBrand };
+  module.exports = { defaultConfig: defaultConfig, normalizeConfig: normalizeConfig, migrateV1: migrateV1, clampDuration: clampDuration, buildQueue: buildQueue, esc: esc, renderSpotlight: renderSpotlight, renderMenu: renderMenu, renderCombo: renderCombo, renderTem: renderTem, renderVideo: renderVideo, renderAnnouncement: renderAnnouncement, renderImage: renderImage, renderBrand: renderBrand };
 }
