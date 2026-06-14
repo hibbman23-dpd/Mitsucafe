@@ -163,6 +163,7 @@ var WAVE_SIDE_SVG = '<div class="wavewrap r fade" style="--d:.2s"><svg viewBox="
 // ── Browser-only rotation runtime (guarded; Node tests never enter here) ──
 if (typeof window !== 'undefined') (function () {
   var GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+  window.__renderBrand = renderBrand;
   var CACHE_KEY = 'lhk_signage_cfg', PROMO_KEY = 'lhk_signage_promo';
 
   function safeJSON(s) { try { return JSON.parse(s); } catch (e) { return null; } }
@@ -182,6 +183,23 @@ if (typeof window !== 'undefined') (function () {
     tv.classList.toggle('night', !day);
   }
 
+  // ── Preview mode: Studio iframe posts a single scene; no polling/auto-rotate ──
+  var params = new URLSearchParams(location.search);
+  if (params.get('preview') === '1') {
+    window.addEventListener('message', function (e) {
+      if (!e.data || e.data.kind !== 'signage-preview') return;
+      var scene = e.data.scene || { type: 'brand', duration: 11 };
+      cfg = normalizeConfig({ version: 2, scenes: [scene], theme: e.data.theme || 'auto', promoRibbon: false });
+      applyTheme();
+      queue = buildQueue(cfg, new Date(), menuData());
+      idx = -1;
+      if (queue.length) { idx = 0; mountScene(queue[0]); clearTimeout(timer); }
+    });
+    applyTheme();
+    tickClock(); setInterval(tickClock, 1000);
+    return; // skip the normal boot/poll path below
+  }
+
   function mountScene(d) {
     var stage = document.getElementById('stage'), html;
     var byId = {}; menuData().forEach(function (m) { byId[m.sku] = m; });
@@ -190,21 +208,23 @@ if (typeof window !== 'undefined') (function () {
     } else if (d.type === 'menu') {
       html = renderMenu(menuData(), catsData());
     } else if (d.type === 'combo') {
-      html = renderCombo(d.combo, menuData());
+      html = renderCombo({ items: d.items, price: d.price, label: d.label }, menuData());
     } else if (d.type === 'tem') {
       html = renderTem();
     } else if (d.type === 'video') {
-      if (!navigator.onLine || !cfg.video.youtube_id) {
+      if (!navigator.onLine || !d.youtube_id) {
         html = renderBrand();
       } else {
         html = renderVideo(
-          cfg.video.youtube_id,
+          d.youtube_id,
           menuData().filter(function (m) { return m.available && m.subcategory === 'milk_tea'; })[0],
           menuData().filter(function (m) { return m.available && m.subcategory === 'phin_coffee'; })[0]
         );
       }
     } else if (d.type === 'announcement') {
-      html = renderAnnouncement(cfg.announcement.text);
+      html = renderAnnouncement(d.text);
+    } else if (d.type === 'image') {
+      html = renderImage(d);
     } else {
       html = renderBrand();
     }
@@ -229,7 +249,7 @@ if (typeof window !== 'undefined') (function () {
     var d = queue[idx];
     mountScene(d);
     clearTimeout(timer);
-    var dwell = (d.type === 'video') ? 45000 : cfg.rotateSeconds * 1000;
+    var dwell = (d.duration && d.duration >= 5 ? d.duration : 11) * 1000;
     timer = setTimeout(advance, dwell);
   }
 
@@ -241,7 +261,7 @@ if (typeof window !== 'undefined') (function () {
 
   function applyPromo() {
     var r = document.getElementById('ribbon');
-    if (cfg.blocks.promo && promo && promo.active) {
+    if (cfg.promoRibbon && promo && promo.active) {
       r.style.display = '';
       r.innerHTML = '十 ' + esc(promo.message || 'Ưu đãi') + ' <b id="pc"></b>';
       tickCountdown();
