@@ -4,12 +4,14 @@
  */
 function _defaultSignageConfig() {
   return {
-    blocks: { spotlight: true, promo: true, menu: true, video: true, qr: true, tem: true, combo: true, daypart: true },
-    featured: [], combos: [],
-    announcement: { text: '', active: false, until: '' },
-    video: { youtube_id: 'AQBbF4V4wRg' },
-    rotateSeconds: 11,
-    theme: 'auto'
+    version: 2,
+    scenes: [
+      { id: 'd1', type: 'menu', enabled: true, duration: 11 },
+      { id: 'd2', type: 'tem',  enabled: true, duration: 11 },
+      { id: 'd3', type: 'brand', enabled: true, duration: 11 }
+    ],
+    theme: 'auto',
+    promoRibbon: true
   };
 }
 
