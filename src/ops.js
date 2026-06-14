@@ -32,9 +32,31 @@ const CONTROL_CSP = [
   "form-action 'self' https://script.google.com",
 ].join('; ');
 
+function jsonRes(obj, status) {
+  return new Response(JSON.stringify(obj), { status: status || 200, headers: { 'content-type': 'application/json' } });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Signage image upload/delete (R2). Behind Cloudflare Access (whole worker) — staff only.
+    if (url.pathname === '/sig-img' && request.method === 'POST') {
+      const ct = request.headers.get('content-type') || '';
+      if (!/^image\/(jpeg|png|webp)$/.test(ct)) return jsonRes({ ok: false, error: 'bad_type' }, 415);
+      const buf = await request.arrayBuffer();
+      if (buf.byteLength === 0 || buf.byteLength > 3 * 1024 * 1024) return jsonRes({ ok: false, error: 'bad_size' }, 413);
+      const ext = ct === 'image/png' ? 'png' : ct === 'image/webp' ? 'webp' : 'jpg';
+      const key = crypto.randomUUID() + '.' + ext;
+      await env.SIGN_IMG.put(key, buf, { httpMetadata: { contentType: ct } });
+      return jsonRes({ ok: true, key: key, url: '/sig-img/' + key }, 200);
+    }
+    if (url.pathname.startsWith('/sig-img/') && request.method === 'DELETE') {
+      const key = url.pathname.slice('/sig-img/'.length);
+      if (key) await env.SIGN_IMG.delete(key);
+      return jsonRes({ ok: true }, 200);
+    }
+
     const assetRes = await env.ASSETS.fetch(request);
 
     let res;
