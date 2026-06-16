@@ -18,6 +18,15 @@
  */
 
 function doPost(e) {
+  var lock = LockService.getScriptLock();
+  try {
+    // Chờ tối đa 20 giây để lấy lock cho doPost
+    lock.waitLock(20000);
+  } catch (lockErr) {
+    logError('doPost.lock', lockErr);
+    return _jsonResponse({ ok: false, error: 'System busy, please try again.' });
+  }
+
   try {
     var raw = e.postData && e.postData.contents;
     if (!raw) {
@@ -139,10 +148,21 @@ function doPost(e) {
   } catch (err) {
     logError('doPost', err);
     return _jsonResponse({ ok: false, error: String(err) });
+  } finally {
+    lock.releaseLock();
   }
 }
 
 function doGet(e) {
+  var lock = LockService.getScriptLock();
+  try {
+    // Chờ tối đa 15 giây để lấy lock cho doGet
+    lock.waitLock(15000);
+  } catch (lockErr) {
+    logError('doGet.lock', lockErr);
+    return _jsonResponse({ ok: false, error: 'System busy, please try again.' });
+  }
+
   try {
     var action = e && e.parameter && e.parameter.action;
 
@@ -435,6 +455,8 @@ function doGet(e) {
   } catch (err) {
     logError('doGet', err);
     return _jsonResponse({ ok: false, error: String(err) });
+  } finally {
+    lock.releaseLock();
   }
 }
 
