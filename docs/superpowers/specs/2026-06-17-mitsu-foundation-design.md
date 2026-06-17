@@ -23,7 +23,7 @@ Không trong phạm vi: port nội dung trang thật, đổi `style.css` của a
 |---|---|
 | `web/mitsu.css` | Token (2 theme) + base typography + class component (wordmark, hanko, honeycomb, loader, nút theme) |
 | `web/mitsu-theme.js` | Đọc `prefers-color-scheme`, nút 3 trạng thái (Auto/Sáng/Tối), lưu `localStorage`, áp `data-theme` |
-| `web/mitsu-assets.svg` | Sprite SVG: `#hanko`, `#three-bees`, `#badge` (huy hiệu tròn queen); dùng `<use>` hoặc inline khi cần `currentColor` |
+| `web/mitsu-assets.svg` | Sprite SVG nguồn: `#hanko`, `#three-bees`, `#badge` (huy hiệu tròn queen). **Phải INLINE sprite vào mỗi trang** rồi `<use href="#hanko">` (same-document) — KHÔNG tham chiếu ngoài `mitsu-assets.svg#…`, vì CSS `var(--…)` không vượt biên file SVG ngoài → mark kẹt màu theme sáng / chữ badge biến mất ở dark |
 | `web/img/mitsu/` | Asset raster: nhân vật × biểu cảm, logo lockup, pattern. **Placeholder giờ; chủ gửi hi-res thay sau** (xem §4.5) |
 | `web/mitsu-kit.html` | Trang demo nội bộ: bày token, component, nhân vật, ô honeycomb, switch theme để duyệt |
 

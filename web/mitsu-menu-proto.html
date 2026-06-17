@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitsu — Menu (prototype)</title>
+<script>
+  try { var p = localStorage.getItem('mitsu-theme');
+    if (p === 'light' || p === 'dark') document.documentElement.setAttribute('data-theme', p); } catch (e) {}
+</script>
+<link rel="stylesheet" href="mitsu.css">
+<style>
+  /* hexagon clip (flat-top) + shimmer ring -------------------------------- */
+  @property --shimmer { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+  :root { --hex: polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); }
+
+  body.mitsu { overflow-x:hidden; }
+  .paper::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.55;
+    background-image:radial-gradient(circle at 20% 30%, rgba(124,90,50,.05) 0 1px, transparent 1px),
+                    radial-gradient(circle at 70% 60%, rgba(124,90,50,.04) 0 1px, transparent 1px);
+    background-size:7px 7px,11px 11px;mix-blend-mode:multiply;
+  }
+  :root[data-theme="dark"] .paper::before{mix-blend-mode:screen;opacity:.4}
+  main{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:0 26px}
+
+  /* top bar */
+  .bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;
+    padding:16px 26px;background:color-mix(in srgb,var(--bg) 86%,transparent);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);max-width:1120px;margin:0 auto}
+  .bar .wm{font-size:1.7rem}
+  .bar .tag{font-size:.6rem;letter-spacing:.3em;text-transform:uppercase;color:var(--text-dim);font-weight:500}
+  .bar .sp{margin-left:auto}
+  .view-tabs{display:flex;gap:4px}
+  .view-tabs button{font:inherit;font-size:.72rem;letter-spacing:.04em;color:var(--text-dim);
+    background:none;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer}
+  .view-tabs button[aria-pressed="true"]{color:var(--text);background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:transparent}
+
+  /* category header (theo ảnh thiết kế) ---------------------------------- */
+  .cat{margin-top:46px}
+  .cat-head{display:grid;grid-template-columns:auto 1fr auto;align-items:end;gap:18px;
+    border-bottom:2px solid var(--text);padding-bottom:12px}
+  .cat-head .k{font-family:var(--jp);font-size:2.1rem;color:var(--seal);line-height:1}
+  .cat-head .nm{font-family:var(--disp);font-size:1.9rem;color:var(--text)}
+  .cat-head .nm small{font-size:.62em;color:var(--text-dim);font-style:italic}
+  .cat-head .desc{font-family:var(--disp);font-style:italic;font-size:.9rem;color:var(--text-dim);text-align:right;max-width:30ch}
+
+  /* list view */
+  .items{display:grid;grid-template-columns:1fr 1fr;gap:0 48px;margin-top:6px}
+  .mi{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;background:none;border:0;
+    font:inherit;color:var(--text);cursor:pointer;padding:13px 4px;border-bottom:1px dotted var(--line)}
+  .mi:hover .mi-name,.mi:focus-visible .mi-name{color:var(--accent-deep)}
+  .mi:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .mi-name{font-weight:500;font-size:1rem;transition:color .2s}
+  .mi-note{font-size:.8rem;color:var(--text-dim)}
+  .mi-dots{flex:1;border-bottom:1px dotted var(--line);transform:translateY(-3px);min-width:14px}
+  .mi-price{font-family:var(--disp);font-size:1.05rem;color:var(--accent)}
+  @media(max-width:720px){.items{grid-template-columns:1fr}.cat-head{grid-template-columns:auto 1fr}.cat-head .desc{display:none}}
+
+  /* shimmer hexagon (dùng chung gallery + carousel) ---------------------- */
+  .hex{position:relative;clip-path:var(--hex);background:conic-gradient(from var(--shimmer),
+        var(--accent-deep),var(--accent),#F8DDA0,#FFF1CF,#F8DDA0,var(--accent),var(--accent-deep));
+        animation:hexspin 4.5s linear infinite;cursor:pointer}
+  .hex .in{position:absolute;inset:3px;clip-path:var(--hex);background:var(--surface);overflow:hidden;
+        display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+  .hex .photo{position:absolute;inset:0;background:
+        radial-gradient(120% 90% at 50% 18%, color-mix(in srgb,var(--accent) 38%,var(--surface)) 0%, var(--surface) 70%);}
+  .hex .photo::after{content:attr(data-k);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+        font-family:var(--jp);font-size:3.2rem;color:color-mix(in srgb,var(--seal) 30%,transparent)}
+  .hex .cap{position:relative;width:100%;padding:8px 10px 14px;text-align:center;
+        background:linear-gradient(to top, color-mix(in srgb,var(--bg) 92%,transparent), transparent);}
+  .hex .cap .n{font-weight:500;font-size:.82rem;color:var(--text);line-height:1.2;display:block}
+  .hex .cap .p{font-family:var(--disp);font-size:.82rem;color:var(--accent)}
+  @keyframes hexspin{to{--shimmer:360deg}}
+
+  /* gallery: tessellation hàng so le ------------------------------------- */
+  #gallery{display:none}
+  #gallery.on{display:block}
+  .hrow{display:flex;justify-content:center;gap:14px}
+  .hrow+.hrow{margin-top:-26px}
+  .hrow.odd{transform:translateX(70px)}
+  .ghex{width:128px;aspect-ratio:1.1547/1}
+  .ghex .cap .n{font-size:.74rem}
+  @media(max-width:720px){.hrow.odd{transform:translateX(48px)}.ghex{width:96px}}
+
+  /* list/gallery toggle */
+  #list.off{display:none}
+
+  /* ---- carousel overlay ---- */
+  .ov{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+    background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(14px) saturate(1.1)}
+  .ov.on{display:flex;animation:ovin .3s ease both}
+  @keyframes ovin{from{opacity:0}to{opacity:1}}
+  .ov-close{position:absolute;top:20px;right:24px;width:42px;height:42px;border-radius:50%;
+    border:1px solid var(--line);background:var(--surface);color:var(--text);font-size:1.1rem;cursor:pointer;z-index:5}
+  .ov-close:hover{color:var(--accent)}
+  .stage{width:100%;max-width:760px;height:62vh;perspective:1300px;position:relative}
+  .ring{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.22,.61,.36,1)}
+  .ccell{position:absolute;top:50%;left:50%;width:230px;aspect-ratio:1.1547/1;margin:-100px 0 0 -115px;
+    transition:opacity .5s, filter .5s;backface-visibility:hidden}
+  .ccell .photo::after{font-size:4.6rem}
+  .ccell:not(.active){opacity:.42;filter:saturate(.7) brightness(.9)}
+  .ccell.active{filter:drop-shadow(0 14px 30px color-mix(in srgb,var(--accent) 40%,transparent))}
+  .arrow{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;
+    background:var(--surface);border:1px solid var(--line);color:var(--accent);font-size:1.3rem;cursor:pointer;z-index:4}
+  .arrow:hover{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+  .arrow.prev{left:2vw}.arrow.next{right:2vw}
+  .detail{position:absolute;left:0;right:0;bottom:4vh;text-align:center;padding:0 24px;animation:dfade .4s ease both}
+  @keyframes dfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .detail .dk{font-family:var(--jp);color:var(--seal);font-size:.9rem}
+  .detail .dn{font-family:var(--disp);font-size:2.1rem;color:var(--text);margin-top:2px}
+  .detail .dp{font-family:var(--disp);font-size:1.3rem;color:var(--accent);margin-top:2px}
+  .detail .dd{font-size:.92rem;color:var(--text-dim);max-width:46ch;margin:10px auto 0}
+  .detail .dadd{margin-top:16px;font:inherit;font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--bg);background:var(--accent);border:0;border-radius:var(--radius-sm);padding:11px 26px;cursor:pointer}
+  .detail .dadd:hover{background:var(--accent-deep)}
+
+  @media (prefers-reduced-motion:reduce){
+    .hex{animation:none}
+    .ring{transition:none}.ov.on,.detail{animation:none}
+  }
+  .foot{margin:70px 0 90px;text-align:center;font-family:var(--disp);font-style:italic;color:var(--text-dim);font-size:.85rem}
+</style>
+</head>
+<body class="mitsu paper">
+
+<header class="bar">
+  <span class="wm">mitsu<span class="dot">.</span></span>
+  <span class="tag">Thực đơn</span>
+  <span class="sp"></span>
+  <div class="view-tabs" role="group" aria-label="Kiểu xem">
+    <button id="tab-list" aria-pressed="true">Danh sách</button>
+    <button id="tab-grid" aria-pressed="false">Tổ ong</button>
+  </div>
+  <button class="theme-toggle" data-theme-toggle aria-label="Đổi giao diện"></button>
+</header>
+
+<main>
+  <div id="list"></div>
+  <div id="gallery"></div>
+  <p class="foot">蜜は一匹では作れない — Mật không thể làm bởi một con ong.</p>
+</main>
+
+<div class="ov" id="ov" aria-modal="true" role="dialog" aria-label="Chi tiết món">
+  <button class="ov-close" id="ovClose" aria-label="Đóng">✕</button>
+  <button class="arrow prev" id="ovPrev" aria-label="Món trước">‹</button>
+  <div class="stage"><div class="ring" id="ring"></div></div>
+  <button class="arrow next" id="ovNext" aria-label="Món sau">›</button>
+  <div class="detail" id="detail"></div>
+</div>
+
+<svg width="0" height="0" style="position:absolute"><use href="mitsu-assets.svg#hanko"/></svg>
+<script src="mitsu-theme.js"></script>
+<script>
+const MENU = [
+  { id:'kin', k:'勤', romaji:'Kin', vi:'Chăm chỉ', desc:'Cà phê & trà sữa mỗi ngày — làm đều, làm chuẩn', items:[
+    {n:'Phin sữa đá Lâm Hà', p:'25k', note:''},
+    {n:'Bạc xỉu', p:'28k', note:''},
+    {n:'Cold brew Robusta', p:'35k', note:''},
+    {n:'Trà sữa Mitsu', p:'38k', note:'signature · trà đen + sữa, độ ngọt chỉnh được'},
+    {n:'Trà sữa oolong nướng', p:'40k', note:''},
+    {n:'Trà sữa trân châu mật ong', p:'42k', note:''},
+  ]},
+  { id:'ritsu', k:'律', romaji:'Ritsu', vi:'Kỷ luật', desc:'Pha chuẩn từng thông số — cà phê specialty & trà thuần', items:[
+    {n:'V60 single origin', p:'45k', note:'độ cao · giống · ngày rang in trên ly'},
+    {n:'Espresso Lâm Hà', p:'35k', note:''},
+    {n:'Genmaicha', p:'40k', note:'trà xanh gạo rang Nhật'},
+    {n:'Oolong cao sơn', p:'42k', note:''},
+    {n:'Trà hoa quả theo mùa', p:'38k', note:'trái cây Đà Lạt'},
+  ]},
+  { id:'so', k:'創', romaji:'Sō', vi:'Sáng tạo', desc:'Sáng tạo có mật ong thật — lạ mà ai cũng uống được', items:[
+    {n:'Mật Latte', p:'48k', note:'espresso + mật ong rừng Lâm Đồng + nhúm muối'},
+    {n:'Trà sữa kem mật', p:'45k', note:'milk tea + lớp kem mật ong mặn nhẹ'},
+    {n:'Yuzu Honey Tonic', p:'52k', note:'espresso + tonic + yuzu + mật'},
+    {n:'Cream Soda Showa', p:'42k', note:'siro lá dứa Lâm Đồng'},
+    {n:'Trà sữa lá dứa Lâm Hà', p:'38k', note:''},
+  ]},
+  { id:'kashi', k:'菓', romaji:'Kashi', vi:'Ăn kèm', desc:'Bánh ngọt nhỏ — hợp cầm tay, gói mang đi', items:[
+    {n:'Purin mật ong', p:'30k', note:'pudding Nhật, mật rừng Lâm Hà'},
+    {n:'Castella mật ong', p:'35k', note:'bánh bông lan Nhật'},
+    {n:'Bánh mì bơ mật', p:'28k', note:''},
+    {n:'Cookies bơ Lâm Đồng', p:'25k', note:''},
+    {n:'Bánh flan', p:'22k', note:''},
+  ]},
+];
+
+function hexPhoto(cat){ return `<div class="photo" data-k="${cat}"></div>`; }
+
+/* ---- list view ---- */
+const listEl = document.getElementById('list');
+listEl.innerHTML = MENU.map(c => `
+  <section class="cat">
+    <div class="cat-head">
+      <span class="k jp">${c.k}</span>
+      <span class="nm">${c.romaji} <small>· ${c.vi}</small></span>
+      <span class="desc">${c.desc}</span>
+    </div>
+    <div class="items">
+      ${c.items.map((it,i)=>`
+        <button class="mi" data-cat="${c.id}" data-i="${i}">
+          <span class="mi-name">${it.n}</span>
+          ${it.note?`<span class="mi-note">${it.note}</span>`:''}
+          <span class="mi-dots"></span>
+          <span class="mi-price">${it.p}</span>
+        </button>`).join('')}
+    </div>
+  </section>`).join('');
+
+/* ---- gallery view (honeycomb tessellation) ---- */
+const galleryEl = document.getElementById('gallery');
+const flat = [];
+MENU.forEach(c => c.items.forEach((it,i)=>flat.push({cat:c.id, k:c.k, i, ...it})));
+const perRow = window.matchMedia('(max-width:720px)').matches ? 3 : 5;
+let rows = '', r = 0;
+for (let x=0; x<flat.length; x+=perRow){
+  const cells = flat.slice(x,x+perRow).map(f=>`
+    <div class="hex ghex" data-cat="${f.cat}" data-i="${f.i}" role="button" tabindex="0" aria-label="${f.n}">
+      <div class="in">${hexPhoto(f.k)}<div class="cap"><span class="n">${f.n}</span></div></div>
+    </div>`).join('');
+  rows += `<div class="hrow ${r%2?'odd':''}">${cells}</div>`; r++;
+}
+galleryEl.innerHTML = rows;
+
+/* ---- view toggle ---- */
+const tabList=document.getElementById('tab-list'), tabGrid=document.getElementById('tab-grid');
+function setView(grid){
+  galleryEl.classList.toggle('on',grid); listEl.classList.toggle('off',grid);
+  tabGrid.setAttribute('aria-pressed',String(grid)); tabList.setAttribute('aria-pressed',String(!grid));
+}
+tabList.onclick=()=>setView(false); tabGrid.onclick=()=>setView(true);
+
+/* ---- 3D carousel overlay ---- */
+const ov=document.getElementById('ov'), ring=document.getElementById('ring'), detail=document.getElementById('detail');
+let curCat=null, curItems=[], curIdx=0, step=0, radius=0;
+
+function openCarousel(catId, idx){
+  const cat=MENU.find(c=>c.id===catId); if(!cat) return;
+  curCat=cat; curItems=cat.items; curIdx=idx; step=360/curItems.length;
+  radius=Math.round(140/Math.tan(Math.PI/Math.max(curItems.length,3)))+60;
+  ring.innerHTML=curItems.map((it,i)=>`
+    <div class="hex ccell" data-i="${i}" style="transform:rotateY(${i*step}deg) translateZ(${radius}px)">
+      <div class="in">${hexPhoto(cat.k)}<div class="cap"><span class="n">${it.n}</span><span class="p">${it.p}</span></div></div>
+    </div>`).join('');
+  ov.classList.add('on'); document.body.style.overflow='hidden';
+  update();
+}
+function update(){
+  ring.style.transform=`translateZ(-${radius}px) rotateY(${-curIdx*step}deg)`;
+  [...ring.children].forEach((el,i)=>el.classList.toggle('active',i===curIdx));
+  const it=curItems[curIdx];
+  detail.innerHTML=`<div class="dk jp">${curCat.k} · ${curCat.romaji}</div>
+    <div class="dn">${it.n}</div><div class="dp">${it.p}</div>
+    ${it.note?`<div class="dd">${it.note}</div>`:''}
+    <button class="dadd">Thêm vào giỏ</button>`;
+  detail.style.animation='none'; void detail.offsetWidth; detail.style.animation='';
+}
+function move(d){ curIdx=(curIdx+d+curItems.length)%curItems.length; update(); }
+function closeOv(){ ov.classList.remove('on'); document.body.style.overflow=''; }
+
+document.getElementById('ovPrev').onclick=()=>move(-1);
+document.getElementById('ovNext').onclick=()=>move(1);
+document.getElementById('ovClose').onclick=closeOv;
+ov.addEventListener('click',e=>{ if(e.target===ov) closeOv(); });
+ring.addEventListener('click',e=>{ const c=e.target.closest('.ccell'); if(c){ const i=+c.dataset.i; if(i===curIdx) return; curIdx=i; update(); }});
+document.addEventListener('keydown',e=>{ if(!ov.classList.contains('on'))return;
+  if(e.key==='Escape')closeOv(); if(e.key==='ArrowRight')move(1); if(e.key==='ArrowLeft')move(-1); });
+
+/* open from list or gallery */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-cat][data-i]'); if(t) openCarousel(t.dataset.cat,+t.dataset.i);
+});
+document.addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ')){ const t=e.target.closest('.ghex'); if(t){e.preventDefault();openCarousel(t.dataset.cat,+t.dataset.i);} }
+});
+</script>
+</body>
+</html>
