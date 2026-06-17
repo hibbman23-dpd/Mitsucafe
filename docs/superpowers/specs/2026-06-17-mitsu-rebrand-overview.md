@@ -17,7 +17,7 @@ Quyết định đã chốt với chủ:
 - **Hiển thị menu**: mỗi món là một dòng chữ (tên · giá · chevron); bấm/kéo mở **ô honeycomb (lục giác)** chứa ảnh + mô tả. Ảnh dùng **placeholder tạm, thay dần**.
 - **Theme**: nền sáng washi (mặc định) + **bản tối luxury** tự thiết kế từ bảng màu Mitsu; **auto theo `prefers-color-scheme`** + nút chỉnh tay (Auto / Sáng / Tối).
 - **Cách tiếp cận**: A — dựng nền tảng thiết kế trước, rồi áp từng bề mặt.
-- **Mascot**: ếch + sticker cảm xúc nghỉ hưu → hanko 蜜 + icon ba-ong-một-tâm + bộ sticker "sưu tầm ba con ong".
+- **Mascot**: ếch + sticker cảm xúc `stk-*` nghỉ hưu → **hệ nhân vật minh hoạ** (ukiyo-e): 4 nhân vật (Kin 勤 / Ritsu 律 / Sō 創 / Queen 女王) × 6 biểu cảm, theo ảnh thiết kế của quán. 6 biểu cảm map vào trạng thái UX + sticker loyalty (xem foundation spec §4.5). Logo lockup: wordmark `mitsu 蜜` + huy hiệu tròn + hanko. **Ảnh hi-res chủ gửi sau; dựng placeholder trước.**
 
 Ngoài phạm vi web (track riêng, không trong kế hoạch này): logic loyalty backend GAS (mua-10-tặng-1, gom-3-ong), trademark "Mitsu", quay short film, packaging mật ong.
 
@@ -37,6 +37,8 @@ Ngoài phạm vi web (track riêng, không trong kế hoạch này): logic loyal
 | `--line` | `rgba(28,28,26,.14)` | `rgba(242,235,221,.12)` | |
 
 Font: **Cormorant Garamond** (display) · **Be Vietnam Pro** (body VI) · **Noto Serif JP** (kanji). Giữ Google Fonts như hiện tại (đã có trong CSP); cân nhắc self-host ở mảng 6.
+
+> Lưu ý: ảnh thiết kế của quán ghi cream `#F5F0E8`, brand master ghi `#F2EBDD`. Mặc định dùng `#F2EBDD` (washi ấm hơn); chủ xác nhận lại nếu muốn `#F5F0E8`. Pattern hệ thống: honeycomb (chính) + seigaiha + washi + hoa/quả cà phê.
 
 ---
 
@@ -62,7 +64,10 @@ Ký hiệu owner: **CC** = Claude Code giữ · **AG** = giao Antigravity · **A
 
 | # | Mảng / việc | Owner | Vì sao | Phụ thuộc |
 |---|---|---|---|---|
-| 1 | **Nền tảng**: `mitsu.css` (token 2 theme), `mitsu-theme.js`, asset SVG (hanko, ba-ong), bộ component, **hợp đồng honeycomb-menu** | **CC** | Mọi thứ phụ thuộc; quyết định kiến trúc; phải khóa trước | — |
+| 1 | **Nền tảng**: `mitsu.css` (token 2 theme), `mitsu-theme.js`, asset SVG (hanko, ba-ong, huy hiệu), bộ component, **hợp đồng honeycomb-menu** | **CC** | Mọi thứ phụ thuộc; quyết định kiến trúc; phải khóa trước | — |
+| 1b | Component nhân vật `.mitsu-char` + huy hiệu tròn `#badge` + map 6 biểu cảm → trạng thái UX | **CC** | Hợp đồng asset; mọi bề mặt dùng | M1 |
+| 1c | Sinh & đặt **placeholder** nhân vật (4×6) + pattern (seigaiha, hoa cà phê) đúng quy ước tên | **AG** | Cơ học, lặp; thay hi-res sau không sửa code | 1b |
+| A | Thả **ảnh hi-res** nhân vật/logo/bao bì vào đúng tên file | **Chủ** | Chủ cung cấp asset gốc | 1c |
 | 2a | **Landing**: port nội dung brand-master vào cấu trúc mới dùng `mitsu.css` (story, tam mật, triết lý, nhận diện, trải nghiệm) | **AG** | Brand-master gần như template sẵn; tự chứa; kiểm chứng bằng mắt | M1 |
 | 2b | Landing: tinh chỉnh giọng văn + bố cục hero, micro-interaction | CC | Phần "hồn" thương hiệu, cần phán đoán | M1, 2a |
 | 3a | **App đặt hàng — mapping menu**: xếp 27 SKU vào Kin/Ritsu/Sō/Kashi (đề xuất + chốt với chủ) | **CC** | Phán đoán biên tập; ảnh hưởng trải nghiệm | M1 |
