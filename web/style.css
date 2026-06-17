@@ -4,37 +4,35 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
 
 :root {
-  /* ── Kaeru brand palette ── */
-  --teal:      #2D5F6B;
-  --teal-dk:   #1C3A42;
-  --teal-mid:  #244E59;
-  --teal-lt:   #3A7A8A;
-  --coral:     #DB4E37;
-  --coral-dk:  #C94B34;
-  --cream:     #F5F0E8;
-  --cream-dim: rgba(245,240,232,.6);
-  --cream-faint: rgba(245,240,232,.12);
-  --earth:     #A89B80;
-  --gold:      #C8963E;
-  --gold-lt:   rgba(200,150,62,.18);
+  /* ── Mitsu brand palette ── */
+  --bg:          var(--bg);
+  --surface:     var(--surface);
+  --surface-hover: var(--surface-2);
+  --border:      var(--line);
+  --border-lt:   var(--line-soft);
+  --text:        var(--text);
+  --text-dim:    var(--text-dim);
+  --text-muted:  var(--text-muted);
+  --accent:      var(--accent);
+  --coral:       var(--seal);
+  --coral-dk:    var(--accent-deep);
+  --teal:        var(--accent);
+  --teal-dk:     var(--bg);
+  --teal-mid:    var(--surface);
+  --teal-lt:     var(--surface-2);
+  --cream:       var(--text);
+  --cream-dim:   var(--text-dim);
+  --cream-faint: var(--text-muted);
+  --earth:       var(--moss);
+  --gold:        var(--accent-deep);
+  --gold-lt:     rgba(198,138,62,.18);
 
-  /* ── Semantic ── */
-  --bg:        #1C3A42;
-  --surface:   rgba(245,240,232,.07);
-  --surface-hover: rgba(245,240,232,.13);
-  --border:    rgba(245,240,232,.11);
-  --border-lt: rgba(245,240,232,.22);
-  --text:      #F5F0E8;
-  --text-dim:  rgba(245,240,232,.62);
-  --text-muted: rgba(245,240,232,.36);
-  --accent:    var(--coral);
+  --radius:    8px;
+  --radius-sm: 4px;
+  --shadow:    0 4px 20px rgba(0,0,0,.15);
+  --shadow-lg: 0 8px 36px rgba(0,0,0,.25);
 
-  --radius:    10px;
-  --radius-sm: 7px;
-  --shadow:    0 4px 20px rgba(0,0,0,.3);
-  --shadow-lg: 0 8px 36px rgba(0,0,0,.45);
-
-  font-family: 'Lora', Georgia, serif;
+  font-family: var(--body);
   font-size: 16px;
   line-height: 1.5;
   color: var(--text);
@@ -990,4 +988,281 @@ input  { font: inherit; }
   55% { transform: translateY(-6px) scaleY(1.05) scaleX(0.95); }
   100% { transform: translateY(0) scale(1); }
 }
+
+/* ── MITSU GALLERY & CAROUSEL STYLES ────────────────────────────────────────── */
+
+/* View toggle */
+.menu-view-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.menu-view-toggle button {
+  font-family: var(--body);
+  font-size: .8rem;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.menu-view-toggle button.active {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 500;
+}
+
+/* Honeycomb Grid View */
+#gallery-container {
+  padding: 24px 10px 110px;
+  overflow-y: auto;
+  flex: 1;
+}
+.hrow {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.hrow + .hrow {
+  margin-top: -22px;
+}
+.hrow.odd {
+  transform: translateX(54px);
+}
+.ghex {
+  width: 96px;
+  aspect-ratio: 1.1547/1;
+}
+.hex {
+  position: relative;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  background: conic-gradient(from var(--shimmer, 0deg), var(--accent-deep), var(--accent), #F8DDA0, #FFF1CF, #F8DDA0, var(--accent), var(--accent-deep));
+  animation: hexspin 4.5s linear infinite;
+  cursor: pointer;
+}
+.hex .in {
+  position: absolute;
+  inset: 2px;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  background: var(--surface);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+.hex .photo {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 18%, color-mix(in srgb,var(--accent) 38%,var(--surface)) 0%, var(--surface) 70%);
+}
+.hex .photo::after {
+  content: attr(data-k);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--jp);
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: color-mix(in srgb,var(--seal) 20%,transparent);
+}
+.hex .cap {
+  position: relative;
+  width: 100%;
+  padding: 4px 6px 8px;
+  text-align: center;
+  background: linear-gradient(to top, color-mix(in srgb,var(--bg) 92%,transparent), transparent);
+}
+.hex .cap .n {
+  font-weight: 500;
+  font-size: 0.72rem;
+  color: var(--text);
+  line-height: 1.2;
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  width: 100%;
+}
+.hex .cap .p {
+  font-family: var(--disp);
+  font-size: .75rem;
+  color: var(--accent);
+}
+
+@keyframes hexspin {
+  to { --shimmer: 360deg; }
+}
+
+/* 3D Carousel Overlay */
+.ov {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+}
+.ov.on {
+  display: flex;
+  animation: ovin .3s ease both;
+}
+@keyframes ovin {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ov-close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ov-close:hover {
+  color: var(--accent);
+}
+.stage {
+  width: 100%;
+  max-width: 760px;
+  height: 50vh;
+  perspective: 1200px;
+  position: relative;
+  margin-top: -6vh;
+}
+.ring {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform .6s cubic-bezier(.22,.61,.36,1);
+}
+.ccell {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180px;
+  aspect-ratio: 1.1547/1;
+  margin: -78px 0 0 -90px;
+  transition: opacity .5s, filter .5s;
+  backface-visibility: hidden;
+}
+.ccell:not(.active) {
+  opacity: .38;
+  filter: saturate(.7) brightness(.9);
+}
+.ccell.active {
+  filter: drop-shadow(0 14px 30px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.ccell .photo::after {
+  font-size: 3.2rem;
+}
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  font-size: 1.3rem;
+  cursor: pointer;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.arrow:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+.arrow.prev { left: 4vw; }
+.arrow.next { right: 4vw; }
+
+.detail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8vh;
+  text-align: center;
+  padding: 0 24px;
+  animation: dfade .4s ease both;
+}
+@keyframes dfade {
+  from { opacity:0; transform:translateY(8px); }
+  to { opacity:1; transform:none; }
+}
+.detail .dk {
+  font-family: var(--jp);
+  color: var(--seal);
+  font-size: .9rem;
+}
+.detail .dn {
+  font-family: var(--disp);
+  font-size: 1.8rem;
+  color: var(--text);
+  margin-top: 4px;
+}
+.detail .dp {
+  font-family: var(--disp);
+  font-size: 1.2rem;
+  color: var(--accent);
+  margin-top: 4px;
+}
+.detail .dd {
+  font-size: .88rem;
+  color: var(--text-dim);
+  max-width: 44ch;
+  margin: 10px auto 0;
+}
+.detail .dadd {
+  margin-top: 20px;
+  font-family: var(--body);
+  font-size: .84rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 12px 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.detail .dadd:hover {
+  background: var(--accent-deep);
+}
+
+@media(max-width: 600px) {
+  .ghex {
+    width: 80px;
+  }
+  .hrow.odd {
+    transform: translateX(45px);
+  }
+  .hrow + .hrow {
+    margin-top: -18px;
+  }
+}
+
 

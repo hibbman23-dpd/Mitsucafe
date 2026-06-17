@@ -25,6 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="mitsu.css">
   <link rel="stylesheet" href="style.css?v=20260528b">
   <link rel="manifest" href="manifest.json">
 
@@ -37,6 +38,12 @@
           data-cf-beacon='{"token": "a10064ca01c84ca8b6c820a989aaca15"}'></script>
 </head>
 <body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="hanko" viewBox="0 0 100 100">
+      <rect x="14" y="14" width="72" height="72" rx="7" fill="var(--seal,#B83A2E)" transform="rotate(-3 50 50)"/>
+      <text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif JP',serif" font-size="46" fill="#F2EBDD">蜜</text>
+    </symbol>
+  </svg>
   <div id="app">
     <!-- Rendered by order.js -->
     <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9e8a78;font-size:.9rem;">
@@ -44,7 +51,17 @@
     </div>
   </div>
 
+  <!-- ======== 3D CAROUSEL DIALOG ======== -->
+  <div class="ov" id="ov" aria-modal="true" role="dialog" aria-label="Chi tiết món">
+    <button class="ov-close" id="ovClose" aria-label="Đóng">✕</button>
+    <button class="arrow prev" id="ovPrev" aria-label="Món trước">‹</button>
+    <div class="stage"><div class="ring" id="ring"></div></div>
+    <button class="arrow next" id="ovNext" aria-label="Món sau">›</button>
+    <div class="detail" id="detail"></div>
+  </div>
+
   <script src="menu-data.js?v=20260528c"></script>
+  <script src="mitsu-theme.js"></script>
   <script src="order.js?v=20260614a"></script>
 </body>
 </html>

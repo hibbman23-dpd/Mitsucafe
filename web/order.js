@@ -44,10 +44,31 @@ const CAT_EMOJI = {
   pastry:         '🥐',
 };
 
+const MITSU_CATEGORIES = [
+  { id: 'all', label: 'Tất cả', emoji: '蜜' },
+  { id: 'kin', label: 'Chăm chỉ', emoji: '勤' },
+  { id: 'ritsu', label: 'Kỷ luật', emoji: '律' },
+  { id: 'so', label: 'Sáng tạo', emoji: '創' },
+  { id: 'kashi', label: 'Ăn kèm', emoji: '菓' }
+];
+
+const BEE_GROUP_EMOJI = {
+  kin: '勤',
+  ritsu: '律',
+  so: '創',
+  kashi: '菓'
+};
+
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let screen       = 'menu';    // menu | checkout | success
 let sheet        = null;      // null | 'item' | 'cart' | 'upsell'
 let activeCat    = 'all';
+let activeMenuMode = 'list';   // list | grid
+let curCat       = null;
+let curItems     = [];
+let curIdx       = 0;
+let step         = 0;
+let radius       = 0;
 let lastActiveCat = 'all';
 let lastScreen    = 'menu';
 let selItem      = null;      // MENU_DATA row đang xem
@@ -163,8 +184,7 @@ function cartBadge() {
 }
 
 function renderCatPills() {
-  const cats = [{ id:'all', label:'Tất cả', emoji:'🍶' }, ...CATEGORIES];
-  return cats.map(c =>
+  return MITSU_CATEGORIES.map(c =>
     `<button class="cat-pill${activeCat === c.id ? ' active' : ''}" data-action="cat" data-cat="${c.id}">
        ${c.emoji} ${c.label}
      </button>`
@@ -174,66 +194,95 @@ function renderCatPills() {
 // ─── SCREEN: MENU ─────────────────────────────────────────────────────────────
 function renderMenuScreen() {
   const items = MENU_DATA.filter(i => i.available &&
-    (activeCat === 'all' || i.subcategory === activeCat));
+    (activeCat === 'all' || i.bee_group === activeCat));
 
-  // Group by subcategory (preserving CATEGORIES order)
-  const order = CATEGORIES.map(c => c.id);
+  const order = ['kin', 'ritsu', 'so', 'kashi'];
   const groups = {};
   items.forEach(i => {
-    if (!groups[i.subcategory]) groups[i.subcategory] = [];
-    groups[i.subcategory].push(i);
+    if (!groups[i.bee_group]) groups[i.bee_group] = [];
+    groups[i.bee_group].push(i);
   });
 
-  const catLabel = {};
-  CATEGORIES.forEach(c => { catLabel[c.id] = `${c.emoji} ${c.label}`; });
+  const catLabel = {
+    kin: '勤 Chăm chỉ (Kin)',
+    ritsu: '律 Kỷ luật (Ritsu)',
+    so: '創 Sáng tạo (Sō)',
+    kashi: '菓 Ăn kèm (Kashi)'
+  };
 
   let html = '';
-  order.forEach(sub => {
-    if (!groups[sub]) return;
-    if (activeCat === 'all')
-      html += `<div class="group-header">${catLabel[sub]}</div>`;
-    groups[sub].sort((a,b) => a.sort_order - b.sort_order).forEach(item => {
-      const badge  = ROLE_BADGE[item.role];
-      const emoji  = CAT_EMOJI[item.subcategory] || '🍶';
-      html += `
-        <div class="item-card" data-action="open-item" data-sku="${item.sku}" data-role="${item.role || ''}">
-          <div class="item-emoji">${emoji}</div>
-          <div class="item-info">
-            <div class="item-name-row">
-              <span class="item-name">${item.name}</span>
-              ${badge ? `<span class="role-badge ${badge.cls}">${badge.text}</span>` : ''}
+  if (activeMenuMode === 'list') {
+    order.forEach(sub => {
+      if (!groups[sub]) return;
+      if (activeCat === 'all')
+        html += `<div class="group-header">${catLabel[sub]}</div>`;
+      groups[sub].sort((a,b) => a.sort_order - b.sort_order).forEach(item => {
+        const badge  = ROLE_BADGE[item.role];
+        const emoji  = BEE_GROUP_EMOJI[item.bee_group] || '蜜';
+        html += `
+          <div class="item-card" data-action="open-item" data-sku="${item.sku}" data-role="${item.role || ''}">
+            <div class="item-emoji" style="font-family: var(--jp); font-weight: 600; color: var(--seal);">${emoji}</div>
+            <div class="item-info">
+              <div class="item-name-row">
+                <span class="item-name">${item.name}</span>
+                ${badge ? `<span class="role-badge ${badge.cls}">${badge.text}</span>` : ''}
+              </div>
+              ${item.name_jp ? `<div class="item-jp">${item.name_jp}</div>` : ''}
+              ${item.story   ? `<div class="item-story">${item.story}</div>` : ''}
+              <div class="item-price">
+                ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_m_old)}</span>` : ''}
+                ${fmt(item.price_m)}
+                ${item.price_l ? ` <span class="price-sep">·</span> ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_l_old)}</span>` : ''}${fmt(item.price_l)}` : ''}
+                ${item.price_l ? `<span class="size-hint"> M / L</span>` : ''}
+              </div>
             </div>
-            ${item.name_jp ? `<div class="item-jp">${item.name_jp}</div>` : ''}
-            ${item.story   ? `<div class="item-story">${item.story}</div>` : ''}
-            <div class="item-price">
-              ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_m_old)}</span>` : ''}
-              ${fmt(item.price_m)}
-              ${item.price_l ? ` <span class="price-sep">·</span> ${activePromo && activePromo.active ? `<span class="price-old">${fmt(item.price_l_old)}</span>` : ''}${fmt(item.price_l)}` : ''}
-              ${item.price_l ? `<span class="size-hint"> M / L</span>` : ''}
-            </div>
-          </div>
-          <button class="add-btn" data-action="quick-add" data-sku="${item.sku}">+</button>
-        </div>`;
+            <button class="add-btn" data-action="quick-add" data-sku="${item.sku}">+</button>
+          </div>`;
+      });
     });
-  });
+    html = `<main class="menu-list">${html || '<p class="empty">Không có món nào.</p>'}</main>`;
+  } else {
+    const flat = [];
+    order.forEach(sub => {
+      if (!groups[sub]) return;
+      groups[sub].sort((a,b) => a.sort_order - b.sort_order).forEach(it => {
+        flat.push(it);
+      });
+    });
+    
+    const perRow = window.innerWidth <= 720 ? 3 : 5;
+    let rows = '', rIdx = 0;
+    for (let x = 0; x < flat.length; x += perRow) {
+      const cells = flat.slice(x, x + perRow).map(f => {
+        const emoji = BEE_GROUP_EMOJI[f.bee_group] || '蜜';
+        return `
+          <div class="hex ghex" data-action="open-item" data-sku="${f.sku}" role="button" tabindex="0" aria-label="${f.name}">
+            <div class="in">
+              ${hexPhoto(emoji)}
+              <div class="cap"><span class="n">${f.name}</span></div>
+            </div>
+          </div>`;
+      }).join('');
+      rows += `<div class="hrow ${rIdx % 2 ? 'odd' : ''}">${cells}</div>`;
+      rIdx++;
+    }
+    html = `<main id="gallery-container">${rows || '<p class="empty">Không có món nào.</p>'}</main>`;
+  }
 
   return `
     <header class="app-header">
       <a href="kaeru.html" class="header-home-btn" title="Trang chủ">
-        <svg width="18" height="18" viewBox="0 0 50 52" fill="none">
-          <path d="M5,19 C11,9 22,11 25,14 C28,11 39,9 45,19" stroke="currentColor" stroke-width="3.8" stroke-linecap="round"/>
-          <rect x="9" y="21" width="32" height="3.5" fill="currentColor" rx="1.2"/>
-          <rect x="16.5" y="13" width="3.5" height="34" fill="currentColor" rx="1.2"/>
-          <rect x="30" y="13" width="3.5" height="34" fill="currentColor" rx="1.2"/>
-          <rect x="13.5" y="44" width="10" height="3" fill="currentColor" rx="1"/>
-          <rect x="26.5" y="44" width="10" height="3" fill="currentColor" rx="1"/>
-        </svg>
-        KaeruKàphê
+        <svg class="hanko" style="width:20px; height:20px; display:inline-block; vertical-align:middle; margin-right:4px;"><use href="#hanko"/></svg>
+        <span class="wm">mitsu<span class="dot">.</span></span>
       </a>
       ${tableId ? `<div class="table-chip">Bàn ${tableId}</div>` : '<div></div>'}
     </header>
     <div class="cat-scroll"><div class="cat-pills">${renderCatPills()}</div></div>
-    <main class="menu-list">${html || '<p class="empty">Không có món nào.</p>'}</main>
+    <div class="menu-view-toggle">
+      <button class="${activeMenuMode === 'list' ? 'active' : ''}" data-action="toggle-view" data-view="list">Danh sách</button>
+      <button class="${activeMenuMode === 'grid' ? 'active' : ''}" data-action="toggle-view" data-view="grid">Tổ ong</button>
+    </div>
+    ${html}
     ${cartBadge()}`;
 }
 
@@ -725,6 +774,120 @@ function render() {
   }
 }
 
+// ─── 3D CAROUSEL ─────────────────────────────────────────────────────────────
+const hexPhoto = (k) => `<div class="photo" data-k="${k}"></div>`;
+
+function openCarousel(catId, idx) {
+  const catItems = MENU_DATA.filter(item => item.bee_group === catId && item.available);
+  if (!catItems.length) return;
+
+  const ov = document.getElementById('ov');
+  const ring = document.getElementById('ring');
+  if (!ov || !ring) return;
+
+  curCat = catId;
+  curItems = catItems;
+  curIdx = idx;
+  step = 360 / curItems.length;
+  radius = Math.round(100 / Math.tan(Math.PI / Math.max(curItems.length, 3))) + 60;
+
+  const groupEmoji = BEE_GROUP_EMOJI[catId] || '蜜';
+  ring.innerHTML = curItems.map((it, i) => `
+    <div class="hex ccell" data-i="${i}" style="transform:rotateY(${i * step}deg) translateZ(${radius}px)">
+      <div class="in">
+        ${hexPhoto(groupEmoji)}
+        <div class="cap">
+          <span class="n">${it.name}</span>
+          <span class="p">${fmt(it.price_m)}</span>
+        </div>
+      </div>
+    </div>`).join('');
+
+  ov.classList.add('on');
+  document.body.style.overflow = 'hidden';
+  updateCarousel();
+}
+
+function updateCarousel() {
+  const ring = document.getElementById('ring');
+  const detail = document.getElementById('detail');
+  if (!ring || !detail) return;
+
+  ring.style.transform = `translateZ(-${radius}px) rotateY(${-curIdx * step}deg)`;
+
+  [...ring.children].forEach((el, i) => {
+    el.classList.toggle('active', i === curIdx);
+  });
+
+  const it = curItems[curIdx];
+  const catNames = {
+    kin: '勤 · Chăm chỉ',
+    ritsu: '律 · Kỷ luật',
+    so: '創 · Sáng tạo',
+    kashi: '菓 · Bánh ăn kèm'
+  };
+
+  detail.innerHTML = `
+    <div class="dk jp">${catNames[curCat] || '蜜'}</div>
+    <div class="dn">${it.name}</div>
+    <div class="dp">${fmt(it.price_m)}</div>
+    ${it.story ? `<div class="dd">${it.story}</div>` : ''}
+    <button class="dadd" data-action="carousel-add" data-sku="${it.sku}">Thêm vào giỏ</button>
+  `;
+
+  detail.style.animation = 'none';
+  void detail.offsetWidth;
+  detail.style.animation = '';
+}
+
+function moveCarousel(dir) {
+  if (!curItems.length) return;
+  curIdx = (curIdx + dir + curItems.length) % curItems.length;
+  updateCarousel();
+}
+
+function closeCarousel() {
+  const ov = document.getElementById('ov');
+  if (ov) ov.classList.remove('on');
+  document.body.style.overflow = '';
+}
+
+function initCarousel() {
+  const ovClose = document.getElementById('ovClose');
+  const ovPrev = document.getElementById('ovPrev');
+  const ovNext = document.getElementById('ovNext');
+  const ov = document.getElementById('ov');
+  const ring = document.getElementById('ring');
+
+  if (ovClose) ovClose.onclick = closeCarousel;
+  if (ovPrev) ovPrev.onclick = () => moveCarousel(-1);
+  if (ovNext) ovNext.onclick = () => moveCarousel(1);
+  if (ov) {
+    ov.onclick = (e) => {
+      if (e.target === ov) closeCarousel();
+    };
+  }
+  if (ring) {
+    ring.onclick = (e) => {
+      const cell = e.target.closest('.ccell');
+      if (cell) {
+        const i = parseInt(cell.dataset.i, 10);
+        if (i === curIdx) return;
+        curIdx = i;
+        updateCarousel();
+      }
+    };
+  }
+  document.addEventListener('keydown', (e) => {
+    const ovEl = document.getElementById('ov');
+    if (ovEl && ovEl.classList.contains('on')) {
+      if (e.key === 'Escape') closeCarousel();
+      if (e.key === 'ArrowRight') moveCarousel(1);
+      if (e.key === 'ArrowLeft') moveCarousel(-1);
+    }
+  });
+}
+
 // ─── SHEET OPEN / CLOSE ──────────────────────────────────────────────────────
 function openItemSheet(sku) {
   selItem = MENU_DATA.find(m => m.sku === sku);
@@ -886,8 +1049,25 @@ document.addEventListener('click', e => {
       render();
       break;
 
-    case 'open-item':
-      openItemSheet(el.dataset.sku);
+    case 'toggle-view':
+      activeMenuMode = el.dataset.view;
+      render();
+      break;
+
+    case 'open-item': {
+      const sku = el.dataset.sku;
+      const item = MENU_DATA.find(m => m.sku === sku);
+      if (item) {
+        const catItems = MENU_DATA.filter(i => i.bee_group === item.bee_group && i.available);
+        const idx = catItems.findIndex(i => i.sku === sku);
+        openCarousel(item.bee_group, idx);
+      }
+      break;
+    }
+
+    case 'carousel-add':
+      closeCarousel();
+      quickAdd(el.dataset.sku);
       break;
 
     case 'quick-add':
@@ -1372,6 +1552,7 @@ function init() {
 
   render();
   checkPromoStatus().then(() => render());
+  initCarousel();
   
   // Khởi chạy vòng lặp kiểm tra khách quen từ Camera AI (3 giây/lần)
   setInterval(pollActiveCustomer, 3000);
