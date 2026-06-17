@@ -44,11 +44,21 @@ def main():
             try: c = json.loads(c)
             except: c = {}
 
+        def get_bee_group(sku, subcat):
+            if subcat == 'pastry':
+                return 'kashi'
+            if subcat == 'machine_coffee' or subcat == 'fruit_tea':
+                return 'ritsu'
+            if subcat in ['blended', 'kissaten'] or sku in ['DR004', 'DR005', 'DR006']:
+                return 'so'
+            return 'kin'
+
         obj = {
             'sku':         item['sku'],
             'name':        item['name'],
             'name_jp':     item.get('name_jp') or None,
             'subcategory': item.get('subcategory', ''),
+            'bee_group':   get_bee_group(item['sku'], item.get('subcategory', '')),
             'role':        item.get('role', ''),
             'price_m':     item.get('price_m', item.get('price', 0)),
             'price_l':     item.get('price_l') or None,
