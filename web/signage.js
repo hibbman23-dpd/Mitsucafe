@@ -124,12 +124,12 @@ function renderCombo(combo, menu){
 
 function renderTem(){
   var slots='';
-  for(var i=1;i<=10;i++){ slots += i<=7 ? '<span class="stamp on">茶</span>' : (i===10?'<span class="stamp free">無</span>':'<span class="stamp">'+i+'</span>'); }
+  for(var i=1;i<=10;i++){ slots += i<=7 ? '<span class="stamp on">蜜</span>' : (i===10?'<span class="stamp free">無</span>':'<span class="stamp">'+i+'</span>'); }
   return '<section class="scene show"><div class="tem"><div class="tem-h r" style="--d:.3s">スタンプカード · THẺ TÍCH TEM</div>'
     +'<div class="tem-big r" style="--d:.45s">Đủ <b>10 tem</b> = <b>1 ly miễn phí</b></div>'
     +'<div class="tem-card r pop" style="--d:.6s">'+slots+'</div>'
     +'<div class="tem-steps r" style="--d:1.1s">Mỗi ly nước mua = <b>1 tem</b> · đọc số điện thoại khi đặt để tích.<br>Đủ 10 tem → nhắc nhân viên đổi <b>1 ly miễn phí</b>.</div>'
-    +'<img class="tem-frog r" style="--d:.9s" src="kaeru-mascot.webp" alt=""></div></section>';
+    +'<img class="tem-frog r" style="--d:.9s" src="img/mitsu/char-queen-joyful.webp" alt=""></div></section>';
 }
 
 function renderVideo(youtubeId, leftItem, rightItem){
@@ -137,7 +137,7 @@ function renderVideo(youtubeId, leftItem, rightItem){
     return '<div class="vside">'+WAVE_SIDE_SVG+cupSvg(it.subcategory).replace('sp-cup','vcup'+(extra||''))+'<div class="vcaption r" style="--d:'+delay+'s">'+esc(it.name)+'<span class="p">'+fmt(it.price_m)+'</span></div></div>'; };
   return '<section class="scene show"><div class="vid">'+side(leftItem,0.9)
     +'<div class="vcenter"><div class="vframe r pop" style="--d:.4s"><iframe src="https://www.youtube-nocookie.com/embed/'+encodeURIComponent(youtubeId)+'?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&modestbranding=1&loop=1&playlist='+encodeURIComponent(youtubeId)+'" allow="autoplay; encrypted-media" frameborder="0"></iframe></div>'
-    +'<div class="vtitle r" style="--d:.7s">かえるの物語<span class="s">Câu chuyện của Kaeru</span></div></div>'
+    +'<div class="vtitle r" style="--d:.7s">三蜜の物語<span class="s">Câu chuyện của Mitsu</span></div></div>'
     +side(rightItem,1,' two')+'</div></section>';
 }
 
@@ -154,7 +154,7 @@ function renderImage(scene){
 }
 
 function renderBrand(){
-  return '<section class="scene show"><div class="combo"><img class="brand-frog r" style="--d:.3s" src="kaeru-mascot.webp" alt=""><div class="sp-name r" style="--d:.6s;text-align:center">KaeruKàphê</div><div class="sp-story r" style="--d:.9s;text-align:center;font-style:normal">お茶の心を、ふるさとへ。</div></div></section>';
+  return '<section class="scene show"><div class="combo"><img class="brand-frog r" style="--d:.3s" src="img/mitsu/char-queen-joyful.webp" alt=""><div class="sp-name r" style="--d:.6s;text-align:center">mitsu<span class="dot">.</span></div><div class="sp-story r" style="--d:.9s;text-align:center;font-style:normal">蜜を集めて、絆を繋ぐ。</div></div></section>';
 }
 
 var WAVE_BAND_SVG = '<svg viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 120 Q120 70 240 110 T480 110 T720 110 T960 110 T1200 110 T1440 110 L1440 200 L0 200 Z" style="fill:var(--wave1)"/><path d="M0 140 Q120 100 240 132 T480 132 T720 132 T960 132 T1200 132 T1440 132 L1440 200 L0 200 Z" style="fill:var(--wave2)"/></svg><svg class="b" viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 150 Q160 110 320 144 T640 144 T960 144 T1280 144 T1600 144 L1600 200 L0 200 Z" style="fill:var(--wave3)"/></svg>';

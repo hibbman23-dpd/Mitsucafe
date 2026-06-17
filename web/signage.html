@@ -5,20 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://script.google.com https://script.googleusercontent.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://cloudflareinsights.com;">
-<title>KaeruKàphê — Màn hình</title>
+<title>mitsu. — Màn hình</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500;700;900&family=IM+Fell+English+SC&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
-  --indigo:#0D3340; --indigo2:#15485A; --teal:#2D5F6B; --teal-lt:#488aa0;
-  --coral:#FF5E40; --coral-dk:#d84326; --moss:#8AA14F; --moss-lt:#b6cd6f;
-  --cream:#FCF7EC; --cream-dim:#e2d8c2; --gold:#E0A93F; --gold-lt:#FFD071;
-  --ink:#08171c; --straw:#D8B877; --seal:#E0402C;
-  --jp:'Noto Serif JP',serif; --en:'IM Fell English SC',serif; --body:'Lora',serif;
+  --amber:#C68A3E; --amber-deep:#9C6A2C;
+  --cream:#F2EBDD; --cream-warm:#EFE6D4;
+  --sumi:#1C1C1A; --sumi-soft:#3A3833;
+  --hanko:#B83A2E; --moss:#6E7A4F;
+  --seal:var(--hanko);
+  --indigo:var(--sumi); --indigo2:var(--sumi-soft); --teal:var(--amber); --teal-lt:var(--amber);
+  --coral:var(--hanko); --coral-dk:var(--hanko); --moss-lt:var(--moss);
+  --cream-dim:rgba(28,28,26,.6); --gold:var(--amber); --gold-lt:var(--amber);
+  --ink:var(--sumi); --straw:var(--amber);
+  --jp:'Noto Serif JP',serif; --en:'Cormorant Garamond',serif; --body:'Be Vietnam Pro',sans-serif;
 }
-.tv.night{--cream:#FCF7EC;--cream-dim:#e2d8c2;--indigo:#0D3340;--indigo2:#15485A;--straw:#C4A872;--wave1:#07232c;--wave2:#0c2e38;--wave3:#15384a;--wave-foam:#FCF7EC;--bg1:#2a6e80;--bg2:#15485A;--bg3:#0D3340;--bg4:#07232c;--sun-a:rgba(255,94,64,.55);--sun-b:rgba(255,94,64,.28)}
-.tv.day{--cream:#0D3340;--cream-dim:#3a5b66;--indigo:#F3EAD6;--indigo2:#FCF7EC;--straw:#8a6a3a;--wave1:#cdb98c;--wave2:#b9d3d6;--wave3:#9fc0c4;--wave-foam:#0D3340;--bg1:#FCF7EC;--bg2:#F3EAD6;--bg3:#E9DCC0;--bg4:#DFCEAA;--sun-a:rgba(224,140,90,.30);--sun-b:rgba(224,169,63,.18)}
+.tv.night{--cream:#F2EBDD;--cream-dim:rgba(242,235,221,.62);--indigo:#16130E;--indigo2:#221C14;--straw:var(--amber);--wave1:#1c1812;--wave2:#252018;--wave3:#2d261d;--wave-foam:#F2EBDD;--bg1:#4a3822;--bg2:#2c2114;--bg3:#1c150d;--bg4:#0f0c08;--sun-a:rgba(184,58,46,.55);--sun-b:rgba(184,58,46,.22)}
+.tv.day{--cream:#1C1C1A;--cream-dim:#3A3833;--indigo:#F2EBDD;--indigo2:#EFE6D4;--straw:var(--amber-deep);--wave1:#e2d8c3;--wave2:#dacfba;--wave3:#d2c5ae;--wave-foam:#1C1C1A;--bg1:#EFE6D4;--bg2:#F2EBDD;--bg3:#E7DCC6;--bg4:#dfd4be;--sun-a:rgba(198,138,62,.30);--sun-b:rgba(198,138,62,.18)}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000}
 body{font-family:var(--body);color:var(--cream)}
@@ -192,12 +197,21 @@ body{font-family:var(--body);color:var(--cream)}
 </style>
 </head>
 <body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="hanko" viewBox="0 0 100 100">
+    <rect x="14" y="14" width="72" height="72" rx="7" fill="var(--hanko,#B83A2E)" transform="rotate(-3 50 50)"/>
+    <text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif JP',serif" font-size="46" fill="#F2EBDD">蜜</text>
+  </symbol>
+</svg>
 <div class="tv night" id="tv">
   <div class="sun"></div><div class="sun-disc"></div><div class="sun-ring"></div>
   <div class="frame"></div>
   <div class="topbar">
-    <span class="kanjilogo">茶</span>
-    <div class="brandwrap"><span class="en">KaeruKàphê</span><span class="vi">Bubble Tea &amp; Cà phê · Lâm Hà</span></div>
+    <svg style="width:5.4vh; height:5.4vh; vertical-align:middle; fill:currentColor; margin-right:1vh;"><use href="#hanko"/></svg>
+    <div class="brandwrap">
+      <span class="en" style="font-family: var(--en); font-weight:600; font-size:3.2vh; color:var(--cream);">mitsu<span style="color:var(--amber);">.</span></span>
+      <span class="vi" style="font-family: var(--body); font-size:1.45vh; color:var(--cream-dim); letter-spacing:.2em; text-transform:uppercase; margin-top:.5vh;">Cà phê · Trà sữa · Lâm Hà</span>
+    </div>
     <span class="open-dot"></span><span class="open-txt" id="open-txt">Đang mở cửa</span>
     <span class="clock" id="clock">--:--</span>
   </div>
