@@ -4,27 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow, noarchive">
-  <title>KaeruCam AI — Hệ thống Giám sát Camera AI</title>
+  <title>Mitsu 蜜 Cam AI — Hệ thống Giám sát Camera AI</title>
   <!-- Google Fonts: Outfit & Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   
+  <link rel="stylesheet" href="mitsu.css">
   <style>
     :root {
-      --bg-color: hsl(222, 47%, 9%);
-      --panel-bg: hsla(222, 47%, 14%, 0.75);
-      --border-color: hsla(222, 47%, 25%, 0.4);
-      --glass-border: hsla(0, 0%, 100%, 0.08);
-      --text-main: hsl(0, 0%, 95%);
-      --text-muted: hsl(215, 20%, 65%);
+      --bg-color: var(--bg);
+      --panel-bg: var(--surface);
+      --border-color: var(--line);
+      --glass-border: var(--line-soft);
+      --text-main: var(--text);
+      --text-muted: var(--text-dim);
       
-      --accent-cyan: hsl(190, 100%, 45%);
+      --accent-cyan: var(--accent);
       --accent-cyan-glow: hsla(190, 100%, 45%, 0.35);
-      --accent-red: hsl(350, 85%, 55%);
+      --accent-red: var(--seal);
       --accent-red-glow: hsla(350, 85%, 55%, 0.3);
-      --accent-yellow: hsl(45, 100%, 50%);
-      --accent-green: hsl(150, 80%, 45%);
+      --accent-yellow: var(--accent-deep);
+      --accent-green: var(--moss);
       
       --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -35,7 +36,7 @@
       padding: 0;
     }
 
-    body {
+    body.mitsu {
       font-family: 'Inter', sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
@@ -668,7 +669,7 @@
     }
   </style>
 </head>
-<body>
+<body class="mitsu">
   <div class="glow-bg"></div>
   <div class="glow-bg-right"></div>
 
@@ -677,7 +678,7 @@
     <div class="login-card">
       <span class="login-icon">🐸</span>
       <div class="login-header-text">
-        <h2>KaeruCam AI</h2>
+        <h2><span class="wm">mitsu<span class="dot">.</span></span> Cam AI</h2>
         <p>Đăng nhập hệ thống giám sát an ninh</p>
       </div>
       <form id="loginForm" onsubmit="handleLogin(event)">
@@ -699,7 +700,7 @@
   <header>
     <div class="logo-container">
       <span class="logo-icon">🐸</span>
-      <span class="logo-title">KaeruCam AI</span>
+      <span class="logo-title"><span class="wm">mitsu<span class="dot">.</span></span> Cam AI</span>
       <div class="status-badge">
         <span class="status-dot"></span>
         <span>HỆ THỐNG HOẠT ĐỘNG</span>

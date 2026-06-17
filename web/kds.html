@@ -4,24 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow, noarchive">
-  <title>Màn bếp · KaeruKàphê</title>
+  <title>Màn bếp · Mitsu 蜜</title>
   <script src="menu-data.js?v=20260523"></script>
+  <link rel="stylesheet" href="mitsu.css">
   <style>
     :root {
-      --bg:      #1C3A42;
-      --surface: #243F47;
-      --teal:    #2D5F6B;
-      --coral:   #EB624A;
-      --cream:   #F5F0E8;
-      --gold:    #C8963E;
-      --green:   #4CAF50;
-      --muted:   rgba(245,240,232,.5);
-      --dim:     rgba(245,240,232,.25);
-      --border:  rgba(245,240,232,.12);
-      --radius:  10px;
+      --teal:    var(--seal);
+      --coral:   var(--accent);
+      --cream:   var(--text);
+      --gold:    var(--accent-deep);
+      --green:   var(--moss);
+      --muted:   var(--text-dim);
+      --dim:     var(--line-soft);
+      --border:  var(--line);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    body { background: var(--bg); color: var(--cream); font-family: -apple-system,'Segoe UI',sans-serif; font-size: 15px; min-height: 100vh; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system,'Segoe UI',sans-serif; font-size: 15px; min-height: 100vh; }
 
     /* ── HEADER ── */
     .kds-header {
@@ -266,12 +264,12 @@
     }
   </style>
 </head>
-<body>
+<body class="mitsu">
 
 <!-- HEADER -->
 <header class="kds-header">
   <div>
-    <div class="kds-title">☕ KaeruKàphê <small style="font-weight:400;color:var(--muted)">(Lâm Hà)</small></div>
+    <div class="kds-title"><span class="wm">mitsu<span class="dot">.</span></span> <small style="font-weight:400;color:var(--muted)">(Lâm Hà)</small></div>
     <div class="kds-sub" id="refresh-time">Đang tải...</div>
   </div>
   <button class="btn-sm" onclick="loadOrders()">↺ Làm mới</button>
