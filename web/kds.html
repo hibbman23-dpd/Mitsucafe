@@ -445,14 +445,14 @@ const POLL_MS  = 15000;
 const REPORT_TOKEN = '__REPORT_API_TOKEN__';
 const TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
 // Device approval: mỗi thiết bị 1 id (localStorage). Thiết bị mới phải được Mac Mini/Dashboard duyệt.
-function _kaeruDeviceId() {
+function _mitsuDeviceId() {
   try {
-    let id = localStorage.getItem('kaeru_device_id');
-    if (!id) { id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2); localStorage.setItem('kaeru_device_id', id); }
+    let id = localStorage.getItem('mitsu_device_id');
+    if (!id) { id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2); localStorage.setItem('mitsu_device_id', id); }
     return id;
   } catch (e) { return 'dev-nostore'; }
 }
-const DEVICE_ID = _kaeruDeviceId();
+const DEVICE_ID = _mitsuDeviceId();
 const DQ = '&device_id=' + encodeURIComponent(DEVICE_ID);
 
 // ─── MENU CONSTANTS ──────────────────────────────────────────────────────────

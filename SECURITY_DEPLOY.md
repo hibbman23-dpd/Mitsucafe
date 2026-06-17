@@ -103,7 +103,7 @@ Sau khi deploy, MỌI thiết bị đều **chưa được duyệt** → KDS hi�
 
 ## Còn lại cần cân nhắc (chưa làm)
 - **camera.html / face recognition** (giữ nguyên theo yêu cầu): dữ liệu sinh trắc học khách → cần đồng ý rõ ràng (Nghị định 13/2023 PDPD). Mixed-content `http://localhost:5000` bị chặn khi trang chạy HTTPS.
-- **CSP của index.html / kaeru.html** (trang marketing) còn `'unsafe-inline' 'unsafe-eval'` — chưa siết để không gãy embed YouTube/social. CSP chặt đã áp cho 3 trang control.
+- **CSP của index.html / mitsu.html** (trang marketing) còn `'unsafe-inline' 'unsafe-eval'` — chưa siết để không gãy embed YouTube/social. CSP chặt đã áp cho 3 trang control.
 
 ## Rollback
 Mọi thay đổi đều trong git. `git revert <commit>` cho web/Worker. GAS: redeploy version cũ trong Manage deployments. Gỡ Worker secret nếu cần: `wrangler secret delete REPORT_API_TOKEN`.

@@ -1,11 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#F5F0E8"/>
-  <!-- kasagi: vòm cong rõ, dày, dễ nhận ra ở 16px -->
-  <path d="M64,196 Q256,72 448,196" stroke="#EB624A" stroke-width="64" fill="none" stroke-linecap="round"/>
-  <!-- shimagi: xà ngang thứ hai -->
-  <rect x="96" y="222" width="320" height="44" fill="#EB624A" rx="8"/>
-  <!-- trụ trái -->
-  <rect x="136" y="170" width="60" height="300" fill="#EB624A" rx="10"/>
-  <!-- trụ phải -->
-  <rect x="316" y="170" width="60" height="300" fill="#EB624A" rx="10"/>
+  <rect width="512" height="512" rx="96" fill="#F2EBDD"/>
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#C68A3E" stroke-width="12"/>
+  <circle cx="256" cy="256" r="180" fill="none" stroke="rgba(28,28,26,.14)" stroke-width="5"/>
+  <text x="256" y="235" text-anchor="middle" font-family="'Cormorant Garamond', Georgia, serif" font-size="90" font-weight="600" fill="#1C1C1A">mitsu</text>
+  <text x="256" y="340" text-anchor="middle" font-family="'Noto Serif JP', serif" font-size="80" fill="#B83A2E">蜜</text>
 </svg>

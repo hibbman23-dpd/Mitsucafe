@@ -271,7 +271,7 @@ function renderMenuScreen() {
 
   return `
     <header class="app-header">
-      <a href="kaeru.html" class="header-home-btn" title="Trang chủ">
+      <a href="mitsu.html" class="header-home-btn" title="Trang chủ">
         <svg class="hanko" style="width:20px; height:20px; display:inline-block; vertical-align:middle; margin-right:4px;"><use href="#hanko"/></svg>
         <span class="wm">mitsu<span class="dot">.</span></span>
       </a>
@@ -1281,16 +1281,16 @@ function getCartDiscount() {
 }
 
 const STAMP_STICKERS = [
-  'img/stk-quyet-tam.webp',
-  'img/stk-vui-ve.webp',
-  'img/stk-ngac-nhien.webp',
-  'img/stk-buon-ngu.webp',
-  'img/stk-tu-hao.webp',
-  'img/stk-tam-biet.webp',
-  'img/stk-quyet-tam.webp',
-  'img/stk-vui-ve.webp',
-  'img/stk-ngac-nhien.webp',
-  'img/stk-tu-hao.webp'
+  'img/mitsu/char-kin-determined.webp',
+  'img/mitsu/char-ritsu-joyful.webp',
+  'img/mitsu/char-so-surprised.webp',
+  'img/mitsu/char-queen-sleepy.webp',
+  'img/mitsu/char-kin-proud.webp',
+  'img/mitsu/char-ritsu-goodbye.webp',
+  'img/mitsu/char-so-determined.webp',
+  'img/mitsu/char-queen-joyful.webp',
+  'img/mitsu/char-kin-surprised.webp',
+  'img/mitsu/char-ritsu-proud.webp'
 ];
 
 function renderLoyaltySection() {
@@ -1298,7 +1298,7 @@ function renderLoyaltySection() {
   if (phone.length < 9) return '';
 
   if (loadingLoyalty) {
-    return `<div class="loyalty-loading" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 8px; font-style: italic;">Đang tìm thẻ tích tem... 🐸</div>`;
+    return `<div class="loyalty-loading" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 8px; font-style: italic;">Đang tìm thẻ tích tem... 🐝</div>`;
   }
 
   const stamps = customerLoyalty ? (customerLoyalty.stamp_count || 0) : 0;
@@ -1313,7 +1313,7 @@ function renderLoyaltySection() {
       const stickerImg = STAMP_STICKERS[i] || 'img/stk-quyet-tam.webp';
       gridHtml += `
         <div class="stamp-slot active" title="Tem ${i+1}">
-          <img src="${stickerImg}" class="stamp-img" alt="🐸">
+          <img src="${stickerImg}" class="stamp-img" alt="🐝">
         </div>`;
     } else {
       gridHtml += `
@@ -1361,7 +1361,7 @@ function renderLoyaltySection() {
     <div class="loyalty-container">
       <div class="loyalty-header">
         <div class="loyalty-title">
-          <span>Thẻ tích tem Kaeru</span>
+          <span>Thẻ tích tem Mitsu</span>
           <span>${stamps}/10 🎟️</span>
         </div>
         <div class="loyalty-subtitle">${nextStepText}</div>
@@ -1578,7 +1578,7 @@ async function pollActiveCustomer() {
         lastActiveCustomerId = data.customer_id;
         
         // Hiện thông báo toast chào mừng
-        showToast(`🐸 Chào mừng ${data.name} quay lại!`);
+        showToast(`🐝 Chào mừng ${data.name} quay lại!`);
         
         // Nếu đang ở màn hình checkout, tự động điền form
         if (screen === 'checkout') {
@@ -1625,7 +1625,7 @@ function showCustomerSuggestionBanner(cust) {
   
   banner.innerHTML = `
     <div class="cs-content">
-      <span class="cs-avatar">🐸</span>
+      <span class="cs-avatar">🐝</span>
       <div class="cs-details">
         <div class="cs-title">Chào mừng <strong>${cust.name}</strong> quay lại!</div>
         <div class="cs-desc">Món uống quen thuộc: <strong>${cleanFavDrink || 'Chưa lưu'}</strong></div>

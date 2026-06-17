@@ -1,7 +1,7 @@
 /**
  * Cloudflare Worker "kaerukaphe" — phục vụ các trang CÔNG KHAI (web/) + lớp bảo mật.
  *
- * Công khai: landing (kaeru.html), đặt hàng khách (index.html), signage.
+ * Công khai: landing (mitsu.html), đặt hàng khách (index.html), signage.
  * Trang điều khiển nội bộ (dashboard / kds / camera) KHÔNG phục vụ ở đây —
  *   worker này trả 404 cho chúng; chúng chỉ sống trên worker "kaeru-ops"
  *   (hostname riêng, sau Cloudflare Access). Mọi cập nhật trang nội bộ → kaeru-ops.
@@ -35,6 +35,11 @@ const NOINDEX_PATHS = ['/signage.html', '/signage'];
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // 301 Redirects from old Kaeru URLs to new Mitsu URLs
+    if (url.pathname === '/kaeru' || url.pathname === '/kaeru.html') {
+      return Response.redirect(url.origin + '/mitsu', 301);
+    }
 
     // Public read-only image serving for signage (R2). Stable, cacheable, same-origin.
     if (url.pathname.startsWith('/sig-img/')) {
