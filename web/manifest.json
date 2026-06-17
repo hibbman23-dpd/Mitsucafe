@@ -1,11 +1,11 @@
 {
-  "name": "Lâm Hà Kissaten",
-  "short_name": "Kissaten",
-  "description": "Đặt món tại Lâm Hà Kissaten — Cà phê & Trà phong cách Nhật, Lâm Đồng",
+  "name": "Mitsu",
+  "short_name": "Mitsu",
+  "description": "Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#faf7f2",
-  "theme_color": "#2c1810",
+  "background_color": "#F2EBDD",
+  "theme_color": "#C68A3E",
   "orientation": "portrait",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
