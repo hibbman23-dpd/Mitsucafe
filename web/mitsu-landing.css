@@ -18,7 +18,9 @@ html.has-promo {
 
 body {
   font-family: var(--body);
-  background: var(--bg);
+  background: var(--bg) url('img/mitsu/pattern-honeycomb.svg') repeat;
+  background-size: 56px 98px;
+  background-attachment: fixed;
   color: var(--text);
   line-height: 1.75;
   -webkit-font-smoothing: antialiased;
@@ -139,13 +141,20 @@ nav.scrolled {
   text-decoration: none;
   color: var(--text);
 }
-.nav-logo .wm {
-  font-size: 1.6rem;
-  line-height: 1;
+.nav-logo-img {
+  height: 38px;
+  width: auto;
 }
-.nav-logo .hanko {
-  width: 28px;
-  height: 28px;
+.foot-logo-img {
+  height: 48px;
+  width: auto;
+}
+.hero-logo-img {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  margin: 0 auto;
+  display: block;
 }
 .nav-logo-text {
   display: flex;

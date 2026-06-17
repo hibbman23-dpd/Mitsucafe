@@ -4,7 +4,7 @@
   "description": "Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#F2EBDD",
+  "background_color": "#F1E5CB",
   "theme_color": "#C68A3E",
   "orientation": "portrait",
   "icons": [

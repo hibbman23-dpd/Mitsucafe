@@ -271,11 +271,14 @@ function renderMenuScreen() {
 
   return `
     <header class="app-header">
-      <a href="mitsu.html" class="header-home-btn" title="Trang chủ">
-        <svg class="hanko" style="width:20px; height:20px; display:inline-block; vertical-align:middle; margin-right:4px;"><use href="#hanko"/></svg>
-        <span class="wm">mitsu<span class="dot">.</span></span>
+      <a href="mitsu.html" class="header-home-btn" title="Trang chủ" style="display:flex; align-items:center;">
+        <img src="img/mitsu/logo-light.webp" class="header-logo-img logo-light-only" alt="Mitsu Logo" style="height:24px; width:auto;">
+        <img src="img/mitsu/logo-dark.webp" class="header-logo-img logo-dark-only" alt="Mitsu Logo" style="height:24px; width:auto;">
       </a>
-      ${tableId ? `<div class="table-chip">Bàn ${tableId}</div>` : '<div></div>'}
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="theme-toggle" data-theme-toggle aria-label="Đổi giao diện"></button>
+        ${tableId ? `<div class="table-chip">Bàn ${tableId}</div>` : ''}
+      </div>
     </header>
     <div class="cat-scroll"><div class="cat-pills">${renderCatPills()}</div></div>
     <div class="menu-view-toggle">

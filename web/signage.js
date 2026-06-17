@@ -129,7 +129,7 @@ function renderTem(){
     +'<div class="tem-big r" style="--d:.45s">Đủ <b>10 tem</b> = <b>1 ly miễn phí</b></div>'
     +'<div class="tem-card r pop" style="--d:.6s">'+slots+'</div>'
     +'<div class="tem-steps r" style="--d:1.1s">Mỗi ly nước mua = <b>1 tem</b> · đọc số điện thoại khi đặt để tích.<br>Đủ 10 tem → nhắc nhân viên đổi <b>1 ly miễn phí</b>.</div>'
-    +'<img class="tem-frog r" style="--d:.9s" src="img/mitsu/char-queen-joyful.webp" alt=""></div></section>';
+    +'<img class="tem-bee r" style="--d:.9s" src="img/mitsu/char-queen-joyful.webp" alt=""></div></section>';
 }
 
 function renderVideo(youtubeId, leftItem, rightItem){
@@ -154,7 +154,7 @@ function renderImage(scene){
 }
 
 function renderBrand(){
-  return '<section class="scene show"><div class="combo"><img class="brand-frog r" style="--d:.3s" src="img/mitsu/char-queen-joyful.webp" alt=""><div class="sp-name r" style="--d:.6s;text-align:center">mitsu<span class="dot">.</span></div><div class="sp-story r" style="--d:.9s;text-align:center;font-style:normal">蜜を集めて、絆を繋ぐ。</div></div></section>';
+  return '<section class="scene show"><div class="combo"><img class="brand-bee r" style="--d:.3s" src="img/mitsu/char-queen-joyful.webp" alt=""><div class="sp-name r" style="--d:.6s;text-align:center">mitsu<span class="dot">.</span></div><div class="sp-story r" style="--d:.9s;text-align:center;font-style:normal">蜜を集めて、絆を繋ぐ。</div></div></section>';
 }
 
 var WAVE_BAND_SVG = '<svg viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 120 Q120 70 240 110 T480 110 T720 110 T960 110 T1200 110 T1440 110 L1440 200 L0 200 Z" style="fill:var(--wave1)"/><path d="M0 140 Q120 100 240 132 T480 132 T720 132 T960 132 T1200 132 T1440 132 L1440 200 L0 200 Z" style="fill:var(--wave2)"/></svg><svg class="b" viewBox="0 0 1440 200" preserveAspectRatio="none"><path d="M0 150 Q160 110 320 144 T640 144 T960 144 T1280 144 T1600 144 L1600 200 L0 200 Z" style="fill:var(--wave3)"/></svg>';
