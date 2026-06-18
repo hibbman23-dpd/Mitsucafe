@@ -48,7 +48,7 @@ export default {
 
     // Rewrite root "/" to serve "mitsu.html"
     if (url.pathname === '/') {
-      url.pathname = '/mitsu.html';
+      url.pathname = '/mitsu';
       const modifiedRequest = new Request(url.toString(), request);
       const assetRes = await env.ASSETS.fetch(modifiedRequest);
       const res = new Response(assetRes.body, assetRes);
