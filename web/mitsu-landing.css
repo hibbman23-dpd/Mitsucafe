@@ -635,20 +635,33 @@ nav.scrolled {
   padding: 34px;
   border-radius: var(--radius);
 }
-.queen-seal {
+.queen-char-wrap {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
-  background: var(--seal);
-  color: var(--bg);
-  font-family: var(--jp);
-  font-size: 2rem;
-  border-radius: 6px;
-  box-shadow: 0 8px 22px rgba(184,58,46,.22);
-  transform: rotate(-2deg);
+  width: 140px;
+  height: 140px;
   margin-bottom: 20px;
+}
+.queen-char-img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  transition: filter 0.3s;
+}
+
+/* Light backlighting/halo around transparent illustrations in dark mode */
+:root[data-theme="dark"] .char-img,
+:root[data-theme="dark"] .queen-char-img,
+:root[data-theme="dark"] .card-img-wrap img {
+  filter: drop-shadow(0 0 10px rgba(224, 172, 94, 0.45));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .char-img,
+  :root:not([data-theme="light"]) .queen-char-img,
+  :root:not([data-theme="light"]) .card-img-wrap img {
+    filter: drop-shadow(0 0 10px rgba(224, 172, 94, 0.45));
+  }
 }
 .queen h3 {
   font-size: 1.6rem;
@@ -987,6 +1000,27 @@ nav.scrolled {
   padding: 30px;
   position: relative;
   transition: transform 0.3s, box-shadow 0.3s;
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.film-card .card-content {
+  flex: 1;
+}
+.film-card .char-img-wrap {
+  flex: 0 0 100px;
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+.film-card .char-img {
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  transition: filter 0.3s;
 }
 .film-card:hover {
   transform: translateY(-5px);
@@ -1722,6 +1756,14 @@ dialog::backdrop {
   }
   .ghex {
     width: 100px;
+  }
+  .film-card {
+    padding: 20px;
+    gap: 12px;
+  }
+  .film-card .char-img-wrap {
+    flex: 0 0 85px;
+    height: 125px;
   }
 }
 
