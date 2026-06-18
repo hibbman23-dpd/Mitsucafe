@@ -230,9 +230,9 @@ nav.scrolled {
 
 /* --- Hero Section --- */
 .hero-sec {
-  min-height: 70vh;
-  padding-top: 80px;
-  padding-bottom: 40px;
+  min-height: auto;
+  padding-top: clamp(56px, 7vh, 96px);
+  padding-bottom: clamp(48px, 6vh, 80px);
   display: flex;
   align-items: center;
   position: relative;
