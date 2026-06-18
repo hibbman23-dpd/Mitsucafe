@@ -4,6 +4,10 @@
   "account_id": "dded21400dfc0fc17e2662f8e143b685",
   "compatibility_date": "2026-06-02",
   "main": "src/index.js",
+  "routes": [
+    { "pattern": "mitsu.cafe", "custom_domain": true },
+    { "pattern": "www.mitsu.cafe", "custom_domain": true }
+  ],
   "observability": {
     "enabled": true
   },

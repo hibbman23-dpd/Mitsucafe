@@ -36,9 +36,24 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Redirect /mitsu or /mitsu.html to the clean root "/"
+    if (url.pathname === '/mitsu' || url.pathname === '/mitsu.html') {
+      return Response.redirect(url.origin + '/', 301);
+    }
+
     // 301 Redirects from old Kaeru URLs to new Mitsu URLs
     if (url.pathname === '/kaeru' || url.pathname === '/kaeru.html') {
-      return Response.redirect(url.origin + '/mitsu', 301);
+      return Response.redirect(url.origin + '/', 301);
+    }
+
+    // Rewrite root "/" to serve "mitsu.html"
+    if (url.pathname === '/') {
+      url.pathname = '/mitsu.html';
+      const modifiedRequest = new Request(url.toString(), request);
+      const assetRes = await env.ASSETS.fetch(modifiedRequest);
+      const res = new Response(assetRes.body, assetRes);
+      for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
+      return res;
     }
 
     // Public read-only image serving for signage (R2). Stable, cacheable, same-origin.

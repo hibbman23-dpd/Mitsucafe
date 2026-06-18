@@ -601,7 +601,7 @@ function sgRenderEditor(){
 function sgSet(k,v){ if(SG.sel<0)return; SG.scenes[SG.sel][k]=v; sgRenderList(); sgPushPreview(); }
 function sgYt(v){ var m=String(v).match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,})/); return m?m[1]:String(v).trim(); }
 
-var SIG_PUBLIC = 'https://kaerukaphe.kaerukaphe.workers.dev'; // where signage reads images from
+var SIG_PUBLIC = 'https://mitsu.cafe'; // where signage reads images from
 async function sgUpload(input){
   var file=input.files&&input.files[0]; if(!file)return;
   toast('Đang tải ảnh…');

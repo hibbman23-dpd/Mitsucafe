@@ -5,4 +5,4 @@ Disallow: /kds.html
 Disallow: /camera.html
 Allow: /
 
-Sitemap: https://kaerukaphe.kaerukaphe.workers.dev/sitemap.xml
+Sitemap: https://mitsu.cafe/sitemap.xml

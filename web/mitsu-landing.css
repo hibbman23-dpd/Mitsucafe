@@ -1,4 +1,4 @@
-@import url('mitsu.css');
+/* mitsu.css được <link> trực tiếp trong <head> — bỏ @import lồng để không chặn render */
 
 /* Custom Layout and Styles for Mitsu Landing Page */
 :root {
@@ -241,9 +241,11 @@ nav.scrolled {
 .hero-inner {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-  gap: 60px;
+  gap: clamp(40px, 5vw, 80px);
   align-items: center;
+  max-width: var(--wrap);
   width: 100%;
+  margin-inline: auto;
 }
 @keyframes mitsuJump {
   0%, 100%, 65% {
@@ -1896,4 +1898,16 @@ dialog::backdrop {
   padding: 8px 12px;
   font-size: 0.82rem;
   text-align: center;
+}
+
+/* --- Tôn trọng prefers-reduced-motion: tắt animation trang trí vô hạn --- */
+@media (prefers-reduced-motion: reduce) {
+  .glowing-blob,
+  .story-bubble-ring-container { animation: none !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
