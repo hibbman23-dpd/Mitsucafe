@@ -241,9 +241,11 @@ nav.scrolled {
 .hero-inner {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-  gap: 60px;
+  gap: clamp(40px, 5vw, 80px);
   align-items: center;
+  max-width: var(--wrap);
   width: 100%;
+  margin-inline: auto;
 }
 @keyframes mitsuJump {
   0%, 100%, 65% {
