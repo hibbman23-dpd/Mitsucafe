@@ -275,20 +275,23 @@ nav.scrolled {
   width: 100%;
   max-width: 540px;
   margin: 0 auto;
-  animation: mitsuJump 4.5s ease-in-out infinite;
   transform-origin: bottom center;
 }
+/* dark mode: dìm sáng ảnh hero cho hợp nền tối */
+:root[data-theme="dark"] { --hero-dim: brightness(0.82) contrast(1.03) saturate(0.96); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --hero-dim: brightness(0.82) contrast(1.03) saturate(0.96); } }
 .hero-banner-img {
   width: 100%;
   height: auto;
   border-radius: var(--radius);
   border: 1px solid var(--line-soft);
-  box-shadow: var(--shadow-lg);
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.4s;
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--accent) 12%, transparent);
+  filter: var(--hero-dim, none);
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.4s, filter 0.3s;
 }
 .hero-banner-img:hover {
-  transform: scale(1.04);
-  box-shadow: 0 20px 42px color-mix(in srgb, var(--accent) 25%, transparent) !important;
+  transform: scale(1.03);
+  box-shadow: 0 22px 48px color-mix(in srgb, var(--accent) 22%, transparent) !important;
 }
 
 /* --- Glowing & Honeycomb Depth Layers --- */
@@ -371,7 +374,9 @@ nav.scrolled {
 .hero-text {
   display: flex;
   flex-direction: column;
+  gap: clamp(16px, 1.8vw, 24px);
 }
+.hero-text > * { margin-bottom: 0; }
 .hero-q {
   font-family: var(--disp);
   font-style: italic;
