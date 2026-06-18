@@ -4,17 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive">
-<title>Kaeru Ops — Trung tâm điều hành</title>
+<title>Mitsu 蜜 Ops — Trung tâm điều hành</title>
+<link rel="stylesheet" href="mitsu.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:hsl(222,47%,9%); --panel:hsla(222,47%,14%,.85); --panel2:hsla(222,47%,18%,.6);
-    --border:hsla(0,0%,100%,.08);
-    --text:hsl(0,0%,95%); --muted:hsl(215,20%,62%);
-    --cyan:hsl(190,100%,45%); --red:hsl(350,85%,57%); --yellow:hsl(45,100%,52%);
-    --green:hsl(150,75%,45%); --violet:hsl(265,80%,65%);
+    --panel:var(--surface); --panel2:var(--surface-2);
+    --border:var(--line);
+    --muted:var(--text-dim);
+    --cyan:var(--accent); --red:var(--seal); --yellow:var(--accent);
+    --green:var(--moss); --violet:var(--accent-deep);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
@@ -43,7 +44,7 @@
   .kpi{flex:1;min-width:80px}
   .kpi .v{font-family:'Outfit';font-size:1.5rem;font-weight:700}
   .kpi .l{color:var(--muted);font-size:.72rem;margin-top:2px}
-  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:600;margin:2px 4px 2px 0}
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:600;margin:2px 4px 2px 0;width:auto !important;height:auto !important}
   .b-cyan{background:hsla(190,100%,45%,.15);color:var(--cyan)} .b-green{background:hsla(150,75%,45%,.15);color:var(--green)}
   .b-red{background:hsla(350,85%,57%,.15);color:var(--red)} .b-yellow{background:hsla(45,100%,52%,.15);color:var(--yellow)}
   .b-violet{background:hsla(265,80%,65%,.15);color:var(--violet)} .b-muted{background:hsla(215,20%,62%,.12);color:var(--muted)}
@@ -85,11 +86,11 @@
   .toast.show{opacity:1}
 </style>
 </head>
-<body>
+<body class="mitsu">
 
 <div id="login">
   <div class="loginbox">
-    <h1>🐸 Kaeru Ops</h1>
+    <h1><span class="wm">mitsu<span class="dot">.</span></span> Ops</h1>
     <p>Trung tâm điều hành — đăng nhập để tiếp tục</p>
     <input id="u" placeholder="Tên đăng nhập" autocomplete="username">
     <input id="p" type="password" placeholder="Mật khẩu" autocomplete="current-password">
@@ -101,7 +102,7 @@
 <div id="app" style="display:none">
 <div class="wrap">
   <div class="topbar">
-    <div><h1>🐸 Kaeru Ops</h1><div class="meta" id="meta">—</div></div>
+    <div><h1><span class="wm">mitsu<span class="dot">.</span></span> Ops</h1><div class="meta" id="meta">—</div></div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span class="badge b-muted" id="dispPill" title="Trạng thái bộ điều phối (máy trợ lý nhận & chạy lệnh)">⚪ Bộ điều phối…</span>
       <button class="btn" onclick="refreshActive()">🔄 Làm mới</button>
@@ -164,8 +165,8 @@ const TKEY='dash_token';
 let timer=null, chatTimer=null, dispTimer=null, adminCache=null;
 
 // Device approval: id thiết bị (localStorage), gửi kèm mọi request.
-function _kaeruDeviceId(){try{let id=localStorage.getItem('kaeru_device_id');if(!id){id=(crypto&&crypto.randomUUID)?crypto.randomUUID():'dev-'+Date.now()+'-'+Math.random().toString(36).slice(2);localStorage.setItem('kaeru_device_id',id);}return id;}catch(e){return 'dev-nostore';}}
-const DEVICE_ID=_kaeruDeviceId();
+function _mitsuDeviceId(){try{let id=localStorage.getItem('mitsu_device_id');if(!id){id=(crypto&&crypto.randomUUID)?crypto.randomUUID():'dev-'+Date.now()+'-'+Math.random().toString(36).slice(2);localStorage.setItem('mitsu_device_id',id);}return id;}catch(e){return 'dev-nostore';}}
+const DEVICE_ID=_mitsuDeviceId();
 
 async function apiPost(d){const body=Object.assign({device_id:DEVICE_ID},d);const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)});return r.json();}
 async function apiGet(p){const r=await fetch(GAS_URL+'?'+p+'&device_id='+encodeURIComponent(DEVICE_ID));return r.json();}

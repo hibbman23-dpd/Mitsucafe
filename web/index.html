@@ -4,27 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://script.google.com https://script.googleusercontent.com https://img.vietqr.io https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; script-src 'self' https://static.cloudflareinsights.com; frame-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://cloudflareinsights.com;">
-  <meta name="theme-color" content="#2D5F6B">
+  <meta name="theme-color" content="#C68A3E">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="KaeruKàphê">
-  <meta name="description" content="Đặt món trực tuyến tại Kaeru Bubble Tea & Cafe Lâm Hà, Lâm Đồng. Thực đơn Trà sữa Matcha, Hojicha, Cà phê phin truyền thống giao hàng nhanh chóng.">
+  <meta name="apple-mobile-web-app-title" content="Mitsu">
+  <meta name="description" content="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
   
-  <meta property="og:title" content="KaeruKàphê — Kaeru Bubble Tea & Cafe Đặt món trực tuyến">
+  <meta property="og:title" content="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hibbman23-dpd.github.io/kaerukaphe/index.html">
-  <meta property="og:image" content="https://hibbman23-dpd.github.io/kaerukaphe/kaeru-mascot.svg">
-  <meta property="og:description" content="Đặt món trực tuyến tại Kaeru Bubble Tea & Cafe Lâm Hà, Lâm Đồng. Thực đơn Trà sữa Matcha, Hojicha, Cà phê phin truyền thống giao hàng nhanh chóng.">
+  <meta property="og:image" content="https://hibbman23-dpd.github.io/kaerukaphe/icon-512.png">
+  <meta property="og:description" content="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
   <meta property="og:locale" content="vi_VN">
   <meta name="twitter:card" content="summary_large_image">
 
-  <title>KaeruKàphê — Kaeru Bubble Tea & Cafe Đặt món trực tuyến</title>
+  <title>Mitsu 蜜 — Cà phê · Trà sữa · Mang đi</title>
   
   <link rel="canonical" href="https://hibbman23-dpd.github.io/kaerukaphe/index.html">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"></noscript>
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="mitsu.css">
+  <script src="mitsu-theme.js"></script>
   <link rel="stylesheet" href="style.css?v=20260528b">
   <link rel="manifest" href="manifest.json">
 
@@ -37,11 +39,26 @@
           data-cf-beacon='{"token": "a10064ca01c84ca8b6c820a989aaca15"}'></script>
 </head>
 <body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="hanko" viewBox="0 0 100 100">
+      <rect x="14" y="14" width="72" height="72" rx="7" fill="var(--seal,#B83A2E)" transform="rotate(-3 50 50)"/>
+      <text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif JP',serif" font-size="46" fill="#F2EBDD">蜜</text>
+    </symbol>
+  </svg>
   <div id="app">
     <!-- Rendered by order.js -->
     <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9e8a78;font-size:.9rem;">
       ☕ Đang tải menu...
     </div>
+  </div>
+
+  <!-- ======== 3D CAROUSEL DIALOG ======== -->
+  <div class="ov" id="ov" aria-modal="true" role="dialog" aria-label="Chi tiết món">
+    <button class="ov-close" id="ovClose" aria-label="Đóng">✕</button>
+    <button class="arrow prev" id="ovPrev" aria-label="Món trước">‹</button>
+    <div class="stage"><div class="ring" id="ring"></div></div>
+    <button class="arrow next" id="ovNext" aria-label="Món sau">›</button>
+    <div class="detail" id="detail"></div>
   </div>
 
   <script src="menu-data.js?v=20260528c"></script>

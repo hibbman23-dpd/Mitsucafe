@@ -61,7 +61,7 @@ function formatTimestamp(date) {
 /** Cập nhật 1 ô của 1 đơn theo cột tên */
 function updateField(orderId, colName, value) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ORDERS');
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var headers = getSheetHeaders(sheet);
   var colIdx = headers.indexOf(colName) + 1;
   if (colIdx === 0) throw new Error('Column not found: ' + colName);
 
@@ -163,16 +163,39 @@ function resetErrorThrottle(context) {
 }
 
 /**
+ * Lấy danh sách tiêu đề cột (Header) từ CacheService nếu có, nếu không thì đọc từ sheet và cache lại.
+ */
+function getSheetHeaders(sheet) {
+  var sheetName = sheet.getName();
+  var cache = CacheService.getScriptCache();
+  var cachedHeader = cache.get("headers_" + sheetName);
+  if (cachedHeader) {
+    try {
+      var header = JSON.parse(cachedHeader);
+      if (header && header.length > 0) return header;
+    } catch (e) {}
+  }
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return [];
+  var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  try {
+    cache.put("headers_" + sheetName, JSON.stringify(header), 3600); // Lưu 1 tiếng
+  } catch (e) {}
+  return header;
+}
+
+/**
  * Lấy danh sách dòng cuối cùng của bảng tính kèm theo dòng tiêu đề (Header).
  * Tối ưu hóa hiệu năng, giảm dung lượng bộ nhớ đọc/ghi so với getDataRange().getValues().
  */
 function getLastRows(sheet, count) {
   var lastRow = sheet.getLastRow();
-  var lastCol = sheet.getLastColumn();
-  if (lastRow <= 1) {
-    return sheet.getDataRange().getValues();
-  }
-  var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  if (lastRow === 0) return [];
+  var header = getSheetHeaders(sheet);
+  if (header.length === 0) return [];
+  if (lastRow <= 1) return [header];
+  
+  var lastCol = header.length;
   var startRow = Math.max(2, lastRow - count + 1);
   var numRows = lastRow - startRow + 1;
   

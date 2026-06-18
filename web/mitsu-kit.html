@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitsu — Design Kit (nội bộ)</title>
+<script>
+  // anti-flash: set data-theme trước khi vẽ (chỉ khi pref là light/dark)
+  try { var p = localStorage.getItem('mitsu-theme');
+    if (p === 'light' || p === 'dark') document.documentElement.setAttribute('data-theme', p); } catch (e) {}
+</script>
+<link rel="stylesheet" href="mitsu.css">
+<style>
+  .kit { max-width:900px; margin:0 auto; padding:40px 24px 90px; }
+  .kit section { margin-top:48px; }
+  .kit .eyebrow { font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:14px; }
+  .sw { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .sw div { height:64px; border-radius:var(--radius-sm); border:1px solid var(--line); display:flex; align-items:end; padding:6px; font-size:.7rem; }
+  .row { display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+  .topbar { display:flex; align-items:center; gap:16px; }
+</style>
+</head>
+<body class="mitsu">
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="hanko" viewBox="0 0 100 100">
+    <rect x="14" y="14" width="72" height="72" rx="7" fill="var(--seal,#B83A2E)" transform="rotate(-3 50 50)"/>
+    <text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif JP',serif" font-size="46" fill="#F2EBDD">蜜</text>
+  </symbol>
+  <symbol id="three-bees" viewBox="0 0 200 200">
+    <circle class="fp1" cx="100" cy="100" r="74" fill="none" stroke="var(--accent,#C68A3E)" stroke-width="2.4"/>
+    <rect class="fp2" x="44" y="44" width="112" height="112" rx="3" fill="none" stroke="var(--moss,#6E7A4F)" stroke-width="1.6" transform="rotate(45 100 100)"/>
+    <path class="fp3" d="M100,42 C150,55 158,150 100,158 C50,150 42,95 100,72 C140,86 138,128 100,134" fill="none" stroke="var(--text,#1C1C1A)" stroke-width="1.4" opacity=".55"/>
+    <g transform="rotate(-3 100 100)">
+      <rect x="76" y="76" width="48" height="48" rx="5" fill="var(--seal,#B83A2E)"/>
+      <text x="100" y="101" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif JP',serif" font-size="30" fill="#F2EBDD">蜜</text>
+    </g>
+  </symbol>
+  <symbol id="badge" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="56" fill="none" stroke="var(--accent,#C68A3E)" stroke-width="2"/>
+    <circle cx="60" cy="60" r="48" fill="none" stroke="var(--line,rgba(28,28,26,.14))" stroke-width="1"/>
+    <text x="60" y="54" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="22" font-weight="600" fill="var(--text,#1C1C1A)">mitsu</text>
+    <text x="60" y="80" text-anchor="middle" font-family="'Noto Serif JP',serif" font-size="20" fill="var(--seal,#B83A2E)">蜜</text>
+  </symbol>
+</svg>
+<div class="kit">
+  <div class="topbar">
+    <span class="wm" style="font-size:2rem;">mitsu<span class="dot">.</span></span>
+    <svg class="hanko"><use href="#hanko"/></svg>
+    <span style="margin-left:auto"></span>
+    <button class="theme-toggle" data-theme-toggle aria-label="Đổi giao diện"></button>
+  </div>
+
+  <section>
+    <div class="eyebrow">Swatches (đổi nút theme góc phải để xem 2 theme)</div>
+    <div class="sw">
+      <div style="background:var(--bg)">--bg</div>
+      <div style="background:var(--surface)">--surface</div>
+      <div style="background:var(--accent);color:#fff">--accent</div>
+      <div style="background:var(--seal);color:#fff">--seal</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Typography</div>
+    <h1>Giọt mật của ba con ong</h1>
+    <p>Hạt này, hôm qua còn trên cây. Hôm nay đã trong ly bạn.</p>
+    <p class="jp" style="color:var(--seal)">蜜は一匹では作れない</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">Marks &amp; loader</div>
+    <div class="row">
+      <svg class="bees"><use href="#three-bees"/></svg>
+      <svg class="badge"><use href="#badge"/></svg>
+      <div class="mitsu-loader"><svg class="bees"><use href="#three-bees"/></svg>Đang pha mật…</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Nhân vật (placeholder)</div>
+    <div class="row">
+      <span class="mitsu-char mitsu-char--ph">勤</span>
+      <span class="mitsu-char mitsu-char--ph">律</span>
+      <span class="mitsu-char mitsu-char--ph">創</span>
+      <span class="mitsu-char mitsu-char--ph">女王</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Honeycomb menu (mẫu)</div>
+    <ul class="hc-menu">
+      <li class="hc-item">
+        <button class="hc-line" aria-expanded="false" aria-controls="d1">
+          <span class="hc-name">Cà phê muối</span><span class="hc-dots"></span>
+          <span class="hc-price">30k</span><span class="hc-chev" aria-hidden="true"></span>
+        </button>
+        <div class="hc-detail" id="d1" hidden>
+          <span class="hc-cell mitsu-char--ph" style="color:var(--accent)">☕</span>
+          <p class="hc-desc">Cà phê muối — vị mặn ngọt cân bằng, kem muối đánh tay. (ảnh placeholder)</p>
+        </div>
+      </li>
+      <li class="hc-item">
+        <button class="hc-line" aria-expanded="false" aria-controls="d2">
+          <span class="hc-name">Bạc xỉu</span><span class="hc-dots"></span>
+          <span class="hc-price">28k</span><span class="hc-chev" aria-hidden="true"></span>
+        </button>
+        <div class="hc-detail" id="d2" hidden>
+          <span class="hc-cell" style="color:var(--accent)">☕</span>
+          <p class="hc-desc">Bạc xỉu — nhiều sữa, cà phê nhẹ. (ảnh placeholder)</p>
+        </div>
+      </li>
+    </ul>
+  </section>
+</div>
+<script src="mitsu-theme.js"></script>
+<script src="mitsu-menu.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="hanko" viewBox="0 0 100 100">
+    <rect x="14" y="14" width="72" height="72" rx="7" fill="var(--seal,#B83A2E)" transform="rotate(-3 50 50)"/>
+    <text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif JP',serif" font-size="46" fill="#F2EBDD">蜜</text>
+  </symbol>
+  <symbol id="three-bees" viewBox="0 0 200 200">
+    <circle class="fp1" cx="100" cy="100" r="74" fill="none" stroke="var(--accent,#C68A3E)" stroke-width="2.4"/>
+    <rect class="fp2" x="44" y="44" width="112" height="112" rx="3" fill="none" stroke="var(--moss,#6E7A4F)" stroke-width="1.6" transform="rotate(45 100 100)"/>
+    <path class="fp3" d="M100,42 C150,55 158,150 100,158 C50,150 42,95 100,72 C140,86 138,128 100,134" fill="none" stroke="var(--text,#1C1C1A)" stroke-width="1.4" opacity=".55"/>
+    <g transform="rotate(-3 100 100)">
+      <rect x="76" y="76" width="48" height="48" rx="5" fill="var(--seal,#B83A2E)"/>
+      <text x="100" y="101" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif JP',serif" font-size="30" fill="#F2EBDD">蜜</text>
+    </g>
+  </symbol>
+  <symbol id="badge" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="56" fill="none" stroke="var(--accent,#C68A3E)" stroke-width="2"/>
+    <circle cx="60" cy="60" r="48" fill="none" stroke="var(--line,rgba(28,28,26,.14))" stroke-width="1"/>
+    <text x="60" y="54" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="22" font-weight="600" fill="var(--text,#1C1C1A)">mitsu</text>
+    <text x="60" y="80" text-anchor="middle" font-family="'Noto Serif JP',serif" font-size="20" fill="var(--seal,#B83A2E)">蜜</text>
+  </symbol>
+</svg>

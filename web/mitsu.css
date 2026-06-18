@@ -1,0 +1,223 @@
+/* mitsu.css — nền tảng thiết kế Mitsu (2 theme). Spec: docs/superpowers/specs/2026-06-17-mitsu-foundation-design.md */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap');
+
+:root {
+  --bg:#F1E5CB; --surface:#ECE0C4; --surface-2:#E4D8BA;
+  --text:#1C1C1A; --text-dim:#3A3833; --text-muted:rgba(28,28,26,.55);
+  --accent:#C68A3E; --accent-deep:#9C6A2C; --seal:#B83A2E; --moss:#6E7A4F;
+  --line:rgba(28,28,26,.14); --line-soft:rgba(28,28,26,.08);
+  --radius:8px; --radius-sm:4px;
+  --disp:"Cormorant Garamond",Georgia,serif;
+  --body:"Be Vietnam Pro",system-ui,sans-serif;
+  --jp:"Noto Serif JP",serif;
+}
+:root[data-theme="dark"] {
+  --bg:#16130E; --surface:#221C14; --surface-2:#2C2419;
+  --text:#F2EBDD; --text-dim:rgba(242,235,221,.62); --text-muted:rgba(242,235,221,.4);
+  --accent:#E0AC5E; --accent-deep:#C68A3E; --seal:#C9483B; --moss:#8A9568;
+  --line:rgba(242,235,221,.12); --line-soft:rgba(242,235,221,.07);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#16130E; --surface:#221C14; --surface-2:#2C2419;
+    --text:#F2EBDD; --text-dim:rgba(242,235,221,.62); --text-muted:rgba(242,235,221,.4);
+    --accent:#E0AC5E; --accent-deep:#C68A3E; --seal:#C9483B; --moss:#8A9568;
+    --line:rgba(242,235,221,.12); --line-soft:rgba(242,235,221,.07);
+  }
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+body.mitsu { background:var(--bg); color:var(--text); font-family:var(--body); font-weight:300; line-height:1.7; -webkit-font-smoothing:antialiased; }
+.mitsu h1,.mitsu h2,.mitsu h3 { font-family:var(--disp); font-weight:500; line-height:1.1; }
+.mitsu .jp { font-family:var(--jp); }
+.mitsu .amber { color:var(--accent); }
+
+/* --- brand marks --- */
+.wm { font-family:var(--disp); font-weight:600; letter-spacing:.01em; color:var(--text); }
+.wm .dot { color:var(--accent); }
+.hanko,.bees,.badge { display:inline-block; vertical-align:middle; }
+.hanko { width:40px; height:40px; }
+.bees { width:120px; height:120px; }
+.badge { width:96px; height:96px; }
+
+/* --- three-bees loader --- */
+@keyframes mitsu-drift { to { stroke-dashoffset:-200; } }
+.mitsu-loader { display:flex; flex-direction:column; align-items:center; gap:12px; color:var(--text-dim); font-family:var(--disp); font-style:italic; }
+.mitsu-loader .bees .fp1 { stroke-dasharray:5 7; animation:mitsu-drift 9s linear infinite; }
+.mitsu-loader .bees .fp3 { stroke-dasharray:1 9; animation:mitsu-drift 14s linear infinite reverse; }
+@media (prefers-reduced-motion:reduce) { .mitsu-loader .bees .fp1,.mitsu-loader .bees .fp3 { animation:none; } }
+
+/* --- theme toggle --- */
+.theme-toggle {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.hc-theme-icon {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  color: var(--surface-2);
+  transition: color 0.2s ease;
+}
+.theme-toggle:hover .hc-theme-icon {
+  color: var(--accent);
+}
+.theme-icon-symbol {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text);
+  transition: color 0.2s ease;
+}
+.theme-toggle:hover .theme-icon-symbol {
+  color: var(--bg);
+}
+.theme-toggle[data-pref="light"] .theme-icon-symbol::before { content: "☀"; }
+.theme-toggle[data-pref="dark"] .theme-icon-symbol::before { content: "☾"; }
+.theme-toggle[data-pref="auto"] .theme-icon-symbol::before { content: "◐"; }
+
+/* --- honeycomb cell --- */
+.hc-cell { background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--accent); overflow:hidden;
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%); }
+.hc-cell img { width:100%; height:100%; object-fit:cover; }
+
+/* --- menu: text line -> expandable detail --- */
+.hc-menu { list-style:none; }
+.hc-item { border-bottom:1px dotted var(--line); }
+.hc-line { display:flex; align-items:baseline; gap:10px; width:100%; padding:11px 2px; background:none; border:0; cursor:pointer; text-align:left; color:var(--text); font:inherit; }
+.hc-line:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.hc-name { font-weight:500; }
+.hc-dots { flex:1; border-bottom:1px dotted var(--line); transform:translateY(-3px); min-width:14px; }
+.hc-price { font-family:var(--disp); color:var(--accent); }
+.hc-chev::before { content:"⌄"; color:var(--accent); display:inline-block; transition:transform .2s; }
+.hc-line[aria-expanded="true"] .hc-chev::before { transform:rotate(180deg); }
+.hc-detail { display:flex; gap:14px; align-items:center; padding:4px 2px 16px; }
+.hc-detail[hidden] { display:none; }
+.hc-detail .hc-cell { width:96px; height:104px; flex-shrink:0; }
+.hc-desc { font-size:.92rem; color:var(--text-dim); }
+@media (prefers-reduced-motion:reduce) { .hc-chev::before { transition:none; } }
+
+/* --- nhân vật minh hoạ (raster, thay hi-res sau) --- */
+.mitsu-char { display:inline-block; width:120px; aspect-ratio:3/4; border-radius:var(--radius); background:var(--surface); border:1px solid var(--line-soft); object-fit:contain; }
+.mitsu-char--ph { display:flex; align-items:center; justify-content:center; color:var(--accent); font-family:var(--jp); font-size:1.6rem; }
+.mitsu-char--sm { width:72px; }
+.mitsu-char--lg { width:200px; }
+
+/* --- logo visibility utilities --- */
+.logo-dark-only { display: none !important; }
+.logo-light-only { display: inline-block !important; }
+
+:root[data-theme="dark"] .logo-dark-only { display: inline-block !important; }
+:root[data-theme="dark"] .logo-light-only { display: none !important; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .logo-dark-only { display: inline-block !important; }
+  :root:not([data-theme="light"]) .logo-light-only { display: none !important; }
+}
+
+/* --- Honeycomb Header Cart Button --- */
+.header-cart-btn {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.header-cart-btn:hover {
+  transform: scale(1.05);
+}
+.hc-cart-icon {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  color: var(--surface-2);
+  transition: color 0.2s ease;
+}
+.header-cart-btn:hover .hc-cart-icon {
+  color: var(--accent);
+}
+.header-cart-btn.has-items .hc-cart-icon {
+  color: var(--accent);
+}
+.hc-shape {
+  width: 100%;
+  height: 100%;
+  stroke: var(--line);
+  stroke-width: 4px;
+}
+.cart-svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text);
+  transition: color 0.2s ease;
+}
+.header-cart-btn:hover .cart-svg {
+  color: var(--bg);
+}
+.header-cart-btn.has-items .cart-svg {
+  color: var(--bg);
+}
+.header-cart-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--seal);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 2px 6px rgba(184, 58, 46, 0.4);
+  transform: scale(0);
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.header-cart-btn.has-items .header-cart-badge {
+  transform: scale(1);
+}
+
+/* --- Inline Bee Icon Tagline --- */
+.bee-i-svg {
+  width: 0.9em;
+  height: 0.9em;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 0.05em;
+  fill: var(--accent);
+  position: relative;
+  top: -0.05em;
+}
+
