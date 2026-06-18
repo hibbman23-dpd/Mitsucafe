@@ -769,12 +769,9 @@ nav.scrolled {
 
 /* Honeycomb Grid View */
 #gallery {
-  display: none;
+  display: block;
   margin-top: 40px;
   overflow: hidden;
-}
-#gallery.on {
-  display: block;
 }
 .hrow {
   display: flex;
@@ -1547,8 +1544,8 @@ dialog::backdrop {
   }
   .hero-sec {
     text-align: center;
-    height: 100dvh;
-    min-height: 580px;
+    height: auto;
+    min-height: 100dvh;
     box-sizing: border-box;
     padding-top: calc(70px + 4vw);
     padding-bottom: 25px;
@@ -1632,8 +1629,8 @@ dialog::backdrop {
 
 @media (max-width: 600px) {
   .hero-sec {
-    height: 100dvh;
-    min-height: 520px;
+    height: auto;
+    min-height: 100dvh;
     box-sizing: border-box;
     padding-top: calc(65px + 4vw);
     padding-bottom: 20px;
