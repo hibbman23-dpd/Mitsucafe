@@ -183,11 +183,13 @@
     
     function renderGalleryGrid() {
       const isMobile = window.innerWidth <= 720;
-      const perRow = isMobile ? 3 : 5;
+      const basePerRow = isMobile ? 3 : 5;
       let rows = '', rIdx = 0;
+      let cursor = 0;
       
-      for (let x = 0; x < flat.length; x += perRow) {
-        const cells = flat.slice(x, x + perRow).map(f => `
+      while (cursor < flat.length) {
+        const perRow = rIdx % 2 ? (basePerRow - 1) : basePerRow;
+        const cells = flat.slice(cursor, cursor + perRow).map(f => `
           <div class="ghex" data-sku="${f.sku}" role="button" tabindex="0" aria-label="${f.name}">
             <div class="hex">
               <div class="in">
@@ -197,6 +199,7 @@
             <div class="cap"><span class="n">${f.name}</span></div>
           </div>`).join('');
         rows += `<div class="hrow ${rIdx % 2 ? 'odd' : ''}">${cells}</div>`;
+        cursor += perRow;
         rIdx++;
       }
       galleryEl.innerHTML = rows;

@@ -1587,7 +1587,7 @@ dialog::backdrop {
     justify-content: center;
   }
   .hrow.odd {
-    transform: translateX(48px);
+    transform: none;
   }
   .grid3, .sig-row, .films-grid {
     grid-template-columns: 1fr;
@@ -1706,11 +1706,16 @@ dialog::backdrop {
   .stamps-grid {
     grid-template-columns: 1fr;
   }
+  #gallery {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+  }
   .hrow {
     gap: 10px;
   }
   .hrow.odd {
-    transform: translateX(55px);
+    transform: none;
   }
   .hrow + .hrow {
     margin-top: -21px;
