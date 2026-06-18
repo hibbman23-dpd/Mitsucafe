@@ -94,14 +94,34 @@
     </a>
     <ul class="nav-links">
       <li><a href="#story">Câu chuyện</a></li>
-      <li><a href="#tammat">Tam Mật</a></li>
       <li><a href="#menu">Thực đơn</a></li>
+      <li><a href="#tammat">Tam Mật</a></li>
       <li><a href="#exp">Trải nghiệm</a></li>
-      <li><a href="#launch">Hành trình</a></li>
       <li><a href="index.html?utm_source=landing" class="nav-cta">Đặt ngay</a></li>
     </ul>
     <div class="nav-right-tools">
-      <button class="theme-toggle" data-theme-toggle></button>
+      <button class="theme-toggle" data-theme-toggle aria-label="Đổi giao diện">
+        <div class="hc-theme-icon">
+          <svg class="hc-shape" viewBox="0 0 100 100" fill="currentColor">
+            <polygon points="50 3, 97 27, 97 73, 50 97, 3 73, 3 27"/>
+          </svg>
+          <div class="theme-icon-symbol"></div>
+        </div>
+      </button>
+      
+      <!-- Honeycomb Cart Icon -->
+      <a href="index.html?utm_source=landing" class="header-cart-btn" id="header-cart-wrapper" aria-label="Giỏ hàng">
+        <div class="hc-cart-icon">
+          <svg class="hc-shape" viewBox="0 0 100 100" fill="currentColor">
+            <polygon points="50 3, 97 27, 97 73, 50 97, 3 73, 3 27"/>
+          </svg>
+          <svg class="cart-svg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+          </svg>
+        </div>
+        <span class="header-cart-badge" id="header-cart-count">0</span>
+      </a>
+
       <a href="index.html?utm_source=landing" class="nav-order-btn">Đặt ngay</a>
     </div>
   </div>
@@ -110,38 +130,50 @@
 <main id="main">
 
   <!-- ======== HERO ======== -->
-  <section class="hero" id="top">
-    <div class="hero-text">
-      <p class="hero-q">“Một giọt mật cần ba con ong.<br>Bạn đoán được mỗi con làm gì không?”</p>
-      <h1 class="hero-title">
-        <img src="img/mitsu/logo-light.webp" class="hero-logo-img logo-light-only" alt="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
-        <img src="img/mitsu/logo-dark.webp" class="hero-logo-img logo-dark-only" alt="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
-      </h1>
-      <p class="hero-desc">Cà phê &amp; trà sữa mang đi, pha với cái tâm của một quán Junkissa Nhật — ở Lâm Hà. Nơi vị ngọt bắt đầu từ sự chân thành và gắn kết.</p>
-      
-      <div class="hero-meta">
-        <div>
-          <div class="k">Nghĩa</div>
-          <div class="v">蜜 mật &nbsp;·&nbsp; 密 gắn kết</div>
+  <section class="hero-sec" id="top">
+    <div class="glowing-blob blob-1"></div>
+    <div class="glowing-blob blob-2"></div>
+    <div class="floating-hexagon hex-1"></div>
+    <div class="floating-hexagon hex-2"></div>
+    <div class="floating-hexagon hex-3"></div>
+    <div class="wrap hero-inner">
+      <div class="hero-text">
+        <p class="hero-q">“Một giọt mật cần ba con ong.<br>Bạn đoán được mỗi con làm gì không?”</p>
+        <h1 class="hero-title">
+          <img src="img/mitsu/logo-light.webp" class="hero-logo-img logo-light-only" alt="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
+          <img src="img/mitsu/logo-dark.webp" class="hero-logo-img logo-dark-only" alt="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
+        </h1>
+        <p class="hero-desc">Cà phê &amp; trà sữa mang đi, pha với cái tâm của một quán Junkissa Nhật — ở Lâm Hà. Nơi vị ngọt bắt đầu từ sự chân thành và gắn kết.</p>
+        
+        <div class="hero-socials">
+          <a class="soc-btn" href="https://www.facebook.com/profile.php?id=61590071517195" target="_blank" rel="noopener" aria-label="Facebook">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </a>
+          <a class="soc-btn" href="https://www.instagram.com/kaerukaphe/" target="_blank" rel="noopener" aria-label="Instagram">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+          </a>
+          <a class="soc-btn" href="https://www.tiktok.com/@mitsucafe" target="_blank" rel="noopener" aria-label="TikTok">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.12-1.43-.22-.15-.43-.32-.62-.51-.11.84-.32 1.66-.64 2.44-.1-.01-.2-.03-.3-.04-.84 1.61-2.27 2.92-3.95 3.58-1.53.6-3.27.65-4.83.13-1.44-.48-2.69-1.55-3.41-2.89-.83-1.52-.97-3.41-.39-5.02.58-1.61 1.87-2.94 3.49-3.56 1.41-.54 3.01-.5 4.39.12v4.29c-.77-.42-1.69-.53-2.52-.3-1.07.3-1.92 1.25-2.07 2.36-.18 1.34.77 2.64 2.1 2.81 1.24.16 2.52-.64 2.81-1.87.08-.34.09-.7.04-1.05.02-3.83.01-7.66.02-11.49z"/></svg>
+          </a>
+          <a class="soc-btn" href="https://www.threads.net/@mitsucafe" target="_blank" rel="noopener" aria-label="Threads">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.5 12c0-5.797-4.703-10.5-10.5-10.5S1.5 6.203 1.5 12 6.203 22.5 12 22.5c2.316 0 4.457-.754 6.203-2.023l-2.078-2.078C14.965 19.062 13.566 19.5 12 19.5c-4.141 0-7.5-3.359-7.5-7.5s3.359-7.5 7.5-7.5 7.5 3.359 7.5 7.5c0 1.223-.289 2.379-.801 3.402l2.09 2.09C21.758 15.938 22.5 14.055 22.5 12z M12 6.75c-2.898 0-5.25 2.352-5.25 5.25s2.352 5.25 5.25 5.25 5.25-2.352 5.25-5.25S14.898 6.75 12 6.75z"/></svg>
+          </a>
+          <a class="soc-btn" href="https://www.google.com/maps/search/?api=1&query=Mitsu+938+Đường+Hùng+Vương+Lâm+Hà+Lâm+Đồng" target="_blank" rel="noopener" aria-label="Google Maps">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          </a>
         </div>
-        <div>
-          <div class="k">Mô hình</div>
-          <div class="v">Mang đi · giao hàng · ít chỗ ngồi</div>
-        </div>
-        <div>
-          <div class="k">Slogan</div>
-          <div class="v">Gom mật ngọt, Gắn yêu thương</div>
+        
+        <div class="hero-btns">
+          <a href="index.html?utm_source=landing" class="btn-primary">Đặt ngay</a>
+          <a href="#story" class="btn-ghost">Câu chuyện</a>
         </div>
       </div>
       
-      <div class="hero-btns">
-        <a href="index.html?utm_source=landing" class="btn-primary">Đặt ngay</a>
-        <a href="#story" class="btn-ghost">Câu chuyện</a>
+      <div class="hero-art">
+        <div class="hero-banner-wrapper">
+          <img src="img/mitsu/logo-banner.webp" class="hero-banner-img" alt="Mitsu Banner">
+        </div>
       </div>
-    </div>
-    
-    <div class="hero-art">
-      <img src="img/mitsu/logo-banner.webp" class="hero-banner-img" alt="Mitsu Banner" style="width:100%; max-width:540px; height:auto; border-radius:var(--radius); border:1px solid var(--line-soft); box-shadow:var(--shadow-lg);">
     </div>
   </section>
 
@@ -167,9 +199,39 @@
         <p>Mitsu là con ong chúa đó. <span class="jp font-bold">蜜</span> là giọt mật ba con ong tạo ra — <span class="jp font-bold">密</span> là sợi dây giữ chúng lại với nhau.</p>
       </div>
       
-      <div class="coaster reveal d4">
-        <div class="jp">蜜は一匹では作れない。<br>一つの巣に、女王は一人.</div>
-        <div class="vi">Mật không thể làm bởi một con ong. Một tổ, chỉ một ong chúa.</div>
+      <div class="films-grid reveal d4" style="margin-top: 48px;">
+        <div class="film-card">
+          <div class="who">勤 · Kin</div>
+          <h3>Chăm chỉ</h3>
+          <p>Chân dung con ong thợ bay đi học nghề tại Kyoto, làm việc không mệt mỏi từ sáng đến tối mịt.</p>
+        </div>
+        <div class="film-card">
+          <div class="who">律 · Ritsu</div>
+          <h3>Kỷ luật</h3>
+          <p>Nghệ thuật đong đếm và rót nước chính xác tới từng giây, duy trì vị ly cà phê ổn định tuyệt đối.</p>
+        </div>
+        <div class="film-card">
+          <div class="who">創 · Sō</div>
+          <h3>Sáng tạo</h3>
+          <p>Ngày quay về thung lũng Lâm Hà, ba chú ong chụm lại làm nên dòng mật ngọt đầu tiên cho người làng nếm thử.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== MENU SECTION ======== -->
+  <section class="sec-menu" id="menu">
+    <div class="wrap">
+      <div class="eyebrow reveal">Thực đơn trưng bày</div>
+      
+      <div class="menu-controls reveal d1">
+        <h2 class="sec-title">Cà phê &amp; trà sữa, <em>món bán chạy (Best Sellers)</em></h2>
+      </div>
+      
+      <div id="gallery" class="reveal d2" style="display: block;"></div>
+      
+      <div class="reveal d3" style="margin-top: 40px; display: flex; justify-content: center;">
+        <a href="index.html?utm_source=landing" class="btn-primary">Đặt ngay</a>
       </div>
     </div>
   </section>
@@ -227,74 +289,14 @@
     </div>
   </section>
 
-  <!-- ======== MENU SECTION ======== -->
-  <section class="sec-menu" id="menu">
-    <div class="wrap">
-      <div class="eyebrow reveal">Thực đơn trưng bày</div>
-      
-      <div class="menu-controls reveal d1">
-        <h2 class="sec-title">Cà phê &amp; trà sữa, <em>theo ba tính cách</em></h2>
-        <div class="view-tabs" role="group" aria-label="Kiểu xem">
-          <button id="tab-list" aria-pressed="true">Danh sách</button>
-          <button id="tab-grid" aria-pressed="false">Tổ ong</button>
-        </div>
-      </div>
-      
-      <div id="list" class="reveal d2"></div>
-      <div id="gallery" class="reveal d2"></div>
-      
-      <!-- Signature stories -->
-      <div class="sig-box reveal d3">
-        <h3>Signature kể chuyện</h3>
-        <div class="sig-row">
-          <div class="sig-item">
-            <div class="name">Tổ</div>
-            <p>Phin sữa đá Lâm Hà — điểm xuất phát truyền thống.</p>
-          </div>
-          <div class="sig-item">
-            <div class="name">Đường Bay</div>
-            <p>Espresso tonic — chuyến đi xa đầy năng lượng.</p>
-          </div>
-          <div class="sig-item">
-            <div class="name">Tam Mật</div>
-            <p>Hand-drip từ blend ba thành phần — ba tính cách cô thành một ly. Mỗi chi nhánh một công thức.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ======== EXPERIENCE SECTION ======== -->
   <section class="sec-exp" id="exp">
     <div class="wrap">
-      <div class="eyebrow reveal">Mô hình &amp; trải nghiệm</div>
-      <h2 class="sec-title reveal d1">Cái tổ <em>đi cùng bạn</em></h2>
-      <p class="lead reveal d2">Mitsu hoạt động chủ yếu theo mô hình mang đi và giao hàng, tinh thần Junkissa Nhật gói gọn trong chiếc cốc di động.</p>
+      <div class="eyebrow reveal">Chương trình thành viên</div>
+      <h2 class="sec-title reveal d1">Trải nghiệm <em>tích điểm</em></h2>
+      <p class="lead reveal d2">Mỗi ly đồ uống mang đi hoặc giao hàng là một niềm vui nho nhỏ gửi trao.</p>
       
-      <div class="sense-grid reveal d3">
-        <div class="sense-card">
-          <div class="k">Quầy lấy nhanh</div>
-          <p>Gọn gàng, đường một chiều: gọi món → pha chế → lấy nước. Không gian ngăn nắp, kỷ luật.</p>
-        </div>
-        <div class="sense-card">
-          <div class="k">Chiếc cốc</div>
-          <p>Bề mặt thương hiệu chính, dán sticker ong đặc trưng. Tấm biển hiệu di động trên phố.</p>
-        </div>
-        <div class="sense-card">
-          <div class="k">Túi giao hàng</div>
-          <p>Túi giấy kraft đóng dấu son 蜜, niêm phong cẩn thận. Mang cả tổ ong đến nhà bạn.</p>
-        </div>
-        <div class="sense-card">
-          <div class="k">Góc dừng chân</div>
-          <p>Vài ghế gỗ nhỏ, nhạc Jazz nhẹ nhàng, đèn vàng ấm cúng. Nơi nghỉ chân ngắn tiện lợi.</p>
-        </div>
-        <div class="sense-card">
-          <div class="k">Mùi mở cửa</div>
-          <p>Hương cà phê mới rang thoảng mùi gỗ hinoki và chút sáp ong đốt thơm ngọt dễ chịu.</p>
-        </div>
-      </div>
-      
-      <div class="loyalty-box reveal d4">
+      <div class="loyalty-box reveal d3">
         <div class="loyalty-desc">
           <h3>Sưu tầm ba con ong</h3>
           <p>Mỗi ly đồ uống mang đi hoặc giao hàng sẽ được dán kèm một sticker ong đại diện cho một tính cách (Chăm chỉ 勤, Kỷ luật 律, Sáng tạo 創).</p>
@@ -320,7 +322,7 @@
       </div>
       
       <!-- Fixed promo box -->
-      <div class="promo-box reveal d5">
+      <div class="promo-box reveal d4">
         <div>
           <h3>Mua 10 ly, tặng 1 ly</h3>
           <p>Khuyến mãi cố định áp dụng cho tất cả đồ uống (mang đi lẫn giao hàng). Mỗi ly là một bước bay về tổ.</p>
@@ -330,82 +332,7 @@
     </div>
   </section>
 
-  <!-- ======== LAUNCH / JOURNEY SECTION ======== -->
-  <section class="sec-launch" id="launch">
-    <div class="wrap">
-      <div class="eyebrow reveal">Chiến lược ra mắt</div>
-      <h2 class="sec-title reveal d1">Ba con ong, <em>ba thước phim</em></h2>
-      <p class="lead reveal d2">Loạt phim ngắn kể về hành trình tìm kiếm hương vị của Mitsu trước thềm khai trương.</p>
-      
-      <div class="films-grid reveal d3">
-        <div class="film-card">
-          <div class="who">勤 · Kin</div>
-          <h3>Chăm chỉ</h3>
-          <p>Chân dung con ong thợ bay đi học nghề tại Kyoto, làm việc không mệt mỏi từ sáng đến tối mịt.</p>
-        </div>
-        <div class="film-card">
-          <div class="who">律 · Ritsu</div>
-          <h3>Kỷ luật</h3>
-          <p>Nghệ thuật đong đếm và rót nước chính xác tới từng giây, duy trì vị ly cà phê ổn định tuyệt đối.</p>
-        </div>
-        <div class="film-card">
-          <div class="who">創 · Sō</div>
-          <h3>Sáng tạo</h3>
-          <p>Ngày quay về thung lũng Lâm Hà, ba chú ong chụm lại làm nên dòng mật ngọt đầu tiên cho người làng nếm thử.</p>
-        </div>
-      </div>
-      
-      <div class="rule" style="height:1px; background:var(--line); margin:60px 0;"></div>
-      
-      <div class="eyebrow reveal">Checklist hành trình</div>
-      <h2 class="sec-title reveal d1">Các bước chuẩn bị</h2>
-      
-      <ol class="journey-check reveal d2">
-        <li>
-          <div class="ct">
-            <b>Tra cứu nhãn hiệu</b>
-            <span class="sub">Hoàn thành đăng ký Mitsu nhóm 30 (cà phê), 43 (quán ăn), 35 (bán lẻ).</span>
-          </div>
-        </li>
-        <li>
-          <div class="ct">
-            <b>Mua tên miền website</b>
-            <span class="sub">Sở hữu mitsu.coffee, mitsukissa.com và mitsu.vn để chuẩn bị chạy hệ thống.</span>
-          </div>
-        </li>
-        <li>
-          <div class="ct">
-            <b>Thiết lập mạng xã hội</b>
-            <span class="sub">Đăng ký handle @mitsukissa và @mitsu.coffee trên Instagram, TikTok, Threads.</span>
-          </div>
-        </li>
-        <li>
-          <div class="ct">
-            <b>Thiết kế ấn phẩm bao bì</b>
-            <span class="sub">Tập trung vào ly mang đi và túi giấy giao hàng — những điểm chạm thương hiệu chính.</span>
-          </div>
-        </li>
-        <li>
-          <div class="ct">
-            <b>Sản xuất sticker sưu tầm</b>
-            <span class="sub">Hoàn thành bộ ba nhãn dán Kin - Ritsu - Sō phục vụ chương trình khách hàng thân thiết.</span>
-          </div>
-        </li>
-        <li>
-          <div class="ct">
-            <b>Lên sàn giao hàng trực tuyến</b>
-            <span class="sub">Mở gian hàng trên GrabFood, ShopeeFood, Be để bắt đầu bán hàng mang đi.</span>
-          </div>
-        </li>
-        <li>
-          <div class="ct">
-            <b>Chạy thử nghiệm hệ thống</b>
-            <span class="sub">Áp dụng menu 4 dòng mới và cơ chế khuyến mãi tích điểm trên website.</span>
-          </div>
-        </li>
-      </ol>
-    </div>
-  </section>
+
 
 </main>
 
@@ -419,18 +346,8 @@
           <img src="img/mitsu/logo-dark.webp" class="foot-logo-img logo-dark-only" alt="Mitsu Logo">
         </div>
         <p class="foot-tagline">
-          蜜は一匹では作れない。<br>
-          <span>Mật không thể làm bởi một con ong. Gom mật ngọt, Gắn yêu thương.</span>
+          <span>Gom mật ngọt, Gắn yêu thương</span>
         </p>
-        
-        <div class="foot-social">
-          <a class="soc-btn" href="https://www.facebook.com/profile.php?id=61590071517195" target="_blank" rel="noopener" aria-label="Facebook">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-          </a>
-          <a class="soc-btn" href="https://www.instagram.com/kaerukaphe/" target="_blank" rel="noopener" aria-label="Instagram">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-          </a>
-        </div>
       </div>
       
       <div class="foot-navs">
@@ -449,6 +366,23 @@
               <div id="contact-details" style="max-height:0; overflow:hidden; transition:max-height 0.3s ease, margin-top 0.3s ease; font-size:0.76rem; color:var(--text-muted); margin-top:0px;">
                 📍 Mitsu 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng<br>
                 📞 0975087429
+                <div class="contact-socials" style="display: flex; gap: 8px; margin-top: 10px; align-items: center;">
+                  <a class="soc-btn" style="width:32px; height:32px; background:var(--surface); border:1px solid var(--line); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:var(--text); transition:all 0.2s;" href="https://www.facebook.com/profile.php?id=61590071517195" target="_blank" rel="noopener" aria-label="Facebook">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                  </a>
+                  <a class="soc-btn" style="width:32px; height:32px; background:var(--surface); border:1px solid var(--line); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:var(--text); transition:all 0.2s;" href="https://www.instagram.com/kaerukaphe/" target="_blank" rel="noopener" aria-label="Instagram">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                  </a>
+                  <a class="soc-btn" style="width:32px; height:32px; background:var(--surface); border:1px solid var(--line); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:var(--text); transition:all 0.2s;" href="https://www.tiktok.com/@mitsucafe" target="_blank" rel="noopener" aria-label="TikTok">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.86-.6-4.12-1.43-.22-.15-.43-.32-.62-.51-.11.84-.32 1.66-.64 2.44-.1-.01-.2-.03-.3-.04-.84 1.61-2.27 2.92-3.95 3.58-1.53.6-3.27.65-4.83.13-1.44-.48-2.69-1.55-3.41-2.89-.83-1.52-.97-3.41-.39-5.02.58-1.61 1.87-2.94 3.49-3.56 1.41-.54 3.01-.5 4.39.12v4.29c-.77-.42-1.69-.53-2.52-.3-1.07.3-1.92 1.25-2.07 2.36-.18 1.34.77 2.64 2.1 2.81 1.24.16 2.52-.64 2.81-1.87.08-.34.09-.7.04-1.05.02-3.83.01-7.66.02-11.49z"/></svg>
+                  </a>
+                  <a class="soc-btn" style="width:32px; height:32px; background:var(--surface); border:1px solid var(--line); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:var(--text); transition:all 0.2s;" href="https://www.threads.net/@mitsucafe" target="_blank" rel="noopener" aria-label="Threads">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M22.5 12c0-5.797-4.703-10.5-10.5-10.5S1.5 6.203 1.5 12 6.203 22.5 12 22.5c2.316 0 4.457-.754 6.203-2.023l-2.078-2.078C14.965 19.062 13.566 19.5 12 19.5c-4.141 0-7.5-3.359-7.5-7.5s3.359-7.5 7.5-7.5 7.5 3.359 7.5 7.5c0 1.223-.289 2.379-.801 3.402l2.09 2.09C21.758 15.938 22.5 14.055 22.5 12z M12 6.75c-2.898 0-5.25 2.352-5.25 5.25s2.352 5.25 5.25 5.25 5.25-2.352 5.25-5.25S14.898 6.75 12 6.75z"/></svg>
+                  </a>
+                  <a class="soc-btn" style="width:32px; height:32px; background:var(--surface); border:1px solid var(--line); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:var(--text); transition:all 0.2s;" href="https://www.google.com/maps/search/?api=1&query=Mitsu+938+Đường+Hùng+Vương+Lâm+Hà+Lâm+Đồng" target="_blank" rel="noopener" aria-label="Google Maps">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                  </a>
+                </div>
               </div>
             </li>
           </ul>
@@ -464,13 +398,13 @@
       </div>
     </div>
     
-    <div class="foot-bottom">
-      <div class="foot-copy">© 2026 MITSU COFFEE & BUBBLE TEA · LÂM HÀ · VIỆT NAM</div>
-      <div class="foot-seal">
-        <svg class="hanko" style="width:20px; height:20px;"><use href="mitsu-assets.svg#hanko"/></svg>
-        Gom mật ngọt, Gắn yêu thương
+      <div class="foot-bottom">
+        <div class="foot-copy">© 2026 MITSU COFFEE & BUBBLE TEA · LÂM HÀ · VIỆT NAM</div>
+        <div class="foot-seal" style="font-family: var(--disp); font-size: 1.15rem; font-style: italic;">
+          <svg class="hanko" style="width:20px; height:20px;"><use href="mitsu-assets.svg#hanko"/></svg>
+          Thank you for bee-<svg class="bee-i-svg" viewBox="0 0 24 24" style="width:14px; height:14px;"><path d="M12,17c-2.8,0-5-2.2-5-5s2.2-5,5-5s5,2.2,5,5S14.8,17,12,17z"/><path d="M12,7c-0.5-2-2-3-3.5-3S6.3,5.2,6.8,7.2C7,8.2,8,9,9,9S11.5,8.5,12,7z" opacity="0.6"/><path d="M12,7c0.5-2,2-3,3.5-3s2.2,1.2,1.7,3.2C17,8.2,16,9,15,9S12.5,8.5,12,7z" opacity="0.6"/></svg>ng the part of the h<svg class="bee-i-svg" viewBox="0 0 24 24" style="width:14px; height:14px;"><path d="M12,17c-2.8,0-5-2.2-5-5s2.2-5,5-5s5,2.2,5,5S14.8,17,12,17z"/><path d="M12,7c-0.5-2-2-3-3.5-3S6.3,5.2,6.8,7.2C7,8.2,8,9,9,9S11.5,8.5,12,7z" opacity="0.6"/><path d="M12,7c0.5-2,2-3,3.5-3s2.2,1.2,1.7,3.2C17,8.2,16,9,15,9S12.5,8.5,12,7z" opacity="0.6"/></svg>ve
+        </div>
       </div>
-    </div>
   </div>
 </footer>
 
@@ -497,7 +431,7 @@
   <button class="story-bubble-close" id="story-bubble-close-trigger" aria-label="Đóng quảng cáo câu chuyện">&times;</button>
   <div class="story-bubble-ring-container" id="story-bubble-trigger">
     <div class="story-bubble-btn">
-      <img src="img/logo-footer.webp" alt="Câu chuyện Mitsu" class="story-bubble-thumb">
+      <img src="img/mitsu/char-kin-joyful.webp" alt="Câu chuyện Mitsu" class="story-bubble-thumb">
       <div class="story-bubble-play-icon">
         <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
           <path d="M8 5v14l11-7z"/>

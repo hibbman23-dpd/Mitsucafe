@@ -31,7 +31,11 @@
   
   function orderRipple(e) {
     const btn = e.currentTarget;
-    const href = btn.getAttribute('href') || ORDER_URL_BASE;
+    const sku = btn.dataset.sku;
+    let href = btn.getAttribute('href') || ORDER_URL_BASE;
+    if (sku) {
+      href = `index.html?utm_source=landing&sku=${sku}`;
+    }
     if (!href || href === '#') return;
     
     e.preventDefault();
@@ -156,7 +160,7 @@
         </div>
         <div class="items-grid">
           ${c.items.map((it, i) => `
-            <button class="mi" data-cat="${c.id}" data-i="${i}" aria-label="Xem chi tiết ${it.name}">
+            <button class="mi" data-sku="${it.sku}" aria-label="Xem chi tiết ${it.name}">
               <span class="mi-name">${it.name}</span>
               ${it.story ? `<span class="mi-note"> &nbsp;·&nbsp; ${it.story}</span>` : ''}
               <span class="mi-dots"></span>
@@ -170,7 +174,12 @@
   const galleryEl = document.getElementById('gallery');
   if (galleryEl) {
     const flat = [];
-    MENU.forEach(c => c.items.forEach((it, i) => flat.push({ cat: c.id, k: c.k, i, ...it })));
+    const bestSellerSKUs = ['DR003', 'DR004', 'DR005', 'DR010', 'DR012', 'DR015', 'DR020', 'BK001', 'BK002'];
+    MENU.forEach(c => c.items.forEach((it, i) => {
+      if (bestSellerSKUs.includes(it.sku)) {
+        flat.push({ cat: c.id, k: c.k, i, ...it });
+      }
+    }));
     
     function renderGalleryGrid() {
       const isMobile = window.innerWidth <= 720;
@@ -179,11 +188,13 @@
       
       for (let x = 0; x < flat.length; x += perRow) {
         const cells = flat.slice(x, x + perRow).map(f => `
-          <div class="hex ghex" data-cat="${f.cat}" data-i="${f.i}" role="button" tabindex="0" aria-label="${f.name}">
-            <div class="in">
-              ${hexPhoto(f.k)}
-              <div class="cap"><span class="n">${f.name}</span></div>
+          <div class="ghex" data-sku="${f.sku}" role="button" tabindex="0" aria-label="${f.name}">
+            <div class="hex">
+              <div class="in">
+                ${hexPhoto(f.k)}
+              </div>
             </div>
+            <div class="cap"><span class="n">${f.name}</span></div>
           </div>`).join('');
         rows += `<div class="hrow ${rIdx % 2 ? 'odd' : ''}">${cells}</div>`;
         rIdx++;
@@ -216,30 +227,51 @@
   const ov = document.getElementById('ov');
   const ring = document.getElementById('ring');
   const detail = document.getElementById('detail');
-  let curCat = null, curItems = [], curIdx = 0, step = 0, radius = 0;
+  let curCat = null, curItems = [], curIdx = 0, step = 0, radius = 0, lastCatIdx = {};
 
-  function openCarousel(catId, idx) {
-    const cat = MENU.find(c => c.id === catId);
-    if (!cat || !ring || !ov) return;
+  function openCarousel(sku) {
+    const allItems = [];
+    MITSU_CATEGORIES.forEach(c => {
+      const subItems = (typeof MENU_DATA !== 'undefined' ? MENU_DATA : []).filter(item => item.bee_group === c.id && item.available);
+      subItems.sort((a,b) => a.sort_order - b.sort_order);
+      subItems.forEach(it => {
+        allItems.push({ catId: c.id, k: c.k, ...it });
+      });
+    });
+
+    if (!allItems.length || !ring || !ov) return;
+
+    curItems = allItems;
+    const idx = allItems.findIndex(i => i.sku === sku);
+    curIdx = idx !== -1 ? idx : 0;
     
-    curCat = cat;
-    curItems = cat.items;
-    curIdx = idx;
+    lastCatIdx = {};
+    ['kin', 'ritsu', 'so', 'kashi'].forEach(c => {
+      lastCatIdx[c] = curItems.findIndex(item => item.catId === c);
+    });
+
+    // Set active category romaji/label for footer deep links
+    const cat = MENU.find(c => c.id === allItems[curIdx].catId);
+    curCat = cat || { id: allItems[curIdx].catId, k: allItems[curIdx].k };
+    
     step = 360 / curItems.length;
-    // Calculate radius to prevent overlap
     radius = Math.round(130 / Math.tan(Math.PI / Math.max(curItems.length, 3))) + 60;
-    
+
     ring.innerHTML = curItems.map((it, i) => `
-      <div class="hex ccell" data-i="${i}" style="transform:rotateY(${i * step}deg) translateZ(${radius}px)">
-        <div class="in">
-          ${hexPhoto(cat.k)}
-          <div class="cap">
-            <span class="n">${it.name}</span>
-            <span class="p">${formatPrice(it.price_m)}</span>
+      <div class="ccell" data-i="${i}" style="transform:rotateY(${i * step}deg) translateZ(${radius}px)">
+        <div class="ccell-wrapper">
+          <div class="hex">
+            <div class="in">
+              ${hexPhoto(it.k)}
+              <div class="cap">
+                <span class="n">${it.name}</span>
+                <span class="p">${formatPrice(it.price_m)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>`).join('');
-      
+
     ov.classList.add('on');
     document.body.style.overflow = 'hidden';
     updateCarousel();
@@ -250,28 +282,197 @@
     ring.style.transform = `translateZ(-${radius}px) rotateY(${-curIdx * step}deg)`;
     
     [...ring.children].forEach((el, i) => {
-      el.classList.toggle('active', i === curIdx);
+      const isActive = (i === curIdx);
+      const isPrev = (i === (curIdx - 1 + curItems.length) % curItems.length);
+      const isNext = (i === (curIdx + 1 + curItems.length) % curItems.length);
+      
+      el.classList.toggle('active', isActive);
+      
+      if (isActive || isPrev || isNext) {
+        el.style.opacity = isActive ? '1' : '0.38';
+        el.style.visibility = 'visible';
+        el.style.pointerEvents = 'auto';
+      } else {
+        el.style.opacity = '0';
+        el.style.visibility = 'hidden';
+        el.style.pointerEvents = 'none';
+      }
     });
     
     const it = curItems[curIdx];
+    const cat = MENU.find(c => c.id === it.catId);
+    curCat = cat || { id: it.catId, k: it.k, romaji: it.catId };
+    if (lastCatIdx) {
+      lastCatIdx[it.catId] = curIdx;
+    }
     detail.innerHTML = `
       <div class="dk jp">${curCat.k} · ${curCat.romaji}</div>
       <div class="dn">${it.name}</div>
       <div class="dp">${formatPrice(it.price_m)}</div>
       ${it.story ? `<div class="dd">${it.story}</div>` : ''}
-      <button class="dadd" data-sku="${it.sku}">Đặt món này</button>
+      <button class="dadd btn-primary" data-sku="${it.sku}" style="margin-top: 20px; font-size: 0.88rem; padding: 10px 24px;">Đặt món này</button>
     `;
     
-    // Wire ripple effect on the dynamically added button
     const daddBtn = detail.querySelector('.dadd');
     if (daddBtn) {
       daddBtn.addEventListener('click', orderRipple);
     }
     
-    // Trigger entrance animation
     detail.style.animation = 'none';
     void detail.offsetWidth;
     detail.style.animation = '';
+  }
+
+  function switchCarouselCategory(dir) {
+    if (!curItems.length) return;
+    const cats = ['kin', 'ritsu', 'so', 'kashi'];
+    const curCatId = curItems[curIdx].catId;
+    let catIdx = cats.indexOf(curCatId);
+    if (catIdx === -1) return;
+
+    let targetIdx = -1;
+    for (let i = 1; i <= cats.length; i++) {
+      const nextCatIdx = (catIdx + dir * i + cats.length * 2) % cats.length;
+      const nextCatId = cats[nextCatIdx];
+      const savedIdx = lastCatIdx[nextCatId];
+      if (savedIdx !== undefined && savedIdx !== -1) {
+        targetIdx = savedIdx;
+        break;
+      } else {
+        const fallbackIdx = curItems.findIndex(item => item.catId === nextCatId);
+        if (fallbackIdx !== -1) {
+          targetIdx = fallbackIdx;
+          break;
+        }
+      }
+    }
+
+    if (targetIdx === -1) return;
+
+    if (!ring) return;
+
+    const len = curItems.length;
+    
+    const idxA_center = curIdx;
+    const idxA_left   = (curIdx - 1 + len) % len;
+    const idxA_right  = (curIdx + 1 + len) % len;
+
+    const idxB_center = targetIdx;
+    const idxB_left   = (targetIdx - 1 + len) % len;
+    const idxB_right  = (targetIdx + 1 + len) % len;
+
+    const cellA_center = ring.children[idxA_center];
+    const cellA_left   = ring.children[idxA_left];
+    const cellA_right  = ring.children[idxA_right];
+
+    const cellB_center = ring.children[idxB_center];
+    const cellB_left   = ring.children[idxB_left];
+    const cellB_right  = ring.children[idxB_right];
+
+    if (!cellA_center || !cellB_center) return;
+
+    const slideOutY = dir > 0 ? '-60vh' : '60vh';
+    const slideInY  = dir > 0 ? '60vh' : '-60vh';
+
+    const allTransitionCells = new Set([
+      cellA_center, cellA_left, cellA_right,
+      cellB_center, cellB_left, cellB_right
+    ].filter(Boolean));
+
+    allTransitionCells.forEach(cell => {
+      cell.style.transition = 'none';
+    });
+
+    if (cellB_center) {
+      cellB_center.style.transform = `rotateY(${idxA_center * step}deg) translateZ(${radius}px) translateY(${slideInY})`;
+      cellB_center.style.opacity = '0';
+      cellB_center.style.visibility = 'visible';
+    }
+    if (cellB_left && cellB_left !== cellB_center) {
+      cellB_left.style.transform = `rotateY(${idxA_left * step}deg) translateZ(${radius}px) translateY(${slideInY})`;
+      cellB_left.style.opacity = '0';
+      cellB_left.style.visibility = 'visible';
+    }
+    if (cellB_right && cellB_right !== cellB_center && cellB_right !== cellB_left) {
+      cellB_right.style.transform = `rotateY(${idxA_right * step}deg) translateZ(${radius}px) translateY(${slideInY})`;
+      cellB_right.style.opacity = '0';
+      cellB_right.style.visibility = 'visible';
+    }
+
+    if (detail) {
+      detail.style.transition = 'opacity 0.25s ease';
+      detail.style.opacity = '0';
+    }
+
+    void ring.offsetHeight;
+
+    requestAnimationFrame(() => {
+      allTransitionCells.forEach(cell => {
+        cell.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease';
+      });
+
+      if (cellA_center) cellA_center.classList.remove('active');
+      if (cellB_center) cellB_center.classList.add('active');
+
+      if (cellA_center) {
+        cellA_center.style.transform = `rotateY(${idxA_center * step}deg) translateZ(${radius}px) translateY(${slideOutY})`;
+        cellA_center.style.opacity = '0';
+      }
+      if (cellA_left && cellA_left !== cellA_center) {
+        cellA_left.style.transform = `rotateY(${idxA_left * step}deg) translateZ(${radius}px) translateY(${slideOutY})`;
+        cellA_left.style.opacity = '0';
+      }
+      if (cellA_right && cellA_right !== cellA_center && cellA_right !== cellA_left) {
+        cellA_right.style.transform = `rotateY(${idxA_right * step}deg) translateZ(${radius}px) translateY(${slideOutY})`;
+        cellA_right.style.opacity = '0';
+      }
+
+      if (cellB_center) {
+        cellB_center.style.transform = `rotateY(${idxA_center * step}deg) translateZ(${radius}px) translateY(0)`;
+        cellB_center.style.opacity = '1';
+      }
+      if (cellB_left && cellB_left !== cellB_center) {
+        cellB_left.style.transform = `rotateY(${idxA_left * step}deg) translateZ(${radius}px) translateY(0)`;
+        cellB_left.style.opacity = '0.38';
+      }
+      if (cellB_right && cellB_right !== cellB_center && cellB_right !== cellB_left) {
+        cellB_right.style.transform = `rotateY(${idxA_right * step}deg) translateZ(${radius}px) translateY(0)`;
+        cellB_right.style.opacity = '0.38';
+      }
+    });
+
+    setTimeout(() => {
+      curIdx = targetIdx;
+      
+      const it = curItems[curIdx];
+      const cat = MENU.find(c => c.id === it.catId);
+      curCat = cat || { id: it.catId, k: it.k, romaji: it.catId };
+      if (lastCatIdx) {
+        lastCatIdx[it.catId] = curIdx;
+      }
+
+      // Snap main ring horizontal angle
+      ring.style.transition = 'none';
+      ring.style.transform = `translateZ(-${radius}px) rotateY(${-curIdx * step}deg)`;
+      void ring.offsetHeight;
+      ring.style.transition = '';
+
+      // Revert all cells back to default horizontal rotation transforms
+      [...ring.children].forEach((cell, i) => {
+        cell.style.transition = 'none';
+        cell.style.transform = `rotateY(${i * step}deg) translateZ(${radius}px)`;
+        cell.style.opacity = '';
+        cell.style.visibility = '';
+        void cell.offsetHeight;
+        cell.style.transition = '';
+      });
+
+      updateCarousel();
+
+      if (detail) {
+        detail.style.opacity = '1';
+      }
+    }, 500);
   }
 
   function moveCarousel(dir) {
@@ -291,6 +492,505 @@
     document.getElementById('ovClose').addEventListener('click', closeCarousel);
     ov.addEventListener('click', (e) => { if (e.target === ov) closeCarousel(); });
     
+    let isDragging = false;
+    let isDraggingVertically = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    let cellsA = []; // Current category cells
+    let cellsB = []; // Next category cells
+    let cellsC = []; // Prev category cells
+    let idxA = [];
+    let idxB = [];
+    let idxC = [];
+    let initialReady = false;
+    let targetIdxNext = -1;
+    let targetIdxPrev = -1;
+    const maxDragDist = 250;
+
+    function prepareVerticalDragTargets() {
+      if (!curItems.length || !ring) return;
+      const cats = ['kin', 'ritsu', 'so', 'kashi'];
+      const getCatId = (item) => item.catId || item.bee_group;
+      const curCatId = getCatId(curItems[curIdx]);
+      let catIdx = cats.indexOf(curCatId);
+      if (catIdx === -1) return;
+
+      const len = curItems.length;
+
+      // Current cells (A)
+      const idxA_center = curIdx;
+      const idxA_left   = (curIdx - 1 + len) % len;
+      const idxA_right  = (curIdx + 1 + len) % len;
+      idxA = [idxA_center, idxA_left, idxA_right];
+      cellsA = idxA.map(i => ring.children[i]);
+
+      // Next category (B) - when dragging up
+      let nextCatId = '';
+      targetIdxNext = -1;
+      for (let i = 1; i <= cats.length; i++) {
+        const nextCatIdx = (catIdx + i) % cats.length;
+        const cid = cats[nextCatIdx];
+        const savedIdx = lastCatIdx[cid];
+        if (savedIdx !== undefined && savedIdx !== -1) {
+          targetIdxNext = savedIdx;
+          nextCatId = cid;
+          break;
+        } else {
+          const fallbackIdx = curItems.findIndex(item => getCatId(item) === cid);
+          if (fallbackIdx !== -1) {
+            targetIdxNext = fallbackIdx;
+            nextCatId = cid;
+            break;
+          }
+        }
+      }
+
+      if (targetIdxNext !== -1) {
+        const idxB_center = targetIdxNext;
+        const idxB_left   = (targetIdxNext - 1 + len) % len;
+        const idxB_right  = (targetIdxNext + 1 + len) % len;
+        idxB = [idxB_center, idxB_left, idxB_right];
+        cellsB = idxB.map(i => ring.children[i]);
+      } else {
+        cellsB = [];
+      }
+
+      // Prev category (C) - when dragging down
+      let prevCatId = '';
+      targetIdxPrev = -1;
+      for (let i = 1; i <= cats.length; i++) {
+        const prevCatIdx = (catIdx - i + cats.length) % cats.length;
+        const cid = cats[prevCatIdx];
+        const savedIdx = lastCatIdx[cid];
+        if (savedIdx !== undefined && savedIdx !== -1) {
+          targetIdxPrev = savedIdx;
+          prevCatId = cid;
+          break;
+        } else {
+          const fallbackIdx = curItems.findIndex(item => getCatId(item) === cid);
+          if (fallbackIdx !== -1) {
+            targetIdxPrev = fallbackIdx;
+            prevCatId = cid;
+            break;
+          }
+        }
+      }
+
+      if (targetIdxPrev !== -1) {
+        const idxC_center = targetIdxPrev;
+        const idxC_left   = (targetIdxPrev - 1 + len) % len;
+        const idxC_right  = (targetIdxPrev + 1 + len) % len;
+        idxC = [idxC_center, idxC_left, idxC_right];
+        cellsC = idxC.map(i => ring.children[i]);
+      } else {
+        cellsC = [];
+      }
+
+      const allTransitionCells = new Set([...cellsA, ...cellsB, ...cellsC].filter(Boolean));
+      allTransitionCells.forEach(cell => {
+        cell.style.transition = 'none';
+      });
+
+      initialReady = true;
+    }
+
+    function handleDragStart(clientX, clientY) {
+      isDragging = true;
+      isDraggingVertically = false;
+      dragStartX = clientX;
+      dragStartY = clientY;
+      initialReady = false;
+    }
+
+    function handleDragMove(clientX, clientY) {
+      if (!isDragging) return;
+      const diffX = clientX - dragStartX;
+      const diffY = clientY - dragStartY;
+      const absX = Math.abs(diffX);
+      const absY = Math.abs(diffY);
+
+      if (!isDraggingVertically) {
+        if (absY > 8 && absY > absX) {
+          isDraggingVertically = true;
+          prepareVerticalDragTargets();
+        }
+      }
+
+      if (isDraggingVertically && initialReady) {
+        let ratio = diffY / maxDragDist;
+        if (ratio < -1) ratio = -1;
+        if (ratio > 1) ratio = 1;
+
+        const detail = document.getElementById('detail');
+        if (detail) {
+          detail.style.transition = 'none';
+          detail.style.opacity = Math.max(0, 1 - Math.abs(ratio) * 2);
+        }
+
+        if (ratio < 0) {
+          // Dragging up (next category B moves in from below)
+          if (cellsA[0]) {
+            cellsA[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(${ratio * 60}vh)`;
+            cellsA[0].style.opacity = 1 + ratio;
+          }
+          if (cellsA[1] && cellsA[1] !== cellsA[0]) {
+            cellsA[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(${ratio * 60}vh)`;
+            cellsA[1].style.opacity = 0.38 * (1 + ratio);
+          }
+          if (cellsA[2] && cellsA[2] !== cellsA[0] && cellsA[2] !== cellsA[1]) {
+            cellsA[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(${ratio * 60}vh)`;
+            cellsA[2].style.opacity = 0.38 * (1 + ratio);
+          }
+
+          if (cellsB[0]) {
+            cellsB[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(${(1 + ratio) * 60}vh)`;
+            cellsB[0].style.opacity = -ratio;
+            cellsB[0].style.visibility = 'visible';
+          }
+          if (cellsB[1] && cellsB[1] !== cellsB[0]) {
+            cellsB[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(${(1 + ratio) * 60}vh)`;
+            cellsB[1].style.opacity = 0.38 * -ratio;
+            cellsB[1].style.visibility = 'visible';
+          }
+          if (cellsB[2] && cellsB[2] !== cellsB[0] && cellsB[2] !== cellsB[1]) {
+            cellsB[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(${(1 + ratio) * 60}vh)`;
+            cellsB[2].style.opacity = 0.38 * -ratio;
+            cellsB[2].style.visibility = 'visible';
+          }
+
+          cellsC.forEach(cell => {
+            if (cell && !cellsA.includes(cell) && !cellsB.includes(cell)) {
+              cell.style.opacity = '0';
+              cell.style.visibility = 'hidden';
+            }
+          });
+        } else {
+          // Dragging down (prev category C moves in from above)
+          if (cellsA[0]) {
+            cellsA[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(${ratio * 60}vh)`;
+            cellsA[0].style.opacity = 1 - ratio;
+          }
+          if (cellsA[1] && cellsA[1] !== cellsA[0]) {
+            cellsA[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(${ratio * 60}vh)`;
+            cellsA[1].style.opacity = 0.38 * (1 - ratio);
+          }
+          if (cellsA[2] && cellsA[2] !== cellsA[0] && cellsA[2] !== cellsA[1]) {
+            cellsA[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(${ratio * 60}vh)`;
+            cellsA[2].style.opacity = 0.38 * (1 - ratio);
+          }
+
+          if (cellsC[0]) {
+            cellsC[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(${(-1 + ratio) * 60}vh)`;
+            cellsC[0].style.opacity = ratio;
+            cellsC[0].style.visibility = 'visible';
+          }
+          if (cellsC[1] && cellsC[1] !== cellsC[0]) {
+            cellsC[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(${(-1 + ratio) * 60}vh)`;
+            cellsC[1].style.opacity = 0.38 * ratio;
+            cellsC[1].style.visibility = 'visible';
+          }
+          if (cellsC[2] && cellsC[2] !== cellsC[0] && cellsC[2] !== cellsC[1]) {
+            cellsC[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(${(-1 + ratio) * 60}vh)`;
+            cellsC[2].style.opacity = 0.38 * ratio;
+            cellsC[2].style.visibility = 'visible';
+          }
+
+          cellsB.forEach(cell => {
+            if (cell && !cellsA.includes(cell) && !cellsC.includes(cell)) {
+              cell.style.opacity = '0';
+              cell.style.visibility = 'hidden';
+            }
+          });
+        }
+      }
+    }
+
+    function handleDragEnd(clientX, clientY) {
+      if (!isDragging) return;
+      const wasDraggingVertically = isDraggingVertically;
+      const diffX = clientX - dragStartX;
+      const diffY = clientY - dragStartY;
+      const absX = Math.abs(diffX);
+      const absY = Math.abs(diffY);
+
+      isDragging = false;
+      isDraggingVertically = false;
+
+      if (wasDraggingVertically && initialReady) {
+        const detail = document.getElementById('detail');
+        const getCatId = (item) => item.catId || item.bee_group;
+        if (diffY < -60 && targetIdxNext !== -1) {
+          const allTransitionCells = new Set([...cellsA, ...cellsB].filter(Boolean));
+          allTransitionCells.forEach(cell => {
+            cell.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease';
+          });
+          void ring.offsetHeight;
+
+          if (cellsA[0]) {
+            cellsA[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(-60vh)`;
+            cellsA[0].style.opacity = '0';
+            cellsA[0].classList.remove('active');
+          }
+          if (cellsA[1] && cellsA[1] !== cellsA[0]) {
+            cellsA[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(-60vh)`;
+            cellsA[1].style.opacity = '0';
+          }
+          if (cellsA[2] && cellsA[2] !== cellsA[0] && cellsA[2] !== cellsA[1]) {
+            cellsA[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(-60vh)`;
+            cellsA[2].style.opacity = '0';
+          }
+
+          if (cellsB[0]) {
+            cellsB[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsB[0].style.opacity = '1';
+            cellsB[0].classList.add('active');
+          }
+          if (cellsB[1] && cellsB[1] !== cellsB[0]) {
+            cellsB[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsB[1].style.opacity = '0.38';
+          }
+          if (cellsB[2] && cellsB[2] !== cellsB[0] && cellsB[2] !== cellsB[1]) {
+            cellsB[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsB[2].style.opacity = '0.38';
+          }
+
+          setTimeout(() => {
+            curIdx = targetIdxNext;
+            const it = curItems[curIdx];
+            const cat = MENU.find(c => c.id === getCatId(it));
+            curCat = cat || { id: getCatId(it), k: it.k, romaji: getCatId(it) };
+            if (lastCatIdx) lastCatIdx[getCatId(it)] = curIdx;
+
+            ring.style.transition = 'none';
+            ring.style.transform = `translateZ(-${radius}px) rotateY(${-curIdx * step}deg)`;
+            void ring.offsetHeight;
+            ring.style.transition = '';
+
+            [...ring.children].forEach((cell, i) => {
+              cell.style.transition = 'none';
+              cell.style.transform = `rotateY(${i * step}deg) translateZ(${radius}px)`;
+              cell.style.opacity = '';
+              cell.style.visibility = '';
+            });
+
+            updateCarousel();
+            if (detail) {
+              detail.style.transition = 'opacity 0.25s ease';
+              detail.style.opacity = '1';
+            }
+          }, 300);
+        } else if (diffY > 60 && targetIdxPrev !== -1) {
+          const allTransitionCells = new Set([...cellsA, ...cellsC].filter(Boolean));
+          allTransitionCells.forEach(cell => {
+            cell.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease';
+          });
+          void ring.offsetHeight;
+
+          if (cellsA[0]) {
+            cellsA[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(60vh)`;
+            cellsA[0].style.opacity = '0';
+            cellsA[0].classList.remove('active');
+          }
+          if (cellsA[1] && cellsA[1] !== cellsA[0]) {
+            cellsA[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(60vh)`;
+            cellsA[1].style.opacity = '0';
+          }
+          if (cellsA[2] && cellsA[2] !== cellsA[0] && cellsA[2] !== cellsA[1]) {
+            cellsA[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(60vh)`;
+            cellsA[2].style.opacity = '0';
+          }
+
+          if (cellsC[0]) {
+            cellsC[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsC[0].style.opacity = '1';
+            cellsC[0].classList.add('active');
+          }
+          if (cellsC[1] && cellsC[1] !== cellsC[0]) {
+            cellsC[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsC[1].style.opacity = '0.38';
+          }
+          if (cellsC[2] && cellsC[2] !== cellsC[0] && cellsC[2] !== cellsC[1]) {
+            cellsC[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsC[2].style.opacity = '0.38';
+          }
+
+          setTimeout(() => {
+            curIdx = targetIdxPrev;
+            const it = curItems[curIdx];
+            const cat = MENU.find(c => c.id === getCatId(it));
+            curCat = cat || { id: getCatId(it), k: it.k, romaji: getCatId(it) };
+            if (lastCatIdx) lastCatIdx[getCatId(it)] = curIdx;
+
+            ring.style.transition = 'none';
+            ring.style.transform = `translateZ(-${radius}px) rotateY(${-curIdx * step}deg)`;
+            void ring.offsetHeight;
+            ring.style.transition = '';
+
+            [...ring.children].forEach((cell, i) => {
+              cell.style.transition = 'none';
+              cell.style.transform = `rotateY(${i * step}deg) translateZ(${radius}px)`;
+              cell.style.opacity = '';
+              cell.style.visibility = '';
+            });
+
+            updateCarousel();
+            if (detail) {
+              detail.style.transition = 'opacity 0.25s ease';
+              detail.style.opacity = '1';
+            }
+          }, 300);
+        } else {
+          const allTransitionCells = new Set([...cellsA, ...cellsB, ...cellsC].filter(Boolean));
+          allTransitionCells.forEach(cell => {
+            cell.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease';
+          });
+          void ring.offsetHeight;
+
+          if (cellsA[0]) {
+            cellsA[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsA[0].style.opacity = '1';
+          }
+          if (cellsA[1] && cellsA[1] !== cellsA[0]) {
+            cellsA[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsA[1].style.opacity = '0.38';
+          }
+          if (cellsA[2] && cellsA[2] !== cellsA[0] && cellsA[2] !== cellsA[1]) {
+            cellsA[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsA[2].style.opacity = '0.38';
+          }
+
+          cellsB.forEach((cell, i) => {
+            if (cell) {
+              cell.style.transform = `rotateY(${idxA[i] * step}deg) translateZ(${radius}px) translateY(60vh)`;
+              cell.style.opacity = '0';
+            }
+          });
+
+          cellsC.forEach((cell, i) => {
+            if (cell) {
+              cell.style.transform = `rotateY(${idxA[i] * step}deg) translateZ(${radius}px) translateY(-60vh)`;
+              cell.style.opacity = '0';
+            }
+          });
+
+          if (detail) {
+            detail.style.transition = 'opacity 0.3s ease';
+            detail.style.opacity = '1';
+          }
+
+          setTimeout(() => {
+            [...ring.children].forEach((cell, i) => {
+              cell.style.transition = 'none';
+              cell.style.transform = `rotateY(${i * step}deg) translateZ(${radius}px)`;
+              cell.style.opacity = '';
+              cell.style.visibility = '';
+            });
+            updateCarousel();
+          }, 300);
+        }
+      } else {
+        if (Math.max(absX, absY) > 50) {
+          if (absX > absY) {
+            if (diffX > 0) moveCarousel(-1); else moveCarousel(1);
+          }
+        }
+      }
+    }
+
+    ov.addEventListener('touchstart', (e) => {
+      if (e.target.closest('#detail')) return;
+      handleDragStart(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+
+    ov.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      if (e.target.closest('#detail')) return;
+      handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+
+    ov.addEventListener('touchend', (e) => {
+      if (!isDragging) return;
+      if (e.target.closest('#detail')) return;
+      const touch = e.changedTouches[0];
+      handleDragEnd(touch.clientX, touch.clientY);
+    }, { passive: true });
+
+    ov.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('#detail')) return;
+      handleDragStart(e.clientX, e.clientY);
+    });
+
+    ov.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      if (e.target.closest('#detail')) return;
+      handleDragMove(e.clientX, e.clientY);
+    });
+
+    ov.addEventListener('mouseup', (e) => {
+      if (!isDragging) return;
+      if (e.target.closest('#detail')) return;
+      handleDragEnd(e.clientX, e.clientY);
+    });
+
+    ov.addEventListener('mouseleave', () => {
+      if (isDragging) {
+        isDragging = false;
+        if (isDraggingVertically && initialReady) {
+          const detail = document.getElementById('detail');
+          const allTransitionCells = new Set([...cellsA, ...cellsB, ...cellsC].filter(Boolean));
+          allTransitionCells.forEach(cell => {
+            cell.style.transition = 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease';
+          });
+          void ring.offsetHeight;
+
+          if (cellsA[0]) {
+            cellsA[0].style.transform = `rotateY(${idxA[0] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsA[0].style.opacity = '1';
+          }
+          if (cellsA[1] && cellsA[1] !== cellsA[0]) {
+            cellsA[1].style.transform = `rotateY(${idxA[1] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsA[1].style.opacity = '0.38';
+          }
+          if (cellsA[2] && cellsA[2] !== cellsA[0] && cellsA[2] !== cellsA[1]) {
+            cellsA[2].style.transform = `rotateY(${idxA[2] * step}deg) translateZ(${radius}px) translateY(0)`;
+            cellsA[2].style.opacity = '0.38';
+          }
+
+          cellsB.forEach((cell, i) => {
+            if (cell) {
+              cell.style.transform = `rotateY(${idxA[i] * step}deg) translateZ(${radius}px) translateY(60vh)`;
+              cell.style.opacity = '0';
+            }
+          });
+
+          cellsC.forEach((cell, i) => {
+            if (cell) {
+              cell.style.transform = `rotateY(${idxA[i] * step}deg) translateZ(${radius}px) translateY(-60vh)`;
+              cell.style.opacity = '0';
+            }
+          });
+
+          if (detail) {
+            detail.style.transition = 'opacity 0.3s ease';
+            detail.style.opacity = '1';
+          }
+
+          setTimeout(() => {
+            [...ring.children].forEach((cell, i) => {
+              cell.style.transition = 'none';
+              cell.style.transform = `rotateY(${i * step}deg) translateZ(${radius}px)`;
+              cell.style.opacity = '';
+              cell.style.visibility = '';
+            });
+            updateCarousel();
+          }, 300);
+        }
+        isDraggingVertically = false;
+      }
+    });
+
     ring.addEventListener('click', (e) => {
       const cell = e.target.closest('.ccell');
       if (cell) {
@@ -309,26 +1009,24 @@
     });
   }
 
-  // Trigger carousel from menu clicks
+  // Trigger carousel from menu or honeycomb clicks
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-cat][data-i]');
-    if (t && !t.classList.contains('hex') && !t.classList.contains('ghex')) {
-      openCarousel(t.dataset.cat, parseInt(t.dataset.i, 10));
+    const t = e.target.closest('.ghex') || e.target.closest('.mi');
+    if (t) {
+      const sku = t.dataset.sku;
+      if (sku) openCarousel(sku);
     }
-  });
-
-  // Honeycomb gallery clicks
-  document.addEventListener('click', (e) => {
-    const t = e.target.closest('.ghex');
-    if (t) openCarousel(t.dataset.cat, parseInt(t.dataset.i, 10));
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       const t = e.target.closest('.ghex') || e.target.closest('.mi');
       if (t) {
-        e.preventDefault();
-        openCarousel(t.dataset.cat, parseInt(t.dataset.i, 10));
+        const sku = t.dataset.sku;
+        if (sku) {
+          e.preventDefault();
+          openCarousel(sku);
+        }
       }
     }
   });
@@ -472,12 +1170,11 @@
       videoContainer.innerHTML = '';
     }
     
-    // Add visual play overlay on coaster for feedback
-    const coasterEl = document.querySelector('.coaster');
-    if (coasterEl) {
-      coasterEl.style.cursor = 'pointer';
-      coasterEl.addEventListener('click', openVideo);
-    }
+    // Add click listeners to film cards to open the video
+    document.querySelectorAll('.film-card').forEach(card => {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', openVideo);
+    });
     
     if (bubbleTrigger) bubbleTrigger.addEventListener('click', openVideo);
     if (bubbleBadgeTrigger) bubbleBadgeTrigger.addEventListener('click', openVideo);
@@ -508,5 +1205,129 @@
       }
     }
   })();
+
+  function updateHeaderCart() {
+    const badge = document.getElementById('header-cart-count');
+    const wrapper = document.getElementById('header-cart-wrapper');
+    if (!badge || !wrapper) return;
+    try {
+      const cart = JSON.parse(localStorage.getItem('lhk_cart') || '[]');
+      const count = cart.reduce((s, i) => s + (i.qty || 0), 0);
+      badge.textContent = count;
+      if (count > 0) {
+        wrapper.classList.add('has-items');
+      } else {
+        wrapper.classList.remove('has-items');
+      }
+    } catch (e) {
+      badge.textContent = '0';
+      wrapper.classList.remove('has-items');
+    }
+  }
+  function toggleCartPopup(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    let pop = document.getElementById('cart-popup');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'cart-popup';
+      pop.className = 'cart-pop';
+      document.body.appendChild(pop);
+    }
+
+    if (pop.classList.contains('show')) {
+      pop.classList.remove('show');
+    } else {
+      renderCartPopupContent(pop);
+      pop.classList.add('show');
+      const closePop = (ev) => {
+        if (!pop.contains(ev.target) && !ev.target.closest('#header-cart-wrapper')) {
+          pop.classList.remove('show');
+          document.removeEventListener('click', closePop);
+        }
+      };
+      document.addEventListener('click', closePop);
+    }
+  }
+
+  function renderCartPopupContent(pop) {
+    let cartItems = [];
+    try {
+      cartItems = JSON.parse(localStorage.getItem('lhk_cart') || '[]');
+    } catch (e) {
+      cartItems = [];
+    }
+
+    const formatFn = (p) => p ? `${Math.round(p / 1000)}k` : '0k';
+    const total = cartItems.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+
+    if (cartItems.length === 0) {
+      pop.innerHTML = `
+        <div class="cart-pop-header">Giỏ hàng của bạn</div>
+        <div style="padding: 20px 0; text-align: center; color: var(--text-muted); font-size: 0.88rem;">
+          Giỏ trống ☕
+        </div>
+      `;
+      return;
+    }
+
+    const listHtml = cartItems.map(ci => {
+      const item = typeof MENU_DATA !== 'undefined' ? MENU_DATA.find(m => m.sku === ci.sku) : null;
+      const group = item ? item.bee_group : 'kin';
+      const hanko = (group === 'kin' ? '勤' : group === 'ritsu' ? '律' : group === 'so' ? '創' : group === 'kashi' ? '菓' : '蜜');
+      
+      let modsStr = '';
+      if (ci.modifiers) {
+        const parts = [];
+        if (ci.modifiers.size) parts.push(ci.modifiers.size);
+        if (ci.modifiers.sugar) parts.push(`Đường: ${ci.modifiers.sugar}`);
+        if (ci.modifiers.ice) parts.push(`Đá: ${ci.modifiers.ice}`);
+        if (ci.modifiers.toppings) parts.push(ci.modifiers.toppings);
+        modsStr = parts.join(', ');
+      }
+
+      return `
+        <div class="cart-pop-item">
+          <div class="cart-pop-thumb">
+            <div class="hex">
+              <div class="in" style="inset: 1.5px;">
+                <div class="photo" data-k="${hanko}"></div>
+              </div>
+            </div>
+          </div>
+          <div class="cart-pop-info">
+            <div class="cart-pop-name">${ci.name}</div>
+            <div class="cart-pop-details">${ci.qty} × ${formatFn(ci.price)}${modsStr ? ` | <span style="font-size: 0.68rem; opacity: 0.7;">${modsStr}</span>` : ''}</div>
+          </div>
+          <div class="cart-pop-subtotal">${formatFn(ci.subtotal)}</div>
+        </div>
+      `;
+    }).join('');
+
+    pop.innerHTML = `
+      <div class="cart-pop-header">Giỏ hàng của bạn</div>
+      <div class="cart-pop-list">
+        ${listHtml}
+      </div>
+      <div class="cart-pop-footer">
+        <div class="cart-pop-total-lbl">Tổng cộng:</div>
+        <div class="cart-pop-total-val">${formatFn(total)}</div>
+      </div>
+      <a href="index.html?sheet=cart" class="btn-primary cart-pop-action" style="text-decoration: none; border-radius: 6px; display: block; font-weight: 500;">
+        Xem giỏ hàng & Thanh toán
+      </a>
+    `;
+  }
+
+  document.addEventListener('DOMContentLoaded', updateHeaderCart);
+  window.addEventListener('pageshow', updateHeaderCart);
+  updateHeaderCart();
+
+  const cartWrapper = document.getElementById('header-cart-wrapper');
+  if (cartWrapper) {
+    cartWrapper.addEventListener('click', toggleCartPopup);
+  }
 
 })();

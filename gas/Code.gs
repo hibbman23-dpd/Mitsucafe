@@ -154,13 +154,37 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  var lock = LockService.getScriptLock();
-  try {
-    // Chờ tối đa 15 giây để lấy lock cho doGet
-    lock.waitLock(15000);
-  } catch (lockErr) {
-    logError('doGet.lock', lockErr);
-    return _jsonResponse({ ok: false, error: 'System busy, please try again.' });
+  var action = e && e.parameter && e.parameter.action;
+
+  // Chỉ khóa cho các action ghi (mutation) để tránh tắc nghẽn luồng đọc (menu, pending_print, orders, v.v.)
+  var writeActions = [
+    'mark_paid',
+    'mark_printed',
+    'mark_labels_printed',
+    'set_promo',
+    'setup_financials',
+    'compute_cogs',
+    'waste_submit',
+    'review_submit',
+    'rfm_snapshot',
+    'rfm_refresh',
+    'winback_candidates',
+    'device_approve',
+    'device_revoke',
+    'dispatch_done'
+  ];
+  var isWrite = writeActions.indexOf(action) !== -1;
+
+  var lock = null;
+  if (isWrite) {
+    lock = LockService.getScriptLock();
+    try {
+      // Chờ tối đa 15 giây để lấy lock cho doGet
+      lock.waitLock(15000);
+    } catch (lockErr) {
+      logError('doGet.lock', lockErr);
+      return _jsonResponse({ ok: false, error: 'System busy, please try again.' });
+    }
   }
 
   try {
@@ -456,7 +480,9 @@ function doGet(e) {
     logError('doGet', err);
     return _jsonResponse({ ok: false, error: String(err) });
   } finally {
-    lock.releaseLock();
+    if (lock) {
+      lock.releaseLock();
+    }
   }
 }
 

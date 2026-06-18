@@ -48,12 +48,50 @@ body.mitsu { background:var(--bg); color:var(--text); font-family:var(--body); f
 @media (prefers-reduced-motion:reduce) { .mitsu-loader .bees .fp1,.mitsu-loader .bees .fp3 { animation:none; } }
 
 /* --- theme toggle --- */
-.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); cursor:pointer; }
-.theme-toggle:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-.theme-toggle::before { content:"◐"; font-size:1rem; }
-.theme-toggle[data-pref="light"]::before { content:"☀"; }
-.theme-toggle[data-pref="dark"]::before { content:"☾"; }
-.theme-toggle[data-pref="auto"]::before { content:"◐"; }
+.theme-toggle {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.hc-theme-icon {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  color: var(--surface-2);
+  transition: color 0.2s ease;
+}
+.theme-toggle:hover .hc-theme-icon {
+  color: var(--accent);
+}
+.theme-icon-symbol {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text);
+  transition: color 0.2s ease;
+}
+.theme-toggle:hover .theme-icon-symbol {
+  color: var(--bg);
+}
+.theme-toggle[data-pref="light"] .theme-icon-symbol::before { content: "☀"; }
+.theme-toggle[data-pref="dark"] .theme-icon-symbol::before { content: "☾"; }
+.theme-toggle[data-pref="auto"] .theme-icon-symbol::before { content: "◐"; }
 
 /* --- honeycomb cell --- */
 .hc-cell { background:var(--surface); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--accent); overflow:hidden;
@@ -92,5 +130,94 @@ body.mitsu { background:var(--bg); color:var(--text); font-family:var(--body); f
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .logo-dark-only { display: inline-block !important; }
   :root:not([data-theme="light"]) .logo-light-only { display: none !important; }
+}
+
+/* --- Honeycomb Header Cart Button --- */
+.header-cart-btn {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.header-cart-btn:hover {
+  transform: scale(1.05);
+}
+.hc-cart-icon {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  color: var(--surface-2);
+  transition: color 0.2s ease;
+}
+.header-cart-btn:hover .hc-cart-icon {
+  color: var(--accent);
+}
+.header-cart-btn.has-items .hc-cart-icon {
+  color: var(--accent);
+}
+.hc-shape {
+  width: 100%;
+  height: 100%;
+  stroke: var(--line);
+  stroke-width: 4px;
+}
+.cart-svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  color: var(--text);
+  transition: color 0.2s ease;
+}
+.header-cart-btn:hover .cart-svg {
+  color: var(--bg);
+}
+.header-cart-btn.has-items .cart-svg {
+  color: var(--bg);
+}
+.header-cart-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--seal);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  box-shadow: 0 2px 6px rgba(184, 58, 46, 0.4);
+  transform: scale(0);
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.header-cart-btn.has-items .header-cart-badge {
+  transform: scale(1);
+}
+
+/* --- Inline Bee Icon Tagline --- */
+.bee-i-svg {
+  width: 0.9em;
+  height: 0.9em;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0 0.05em;
+  fill: var(--accent);
+  position: relative;
+  top: -0.05em;
 }
 
