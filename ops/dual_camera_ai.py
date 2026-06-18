@@ -381,7 +381,7 @@ def process_cameras():
         # Vẽ đường ngăn cách ở giữa màn hình
         cv2.line(combined_monitor, (cam_order_frame.shape[1], 0), (cam_order_frame.shape[1], combined_monitor.shape[0]), (255, 255, 255), 2)
         
-        cv2.imshow("Kaeru Dual-Cam AI Monitor", combined_monitor)
+        cv2.imshow("Mitsu Dual-Cam AI Monitor", combined_monitor)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break

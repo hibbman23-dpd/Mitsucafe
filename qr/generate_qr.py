@@ -2,7 +2,7 @@
 generate_qr.py — Tạo QR sticker cho từng bàn + các kênh đặt hàng.
 
 Mỗi QR encode URL tới ordering PWA với table param:
-  https://hibbman23.github.io/kaerukaphe/?t=01
+  https://mitsu.cafe/?t=01
 
 Output:  qr/labels/table_XX.png  (1 file per bàn)
 
@@ -17,7 +17,7 @@ from pathlib import Path
 import qrcode
 from qrcode.constants import ERROR_CORRECT_H
 
-DEFAULT_BASE_URL = "https://hibbman23.github.io/kaerukaphe/"
+DEFAULT_BASE_URL = "https://mitsu.cafe/"
 OUT_DIR = Path(__file__).parent / "labels"
 
 

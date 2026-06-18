@@ -182,7 +182,7 @@ function _padBetween(left, right, width) {
 
 /**
  * Căn giữa text trong width.
- * VD: _center('KAERU', 32) → '             KAERU             '
+ * VD: _center('MITSU', 32) → '             MITSU             '
  */
 function _center(text, width) {
   if (text.length >= width) return text;

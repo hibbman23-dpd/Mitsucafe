@@ -218,18 +218,18 @@ function getChampionsForThanks(limit) {
 /** Draft Zalo winback message theo brand voice. */
 function draftWinbackMessage(customer) {
   var name = customer.name || 'bạn';
-  return name + ', cảm ơn bạn đã từng ghé KaeruKàphê 🐸\n\n' +
-         'Lâu rồi không thấy bạn về — かえる để dành sẵn 1 voucher 15% cho lần ghé tới của bạn.\n\n' +
-         'Có hiệu lực 7 ngày: kaerukaphe.vn/menu\n\n' +
+  return name + ', cảm ơn bạn đã từng ghé Mitsu Café 🐝\n\n' +
+         'Lâu rồi không thấy bạn về — Mitsu để dành sẵn 1 voucher 15% cho lần ghé tới của bạn.\n\n' +
+         'Có hiệu lực 7 ngày: mitsu.cafe/menu\n\n' +
          'すべての一杯に、「おかえりなさい」を。';
 }
 
 /** Draft Zalo thank-you cho Champions. */
 function draftChampionsThanks(customer) {
   var name = customer.name || 'bạn';
-  return 'Anh/chị ' + name + ', かえる thấy bạn ghé Lâm Hà ' + customer.total_orders + ' lần rồi 🍵\n\n' +
+  return 'Anh/chị ' + name + ', Mitsu thấy bạn ghé Lâm Hà ' + customer.total_orders + ' lần rồi 🍵\n\n' +
          'Cảm ơn bạn đã đồng hành. Lần sau ghé thử món mới mùa này — quán để 1 ly riêng cho bạn.\n\n' +
-         '— Team Kaeru';
+         '— Team Mitsu';
 }
 
 /** Mark winback đã send. */

@@ -243,7 +243,7 @@ function webAppWasteForm() {
     'button:hover{background:#c94f3a;}' +
     '.note{font-size:.78rem;color:#8a7d64;margin-top:6px;}' +
     '</style></head><body>' +
-    '<h1>🗑️ Log waste — KaeruKàphê</h1>' +
+    '<h1>🗑️ Log waste — Mitsu Café</h1>' +
     '<form id="f">' +
     '<label>Nguyên liệu<select name="ingredient_id" required>' + options + '</select></label>' +
     '<label>Số lượng<input type="number" name="qty" step="any" min="0.01" required></label>' +
@@ -274,7 +274,7 @@ function webAppWasteForm() {
     '</script>' +
     '</body></html>'
   );
-  html.setTitle('Log waste — KaeruKàphê');
+  html.setTitle('Log waste — Mitsu Café');
   return html;
 }
 

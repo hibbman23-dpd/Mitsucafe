@@ -1,9 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "kaeru-ops",
-  "account_id": "dded21400dfc0fc17e2662f8e143b685",
+  "name": "mitsu-ops",
+  "account_id": "f9006918f4ae2e0c4b6097a2d182bb72",
   "compatibility_date": "2026-06-02",
   "main": "src/ops.js",
+  "routes": [
+    { "pattern": "ops.mitsu.cafe", "custom_domain": true }
+  ],
   "observability": {
     "enabled": true
   },
@@ -16,6 +19,6 @@
     "nodejs_compat"
   ],
   "r2_buckets": [
-    { "binding": "SIGN_IMG", "bucket_name": "kaeru-signage-img" }
+    { "binding": "SIGN_IMG", "bucket_name": "mitsu-signage-img" }
   ]
 }

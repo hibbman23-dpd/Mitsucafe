@@ -4,7 +4,7 @@
 # Xử lý lệnh thực tế: chạy `/inbox` tay khi cần (xem dispatcher.sh nếu muốn auto).
 
 cd "$(dirname "$0")/.." || exit 1
-URL="https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec"
+URL="https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec"
 TOKEN=""
 [ -f ".claude/.dispatcher-auth.json" ] && TOKEN=$(jq -r '.report_api_token // ""' .claude/.dispatcher-auth.json 2>/dev/null)
 Q=""; [ -n "$TOKEN" ] && Q="&token=$TOKEN"

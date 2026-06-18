@@ -1,10 +1,10 @@
 /**
- * Cloudflare Worker "kaerukaphe" — phục vụ các trang CÔNG KHAI (web/) + lớp bảo mật.
+ * Cloudflare Worker "mitsucafe" — phục vụ các trang CÔNG KHAI (web/) + lớp bảo mật.
  *
  * Công khai: landing (mitsu.html), đặt hàng khách (index.html), signage.
  * Trang điều khiển nội bộ (dashboard / kds / camera) KHÔNG phục vụ ở đây —
- *   worker này trả 404 cho chúng; chúng chỉ sống trên worker "kaeru-ops"
- *   (hostname riêng, sau Cloudflare Access). Mọi cập nhật trang nội bộ → kaeru-ops.
+ *   worker này trả 404 cho chúng; chúng chỉ sống trên worker "mitsu-ops"
+ *   (hostname riêng, sau Cloudflare Access). Mọi cập nhật trang nội bộ → mitsu-ops.
  *
  * Nhiệm vụ:
  *   1. Security headers cho MỌI response (HSTS, X-Frame-Options, CSP cơ bản…).
@@ -22,7 +22,7 @@ const SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(self), microphone=(), geolocation=()',
 };
 
-// Trang điều khiển nội bộ — CHẶN trên worker công khai (chỉ kaeru-ops phục vụ).
+// Trang điều khiển nội bộ — CHẶN trên worker công khai (chỉ mitsu-ops phục vụ).
 // Gồm cả biến thể extensionless do assets html_handling redirect .html → /path.
 const BLOCKED_PATHS = [
   '/dashboard.html', '/kds.html', '/camera.html',
