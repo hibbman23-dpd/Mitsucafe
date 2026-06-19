@@ -1,10 +1,10 @@
 /**
- * Cloudflare Worker "kaeru-ops" — phục vụ RIÊNG các trang điều khiển
- * (dashboard / kds / camera) trên hostname riêng kaeru-ops.<acct>.workers.dev,
+ * Cloudflare Worker "mitsu-ops" — phục vụ RIÊNG các trang điều khiển
+ * (dashboard / kds / camera) trên hostname riêng mitsu-ops.<acct>.workers.dev,
  * đặt sau Cloudflare Access (bật toàn-domain ở Zero Trust dashboard cho worker này).
  *
  * Dùng CHUNG thư mục assets web/ với worker chính (không nhân đôi file).
- * Worker chính (kaerukaphe) CHẶN các path control → chỉ worker này phục vụ chúng.
+ * Worker chính (mitsucafe) CHẶN các path control → chỉ worker này phục vụ chúng.
  *
  * Nhiệm vụ: security headers + CSP control pages + tiêm REPORT_API_TOKEN vào kds.
  * Secret: wrangler secret put REPORT_API_TOKEN --config wrangler.ops.jsonc

@@ -1036,7 +1036,7 @@
 
   // ─── PROMOTION SYSTEM ────────────────────────────────────────────────────────
   (function() {
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec';
     const URGENT_THRESHOLD_MS = 10 * 60 * 1000;
     let promoTimer = null;
     let pricesApplied = false;

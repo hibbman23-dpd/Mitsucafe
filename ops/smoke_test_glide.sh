@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-GAS_URL="https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec"
+GAS_URL="https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec"
 PAYLOAD="$(dirname "$0")/../seed/test_glide_payload.json"
 
 echo "==> POST $GAS_URL"

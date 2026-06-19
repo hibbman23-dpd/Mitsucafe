@@ -113,7 +113,7 @@ function buildZaloStatusMessage(order, status) {
 /** Thông báo stamp update — Tier 2 */
 function notifyStampUpdate(customerId, stampsEarned, newCount, totalEver, freeDrinksBalance) {
   var remaining = 10 - newCount;
-  var msg = '🐸 [KaeruKàphê] Tích điểm thành công!\n' +
+  var msg = '🐝 [Mitsu Café] Tích điểm thành công!\n' +
             '• Đơn này tích lũy: ' + stampsEarned + ' tem\n' +
             '• Số tem hiện tại: ' + newCount + '/10 🎟️\n' +
             '• Số ly nước thưởng đang có: ' + freeDrinksBalance + ' 🎁\n';

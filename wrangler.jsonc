@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "kaerukaphe",
-  "account_id": "dded21400dfc0fc17e2662f8e143b685",
+  "name": "mitsucafe",
+  "account_id": "f9006918f4ae2e0c4b6097a2d182bb72",
   "compatibility_date": "2026-06-02",
   "main": "src/index.js",
   "routes": [
@@ -20,6 +20,6 @@
     "nodejs_compat"
   ],
   "r2_buckets": [
-    { "binding": "SIGN_IMG", "bucket_name": "kaeru-signage-img" }
+    { "binding": "SIGN_IMG", "bucket_name": "mitsu-signage-img" }
   ]
 }

@@ -11,7 +11,7 @@
  *
  * Preview hóa đơn 58mm (32 ký tự/dòng):
  * ================================
- *        KAERU KÀPHE
+ *        MITSU CAFÉ
  *     Lâm Hà, Lâm Đồng
  * ================================
  *   14:32  25/05/2026
@@ -70,7 +70,7 @@ function buildReceiptEscPos(order) {
   d += ESC + 'a\x01';         // Center
   d += ESC + '!\x38';         // Bold + double-height + double-width
 
-  var storeName = getConfig('STORE_NAME') || 'KAERU KAPHE';
+  var storeName = getConfig('STORE_NAME') || 'MITSU CAFE';
   d += storeName + '\n';
 
   d += ESC + '!\x00';         // Normal
@@ -140,7 +140,7 @@ function buildReceiptEscPos(order) {
   d += ESC + 'a\x01';         // Center
 
   var footer1 = getConfig('RECEIPT_FOOTER1') || 'Cam on! Hen gap lai nhe!';
-  var footer2 = getConfig('RECEIPT_FOOTER2') || 'kaerukaphevn';
+  var footer2 = getConfig('RECEIPT_FOOTER2') || 'mitsucafe';
   d += footer1 + '\n';
   if (footer2) d += footer2 + '\n';
 

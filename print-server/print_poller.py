@@ -240,7 +240,7 @@ def build_receipt_raster(order: dict) -> bytes:
     # ── Header ────────────────────────────────────────────────────────────────
     add_text(">(^_^)<",          f_logo,   "center")
     add_gap(2)
-    add_text("KaeruKàphê",       f_header, "center")
+    add_text("Mitsu Café",       f_header, "center")
     add_gap(1)
     add_text("Lâm Hà, Lâm Đồng", f_addr,  "center")
     add_hline(thick=2, gap_before=4, gap_after=4)
@@ -311,7 +311,7 @@ def build_receipt_raster(order: dict) -> bytes:
 
     # ── Footer ────────────────────────────────────────────────────────────────
     add_text("Cảm ơn! Hẹn gặp lại nhé!", f_norm, "center")
-    add_text("KaeruKàphê",               f_addr,  "center")
+    add_text("Mitsu Café",               f_addr,  "center")
     add_hline(thick=1, gap_before=3, gap_after=6)
 
     # ── Render to PIL Image ───────────────────────────────────────────────────
@@ -394,7 +394,7 @@ def build_receipt_text(order: dict) -> bytes:
         ESC + b"!\x00",
         enc(">(^_^)<\n"),
         ESC + b"!\x38",
-        enc("KaeruKaphê\n"),
+        enc("Mitsu Café\n"),
         ESC + b"!\x00",
         enc("Lâm Hà, Lâm Đồng\n"),
         ESC + b"a\x00",
@@ -439,7 +439,7 @@ def build_receipt_text(order: dict) -> bytes:
     parts.append(enc("=" * W + "\n"))
     parts.append(ESC + b"a\x01")
     parts.append(enc("Cam ơn! Hen gap lai nhé!\n"))
-    parts.append(enc("KaeruKàphê\n"))
+    parts.append(enc("Mitsu Café\n"))
     parts.append(ESC + b"a\x00")
     parts.append(enc("=" * W + "\n"))
     parts.append(b"\n\n\n\n")

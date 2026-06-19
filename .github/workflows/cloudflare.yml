@@ -20,13 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy public worker (kaerukaphe)
+      - name: Deploy public worker (mitsucafe)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           wranglerVersion: "4.98.0"
           command: deploy
-      - name: Deploy internal worker (kaeru-ops)
+      - name: Deploy internal worker (mitsu-ops)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -171,20 +171,20 @@ function draftResponseTemplate(review) {
   var rating = review.rating;
 
   if (rating >= 5) {
-    return 'Cảm ơn ' + name + ' đã ghé KaeruKàphê! Vui khi bạn thích quán. ' +
-           'Lần sau ghé thử món mới — かえる đợi 🍵\n\n— Team Kaeru';
+    return 'Cảm ơn ' + name + ' đã ghé Mitsu Café! Vui khi bạn thích quán. ' +
+           'Lần sau ghé thử món mới — Mitsu đợi 🍵\n\n— Team Mitsu';
   }
   if (rating === 4) {
     return 'Cảm ơn ' + name + ' đã chia sẻ. Team đã note feedback của bạn để cải thiện. ' +
-           'Lần sau cho khẩu vị cụ thể (đậm/nhẹ/ngọt), mình điều chỉnh cho bạn nhé!\n\n— Team Kaeru';
+           'Lần sau cho khẩu vị cụ thể (đậm/nhẹ/ngọt), mình điều chỉnh cho bạn nhé!\n\n— Team Mitsu';
   }
   if (rating === 3) {
     return 'Chào ' + name + ', cảm ơn bạn đã ghé. Mình xin lỗi nếu trải nghiệm chưa hài lòng. ' +
-           'Bạn nhắn riêng cho KaeruKàphê qua Zalo / IG DM giúp tả rõ hơn để team xử lý + bù đắp lần sau nhé.\n\n— Team Kaeru';
+           'Bạn nhắn riêng cho Mitsu Café qua Zalo / IG DM giúp tả rõ hơn để team xử lý + bù đắp lần sau nhé.\n\n— Team Mitsu';
   }
   if (rating === 2) {
     return 'Chào ' + name + ', mình rất tiếc trải nghiệm hôm đó chưa tốt với bạn. ' +
-           'Đây là Zalo trực tiếp chủ quán: 0975087429. Mong bạn cho team cơ hội bù đắp.\n\n— Chủ quán KaeruKàphê';
+           'Đây là Zalo trực tiếp chủ quán: 0975087429. Mong bạn cho team cơ hội bù đắp.\n\n— Chủ quán Mitsu Café';
   }
   // rating === 1 hoặc 0 — không auto-draft
   return '';
@@ -214,7 +214,7 @@ function webAppReviewForm() {
     'button:hover{background:#c94f3a;}' +
     '.note{font-size:.78rem;color:#8a7d64;margin-top:6px;}' +
     '</style></head><body>' +
-    '<h1>🍵 Log review — KaeruKàphê</h1>' +
+    '<h1>🍵 Log review — Mitsu Café</h1>' +
     '<form id="f" action="" method="POST">' +
     '<label>Nguồn<select name="source"><option>google_maps</option><option>facebook</option><option>instagram</option><option>foody</option><option>tiktok</option><option>other</option></select></label>' +
     '<label>Ngày review<input type="date" name="date" required></label>' +
@@ -239,7 +239,7 @@ function webAppReviewForm() {
     '</script>' +
     '</body></html>'
   );
-  html.setTitle('Log review — KaeruKàphê');
+  html.setTitle('Log review — Mitsu Café');
   return html;
 }
 

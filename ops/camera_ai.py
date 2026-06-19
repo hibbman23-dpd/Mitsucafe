@@ -21,7 +21,7 @@ from datetime import datetime
 # =====================================================================
 # CẤU HÌNH HỆ THỐNG
 # =====================================================================
-API_URL = "https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec"
+API_URL = "https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec"
 CAMERA_AI_SECRET = "CHANGE_ME_TO_ACTUAL_SECRET_FROM_CONFIG"
 
 # Thư mục lưu ảnh khuôn mặt nhân viên
@@ -310,7 +310,7 @@ def run_camera_analysis():
                     intruder_alert_sent = False
 
         # Hiển thị camera setup vẽ zone
-        cv2.imshow("KaeruCam AI — Setup Monitor", frame)
+        cv2.imshow("MitsuCam AI — Setup Monitor", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
             

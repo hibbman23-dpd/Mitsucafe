@@ -162,7 +162,7 @@ var WAVE_SIDE_SVG = '<div class="wavewrap r fade" style="--d:.2s"><svg viewBox="
 
 // ── Browser-only rotation runtime (guarded; Node tests never enter here) ──
 if (typeof window !== 'undefined') (function () {
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec';
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec';
   window.__renderBrand = renderBrand;
   var CACHE_KEY = 'lhk_signage_cfg', PROMO_KEY = 'lhk_signage_promo';
 
