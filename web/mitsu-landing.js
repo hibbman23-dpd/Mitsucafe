@@ -280,7 +280,7 @@
     updateCarousel();
   }
 
-  function updateCarousel() {
+  function updateCarousel(skipAnimation = false) {
     if (!ring || !detail) return;
     ring.style.transform = `translateZ(-${radius}px) rotateY(${-curIdx * step}deg)`;
     
@@ -308,6 +308,11 @@
     if (lastCatIdx) {
       lastCatIdx[it.catId] = curIdx;
     }
+
+    // Clear temporary styles from dragging
+    detail.style.opacity = '';
+    detail.style.transition = '';
+
     detail.innerHTML = `
       <div class="dk jp">${curCat.k} · ${curCat.romaji}</div>
       <div class="dn">${it.name}</div>
@@ -321,9 +326,11 @@
       daddBtn.addEventListener('click', orderRipple);
     }
     
-    detail.style.animation = 'none';
-    void detail.offsetWidth;
-    detail.style.animation = '';
+    if (!skipAnimation) {
+      detail.style.animation = 'none';
+      void detail.offsetWidth;
+      detail.style.animation = '';
+    }
   }
 
   function switchCarouselCategory(dir) {
@@ -778,10 +785,6 @@
             });
 
             updateCarousel();
-            if (detail) {
-              detail.style.transition = 'opacity 0.25s ease';
-              detail.style.opacity = '1';
-            }
           }, 300);
         } else if (diffY > 60 && targetIdxPrev !== -1) {
           const allTransitionCells = new Set([...cellsA, ...cellsC].filter(Boolean));
@@ -838,10 +841,6 @@
             });
 
             updateCarousel();
-            if (detail) {
-              detail.style.transition = 'opacity 0.25s ease';
-              detail.style.opacity = '1';
-            }
           }, 300);
         } else {
           const allTransitionCells = new Set([...cellsA, ...cellsB, ...cellsC].filter(Boolean));
@@ -889,7 +888,7 @@
               cell.style.opacity = '';
               cell.style.visibility = '';
             });
-            updateCarousel();
+            updateCarousel(true);
           }, 300);
         }
       } else {
@@ -987,7 +986,7 @@
               cell.style.opacity = '';
               cell.style.visibility = '';
             });
-            updateCarousel();
+            updateCarousel(true);
           }, 300);
         }
         isDraggingVertically = false;

@@ -593,7 +593,8 @@ nav.scrolled {
 .card-img-wrap img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 10px;
 }
 .card .kanji-lg {
   font-family: var(--jp);
@@ -659,15 +660,19 @@ nav.scrolled {
 
 /* Light backlighting/halo around transparent illustrations in dark mode */
 :root[data-theme="dark"] .char-img,
-:root[data-theme="dark"] .queen-char-img,
-:root[data-theme="dark"] .card-img-wrap img {
+:root[data-theme="dark"] .queen-char-img {
   filter: drop-shadow(0 0 10px rgba(224, 172, 94, 0.45));
+}
+:root[data-theme="dark"] .card-img-wrap {
+  box-shadow: 0 0 15px rgba(224, 172, 94, 0.45);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .char-img,
-  :root:not([data-theme="light"]) .queen-char-img,
-  :root:not([data-theme="light"]) .card-img-wrap img {
+  :root:not([data-theme="light"]) .queen-char-img {
     filter: drop-shadow(0 0 10px rgba(224, 172, 94, 0.45));
+  }
+  :root:not([data-theme="light"]) .card-img-wrap {
+    box-shadow: 0 0 15px rgba(224, 172, 94, 0.45);
   }
 }
 .queen h3 {

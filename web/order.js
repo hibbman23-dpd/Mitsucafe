@@ -932,7 +932,7 @@ function renderCarouselOptionsInner(it) {
   `;
 }
 
-function updateCarousel() {
+function updateCarousel(skipAnimation = false) {
   const ring = document.getElementById('ring');
   const detail = document.getElementById('detail');
   if (!ring || !detail) return;
@@ -971,6 +971,10 @@ function updateCarousel() {
 
   const hasCustomizations = it.price_l || it.customizations?.sugar || it.customizations?.ice || it.customizations?.toppings?.length;
 
+  // Clear temporary styles from dragging
+  detail.style.opacity = '';
+  detail.style.transition = '';
+
   if (carouselState === 'options' && hasCustomizations) {
     detail.innerHTML = `
       <div class="dk jp">${catNames[curCat] || '蜜'}</div>
@@ -988,9 +992,11 @@ function updateCarousel() {
     `;
   }
 
-  detail.style.animation = 'none';
-  void detail.offsetWidth;
-  detail.style.animation = '';
+  if (!skipAnimation) {
+    detail.style.animation = 'none';
+    void detail.offsetWidth;
+    detail.style.animation = '';
+  }
 }
 
 function switchCarouselCategory(dir) {
@@ -1467,10 +1473,6 @@ function initCarousel() {
             });
 
             updateCarousel();
-            if (detail) {
-              detail.style.transition = 'opacity 0.25s ease';
-              detail.style.opacity = '1';
-            }
           }, 300);
         } else if (diffY > 60 && targetIdxPrev !== -1) {
           const allTransitionCells = new Set([...cellsA, ...cellsC].filter(Boolean));
@@ -1527,10 +1529,6 @@ function initCarousel() {
             });
 
             updateCarousel();
-            if (detail) {
-              detail.style.transition = 'opacity 0.25s ease';
-              detail.style.opacity = '1';
-            }
           }, 300);
         } else {
           const allTransitionCells = new Set([...cellsA, ...cellsB, ...cellsC].filter(Boolean));
@@ -1578,7 +1576,7 @@ function initCarousel() {
               cell.style.opacity = '';
               cell.style.visibility = '';
             });
-            updateCarousel();
+            updateCarousel(true);
           }, 300);
         }
       } else {
@@ -1676,7 +1674,7 @@ function initCarousel() {
               cell.style.opacity = '';
               cell.style.visibility = '';
             });
-            updateCarousel();
+            updateCarousel(true);
           }, 300);
         }
         isDraggingVertically = false;
