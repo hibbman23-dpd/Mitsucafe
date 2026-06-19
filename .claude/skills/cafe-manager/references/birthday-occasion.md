@@ -25,19 +25,19 @@
 🎂 Sinh nhật vui vẻ, [Tên]!
 
 Mitsu dành tặng bạn 1 ly miễn phí (size M) hôm nay khi ghé quán — 
-かえる muốn cùng bạn mừng một chuyến trở về nhỏ.
+Mitsu muốn cùng bạn mừng một chuyến trở về nhỏ.
 
 Hiệu lực: 24h hôm nay
 Ghi: "BD-[YYYYMMDD]" khi order
 
-— Team Mitsu 🐸
+— Team Mitsu 🐝
 ```
 
 ## Other occasions
 
 | Occasion | Trigger | Message gist |
 |---|---|---|
-| Anniversary follow (1 năm sau first_order) | `first_order` = today - 365d | Cảm ơn "1 năm cùng かえる" + free drink |
+| Anniversary follow (1 năm sau first_order) | `first_order` = today - 365d | Cảm ơn "1 năm cùng Mitsu" + free drink |
 | Customer milestone (10/50/100 orders) | `total_orders` chạm mốc | Milestone congrats + exclusive merch |
 | Stamp redemption ready | Loyalty.gs đã handle | Notify ngay khi đạt 10 stamps |
 | New baby / wedding (manual) | User note thủ công | Custom message |

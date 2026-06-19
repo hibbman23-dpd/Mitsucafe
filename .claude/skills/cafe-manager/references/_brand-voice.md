@@ -21,7 +21,7 @@
 ## Khi draft, kiểm 3 bullet sau:
 
 1. **Tone check**: có rơi vào "premium/luxury/đẳng cấp" không? Nếu có → rewrite (xem §4 don't list).
-2. **Wordplay かえる**: có cơ hội nhắc "trở về" / "おかえりなさい" / mascot không? Không bắt buộc mỗi post, nhưng ~30% post nên có 1 yếu tố.
+2. **Wordplay Mitsu**: có cơ hội nhắc "trở về" / "おかえりなさい" / mascot không? Không bắt buộc mỗi post, nhưng ~30% post nên có 1 yếu tố.
 3. **Local pride**: có nhắc Lâm Hà / Lâm Đồng / Bảo Lộc / Cầu Đất / nguyên liệu vùng không? Càng cụ thể càng tốt.
 
 ## Tagline quick-copy
@@ -29,8 +29,8 @@
 - JP chính: `お茶の心を、ふるさとへ。`
 - VN chính: `Hương trà từ trái tim, về miền quê hương.`
 - VN phụ: `Mỗi ly là một chuyến trở về.`
-- JP phụ: `すべての一杯に、「おかえりなさい」を。`
-- EN ngắn: `かえる waits at Lâm Hà.`
+- JP phụ: `一杯ごとに、ひとさじの蜜と愛を。`
+- EN ngắn: `Mitsu waits at Lâm Hà.`
 
 ## Social handles để paste link
 
@@ -48,7 +48,7 @@ Address: Mitsu, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
 ## Hashtag bank
 
 **Always-on (brand)**:
-`#Mitsu #かえる #LâmHà #LâmĐồng #LâmHàKissaten`
+`#Mitsu #Mitsu #LâmHà #LâmĐồng #LâmHàKissaten`
 
 **Theme — drink**:
 `#TràSữa #Matcha #Hojicha #Sencha #BạcXỉu #CàPhêTrứng #CàPhêPhin #BubbleTea #抹茶 #ほうじ茶 #バブルティー`

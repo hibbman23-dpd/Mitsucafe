@@ -598,11 +598,11 @@ nav.scrolled {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -56%); /* Shift up slightly to compensate for antennae height */
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .card:hover .card-img-wrap img {
-  transform: translate(-50%, -50%) scale(1.08) translateY(-4px);
+  transform: translate(-50%, -56%) scale(1.08) translateY(-4px);
 }
 .card .kanji-lg {
   font-family: var(--jp);

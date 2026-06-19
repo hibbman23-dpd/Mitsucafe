@@ -60,13 +60,13 @@ Length: 50-150 từ. Visual 4:5 hoặc 1:1.
 **Ví dụ mẫu**:
 > Mùa khô Lâm Hà vào sáng có nắng vàng nhạt, hơi se lạnh sót lại từ đêm.
 > 
-> Hôm nay かえる pha hojicha rang sâu thêm 30 giây — để khi tan vào sữa, vị khói trà bám lâu hơn trên đầu lưỡi. Mộc Châu sữa, Bảo Lộc trà. Một chuyến trở về trong 1 ly.
+> Hôm nay Mitsu pha hojicha rang sâu thêm 30 giây — để khi tan vào sữa, vị khói trà bám lâu hơn trên đầu lưỡi. Mộc Châu sữa, Bảo Lộc trà. Một chuyến trở về trong 1 ly.
 > 
 > Mời bạn ghé sáng nay — chúng tôi mở từ 6 giờ.
 > 
-> *すべての一杯に、「おかえりなさい」を。*
+> *一杯ごとに、ひとさじの蜜と愛を。*
 > 
-> #Mitsu #LâmHà #Hojicha #かえる #CàPhêLâmĐồng
+> #Mitsu #LâmHà #Hojicha #Mitsu #CàPhêLâmĐồng
 
 ### IG template
 
@@ -91,7 +91,7 @@ Cap caption tối đa 200 từ. Hashtag 8-12 đẩy xuống cuối qua 3 chấm.
 **Alt text format**:
 `[Loại drink/sản phẩm] [màu chủ đạo] [setting/đạo cụ] — [chi tiết mascot/nguyên liệu/người]`
 
-VD: `Ly hojicha latte màu nâu mật trong cốc tre bên cửa sổ gỗ. Mascot かえる đứng cạnh đội nón lá. Ánh nắng sáng Lâm Hà.`
+VD: `Ly hojicha latte màu nâu mật trong cốc tre bên cửa sổ gỗ. Mascot Mitsu đứng cạnh đội nón lá. Ánh nắng sáng Lâm Hà.`
 
 ### TikTok template
 
@@ -147,7 +147,7 @@ Length 30-60 từ. KHÔNG hashtag. Compliance: chỉ gửi cho follower opt-in.
 > 
 > Ghé Lâm Hà thử nhé: mitsucafe.vn/menu
 > 
-> かえる đợi bạn 🍵
+> Mitsu đợi bạn 🍵
 
 ## Best posting times (Lâm Đồng / Việt Nam)
 

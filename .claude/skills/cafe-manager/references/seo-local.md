@@ -55,7 +55,7 @@ Inconsistency = signal yếu cho Google.
 ### Branded
 - `Mitsu`
 - `Mitsu`
-- `かえる Lâm Hà`
+- `Mitsu Lâm Hà`
 
 ## Content SEO trên landing
 
@@ -98,7 +98,7 @@ Nên kiếm backlink từ:
 - Báo địa phương Lâm Đồng (báo Lâm Đồng Online)
 - Báo specialty coffee VN (CafeF, Specialty Coffee VN)
 
-Outreach pitch: "Quán mới mở ở Lâm Hà, concept Nhật-Việt, có mascot かえる, mời journalist ghé thử".
+Outreach pitch: "Quán mới mở ở Lâm Hà, concept Nhật-Việt, có mascot Mitsu, mời journalist ghé thử".
 
 ## Quarterly audit checklist
 

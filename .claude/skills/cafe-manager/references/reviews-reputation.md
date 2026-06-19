@@ -32,7 +32,7 @@ Tone: warm, thank-you, mention 1 chi tiết review nhắc → mời quay lại.
 Template:
 ```
 Cảm ơn [tên] đã ghé Mitsu! Vui khi bạn thích [chi tiết review — hojicha / mascot / không gian]. 
-Lần sau ghé thử [SKU phù hợp] nhé — かえる đợi 🍵
+Lần sau ghé thử [SKU phù hợp] nhé — Mitsu đợi 🍵
 
 — Team Mitsu
 ```

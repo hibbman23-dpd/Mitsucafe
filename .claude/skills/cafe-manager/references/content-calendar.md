@@ -40,7 +40,7 @@ Tuần 2: rotate themes slightly để không duplicated.
 ## Monthly thematic anchor (1 chủ đề lớn/tháng)
 
 VD:
-- T6 2026: "Soft launch month" — focus mascot intro + story `かえる`
+- T6 2026: "Soft launch month" — focus mascot intro + story `Mitsu`
 - T7 2026: "Hè cao điểm — hojicha cold launch"
 - T8 2026: "Mưa Tây Nguyên — hot drink comfort"
 - T9 2026: "Trung Thu — matcha mooncake"

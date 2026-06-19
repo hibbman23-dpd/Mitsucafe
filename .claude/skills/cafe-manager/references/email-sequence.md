@@ -21,7 +21,7 @@ Hầu hết tương tác customer dùng Zalo OA. Email cho:
 
 **Day 0** (immediate sau follow):
 - Subject/preview: "Mừng bạn ghé Mitsu 🍵"
-- Body: greeting + story かえる ngắn + voucher first order (vd "20% lần đầu trong 7 ngày")
+- Body: greeting + story Mitsu ngắn + voucher first order (vd "20% lần đầu trong 7 ngày")
 - CTA: order link
 
 **Day 3**:
@@ -30,7 +30,7 @@ Hầu hết tương tác customer dùng Zalo OA. Email cho:
 - CTA: book table / order
 
 **Day 7**:
-- Subject: "1 tuần với かえる"
+- Subject: "1 tuần với Mitsu"
 - Body: invite review (Google Maps) + giới thiệu loyalty stamp
 - CTA: review link
 
@@ -39,7 +39,7 @@ Hầu hết tương tác customer dùng Zalo OA. Email cho:
 2 message qua 10 ngày:
 
 **Day 0** (winback trigger):
-- Subject: "[Tên], lâu rồi không gặp 🐸"
+- Subject: "[Tên], lâu rồi không gặp 🐝"
 - Body: thân, không guilt-trip, gentle 1 invite + voucher 15%
 - CTA: order link
 

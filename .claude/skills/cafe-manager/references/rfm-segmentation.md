@@ -79,13 +79,13 @@ Hibernating winback candidates (top 10 by historic monetary):
 ## Draft template winback
 
 ```
-[Tên khách], cảm ơn bạn đã từng ghé Mitsu 🐸
+[Tên khách], cảm ơn bạn đã từng ghé Mitsu 🐝
 
-Lâu rồi không thấy bạn về — かえる để dành sẵn 1 voucher 15% cho lần ghé tới của bạn.
+Lâu rồi không thấy bạn về — Mitsu để dành sẵn 1 voucher 15% cho lần ghé tới của bạn.
 
 Có hiệu lực 7 ngày: mitsucafe.vn/menu
 
-すべての一杯に、「おかえりなさい」を。
+一杯ごとに、ひとさじの蜜と愛を。
 ```
 
 Variations theo segment:
@@ -95,7 +95,7 @@ Variations theo segment:
 ## Champions thank-you template
 
 ```
-Anh/chị [tên], かえる thấy bạn ghé Lâm Hà ~3 lần tuần vừa rồi 🍵
+Anh/chị [tên], Mitsu thấy bạn ghé Lâm Hà ~3 lần tuần vừa rồi 🍵
 
 Cảm ơn bạn đã đồng hành. Lần sau ghé thử [SKU vừa launch] — quán để 1 ly riêng cho bạn.
 
