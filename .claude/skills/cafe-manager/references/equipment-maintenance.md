@@ -2,7 +2,7 @@
 
 > Lịch bảo trì chuẩn industry. Tránh máy hỏng đột xuất → đóng cửa mất doanh thu.
 
-## Equipment inventory MitsuKàphê
+## Equipment inventory Mitsu
 
 | ID | Equipment | Vendor | Service interval recommend |
 |---|---|---|---|

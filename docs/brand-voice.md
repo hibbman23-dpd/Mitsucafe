@@ -1,11 +1,11 @@
-# Brand Voice — MitsuKàphê / Lâm Hà Kissaten
+# Brand Voice — Mitsu / Lâm Hà Kissaten
 
 > Single source of truth cho mọi content, post, copy, email, in-store sign.
 > Mọi reference file của skill `cafe-manager` đều phải link về đây trước khi draft.
 
 ## 1. Brand essence
 
-**Name**: MitsuKàphê (かえる + Cà phê) — đọc "Ka-e-ru Kà-phê".
+**Name**: Mitsu (かえる + Cà phê) — đọc "Ka-e-ru Kà-phê".
 **Mascot**: かえる — con ếch đội nón lá, gánh 2 giỏ tre đựng cốc trà sữa + bánh.
 **Wordplay cốt lõi**: かえる có 2 nghĩa — "con ếch" và "trở về (nhà)". Mỗi ly trà là một chuyến trở về.
 
@@ -19,7 +19,7 @@
 
 ## 2. Personality (Brand archetypes)
 
-MitsuKàphê là sự pha trộn của 3 archetype:
+Mitsu là sự pha trộn của 3 archetype:
 
 | Archetype | % | Biểu hiện |
 |---|---|---|
@@ -88,7 +88,7 @@ MitsuKàphê là sự pha trộn của 3 archetype:
 - **Structure**: Hook 1 câu → story/insight 2-3 câu → CTA 1 câu
 - **Visual**: 1 ảnh chính (mascot/drink/quán), tỷ lệ 4:5 hoặc 1:1
 - **Hashtag**: 3-5, đặt cuối, mix tiếng Việt + tên brand
-  - VD: `#MitsuKàphê #LâmHà #TràSữaMatcha #かえる #CàPhêLâmĐồng`
+  - VD: `#Mitsu #LâmHà #TràSữaMatcha #かえる #CàPhêLâmĐồng`
 - **CTA**: "Ghé quán ở Lâm Hà / Đặt online tại mitsucafe.vn / Inbox để giữ chỗ"
 - **Tần suất**: 3-5 post/tuần
 - **Best time post (Lâm Đồng)**: 7:30, 11:30, 19:30 (giờ break, ăn trưa, sau giờ làm)
@@ -101,7 +101,7 @@ MitsuKàphê là sự pha trộn của 3 archetype:
   - Cuối: tagline VN/JP + 8-12 hashtag
 - **Visual**: photo dossier — 9-grid aesthetic. Tone earthy, không filter quá. Mascot xuất hiện 30% post.
 - **Hashtag**: 8-12, mix:
-  - Brand: `#MitsuKàphê #かえる`
+  - Brand: `#Mitsu #かえる`
   - Vùng: `#LâmHà #LâmĐồng #LâmHàKissaten`
   - Sản phẩm: `#Matcha #Hojicha #BạcXỉu #TràSữa`
   - JP touch: `#お茶 #抹茶 #ほうじ茶 #バブルティー`

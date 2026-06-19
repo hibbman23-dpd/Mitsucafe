@@ -1,4 +1,4 @@
-# BẢN ĐỒ AGENT — Lâm Hà Kissaten / MitsuKàphê
+# BẢN ĐỒ AGENT — Lâm Hà Kissaten / Mitsu
 > Mô hình "AI Agent Company" áp dụng cho quán
 > Trạng thái: ✅ Đã có · 🟡 Có một phần · 🔴 Chưa có
 > Cập nhật: 2026-06-07

@@ -83,7 +83,7 @@ Tổng: 850.000đ
 Contact: 09xxxx (lưu trong CONFIG)
 
 Message draft:
-"Chào anh/chị, MitsuKàphê đặt: 5kg trân châu đường đen + 10L sữa tươi.
+"Chào anh/chị, Mitsu đặt: 5kg trân châu đường đen + 10L sữa tươi.
 Giao trước 8:00 mai được không ạ?"
 ```
 

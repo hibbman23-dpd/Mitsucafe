@@ -43,7 +43,7 @@ Qua `mcp__scheduled-tasks__create_scheduled_task` — chạy Claude Code remote 
 
 ### Setup command (paste vào Claude khi cần register)
 ```
-/schedule "cafe_morning_brief" "0 7 * * *" "Run /sang for MitsuKàphê. Save brief to docs/briefs/. Ping Telegram chủ quán."
+/schedule "cafe_morning_brief" "0 7 * * *" "Run /sang for Mitsu. Save brief to docs/briefs/. Ping Telegram chủ quán."
 ```
 
 (Repeat per job — xem chi tiết `mcp__scheduled-tasks`.)

@@ -97,7 +97,7 @@ Median across all active SKUs → split matrix.
 
 Pareto chart: top 20% SKU contribute X% revenue?
 
-MitsuKàphê targeting: top 20% SKU = 60-70% revenue.
+Mitsu targeting: top 20% SKU = 60-70% revenue.
 
 Nếu >80% → menu too concentrated, vulnerable nếu star out-of-stock
 Nếu <50% → menu too flat, không có hero clear → confusing brand

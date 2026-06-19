@@ -16,7 +16,7 @@
 
 Gửi qua Zalo OA sau order DELIVERED:
 ```
-Cảm ơn bạn đã ghé MitsuKàphê 🍵
+Cảm ơn bạn đã ghé Mitsu 🍵
 Rate trải nghiệm 1-10 nhé? Reply số.
 ```
 
@@ -45,7 +45,7 @@ Target sau 3 tháng launch: NPS > 30 (industry F&B baseline 20-40)
 ```
 Chào [tên],
 
-Mình rất tiếc về [vấn đề cụ thể]. MitsuKàphê đã ghi nhận và sẽ:
+Mình rất tiếc về [vấn đề cụ thể]. Mitsu đã ghi nhận và sẽ:
 1. [Hành động khắc phục cụ thể, vd "rút kinh nghiệm với staff ca đó"]
 2. [Bù đắp, vd "tặng 1 ly miễn phí lần ghé tới"]
 

@@ -24,7 +24,7 @@
 
 Rule of thumb (industry): `last_order > 2.5× avg_purchase_cycle`.
 
-MitsuKàphê early stage (chưa có nhiều data):
+Mitsu early stage (chưa có nhiều data):
 - Default trigger: **last_order >30 ngày**
 - Recompute mỗi tuần (cron Monday 08:00)
 - Skip auto-winback nếu `CUSTOMERS.length < 50` (data quá ít để segment)
@@ -79,7 +79,7 @@ Hibernating winback candidates (top 10 by historic monetary):
 ## Draft template winback
 
 ```
-[Tên khách], cảm ơn bạn đã từng ghé MitsuKàphê 🐸
+[Tên khách], cảm ơn bạn đã từng ghé Mitsu 🐸
 
 Lâu rồi không thấy bạn về — かえる để dành sẵn 1 voucher 15% cho lần ghé tới của bạn.
 

@@ -2,12 +2,12 @@
 
 ## Mục tiêu
 
-Khi khách Lâm Hà / Lâm Đồng / Đà Lạt search "cà phê gần đây", "trà sữa Lâm Hà", "matcha Đà Lạt" → MitsuKàphê xuất hiện trong **Local Pack 3-result** Google Maps.
+Khi khách Lâm Hà / Lâm Đồng / Đà Lạt search "cà phê gần đây", "trà sữa Lâm Hà", "matcha Đà Lạt" → Mitsu xuất hiện trong **Local Pack 3-result** Google Maps.
 
 ## Setup chính (đã/cần làm)
 
 ### Google Business Profile (GBP)
-- [ ] Claim địa chỉ: MitsuKàphê, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
+- [ ] Claim địa chỉ: Mitsu, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
 - [ ] Category chính: **Bubble tea store** (primary) + **Café** (secondary)
 - [ ] Phone: 0975 087 429
 - [ ] Website: https://hibbman23-dpd.github.io/mitsucafe/mitsu.html
@@ -53,7 +53,7 @@ Inconsistency = signal yếu cho Google.
 - `kissaten Việt Nam`
 
 ### Branded
-- `MitsuKàphê`
+- `Mitsu`
 - `Mitsu`
 - `かえる Lâm Hà`
 
@@ -103,7 +103,7 @@ Outreach pitch: "Quán mới mở ở Lâm Hà, concept Nhật-Việt, có masco
 ## Quarterly audit checklist
 
 Mỗi quý 1 lần:
-- [ ] NAP consistency check (search "MitsuKàphê" → 5 link đầu, verify NAP)
+- [ ] NAP consistency check (search "Mitsu" → 5 link đầu, verify NAP)
 - [ ] Review rating trend (3 tháng trước vs hiện tại)
 - [ ] Top keyword ranking (Google search incognito từ Đà Lạt IP)
 - [ ] GBP photo count + recency

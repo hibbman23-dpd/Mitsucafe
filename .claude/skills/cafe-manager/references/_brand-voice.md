@@ -42,13 +42,13 @@ Threads: https://www.threads.com/@mitsucafe
 Maps: https://maps.app.goo.gl/zRE1hNLej9oWhtEP6
 Web: https://hibbman23-dpd.github.io/mitsucafe/mitsu.html
 Phone: 0975 087 429
-Address: MitsuKàphê, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
+Address: Mitsu, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
 ```
 
 ## Hashtag bank
 
 **Always-on (brand)**:
-`#MitsuKàphê #かえる #LâmHà #LâmĐồng #LâmHàKissaten`
+`#Mitsu #かえる #LâmHà #LâmĐồng #LâmHàKissaten`
 
 **Theme — drink**:
 `#TràSữa #Matcha #Hojicha #Sencha #BạcXỉu #CàPhêTrứng #CàPhêPhin #BubbleTea #抹茶 #ほうじ茶 #バブルティー`
