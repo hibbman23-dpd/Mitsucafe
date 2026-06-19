@@ -31,10 +31,10 @@ Tone: warm, thank-you, mention 1 chi tiết review nhắc → mời quay lại.
 
 Template:
 ```
-Cảm ơn [tên] đã ghé KaeruKàphê! Vui khi bạn thích [chi tiết review — hojicha / mascot / không gian]. 
+Cảm ơn [tên] đã ghé MitsuKàphê! Vui khi bạn thích [chi tiết review — hojicha / mascot / không gian]. 
 Lần sau ghé thử [SKU phù hợp] nhé — かえる đợi 🍵
 
-— Team Kaeru
+— Team Mitsu
 ```
 
 ### 4⭐ — Promoter chưa thật đỉnh
@@ -46,7 +46,7 @@ Template:
 Cảm ơn [tên] đã chia sẻ. Bạn nhắc [point] — team đã note để cải thiện. 
 Lần sau cho khẩu vị [đậm/nhẹ/ngọt] cụ thể, mình điều chỉnh cho bạn nhé!
 
-— Team Kaeru
+— Team Mitsu
 ```
 
 ### 3⭐ — Neutral, cần khắc phục
@@ -56,9 +56,9 @@ Tone: chuyên nghiệp, không defensive, hỏi chi tiết để cải thiện, 
 Template:
 ```
 Chào [tên], cảm ơn bạn đã ghé. Mình xin lỗi nếu [vấn đề trong review] làm bạn chưa hài lòng. 
-Bạn nhắn riêng KaeruKàphê qua [Zalo / IG DM] giúp tả rõ hơn để team xử lý + bù đắp lần sau nhé.
+Bạn nhắn riêng MitsuKàphê qua [Zalo / IG DM] giúp tả rõ hơn để team xử lý + bù đắp lần sau nhé.
 
-— Team Kaeru
+— Team Mitsu
 ```
 
 ### 2⭐ — Critical, cần handle cẩn thận
@@ -70,7 +70,7 @@ Template:
 Chào [tên], mình rất tiếc trải nghiệm hôm đó chưa tốt với bạn. [Acknowledge cụ thể vấn đề]. 
 Đây là email/Zalo trực tiếp chủ quán: [contact]. Mong bạn cho team cơ hội bù đắp.
 
-— Chủ quán KaeruKàphê
+— Chủ quán MitsuKàphê
 ```
 
 ### 1⭐ — Urgent, escalate
@@ -114,7 +114,7 @@ Skill output:
 Cho task >5 review hoặc cần deep-scan history → dispatch `cafe-research`:
 
 ```
-Task: "Quét Google Maps + FB của KaeruKàphê 6 tháng qua, group review by month, 
+Task: "Quét Google Maps + FB của MitsuKàphê 6 tháng qua, group review by month, 
        tóm tắt sentiment trend, draft response cho 20 review pending."
 ```
 

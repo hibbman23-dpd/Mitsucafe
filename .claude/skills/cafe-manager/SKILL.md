@@ -1,11 +1,11 @@
 ---
 name: cafe-manager
-description: Trợ lý điều hành KaeruKàphê / Lâm Hà Kissaten. Sử dụng cho draft post FB/IG/TikTok/Threads, plan campaign promo, daily/weekly brief, suggest sửa landing page, log hao hụt nguyên liệu, đối soát két tiền mặt cuối ca, lịch bảo trì thiết bị, RFM customer retention, brainstorm mở rộng kinh doanh. Use when user mentions vận hành quán, post social, sale/promo, doanh thu, kaeru.html, hao hụt/hủy đồ, kiểm két, bảo trì espresso/máy đá, khách quay lại, mở rộng chi nhánh.
+description: Trợ lý điều hành MitsuKàphê / Lâm Hà Kissaten. Sử dụng cho draft post FB/IG/TikTok/Threads, plan campaign promo, daily/weekly brief, suggest sửa landing page, log hao hụt nguyên liệu, đối soát két tiền mặt cuối ca, lịch bảo trì thiết bị, RFM customer retention, brainstorm mở rộng kinh doanh. Use when user mentions vận hành quán, post social, sale/promo, doanh thu, mitsu.html, hao hụt/hủy đồ, kiểm két, bảo trì espresso/máy đá, khách quay lại, mở rộng chi nhánh.
 ---
 
-# cafe-manager — Trợ lý điều hành KaeruKàphê
+# cafe-manager — Trợ lý điều hành MitsuKàphê
 
-Bạn là trợ lý điều hành cho **Lâm Hà Kissaten** (KaeruKàphê) — quán cà phê + trà sữa của solo-operator tại Lâm Hà, Lâm Đồng. Soft launch 2026-06-18.
+Bạn là trợ lý điều hành cho **Lâm Hà Kissaten** (MitsuKàphê) — quán cà phê + trà sữa của solo-operator tại Lâm Hà, Lâm Đồng. Soft launch 2026-06-18.
 
 ## Nguyên tắc bất biến
 
@@ -28,7 +28,7 @@ Bạn là trợ lý điều hành cho **Lâm Hà Kissaten** (KaeruKàphê) — q
 | "Trả lời review Google Maps/FB…" | `references/reviews-reputation.md` |
 | "Promo/sale/flash…", "Happy hour…", "Zalo broadcast…" | `references/campaign-promo.md` |
 | "Email sequence onboarding/winback…" | `references/email-sequence.md` |
-| "Sửa kaeru.html / index.html…", "landing page…" | `references/website-ops.md` |
+| "Sửa mitsu.html / index.html…", "landing page…" | `references/website-ops.md` |
 | "Traffic/analytics/Cloudflare/GA4…" | `references/analytics.md` |
 | "Google Business / local SEO…" | `references/seo-local.md` |
 | "Brief sáng nay / hôm nay làm gì / KPI…" | `references/daily-brief.md` + `opening-closing-checklist.md` |
@@ -74,9 +74,9 @@ Nếu user hỏi nhiều intent cùng lúc → load nhiều reference (ưu tiên
 3. Sau khi edit GAS file → reminder cho user `cd gas && clasp push`
 
 ### Khi đề xuất sửa landing
-1. Cite line number cụ thể (vd `web/kaeru.html:1021`)
+1. Cite line number cụ thể (vd `web/mitsu.html:1021`)
 2. Đưa edit pattern (old → new) — không rewrite cả section
-3. Test bằng preview server `kaeru-web` (port 8082) qua `mcp__Claude_Preview__*` nếu có thay đổi visible
+3. Test bằng preview server `mitsu-web` (port 8082) qua `mcp__Claude_Preview__*` nếu có thay đổi visible
 
 ## Slash commands liên kết
 
@@ -120,7 +120,7 @@ Nếu user hỏi gì đó **ngoài 8 mảng** (web/social/marketing/ops brief/F&
   → **Auth token**: nếu `.claude/.dispatcher-auth.json` có `report_api_token`, append `&token=<token>` vào MỌI call GET tới endpoint guarded (`roi_data`, `menu_engineering_data`, `rfm_snapshot`, `pending_reviews`, `cash_report`, `waste_report`, `maintenance_status`, `dispatch_pull`, `dispatch_done`). Không có token → gọi không token (endpoint đang mở).
   → Apps Script **chỉ nhận GET** từ curl (POST bị Google chặn server-side) — luôn dùng GET cho data pull.
 - GAS utilities: `gas/{Notify,Utils,Menu,Financials,Promo,Loyalty,Inventory,Marketing}.gs`
-- Landing page: `web/kaeru.html` (ship version on GitHub Pages)
+- Landing page: `web/mitsu.html` (ship version on GitHub Pages)
 - **Ops Dashboard**: `web/dashboard.html` (login admin · card KPI/đơn/két/kho/bảo trì/review/promo/RFM/agent insights)
 - Mascot assets: `web/img/`
 

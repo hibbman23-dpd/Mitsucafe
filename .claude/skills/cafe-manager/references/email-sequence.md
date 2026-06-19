@@ -4,7 +4,7 @@
 
 ## Phạm vi áp dụng
 
-KaeruKàphê hiện không có email list. Khi nào dùng:
+MitsuKàphê hiện không có email list. Khi nào dùng:
 1. **Zalo OA** (primary channel) — đã có, sequence dùng template tương tự
 2. **Email** (future) — nếu user setup MailChimp / Klaviyo / GAS Mail tự build
 
@@ -20,7 +20,7 @@ Hầu hết tương tác customer dùng Zalo OA. Email cho:
 3 message qua 7 ngày:
 
 **Day 0** (immediate sau follow):
-- Subject/preview: "Mừng bạn ghé KaeruKàphê 🍵"
+- Subject/preview: "Mừng bạn ghé MitsuKàphê 🍵"
 - Body: greeting + story かえる ngắn + voucher first order (vd "20% lần đầu trong 7 ngày")
 - CTA: order link
 
@@ -101,7 +101,7 @@ Khi user nói "draft full winback sequence" → call skill `marketing:email-sequ
 
 ```
 Tone: warm, caregiver, Japanese-Vietnamese fusion
-Brand: KaeruKàphê
+Brand: MitsuKàphê
 Mascot: かえる (frog)
 Tagline: "おかえりなさい — Mỗi ly là một chuyến trở về"
 Avoid: "premium", "luxury", "đỉnh cao"

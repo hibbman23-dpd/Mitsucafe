@@ -28,7 +28,7 @@ Page tự động xoay cảnh, poll config mỗi 60s, render được offline t�
 ### Web Content
 | Setting | Giá trị |
 |---------|---------|
-| Start URL | `https://kaerukaphe.kaerukaphe.workers.dev/signage` |
+| Start URL | `https://mitsucafe.mitsucafe.workers.dev/signage` |
 | Reload on URL error | **ON** (tự reload khi mất kết nối) |
 | Auto Reload Page (seconds) | `3600` (reload mỗi 1 giờ — phòng memory leak) |
 

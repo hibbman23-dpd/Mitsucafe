@@ -80,7 +80,7 @@ Cache hết hạn sau ~5 phút *không hoạt động*; mỗi lượt mới rese
 
 **Tốt — đích danh, đóng phạm vi:**
 - "Sửa `gas/Loyalty.gs` hàm `addStamp`, đọc `docs/system/loyalty-stamps.md` trước."
-- "Trong `web/kaeru.html`, đổi nút đặt hàng dòng ~120."
+- "Trong `web/mitsu.html`, đổi nút đặt hàng dòng ~120."
 - "Đọc `docs/system/sheets-schema.md` rồi thêm cột X vào tab CUSTOMERS."
 
 **Tốn token — mơ hồ, buộc tôi quét:**

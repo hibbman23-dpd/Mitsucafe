@@ -70,7 +70,7 @@ Note: Variance trong khoảng 20-50k. Note + tiếp tục.
 
 ## Shift mapping
 
-KaeruKàphê hours 6:00-0:00. Mặc định 3 ca:
+MitsuKàphê hours 6:00-0:00. Mặc định 3 ca:
 
 | Shift code | Time window |
 |---|---|

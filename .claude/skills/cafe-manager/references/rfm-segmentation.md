@@ -24,7 +24,7 @@
 
 Rule of thumb (industry): `last_order > 2.5× avg_purchase_cycle`.
 
-KaeruKàphê early stage (chưa có nhiều data):
+MitsuKàphê early stage (chưa có nhiều data):
 - Default trigger: **last_order >30 ngày**
 - Recompute mỗi tuần (cron Monday 08:00)
 - Skip auto-winback nếu `CUSTOMERS.length < 50` (data quá ít để segment)
@@ -79,11 +79,11 @@ Hibernating winback candidates (top 10 by historic monetary):
 ## Draft template winback
 
 ```
-[Tên khách], cảm ơn bạn đã từng ghé KaeruKàphê 🐸
+[Tên khách], cảm ơn bạn đã từng ghé MitsuKàphê 🐸
 
 Lâu rồi không thấy bạn về — かえる để dành sẵn 1 voucher 15% cho lần ghé tới của bạn.
 
-Có hiệu lực 7 ngày: kaerukaphe.vn/menu
+Có hiệu lực 7 ngày: mitsucafe.vn/menu
 
 すべての一杯に、「おかえりなさい」を。
 ```
@@ -99,7 +99,7 @@ Anh/chị [tên], かえる thấy bạn ghé Lâm Hà ~3 lần tuần vừa r�
 
 Cảm ơn bạn đã đồng hành. Lần sau ghé thử [SKU vừa launch] — quán để 1 ly riêng cho bạn.
 
-— Team Kaeru
+— Team Mitsu
 ```
 
 ## Automation flow (Phase D scheduled task)

@@ -1,11 +1,11 @@
-# Brand Voice — KaeruKàphê / Lâm Hà Kissaten
+# Brand Voice — MitsuKàphê / Lâm Hà Kissaten
 
 > Single source of truth cho mọi content, post, copy, email, in-store sign.
 > Mọi reference file của skill `cafe-manager` đều phải link về đây trước khi draft.
 
 ## 1. Brand essence
 
-**Name**: KaeruKàphê (かえる + Cà phê) — đọc "Ka-e-ru Kà-phê".
+**Name**: MitsuKàphê (かえる + Cà phê) — đọc "Ka-e-ru Kà-phê".
 **Mascot**: かえる — con ếch đội nón lá, gánh 2 giỏ tre đựng cốc trà sữa + bánh.
 **Wordplay cốt lõi**: かえる có 2 nghĩa — "con ếch" và "trở về (nhà)". Mỗi ly trà là một chuyến trở về.
 
@@ -19,7 +19,7 @@
 
 ## 2. Personality (Brand archetypes)
 
-KaeruKàphê là sự pha trộn của 3 archetype:
+MitsuKàphê là sự pha trộn của 3 archetype:
 
 | Archetype | % | Biểu hiện |
 |---|---|---|
@@ -88,8 +88,8 @@ KaeruKàphê là sự pha trộn của 3 archetype:
 - **Structure**: Hook 1 câu → story/insight 2-3 câu → CTA 1 câu
 - **Visual**: 1 ảnh chính (mascot/drink/quán), tỷ lệ 4:5 hoặc 1:1
 - **Hashtag**: 3-5, đặt cuối, mix tiếng Việt + tên brand
-  - VD: `#KaeruKàphê #LâmHà #TràSữaMatcha #かえる #CàPhêLâmĐồng`
-- **CTA**: "Ghé quán ở Lâm Hà / Đặt online tại kaerukaphe.vn / Inbox để giữ chỗ"
+  - VD: `#MitsuKàphê #LâmHà #TràSữaMatcha #かえる #CàPhêLâmĐồng`
+- **CTA**: "Ghé quán ở Lâm Hà / Đặt online tại mitsucafe.vn / Inbox để giữ chỗ"
 - **Tần suất**: 3-5 post/tuần
 - **Best time post (Lâm Đồng)**: 7:30, 11:30, 19:30 (giờ break, ăn trưa, sau giờ làm)
 
@@ -101,7 +101,7 @@ KaeruKàphê là sự pha trộn của 3 archetype:
   - Cuối: tagline VN/JP + 8-12 hashtag
 - **Visual**: photo dossier — 9-grid aesthetic. Tone earthy, không filter quá. Mascot xuất hiện 30% post.
 - **Hashtag**: 8-12, mix:
-  - Brand: `#KaeruKàphê #かえる`
+  - Brand: `#MitsuKàphê #かえる`
   - Vùng: `#LâmHà #LâmĐồng #LâmHàKissaten`
   - Sản phẩm: `#Matcha #Hojicha #BạcXỉu #TràSữa`
   - JP touch: `#お茶 #抹茶 #ほうじ茶 #バブルティー`
@@ -134,7 +134,7 @@ KaeruKàphê là sự pha trộn của 3 archetype:
 ### Zalo OA (broadcast khách)
 - **Length**: 30-60 từ, action-oriented
 - **Structure**: Tên khách (nếu có) → 1 lý do → 1 CTA → tagline
-- **CTA**: link ngắn → kaerukaphe.vn hoặc Zalo chat
+- **CTA**: link ngắn → mitsucafe.vn hoặc Zalo chat
 - **Tần suất**: ≤2/tuần. KHÔNG broadcast sale liên tục.
 - **Compliance**: chỉ gửi cho khách đã follow OA + opt-in.
 
@@ -189,14 +189,14 @@ Có thể luân phiên 3 signature đóng:
 
 ## 10. References (dữ liệu nguồn)
 
-- Landing page: [web/kaeru.html](../web/kaeru.html) — copy đã ship
+- Landing page: [web/mitsu.html](../web/mitsu.html) — copy đã ship
 - Mascot assets: [web/img/](../web/img/) — 9 stickers cảm xúc + 3 merch
-- Schema.org / SEO meta: kaeru.html:28-58
-- Social handles (đã verified): kaeru.html:1030-1049
+- Schema.org / SEO meta: mitsu.html:28-58
+- Social handles (đã verified): mitsu.html:1030-1049
   - FB: https://www.facebook.com/profile.php?id=61590071517195
-  - IG: @kaerukaphe
-  - TikTok: @kaerukaphe
-  - Threads: @kaerukaphe
+  - IG: @mitsucafe
+  - TikTok: @mitsucafe
+  - Threads: @mitsucafe
   - Maps: https://maps.app.goo.gl/zRE1hNLej9oWhtEP6
 - Phone: 0975 087 429 — Lâm Hà, Lâm Đồng
-- Story arc gốc: CLAUDE.md (Kissaten v1.1) + kaeru.html section #story
+- Story arc gốc: CLAUDE.md (Kissaten v1.1) + mitsu.html section #story

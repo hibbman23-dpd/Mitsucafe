@@ -3,7 +3,7 @@
 ## Setup hiện tại
 
 **Cloudflare Web Analytics** (free, privacy-friendly, no cookie banner):
-- Script ở `kaeru.html` + `index.html` cuối `<head>`
+- Script ở `mitsu.html` + `index.html` cuối `<head>`
 - Token đặt trong `data-cf-beacon="{"token":"..."}"` placeholder
 - CSP đã cho phép `static.cloudflareinsights.com` trong `script-src` + `connect-src`
 
@@ -11,10 +11,10 @@
 
 ```
 1. Đăng ký https://www.cloudflare.com/web-analytics/ (free, không cần move DNS)
-2. Add site: hibbman23-dpd.github.io/kaerukaphe
+2. Add site: hibbman23-dpd.github.io/mitsucafe
 3. Lấy site token (string ~32 ký tự)
 4. Sửa cả 2 file:
-   - web/kaeru.html → tìm "REPLACE_WITH_CF_TOKEN"
+   - web/mitsu.html → tìm "REPLACE_WITH_CF_TOKEN"
    - web/index.html → cùng vậy
 5. Commit + push GitHub Pages
 6. Đợi 5 phút → check https://dash.cloudflare.com/?to=/:account/analytics/web/
@@ -25,7 +25,7 @@
 ### Khi user hỏi "trang web có ai vào không"
 - **Pageviews 24h / 7d / 30d**
 - **Unique visitors** (Cloudflare estimate, không có cookie nên estimate)
-- **Top page**: kaeru.html vs index.html share
+- **Top page**: mitsu.html vs index.html share
 - **Source/referrer**: direct / Google search / social / QR
 
 ### Khi user hỏi "marketing có effective không"
@@ -47,7 +47,7 @@
 Để track CTA click landing → order page:
 
 ```html
-<!-- Add to kaeru.html khi user click "Đặt ngay" -->
+<!-- Add to mitsu.html khi user click "Đặt ngay" -->
 <script>
   document.querySelectorAll('.btn-primary, .nav-cta, .nav-order-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -62,7 +62,7 @@
 Note: Cloudflare Web Analytics FREE TIER không support custom event. Để track click-through, hoặc:
 - A. Upgrade Cloudflare Pages Plan
 - B. Switch sang GA4 (free, có custom event)
-- C. Track gián tiếp: query string `?utm_source=landing` đã có sẵn (xem kaeru.html line 1001) → đếm orders với utm_source=landing trong GAS ORDERS tab
+- C. Track gián tiếp: query string `?utm_source=landing` đã có sẵn (xem mitsu.html line 1001) → đếm orders với utm_source=landing trong GAS ORDERS tab
 
 **Recommended path C**: dùng UTM đã có + GAS counter. Output: % visit landing → tạo order = CONVERSION.
 

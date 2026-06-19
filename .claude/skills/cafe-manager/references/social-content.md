@@ -66,7 +66,7 @@ Length: 50-150 từ. Visual 4:5 hoặc 1:1.
 > 
 > *すべての一杯に、「おかえりなさい」を。*
 > 
-> #KaeruKàphê #LâmHà #Hojicha #かえる #CàPhêLâmĐồng
+> #MitsuKàphê #LâmHà #Hojicha #かえる #CàPhêLâmĐồng
 
 ### IG template
 
@@ -143,9 +143,9 @@ Length 30-60 từ. KHÔNG hashtag. Compliance: chỉ gửi cho follower opt-in.
 **Ví dụ**:
 > Chào bạn 👋
 > 
-> Tuần này KaeruKàphê có matcha 抹茶 mùa mới từ Bảo Lộc — chỉ pha 7 ngày đầu.
+> Tuần này MitsuKàphê có matcha 抹茶 mùa mới từ Bảo Lộc — chỉ pha 7 ngày đầu.
 > 
-> Ghé Lâm Hà thử nhé: kaerukaphe.vn/menu
+> Ghé Lâm Hà thử nhé: mitsucafe.vn/menu
 > 
 > かえる đợi bạn 🍵
 

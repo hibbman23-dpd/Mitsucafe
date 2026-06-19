@@ -1,4 +1,4 @@
-# BẢN ĐỒ AGENT — Lâm Hà Kissaten / KaeruKàphê
+# BẢN ĐỒ AGENT — Lâm Hà Kissaten / MitsuKàphê
 > Mô hình "AI Agent Company" áp dụng cho quán
 > Trạng thái: ✅ Đã có · 🟡 Có một phần · 🔴 Chưa có
 > Cập nhật: 2026-06-07
@@ -68,7 +68,7 @@ GAS Event Bus  →  XƯƠNG SỐNG tự động (order → tem → Zalo → invo
 |---|---|---|---|
 | **Content** | `post` | 1 ý tưởng → FB/IG/TikTok/Threads + prompt Canva/Higgsfield | ✅ |
 | **Campaign** | `promo` | Flash sale/happy hour → PROMOTIONS row + banner + Zalo broadcast | ✅ |
-| **Landing** | `web` | Sửa kaeru.html/index.html theo metrics | ✅ |
+| **Landing** | `web` | Sửa mitsu.html/index.html theo metrics | ✅ |
 | **Trend scout** | `trend` | Quét trend đồ uống/format viral, lọc 3 cổng → feed `post`+`menu-eng` | ✅ mới xây |
 
 ### TẦNG 3 — KHÁCH HÀNG
@@ -208,7 +208,7 @@ Chi tiết + data handoff + anti-pattern: `references/agent-chains.md` · lịch
 
 ## 🎛️ OPS DASHBOARD v2 — bàn điều khiển đầy đủ (2026-06-07)
 
-`web/dashboard.html` — app nhiều tab, login mật mã (chung tài khoản KaeruCam):
+`web/dashboard.html` — app nhiều tab, login mật mã (chung tài khoản MitsuCam):
 
 | Tab | Làm được |
 |---|---|

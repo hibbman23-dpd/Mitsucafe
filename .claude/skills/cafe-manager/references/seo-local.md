@@ -2,15 +2,15 @@
 
 ## Mục tiêu
 
-Khi khách Lâm Hà / Lâm Đồng / Đà Lạt search "cà phê gần đây", "trà sữa Lâm Hà", "matcha Đà Lạt" → KaeruKàphê xuất hiện trong **Local Pack 3-result** Google Maps.
+Khi khách Lâm Hà / Lâm Đồng / Đà Lạt search "cà phê gần đây", "trà sữa Lâm Hà", "matcha Đà Lạt" → MitsuKàphê xuất hiện trong **Local Pack 3-result** Google Maps.
 
 ## Setup chính (đã/cần làm)
 
 ### Google Business Profile (GBP)
-- [ ] Claim địa chỉ: KaeruKàphê, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
+- [ ] Claim địa chỉ: MitsuKàphê, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
 - [ ] Category chính: **Bubble tea store** (primary) + **Café** (secondary)
 - [ ] Phone: 0975 087 429
-- [ ] Website: https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html
+- [ ] Website: https://hibbman23-dpd.github.io/mitsucafe/mitsu.html
 - [ ] Hours: 6:00-0:00 hàng ngày
 - [ ] Cover photo: mascot outdoor / hero brand
 - [ ] Logo: round mascot
@@ -19,7 +19,7 @@ Khi khách Lâm Hà / Lâm Đồng / Đà Lạt search "cà phê gần đây", "
 - [ ] Attributes: Free Wi-Fi, Outdoor seating (nếu có), Takeout, Dine-in
 
 ### Schema.org structured data
-Đã có trong `kaeru.html:28-58` — `@type: CafeOrCoffeeShop`. Bao gồm:
+Đã có trong `mitsu.html:28-58` — `@type: CafeOrCoffeeShop`. Bao gồm:
 - `name`, `image`, `telephone`, `address`, `openingHours`
 - Check telephone đúng (đã fix `+84975087429`)
 
@@ -53,13 +53,13 @@ Inconsistency = signal yếu cho Google.
 - `kissaten Việt Nam`
 
 ### Branded
-- `KaeruKàphê`
-- `Kaeru Bubble Tea`
+- `MitsuKàphê`
+- `Mitsu`
 - `かえる Lâm Hà`
 
 ## Content SEO trên landing
 
-### `kaeru.html` đã có:
+### `mitsu.html` đã có:
 - `<title>`: brand + category ✓
 - `<meta description>`: bilingual với keyword địa danh ✓
 - `<h1>`: brand name (không phải keyword) — OK vì brand-first
@@ -103,7 +103,7 @@ Outreach pitch: "Quán mới mở ở Lâm Hà, concept Nhật-Việt, có masco
 ## Quarterly audit checklist
 
 Mỗi quý 1 lần:
-- [ ] NAP consistency check (search "KaeruKàphê" → 5 link đầu, verify NAP)
+- [ ] NAP consistency check (search "MitsuKàphê" → 5 link đầu, verify NAP)
 - [ ] Review rating trend (3 tháng trước vs hiện tại)
 - [ ] Top keyword ranking (Google search incognito từ Đà Lạt IP)
 - [ ] GBP photo count + recency

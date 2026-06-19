@@ -66,7 +66,7 @@
 - **Wholesale** (cà phê hạt cho B2B)
 - **Workshop / tasting class** (matcha brewing 1 buổi)
 - **Online masterclass** (recipe video Patreon-style)
-- **Franchise model** (cho ai muốn open Kaeru ở tỉnh khác)
+- **Franchise model** (cho ai muốn open Mitsu ở tỉnh khác)
 **Cost**: Low (workshop) đến High (franchise legal)
 **Risk**: High (out of core)
 **ROI horizon**: 6-24 tháng

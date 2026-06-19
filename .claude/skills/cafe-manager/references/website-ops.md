@@ -1,4 +1,4 @@
-# Reference — Website Operations (kaeru.html + index.html)
+# Reference — Website Operations (mitsu.html + index.html)
 
 > Mục tiêu: gợi ý sửa landing dựa trên metrics, không rewrite tự do.
 
@@ -6,12 +6,12 @@
 
 | Trang | Vai trò | Path | Vùng dễ sửa |
 |---|---|---|---|
-| `kaeru.html` | Landing branding/story | [web/kaeru.html](../../../../web/kaeru.html) | Hero (line ~1019), Story (~1067), Menu (~1101), Stickers (~1230), Merch (~1538), Footer (~1623) |
+| `mitsu.html` | Landing branding/story | [web/mitsu.html](../../../../web/mitsu.html) | Hero (line ~1019), Story (~1067), Menu (~1101), Stickers (~1230), Merch (~1538), Footer (~1623) |
 | `index.html` | Order PWA (Glide-style) | [web/index.html](../../../../web/index.html) | (App shell — sửa cẩn thận) |
 
-Promo banner dynamic ở kaeru.html line ~973-976, controlled bởi `Promo.gs` GAS endpoint.
+Promo banner dynamic ở mitsu.html line ~973-976, controlled bởi `Promo.gs` GAS endpoint.
 
-## Khi nào sửa kaeru.html
+## Khi nào sửa mitsu.html
 
 Trigger sửa landing:
 1. **Launch món mới** → update Menu section (line 1109-1211)
@@ -83,8 +83,8 @@ Phone đồng bộ 2 nơi:
 ## Verification flow sau edit
 
 1. Lưu file
-2. Run preview: `mcp__Claude_Preview__preview_start` config `kaeru-web` (port 8082)
-3. Navigate to `http://localhost:8082/Projects/lamha-kissaten/web/kaeru.html`
+2. Run preview: `mcp__Claude_Preview__preview_start` config `mitsu-web` (port 8082)
+3. Navigate to `http://localhost:8082/Projects/lamha-kissaten/web/mitsu.html`
 4. Inspect changed element qua `preview_inspect`
 5. Screenshot quan trọng visual change
 6. Check console errors qua `preview_console_logs`

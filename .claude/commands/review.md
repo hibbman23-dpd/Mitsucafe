@@ -27,7 +27,7 @@ Nguyên tắc:
 - Phản hồi review tốt: cảm ơn cá nhân hóa, mời quay lại, nhắc nhẹ stamp/món mới
 - Mọi draft tuân brand voice (xem `_brand-voice.md`)
 
-Nhịp khuyến nghị: mỗi 6h (đã có scheduled task `kaeru-reviews-monitor`). Lệnh này = chạy tay khi cần.
+Nhịp khuyến nghị: mỗi 6h (đã có scheduled task `mitsu-reviews-monitor`). Lệnh này = chạy tay khi cần.
 
 Compose: `small-business:handle-complaint` cho khiếu nại nặng; feed theme lặp lại sang `feedback-loop.md`.
 

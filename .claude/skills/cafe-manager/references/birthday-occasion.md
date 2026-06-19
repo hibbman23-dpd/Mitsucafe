@@ -24,13 +24,13 @@
 ```
 🎂 Sinh nhật vui vẻ, [Tên]!
 
-KaeruKàphê dành tặng bạn 1 ly miễn phí (size M) hôm nay khi ghé quán — 
+MitsuKàphê dành tặng bạn 1 ly miễn phí (size M) hôm nay khi ghé quán — 
 かえる muốn cùng bạn mừng một chuyến trở về nhỏ.
 
 Hiệu lực: 24h hôm nay
 Ghi: "BD-[YYYYMMDD]" khi order
 
-— Team Kaeru 🐸
+— Team Mitsu 🐸
 ```
 
 ## Other occasions

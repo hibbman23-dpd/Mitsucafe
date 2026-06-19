@@ -36,19 +36,19 @@
 
 ```
 FB: https://www.facebook.com/profile.php?id=61590071517195
-IG: https://www.instagram.com/kaerukaphe/
-TikTok: https://www.tiktok.com/@kaerukaphe
-Threads: https://www.threads.com/@kaerukaphe
+IG: https://www.instagram.com/mitsucafe/
+TikTok: https://www.tiktok.com/@mitsucafe
+Threads: https://www.threads.com/@mitsucafe
 Maps: https://maps.app.goo.gl/zRE1hNLej9oWhtEP6
-Web: https://hibbman23-dpd.github.io/kaerukaphe/kaeru.html
+Web: https://hibbman23-dpd.github.io/mitsucafe/mitsu.html
 Phone: 0975 087 429
-Address: KaeruKàphê, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
+Address: MitsuKàphê, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
 ```
 
 ## Hashtag bank
 
 **Always-on (brand)**:
-`#KaeruKàphê #かえる #LâmHà #LâmĐồng #LâmHàKissaten`
+`#MitsuKàphê #かえる #LâmHà #LâmĐồng #LâmHàKissaten`
 
 **Theme — drink**:
 `#TràSữa #Matcha #Hojicha #Sencha #BạcXỉu #CàPhêTrứng #CàPhêPhin #BubbleTea #抹茶 #ほうじ茶 #バブルティー`

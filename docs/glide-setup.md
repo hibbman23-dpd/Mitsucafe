@@ -227,7 +227,7 @@ QR design + generate sẽ làm ở **Day 7** (`qr/generate_qr.py`). Day 4 chỉ 
 4. Tab Giỏ hàng → kiểm tra hiển thị 2 dòng, total = 28000*2 + 28000 = 84000.
 5. Tap "Thanh toán" → nhập Tên = "Test", Phone = "0901234567" → Gửi.
 6. **Kết quả mong đợi:**
-   - Telegram bot KaeruKaphe gửi alert "🆕 Đơn mới ORD-..."
+   - Telegram bot MitsuKaphe gửi alert "🆕 Đơn mới ORD-..."
    - Sheets ORDERS có row mới, items_json đúng schema
    - Glide hiện Success screen + QR (nếu CONFIG đã có bank info; nếu chưa → placeholder OK)
 7. Mở ORDERS sheet → copy `order_id` → Apps Script editor → chạy:
