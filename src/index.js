@@ -46,11 +46,12 @@ export default {
       return Response.redirect(url.origin + '/', 301);
     }
 
-    // Rewrite root "/" to serve "mitsu.html"
+    // Root "/": QR bàn (?t=NN) → ordering app (index.html), giữ nguyên query;
+    //           còn lại → landing (mitsu.html). Rewrite (không redirect) để URL sạch.
     if (url.pathname === '/') {
-      url.pathname = '/mitsu';
-      const modifiedRequest = new Request(url.toString(), request);
-      const assetRes = await env.ASSETS.fetch(modifiedRequest);
+      const u = new URL(url);
+      u.pathname = url.searchParams.has('t') ? '/index.html' : '/mitsu.html';
+      const assetRes = await env.ASSETS.fetch(new Request(u.toString(), request));
       const res = new Response(assetRes.body, assetRes);
       for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
       return res;
