@@ -101,9 +101,9 @@ Khi user nói "draft full winback sequence" → call skill `marketing:email-sequ
 
 ```
 Tone: warm, caregiver, Japanese-Vietnamese fusion
-Brand: Mitsu
-Mascot: かえる (frog)
-Tagline: "おかえりなさい — Mỗi ly là một chuyến trở về"
+Brand: Mitsu 蜜 (ong/mật)
+Mascot: ミツバチ (ong mật) — 3 ong Kin 勤 / Ritsu 律 / Sō 創 + ong chúa (Joō)
+Tagline: "Gom mật ngọt, Gắn yêu thương" (蜜は一匹では作れない)
 Avoid: "premium", "luxury", "đỉnh cao"
 Audience: VN cafe customers, 18-35, Lâm Đồng + Đà Lạt
 Channel: Zalo OA (60-80 từ) hoặc Email (150 từ)
