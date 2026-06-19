@@ -40,7 +40,7 @@ IG: https://www.instagram.com/mitsucafe/
 TikTok: https://www.tiktok.com/@mitsucafe
 Threads: https://www.threads.com/@mitsucafe
 Maps: https://maps.app.goo.gl/zRE1hNLej9oWhtEP6
-Web: https://hibbman23-dpd.github.io/mitsucafe/mitsu.html
+Web: https://mitsu.cafe
 Phone: 0975 087 429
 Address: Mitsu, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
 ```

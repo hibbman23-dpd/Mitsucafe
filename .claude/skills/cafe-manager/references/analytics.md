@@ -11,7 +11,7 @@
 
 ```
 1. Đăng ký https://www.cloudflare.com/web-analytics/ (free, không cần move DNS)
-2. Add site: hibbman23-dpd.github.io/mitsucafe
+2. Add site: mitsu.cafe
 3. Lấy site token (string ~32 ký tự)
 4. Sửa cả 2 file:
    - web/mitsu.html → tìm "REPLACE_WITH_CF_TOKEN"

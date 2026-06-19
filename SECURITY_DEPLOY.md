@@ -42,7 +42,7 @@ npx wrangler secret put REPORT_API_TOKEN
 git add -A && git commit && git push    # CI tự deploy
 # hoặc: npx wrangler deploy
 ```
-- Test: mở `https://mitsucafe.mitsucafe.workers.dev/kds` → KDS load đơn bình thường (token đã được tiêm).
+- Test: mở `https://ops.mitsu.cafe/kds` → KDS load đơn bình thường (token đã được tiêm).
 - View Source `/kds` → KHÔNG còn `__REPORT_API_TOKEN__`, KHÔNG thấy token thật trong file `web/kds.html` trên git.
 
 ### Bước 5 — Cập nhật Mac Mini poller
@@ -50,12 +50,12 @@ Script polling trên Mac Mini gọi `pending_print` / `pending_labels` / `mark_p
 
 ### Bước 6 — Cloudflare Access (gate trang điều khiển)
 Zero Trust dashboard → **Access → Applications → Add → Self-hosted**:
-- Application domain: `mitsucafe.mitsucafe.workers.dev` path `/dashboard*`, thêm app cho `/kds*`, `/camera*`.
+- Application domain: `ops.mitsu.cafe` path `/dashboard*`, thêm app cho `/kds*`, `/camera*`.
 - Policy: Allow → emails cụ thể (chủ + nhân viên), hoặc One-time PIN.
 - Sau khi bật: mở `/dashboard` ở trình duyệt lạ → phải hỏi đăng nhập Access trước.
 
 ### Bước 7 — Xử lý GitHub Pages (BẮT BUỘC)
-GitHub Pages KHÔNG chạy Worker → bản `hibbman23-dpd.github.io/mitsucafe/dashboard.html` **vẫn hở** dù đã làm hết các bước trên. Chọn 1:
+GitHub Pages KHÔNG chạy Worker → bản `mitsu.cafe/dashboard.html` **vẫn hở** dù đã làm hết các bước trên. Chọn 1:
 - **(Khuyến nghị) Tắt hẳn Pages**: xoá `.github/workflows/deploy.yml` + tắt Pages trong repo Settings. Chỉ còn 1 origin Cloudflare (đã được bảo vệ).
 - Hoặc giữ Pages nhưng **loại 3 file control khỏi artifact** (cần thêm bước build lọc file) — phức tạp hơn, dễ quên.
 
