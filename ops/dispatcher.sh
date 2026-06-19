@@ -17,6 +17,12 @@ AUTH=".claude/.dispatcher-auth.json"
 LOG="ops/dispatcher.log"
 LOCK="ops/.dispatcher.lock"
 
+# Gỡ lock CŨ (stale) nếu quá 10 phút — phòng process bị kill cứng khiến trap không gỡ kịp
+if [ -d "$LOCK" ] && [ -z "$(find "$LOCK" -maxdepth 0 -mmin -10 2>/dev/null)" ]; then
+  echo "$(date '+%F %T') gỡ lock cũ (stale >10m)" >> "$LOG"
+  rmdir "$LOCK" 2>/dev/null
+fi
+
 # Chống chạy chồng (lệnh trước chưa xong)
 if ! mkdir "$LOCK" 2>/dev/null; then
   echo "$(date '+%F %T') skip · đang chạy" >> "$LOG"; exit 0
