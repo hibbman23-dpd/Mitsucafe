@@ -25,7 +25,7 @@
 🎂 Sinh nhật vui vẻ, [Tên]!
 
 Mitsu dành tặng bạn 1 ly miễn phí (size M) hôm nay khi ghé quán — 
-Mitsu muốn cùng bạn mừng một chuyến trở về nhỏ.
+Mitsu muốn cùng bạn mừng một dịp ngọt ngào.
 
 Hiệu lực: 24h hôm nay
 Ghi: "BD-[YYYYMMDD]" khi order

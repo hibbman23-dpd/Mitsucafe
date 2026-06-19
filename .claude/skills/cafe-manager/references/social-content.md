@@ -60,7 +60,7 @@ Length: 50-150 từ. Visual 4:5 hoặc 1:1.
 **Ví dụ mẫu**:
 > Mùa khô Lâm Hà vào sáng có nắng vàng nhạt, hơi se lạnh sót lại từ đêm.
 > 
-> Hôm nay Mitsu pha hojicha rang sâu thêm 30 giây — để khi tan vào sữa, vị khói trà bám lâu hơn trên đầu lưỡi. Mộc Châu sữa, Bảo Lộc trà. Một chuyến trở về trong 1 ly.
+> Hôm nay Mitsu pha hojicha rang sâu thêm 30 giây — để khi tan vào sữa, vị khói trà bám lâu hơn trên đầu lưỡi. Mộc Châu sữa, Bảo Lộc trà. Một giọt mật ngọt trong 1 ly.
 > 
 > Mời bạn ghé sáng nay — chúng tôi mở từ 6 giờ.
 > 
