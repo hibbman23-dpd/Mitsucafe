@@ -145,7 +145,7 @@ GAS gửi Zalo + ghi PROMOTIONS
 ## LỘ TRÌNH 3 BƯỚC TIẾP THEO
 
 1. ~~**Xây [Đo lường ROI]**~~ ✅ XONG (2026-06-07) — skill `/roi` + reference `roi-measurement.md` + backend GAS (`gas/Marketing.gs`, ORDERS cột `utm_campaign`, endpoint `?action=roi_data`). **Cần deploy:** `cd gas && clasp push` → trong Apps Script editor chạy `initMarketingLog()` (+ `seedMarketingLogSamples()` nếu muốn test).
-2. ~~**Hệ thống hóa [Đối thủ] + [Menu Engineering]**~~ ✅ XONG (2026-06-07) — `/menu-eng` (dùng endpoint `menu_engineering_data` có sẵn) + `/doi-thu` (deep delegate `cafe-insight`) + reference `competitor-scan.md`.
+2. ~~**Hệ thống hóa [Đối thủ] + [Menu Engineering]**~~ ✅ XONG (2026-06-07) — `/menu-eng` (dùng endpoint `menu_engineering_data` có sẵn) + `/doi-thu` (deep delegate `cafe-research`) + reference `competitor-scan.md`.
 3. **Nối chuỗi tự chạy** — bắt đầu từ vòng lặp giữ chân khách ở trên.
 4. **Xây [Trend scout]** 🔴 — agent cuối còn thiếu: quét trend đồ uống/format viral → feed `/post` + `/menu-eng`.
 ```
