@@ -55,7 +55,10 @@ function _metaGet(path, params, tokenOverride) {
   try { body = JSON.parse(resp.getContentText()); } catch (e) { body = null; }
   if (code !== 200 || !body || body.error) {
     var msg = body && body.error ? body.error.message : ('HTTP ' + code);
-    _setMetaDegraded(msg);
+    var isAuthError = body && body.error && (body.error.code === 190 || body.error.type === 'OAuthException');
+    if (isAuthError) {
+      _setMetaDegraded(msg);
+    }
     logError('meta.get ' + path, new Error(msg));
     return null;
   }
@@ -170,21 +173,27 @@ function pullMetaIgInsights(from, to) {
     var date = _asDateStr(md.timestamp);
     if (date < from || date > to) continue;
     var isReel = md.media_type === 'VIDEO' || md.media_type === 'REEL';
-    var metric = isReel
-      ? 'reach,saved,shares,plays,ig_reels_avg_watch_time'
-      : 'reach,impressions,saved,shares';
+    var isCarousel = md.media_type === 'CAROUSEL_ALBUM';
+    var metric;
+    if (isReel) {
+      metric = 'reach,saved,shares,plays,ig_reels_avg_watch_time';
+    } else if (isCarousel) {
+      metric = 'carousel_album_reach,carousel_album_impressions,carousel_album_saved,shares';
+    } else {
+      metric = 'reach,impressions,saved,shares';
+    }
     var m = _flattenInsights(_metaGet('/' + md.id + '/insights', { metric: metric }, pt));
     upsertMarketingByExternalId('ig_' + md.id, {
       platform: 'ig', type: 'post',
       title: (md.caption || '').slice(0, 80), date: date,
-      format: isReel ? 'reel' : 'photo',
-      reach: m.reach || 0,
-      impressions: m.impressions || 0,
+      format: isReel ? 'reel' : (isCarousel ? 'carousel' : 'photo'),
+      reach: (m.carousel_album_reach || m.reach || 0),
+      impressions: (m.carousel_album_impressions || m.impressions || 0),
       views: m.plays || 0,
       likes: md.like_count || 0,
       comments: md.comments_count || 0,
       shares: m.shares || 0,
-      saves: m.saved || 0,
+      saves: (m.carousel_album_saved || m.saved || 0),
       avg_watch_pct: 0,
       watch_time_sec: Math.round((m.ig_reels_avg_watch_time || 0) / 1000)
     });
@@ -242,9 +251,8 @@ function pullMetaThreadsInsights(from, to) {
   return n;
 }
 
-/** Pull cả FB+IG+Threads cho [from,to]. Skip nếu degrade. @return {Object} */
+/** Pull cả FB+IG+Threads cho [from,to]. @return {Object} */
 function pullMetaAll(from, to) {
-  if (isMetaDegraded()) return { ok: false, degraded: true, fb: 0, ig: 0, threads: 0 };
   var fb = pullMetaFbInsights(from, to);
   var ig = pullMetaIgInsights(from, to);
   var threads = pullMetaThreadsInsights(from, to);
