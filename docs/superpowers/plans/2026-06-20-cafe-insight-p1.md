@@ -21,7 +21,7 @@
 |---|---|---|
 | `gas/Marketing.gs` | Schema + I/O `MARKETING_LOG`, ROI data | Modify: thêm cột engagement vào headers/log/read |
 | `gas/Insight.gs` | Tab `DECISION_LOG`: init + ghi + truy vấn dòng tới hạn review | Create |
-| `gas/Code.gs` | Routing `doPost` (`log_content`, `log_decision`) | Modify |
+| `gas/Code.gs` | Routing: `doPost` (`log_content`, `log_decision`) + `doGet` (`get_decisions_due`, `record_decision_result` trong `writeActions`) | Modify |
 | `web/dashboard.html` | Panel nhập tay số post → `apiPost('log_content')` | Modify |
 | `.claude/agents/cafe-insight.md` | Định nghĩa subagent (thay `cafe-research.md`) | Create + xoá file cũ |
 
@@ -107,7 +107,8 @@ function migrateMarketingLogP1() {
   var sheet = _marketingSheet();
   if (!sheet) { initMarketingLog(); sheet = _marketingSheet(); }
   var lastCol = sheet.getLastColumn();
-  var existing = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  // Phòng sheet rỗng hoàn toàn: getRange(1,1,1,0) sẽ crash.
+  var existing = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
   var added = 0;
   for (var i = 0; i < MARKETING_LOG_HEADERS.length; i++) {
     if (existing.indexOf(MARKETING_LOG_HEADERS[i]) === -1) {
@@ -241,8 +242,7 @@ function getDecisionsDue() {
   var due = [];
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
-    var reviewDate = (r[7] instanceof Date)
-      ? Utilities.formatDate(r[7], 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd') : String(r[7]);
+    var reviewDate = _asDateStr(r[7]); // helper global từ Marketing.gs (cùng project scope)
     if (reviewDate && reviewDate <= today && !r[8]) {
       due.push({ row: i + 1, decision_id: r[0], scope: r[2], ref_id: r[3],
         decision: r[4], expected_metric: r[6], review_date: reviewDate });
@@ -288,10 +288,12 @@ git commit -m "feat(insight): add DECISION_LOG sheet + log/query helpers (P1)"
 
 ---
 
-## Task 4: doPost routes `log_content` + `log_decision`
+## Task 4: API routes (doPost ghi + doGet đọc/review)
 
 **Files:**
-- Modify: `gas/Code.gs` (trong `doPost`, khu vực route theo `payload.action`, sau các route hiện có ~dòng 64+)
+- Modify: `gas/Code.gs` — `doPost` (route theo `payload.action`, ~dòng 64+) **và** `doGet` (`writeActions[]` ~dòng 167 + chuỗi route)
+
+> **Vì sao cần cả doGet:** subagent `cafe-insight` chạy ở CLI, giao tiếp GAS qua `WebFetch` (HTTP). Nó KHÔNG gọi được `getDecisionsDue()`/`recordDecisionResult()` trực tiếp → phải có endpoint. `record_decision_result` là **write** nên phải nằm trong `writeActions[]` (theo pattern `doGet` hiện có).
 
 - [ ] **Step 1: Thêm 2 route vào doPost**
 
@@ -314,7 +316,32 @@ Thêm sau block route device (sau dòng ~70 trong `doPost`, trước các route 
     }
 ```
 
-- [ ] **Step 2: Verify route (curl, cần admin token hợp lệ)**
+- [ ] **Step 2: Thêm `record_decision_result` vào `writeActions[]` của doGet**
+
+Trong `gas/Code.gs`, mảng `var writeActions = [ ... ]` (~dòng 167), thêm phần tử:
+```javascript
+    'record_decision_result',
+```
+
+- [ ] **Step 3: Thêm 2 route đọc/ghi vào chuỗi route doGet**
+
+Thêm cạnh các route analytics (vd sau `roi_data`, dòng ~329):
+```javascript
+    // cafe-insight: lấy quyết định tới hạn review (đọc)
+    if (action === 'get_decisions_due') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse({ ok: true, decisions: getDecisionsDue() });
+    }
+    // cafe-insight: ghi kết quả review 1 quyết định (write — đã có trong writeActions)
+    if (action === 'record_decision_result') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var okRec = recordDecisionResult(
+        e.parameter.decision_id, e.parameter.actual_result, e.parameter.hit_or_miss);
+      return _jsonResponse({ ok: okRec });
+    }
+```
+
+- [ ] **Step 4: Verify route POST (curl, cần admin token hợp lệ)**
 
 Lấy session token bằng đăng nhập admin trên dashboard (hoặc `adminLogin`). Rồi:
 ```bash
@@ -324,10 +351,20 @@ curl -s -X POST "https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWr
 ```
 Expected: `{"ok":true,"activity_id":"MKT-..."}`; token sai → `{"ok":false,"error":"unauthorized"}`. Xoá dòng test khỏi Sheet.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Verify route GET review loop (curl)**
+
+Trước tiên tạo 1 quyết định có `review_date` quá khứ để test (chạy trong editor: `logDecision({scope:'post', ref_id:'X', decision:'SCALE', review_date:'2026-01-01'})`). Rồi:
+```bash
+BASE="https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec"
+curl -s "$BASE?action=get_decisions_due&token=<REPORT_API_TOKEN>" | python3 -m json.tool
+curl -s "$BASE?action=record_decision_result&token=<REPORT_API_TOKEN>&decision_id=<DEC_ID>&actual_result=test&hit_or_miss=hit" | python3 -m json.tool
+```
+Expected: lệnh 1 trả `decisions[]` chứa quyết định vừa tạo; lệnh 2 trả `{"ok":true}` và cột `actual_result`/`hit_or_miss` của dòng đó được điền. Xoá dòng test.
+
+- [ ] **Step 6: Commit**
 ```bash
 git add gas/Code.gs
-git commit -m "feat(insight): doPost routes log_content + log_decision (P1)"
+git commit -m "feat(insight): API routes log_content/log_decision + get_decisions_due/record_decision_result (P1)"
 ```
 
 ---
@@ -337,11 +374,19 @@ git commit -m "feat(insight): doPost routes log_content + log_decision (P1)"
 **Files:**
 - Modify: `web/dashboard.html` (thêm 1 section panel + JS submit; dùng `apiPost` có sẵn dòng 169 và `tk()`)
 
-- [ ] **Step 1: Thêm markup panel**
+- [ ] **Step 1: Thêm markup panel — ĐÚNG VỊ TRÍ (tránh bị ghi đè)**
 
-Thêm 1 `<section>` vào vùng nội dung dashboard (cạnh các panel khác):
+> ⚠️ `web/dashboard.html:246` có `g.innerHTML=h` (g=`ovGrid`) chạy lại mỗi lần `renderOverview` poll → **panel đặt TRONG `ovGrid` sẽ bị xoá sạch**. Phải đặt panel trong `v-overview` nhưng **ngoài & dưới** `ovGrid`.
+
+Thay dòng `web/dashboard.html:126`:
 ```html
-<section class="card" id="content-log-panel">
+<div id="v-overview" class="view active"><div class="grid" id="ovGrid"></div></div>
+```
+thành:
+```html
+<div id="v-overview" class="view active">
+  <div class="grid" id="ovGrid"></div>
+  <section class="card" id="content-log-panel">
   <h3>📊 Nhập số liệu bài đăng</h3>
   <div class="cl-grid">
     <select id="cl-platform"><option value="tiktok">TikTok</option><option value="threads">Threads</option><option value="fb">Facebook</option><option value="ig">Instagram</option></select>
@@ -363,13 +408,46 @@ Thêm 1 `<section>` vào vùng nội dung dashboard (cạnh các panel khác):
   </div>
   <button id="cl-submit">Lưu bài đăng</button>
   <div id="cl-msg" class="cl-msg"></div>
-</section>
+  </section>
+</div>
 ```
 
-- [ ] **Step 2: Thêm JS submit (dùng apiPost + tk() có sẵn)**
+- [ ] **Step 2: Thêm CSS cho panel (vào thẻ `<style>` — vars đã có trong theme)**
+
+```css
+#content-log-panel { margin-top: 16px; }
+.cl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.cl-grid input, .cl-grid select {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: .84rem;
+  width: 100%;
+}
+.cl-grid input:focus, .cl-grid select:focus { outline: none; border-color: var(--cyan); }
+#cl-submit { width: 100%; margin-top: 6px; }
+.cl-msg { font-size: .8rem; margin-top: 8px; }
+```
+
+- [ ] **Step 3: Thêm JS submit + auto-điền ngày hôm nay (dùng apiPost + tk() có sẵn)**
 
 Thêm vào khối `<script>`:
 ```javascript
+// auto-điền ngày hôm nay (theo giờ địa phương) khi trang load
+(function(){
+  const clDateEl = document.getElementById('cl-date');
+  if (clDateEl) {
+    const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+    clDateEl.value = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
+  }
+})();
 function clVal(id){const el=document.getElementById(id);return el?el.value:'';}
 function clNum(id){return Number(clVal(id))||0;}
 document.getElementById('cl-submit').addEventListener('click', async function(){
@@ -391,12 +469,12 @@ document.getElementById('cl-submit').addEventListener('click', async function(){
 });
 ```
 
-- [ ] **Step 3: Verify (browser preview)**
+- [ ] **Step 4: Verify (browser preview)**
 
-Khởi động preview phục vụ `web/`, mở `dashboard.html`, đăng nhập admin để có `tk()`. Điền platform=tiktok, utm=`tt-preview`, reach=500, saves=20, format=reel, topic=trend → bấm "Lưu bài đăng".
+Khởi động preview phục vụ `web/`, mở `dashboard.html`, đăng nhập admin để có `tk()`. Kiểm: panel hiện **dưới** lưới KPI và **không bị mất sau ~90s** poll; ô ngày đã tự điền hôm nay; lưới input thẳng hàng. Điền platform=tiktok, utm=`tt-preview`, reach=500, saves=20, format=reel, topic=trend → bấm "Lưu bài đăng".
 Expected: hiện `✅ Đã lưu: MKT-...`; tab MARKETING_LOG có dòng mới đúng cột. Bỏ trống utm → hiện cảnh báo, không gọi API. Xoá dòng test khỏi Sheet.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 ```bash
 git add web/dashboard.html
 git commit -m "feat(insight): dashboard manual post-metrics input panel (P1)"
@@ -434,6 +512,7 @@ Isolated agent cho **Lâm Hà Kissaten (Mitsu)**. Nhận 1 task cụ thể từ 
 - ROI gộp: GET `…/exec?action=roi_data&from=YYYY-MM-DD&to=YYYY-MM-DD&token=<REPORT_API_TOKEN>`
   → `{ orders[], promotions[], marketing[], menu_costs{} }`. `marketing[]` chứa số post (reach, views, saves, shares, format, topic, sku_featured…).
 - RFM: `action=rfm_snapshot`. Menu eng: `action=menu_engineering_data`.
+- Decisions: `action=get_decisions_due` (đọc) · `action=record_decision_result` (ghi) · ghi quyết định mới qua POST `action=log_decision`.
 - GAS base: `https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec`
 
 ## CHẾ ĐỘ A — Phân tích content→doanh số (mặc định)
@@ -449,7 +528,7 @@ Chạy thang 4 tầng:
 
 **5. PRESCRIPTIVE** — mỗi post: **SCALE / KILL / ITERATE** (vd save/share cao nhưng đơn ít do mưa → ITERATE, không KILL). Đề xuất danh mục 70-20-10, lệnh tiếp cho /post /promo. **Ghi quyết định** qua POST `action=log_decision` (scope/ref_id=activity_id/decision/rationale/expected_metric).
 
-**6. Review loop** — đầu mỗi lần chạy, GET dòng tới hạn (subagent có thể hỏi parent chạy `getDecisionsDue()`); đánh giá kết quả thực; ghi lại qua `recordDecisionResult`.
+**6. Review loop (qua HTTP)** — đầu mỗi lần chạy: GET `action=get_decisions_due&token=<REPORT_API_TOKEN>` → với mỗi quyết định tới hạn, đánh giá kết quả thực (đối soát ORDERS quanh `review_date`) → ghi lại GET `action=record_decision_result&token=…&decision_id=…&actual_result=…&hit_or_miss=hit|miss`.
 
 Output: scorecard table (post | ER vs benchmark | đơn | lãi gộp | confidence | SWOT 1 dòng | quyết định) + 3 hành động ưu tiên. Save `docs/insight-reports/YYYY-MM-DD.md`.
 
@@ -492,7 +571,7 @@ git commit -m "feat(insight): cafe-insight subagent replaces cafe-research (P1)"
 
 ## Self-Review (đã chạy)
 
-- **Spec coverage:** §8.1 MARKETING_LOG→Task 1-2; §8.2 DECISION_LOG→Task 3; §6.5 review loop→Task 3 (`getDecisionsDue`/`recordDecisionResult`); §6.6 panel→Task 5; doPost→Task 4; subagent §9 + 7 module + §6.1 confidence + §6.4 context→Task 6. §8.3 CUSTOMERS social-id, Meta token §7, GA4 = **P2/P3** (ngoài plan này, có chú thích).
+- **Spec coverage:** §8.1 MARKETING_LOG→Task 1-2; §8.2 DECISION_LOG→Task 3; §6.5 review loop→Task 3 helpers **+ Task 4 HTTP endpoints** (`get_decisions_due`/`record_decision_result`) để subagent gọi được qua WebFetch; §6.6 panel→Task 5; API routes (doPost+doGet)→Task 4; subagent §9 + 7 module + §6.1 confidence + §6.4 context→Task 6. §8.3 CUSTOMERS social-id, Meta token §7, GA4 = **P2/P3** (ngoài plan này, có chú thích).
 - **Placeholder scan:** không có TBD/TODO; mọi code step có code thật.
 - **Type consistency:** `logMarketingActivity` field names (saves/format/data_source…) khớp giữa Task 1, Task 4, panel Task 5, subagent Task 6. `logDecision`/`getDecisionsDue`/`recordDecisionResult` khớp Task 3 ↔ Task 6.
 - **Lưu ý thực thi:** mỗi lần sửa `.gs` phải đồng bộ lên Apps Script project trước khi verify endpoint; xoá mọi dòng/hàm test tạm sau khi verify.
