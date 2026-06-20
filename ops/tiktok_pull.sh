@@ -5,8 +5,11 @@
 # Chạy 1 lần/ngày qua crontab (vd 7:10 sáng). yt-dlp lấy view/like/comment/repost + upload_date.
 #
 # Cài 1 lần trên Mac mini:  brew install yt-dlp jq
+#   (brew bundle sẵn curl_cffi → hỗ trợ "impersonation" giúp né TikTok chặn bot.
+#    Nếu cài bằng pip thì: pip install "yt-dlp[default,curl-cffi]" để có impersonation.)
 # Crontab:                  10 7 * * *  /Users/dpd/Projects/lamha-kissaten/ops/tiktok_pull.sh
 #
+# ✅ ĐÃ TEST THẬT trên @mitsucafe83 (2026-06-20): trả đúng view/like/comment/share + ngày đăng thật.
 # ⚠️ TikTok chặn bot không đều — nếu yt-dlp trả rỗng thì script bỏ qua (về nhập tay), KHÔNG ghi sai.
 #    Khi TikTok đổi layout: `brew upgrade yt-dlp` (extractor vá rất nhanh).
 
