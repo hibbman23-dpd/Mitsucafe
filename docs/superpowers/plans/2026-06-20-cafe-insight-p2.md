@@ -136,7 +136,9 @@ function pullGa4Traffic(from, to) {
   var request = {
     dateRanges: [{ startDate: from, endDate: to }],
     dimensions: [
-      { name: 'date' }, { name: 'landingPagePlusQueryString' },
+      // landingPage = đường dẫn SẠCH (vd /menu), KHÔNG kèm query (?fbclid/?gclid)
+      // → tránh phân mảnh row; nguồn đã lưu riêng qua sessionSource/medium/campaign.
+      { name: 'date' }, { name: 'landingPage' },
       { name: 'sessionSource' }, { name: 'sessionMedium' },
       { name: 'sessionCampaign' }, { name: 'city' }
     ],
@@ -149,13 +151,17 @@ function pullGa4Traffic(from, to) {
   var resp = AnalyticsData.Properties.runReport(request, 'properties/' + propId);
   var rows = (resp && resp.rows) ? resp.rows : [];
 
-  // 1) Xoá dòng cũ trong khoảng (idempotent re-pull)
+  // 1) Xoá dòng cũ trong khoảng (idempotent re-pull) — BATCH, không deleteRow trong loop
+  //    (deleteRow lặp = N call API → timeout khi sheet lớn). Đọc → filter RAM → ghi lại 2 call.
   if (sheet.getLastRow() >= 2) {
-    var data = sheet.getDataRange().getValues();
-    for (var i = data.length - 1; i >= 1; i--) {
-      var d = _asDateStr(data[i][0]);
-      if (d >= from && d <= to) sheet.deleteRow(i + 1);
-    }
+    var lastRow = sheet.getLastRow(), lastCol = sheet.getLastColumn();
+    var range = sheet.getRange(2, 1, lastRow - 1, lastCol);
+    var keep = range.getValues().filter(function (row) {
+      var d = _asDateStr(row[0]);
+      return !(d >= from && d <= to);
+    });
+    range.clearContent();
+    if (keep.length) sheet.getRange(2, 1, keep.length, lastCol).setValues(keep);
   }
 
   // 2) Ghi fresh
@@ -329,10 +335,12 @@ function upsertMarketingByExternalId(externalId, a) {
     a.external_post_id = externalId;
     return logMarketingActivity(a); // append mới (đã ghi đủ 25 cột nếu logMarketingActivity cập nhật — xem note)
   }
-  // update tại chỗ các cột metric (index theo MARKETING_LOG_HEADERS)
+  // update tại chỗ các cột metric. KEY = index 0-based trong MARKETING_LOG_HEADERS;
+  // cột thực = index+1. CHÚ Ý alignment: reach=9, clicks=10, impressions=12, views=13,
+  // likes=14, comments=15, shares=16, saves=17, watch_time_sec=18, avg_watch_pct=19.
   var map = {
-    10: a.reach, 11: a.clicks, 13: a.impressions, 14: a.views, 15: a.likes,
-    16: a.comments, 17: a.shares, 18: a.saves, 19: a.watch_time_sec, 20: a.avg_watch_pct
+    9: a.reach, 10: a.clicks, 12: a.impressions, 13: a.views, 14: a.likes,
+    15: a.comments, 16: a.shares, 17: a.saves, 18: a.watch_time_sec, 19: a.avg_watch_pct
   };
   for (var col in map) {
     if (map[col] !== undefined && map[col] !== null) {
@@ -654,6 +662,89 @@ git add gas/Meta.gs gas/Code.gs && git commit -m "feat(insight): pullMetaAll + m
 
 ---
 
+## Task B6: pull insight Threads (cùng vendor Meta, token riêng)
+
+> **Đối soát research:** Threads CÓ insights endpoint (`views, likes, replies, reposts, quotes`, +click metrics từ 7/2025). Nhưng **base khác** (`graph.threads.net`) và **token riêng** scope `threads_basic, threads_manage_insights` (cùng app Meta nhưng KHÔNG phải y hệt System User token của FB). → CONFIG thêm `THREADS_TOKEN`, `THREADS_USER_ID`.
+
+**Files:** Modify `gas/Meta.gs`
+
+- [ ] **Step 1: Thêm helper + pull Threads**
+```javascript
+var THREADS_API = 'https://graph.threads.net/v1.0';
+
+/** GET Threads Graph API (token + base riêng). Trả object hoặc null (+degrade). */
+function _threadsGet(path, params) {
+  var token = getConfig('THREADS_TOKEN');
+  if (!token) { _setMetaDegraded('CONFIG.THREADS_TOKEN chưa set'); return null; }
+  params = params || {};
+  params.access_token = token;
+  var qs = Object.keys(params).map(function (k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  var resp = UrlFetchApp.fetch(THREADS_API + path + '?' + qs, { muteHttpExceptions: true });
+  var body; try { body = JSON.parse(resp.getContentText()); } catch (e) { body = null; }
+  if (resp.getResponseCode() !== 200 || !body || body.error) {
+    logError('threads.get ' + path, new Error(body && body.error ? body.error.message : 'http'));
+    return null;
+  }
+  return body;
+}
+
+/**
+ * Kéo insight các thread đăng trong [from,to] → upsert MARKETING_LOG (platform='threads', auto).
+ * @return {number} số thread xử lý
+ */
+function pullMetaThreadsInsights(from, to) {
+  var uid = getConfig('THREADS_USER_ID');
+  if (!uid) return 0;
+  var posts = _threadsGet('/' + uid + '/threads', {
+    fields: 'id,text,timestamp', since: from, until: to, limit: 50
+  });
+  if (!posts || !posts.data) return 0;
+  var n = 0;
+  for (var i = 0; i < posts.data.length; i++) {
+    var p = posts.data[i];
+    var date = _asDateStr(p.timestamp);
+    if (date < from || date > to) continue;
+    var m = _flattenInsights(_threadsGet('/' + p.id + '/insights',
+      { metric: 'views,likes,replies,reposts,quotes' }));
+    upsertMarketingByExternalId('th_' + p.id, {
+      platform: 'threads', type: 'post', format: 'text',
+      title: (p.text || '').slice(0, 80), date: date,
+      views: m.views || 0, likes: m.likes || 0, comments: m.replies || 0,
+      shares: (Number(m.reposts) || 0) + (Number(m.quotes) || 0)
+    });
+    n++;
+  }
+  Logger.log('pullMetaThreadsInsights → ' + n + ' threads');
+  return n;
+}
+```
+
+- [ ] **Step 2: Thêm Threads vào `pullMetaAll` (sửa hàm đã viết ở B5)**
+
+Trong `pullMetaAll(from, to)`, sau dòng `var ig = pullMetaIgInsights(from, to);` thêm:
+```javascript
+  var threads = pullMetaThreadsInsights(from, to);
+```
+và đổi return thành:
+```javascript
+  return { ok: true, degraded: isMetaDegraded(), fb: fb, ig: ig, threads: threads };
+```
+
+- [ ] **Step 3: Verify (editor, THREADS_TOKEN thật)**
+```javascript
+function _tmpTh(){ Logger.log('threads=' + pullMetaThreadsInsights('2026-06-01','2026-06-19')); }
+```
+Expected: MARKETING_LOG có dòng `platform=threads, data_source=auto`. Nếu lỗi token/scope → kiểm THREADS_TOKEN có scope `threads_manage_insights`. Xoá hàm tạm.
+
+- [ ] **Step 4: Commit**
+```bash
+git add gas/Meta.gs && git commit -m "feat(insight): pull Threads insights (graph.threads.net) → MARKETING_LOG (P2)"
+```
+
+---
+
 # PART C — Wiring subagent
 
 ## Task C1: cafe-insight dùng web_traffic + phân biệt auto/manual
@@ -668,7 +759,7 @@ git add gas/Meta.gs gas/Code.gs && git commit -m "feat(insight): pullMetaAll + m
 
 - [ ] **Step 2: Thêm note phân biệt nguồn** — trong CHẾ ĐỘ A mục 1 (DESCRIPTIVE), thêm:
 ```markdown
-- `data_source`: `auto` (FB/IG kéo qua Meta API) vs `manual` (TikTok/Threads nhập tay, hoặc FB/IG khi token degrade). Nếu `meta_health` báo degraded → nhắc chủ quán FB/IG đang ở chế độ nhập tay.
+- `data_source`: `auto` (FB/IG/Threads kéo qua Meta API) vs `manual` (TikTok nhập tay; GBP/Zalo = P2.5; hoặc FB/IG/Threads khi token degrade). Nếu `meta_health` báo degraded → nhắc chủ quán các kênh Meta đang ở chế độ nhập tay.
 - GA4 chốt số trễ ~48h → khi phân tích sát ngày, ưu tiên dữ liệu ≥2 ngày trước.
 ```
 
@@ -687,5 +778,25 @@ git add .claude/agents/cafe-insight.md && git commit -m "feat(insight): subagent
 - **Placeholder scan:** không có TBD; mọi code step có code thật. Metric Meta có cảnh báo verify-runtime (đặc thù API đổi version, không thể tránh).
 - **Type consistency:** `upsertMarketingByExternalId` field names khớp `logMarketingActivity` (P1) + index `external_post_id`=24 khớp B1 Step 1-3. `_flattenInsights/_sumReactions` định nghĩa B3, dùng B3+B4. `getWebTraffic` định nghĩa A2, dùng A3+C1. `pullMetaAll/pullMetaRecent` định nghĩa B5, route B5.
 - **Phụ thuộc tuần tự:** A1 trước A2 (advanced service); B1 trước B3/B4 (external_post_id + upsert); B2 trước B3/B4 (_metaGet). GA4 (Part A) độc lập hẳn Meta (Part B) — có thể ship A trước.
-- **Việc tay user (ngoài code):** set CONFIG `GA4_PROPERTY_ID`/`META_SYSTEM_TOKEN`/`META_PAGE_ID`/`META_IG_USER_ID`; bật advanced service; chạy `initWebTraffic`/`migrateMarketingLogP2`; cài trigger (`installGa4DailyTrigger`/`installMetaPullTrigger`/`installMetaHealthTrigger`); `clasp push`+redeploy.
-```
+- **Việc tay user (ngoài code):** set CONFIG `GA4_PROPERTY_ID`/`META_SYSTEM_TOKEN`/`META_PAGE_ID`/`META_IG_USER_ID`/`THREADS_TOKEN`/`THREADS_USER_ID`; bật advanced service; chạy `initWebTraffic`/`migrateMarketingLogP2`; cài trigger (`installGa4DailyTrigger`/`installMetaPullTrigger`/`installMetaHealthTrigger`); `clasp push`+redeploy.
+
+## Đối soát góp ý v2 (đã tích hợp 2026-06-20)
+
+3 fix kỹ thuật từ rà soát chủ quán — **đã áp dụng vào plan**:
+1. **Offset bug `upsertMarketingByExternalId`** (B1) — map index lệch +1 (reach ở index 9 không phải 10) → đã sửa về `9:reach,10:clicks,12:impressions,…`. Bug nghiêm trọng nếu để (ghi reach đè clicks).
+2. **`pullGa4Traffic` xoá dòng batch** (A2) — bỏ `deleteRow` trong loop (timeout khi sheet lớn) → đọc-filter-RAM-ghi-lại 2 call.
+3. **GA4 dùng `landingPage`** (A2) thay `landingPagePlusQueryString` — tránh phân mảnh row do query string (fbclid/gclid).
+
+Kênh mới: **Threads → Task B6** (đã thêm; base `graph.threads.net`, token riêng `THREADS_TOKEN`).
+
+## Phụ lục — Lộ trình P2.5 / P3 (kênh chưa đưa vào P2)
+
+> Đã research khả thi, để riêng vì hạ tầng/độ rủi ro khác — KHÔNG implement trong plan này.
+
+| Kênh | Khả thi | Vướng phải xử | Xếp |
+|---|---|---|---|
+| **Google Business Profile / Maps** (views, click gọi/chỉ đường/website) | Cao (dùng quyền Google owner, scope `business.manage`, gọi từ GAS qua `ScriptApp.getOAuthToken()`) | ⚠️ **Cổng duyệt thủ công của Google**: quota mặc định 0, phải nộp form, cần GBP verified 60+ ngày, duyệt vài ngày–tuần. **→ Nộp đơn xin quyền NGAY**, code sau khi được duyệt. Reviews qua API bị siết → giữ luồng review thủ công (`cafe-insight` chế độ research) | **P2.5** (sau khi duyệt) |
+| **Zalo OA** (broadcast/ZNS report: gửi/đọc/click) | Cao | Token ~25h, **refresh token DÙNG 1 LẦN** (mỗi refresh trả token mới phải ghi đè CONFIG) → cần **hàm ghi CONFIG** (`setConfig`) + LockService tránh đua mất chuỗi token; endpoint refresh `POST oauth.zaloapp.com/v4/oa/access_token`. Dự án đã có `ZALO_OA_TOKEN` (static) | **P2.5** |
+| **TikTok** (views/like/comment/share theo video) | Trung bình–thấp | Official Creator API cần duyệt doanh nghiệp + OAuth định kỳ (quá nặng cho 1 quán). Thay thế: scrape `@mitsucafe` qua **Firecrawl** (repo có `.firecrawl/`) hoặc Apify. ⚠️ Caveat: scrape có thể **vi phạm ToS TikTok**, dễ gãy khi đổi layout, Firecrawl tốn phí | **P3** (hoặc P2.5 nếu chấp nhận rủi ro scrape) |
+
+**Khi làm P2.5:** tách plan riêng `2026-XX-cafe-insight-p2.5.md`. GBP cần làm trước bước "nộp đơn" (lead time dài). Zalo cần thêm `setConfig` writer (tiện ích chung, có thể dùng lại). TikTok scrape nên có cờ bật/tắt + fallback nhập tay.
