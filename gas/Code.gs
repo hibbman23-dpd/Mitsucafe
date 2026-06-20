@@ -197,7 +197,8 @@ function doGet(e) {
     'dispatch_done',
     'record_decision_result',
     'ga4_pull',
-    'meta_pull'
+    'meta_pull',
+    'gbp_pull'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -382,6 +383,15 @@ function doGet(e) {
     if (action === 'meta_health') {
       if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       return _jsonResponse(checkMetaTokenHealth());
+    }
+
+    // cafe-insight P2.5: kéo metric GBP/Maps thủ công (mặc định 7 ngày)
+    if (action === 'gbp_pull') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var gbTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var gbFrom = e.parameter.from ||
+        Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      return _jsonResponse({ ok: true, days: pullGbpDaily(gbFrom, gbTo) });
     }
 
     if (action === 'send_daily_report') {

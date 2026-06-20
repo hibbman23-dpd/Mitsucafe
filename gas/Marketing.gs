@@ -217,6 +217,7 @@ function getRoiData(from, to) {
     promotions: promos,
     marketing: getMarketingLog(from, to),
     web_traffic: getWebTraffic(from, to),
+    gbp_daily: getGbpDaily(from, to),
     menu_costs: menuCosts,
   };
 }
