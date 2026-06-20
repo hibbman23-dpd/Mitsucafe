@@ -162,6 +162,26 @@ function seedConfigDefaults() {
 }
 
 /**
+ * P2 (cafe-insight): tạo sẵn các CONFIG key cho GA4 + Meta để chủ quán dán giá trị sau.
+ * Idempotent — chỉ thêm key còn THIẾU, KHÔNG ghi đè key đã có giá trị. Chạy 1 lần trong editor.
+ * Sau khi chạy: mở tab CONFIG, thay phần chữ gợi ý '<...>' bằng giá trị thật.
+ */
+function seedInsightConfigKeys() {
+  var defaults = {
+    'GA4_PROPERTY_ID': '<GA4 Property ID dạng SỐ, KHÔNG phải G-xxx>',
+    'META_SYSTEM_TOKEN': '<dán token Meta — System User hoặc token 60 ngày>',
+    'META_PAGE_ID': '<Facebook Page ID — Graph Explorer: me/accounts>',
+    'META_IG_USER_ID': '<IG user ID — {PAGE_ID}?fields=instagram_business_account>',
+    'THREADS_TOKEN': '<token Threads (graph.threads.net) — tuỳ chọn>',
+    'THREADS_USER_ID': '<Threads user ID — tuỳ chọn>',
+  };
+  Object.keys(defaults).forEach(function (k) {
+    if (!getConfig(k)) setConfig(k, defaults[k]);
+  });
+  Logger.log('Insight CONFIG keys seeded — mở tab CONFIG, thay <...> bằng giá trị thật.');
+}
+
+/**
  * MENU_JSON — paste nội dung seed/menu_items.json vào đây trước khi chạy.
  * Hoặc dùng UrlFetchApp.fetch nếu repo public.
  */
