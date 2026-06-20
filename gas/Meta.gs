@@ -55,7 +55,19 @@ function _metaGet(path, params, tokenOverride) {
   try { body = JSON.parse(resp.getContentText()); } catch (e) { body = null; }
   if (code !== 200 || !body || body.error) {
     var msg = body && body.error ? body.error.message : ('HTTP ' + code);
-    var isAuthError = body && body.error && (body.error.code === 190 || body.error.type === 'OAuthException');
+    var isAuthError = false;
+    if (body && body.error) {
+      var err = body.error;
+      var errMsg = err.message || '';
+      isAuthError = (
+        err.code === 190 ||
+        err.code === 102 ||
+        err.code === 104 ||
+        (err.type === 'OAuthException' && (
+          /session|token|expired|revoked|authorization/i.test(errMsg)
+        ))
+      );
+    }
     if (isAuthError) {
       _setMetaDegraded(msg);
     }
@@ -124,18 +136,27 @@ function pullMetaFbInsights(from, to) {
   if (!pageId) return 0;
   var pt = _getPageToken(); // bài Page + insights cần PAGE token
   var posts = _metaGet('/' + pageId + '/published_posts', {
-    fields: 'id,message,created_time,shares,comments.summary(true)',
-    since: from, until: to, limit: 50
+    fields: 'id,message,created_time,shares',
+    limit: 50
   }, pt);
   if (!posts || !posts.data) return 0;
   var n = 0;
   for (var i = 0; i < posts.data.length; i++) {
     var p = posts.data[i];
     var date = _asDateStr(p.created_time);
+    if (from && date < from) continue;
+    if (to && date > to) continue;
+
     var ins = _metaGet('/' + p.id + '/insights', {
-      metric: 'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total'
+      metric: 'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total,post_activity_by_action_type'
     }, pt);
     var m = _flattenInsights(ins);
+    
+    var commentCount = 0;
+    if (m.post_activity_by_action_type && typeof m.post_activity_by_action_type === 'object') {
+      commentCount = Number(m.post_activity_by_action_type.comment) || 0;
+    }
+
     upsertMarketingByExternalId('fb_' + p.id, {
       platform: 'fb', type: 'post', title: (p.message || '').slice(0, 80),
       date: date,
@@ -143,7 +164,7 @@ function pullMetaFbInsights(from, to) {
       impressions: m.post_impressions || 0,
       clicks: m.post_clicks || 0,
       likes: _sumReactions(m.post_reactions_by_type_total),
-      comments: (p.comments && p.comments.summary) ? p.comments.summary.total_count : 0,
+      comments: commentCount,
       shares: (p.shares ? p.shares.count : 0),
       format: 'photo'
     });
@@ -164,14 +185,15 @@ function pullMetaIgInsights(from, to) {
   var pt = _getPageToken(); // IG media + insights cũng dùng PAGE token
   var media = _metaGet('/' + igId + '/media', {
     fields: 'id,caption,timestamp,media_type,like_count,comments_count',
-    since: from, until: to, limit: 50
+    limit: 50
   }, pt);
   if (!media || !media.data) return 0;
   var n = 0;
   for (var i = 0; i < media.data.length; i++) {
     var md = media.data[i];
     var date = _asDateStr(md.timestamp);
-    if (date < from || date > to) continue;
+    if (from && date < from) continue;
+    if (to && date > to) continue;
     var isReel = md.media_type === 'VIDEO' || md.media_type === 'REEL';
     var isCarousel = md.media_type === 'CAROUSEL_ALBUM';
     var metric;
@@ -276,3 +298,5 @@ function installMetaPullTrigger() {
   ScriptApp.newTrigger('pullMetaRecent').timeBased().everyDays(1).atHour(5).nearMinute(30).create();
   Logger.log('Installed daily Meta pull @5:30.');
 }
+
+
