@@ -198,7 +198,9 @@ function doGet(e) {
     'record_decision_result',
     'ga4_pull',
     'meta_pull',
-    'gbp_pull'
+    'gbp_pull',
+    'zalo_pull',
+    'tiktok_pull'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -392,6 +394,17 @@ function doGet(e) {
       var gbFrom = e.parameter.from ||
         Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
       return _jsonResponse({ ok: true, days: pullGbpDaily(gbFrom, gbTo) });
+    }
+
+    // cafe-insight P2.5: kéo follower Zalo OA (best-effort) → MARKETING_LOG
+    if (action === 'zalo_pull') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse({ ok: pullZaloDailyFollowers() });
+    }
+    // cafe-insight P2.5: kéo video TikTok qua Firecrawl (opt-in; 0 nếu tắt/chặn → nhập tay)
+    if (action === 'tiktok_pull') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse({ ok: true, videos: pullTiktokViaFirecrawl() });
     }
 
     if (action === 'send_daily_report') {

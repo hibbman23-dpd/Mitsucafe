@@ -21,6 +21,9 @@ Isolated agent cho **Lâm Hà Kissaten (Mitsu)**. Nhận 1 task cụ thể từ 
 - ROI gộp: GET `…/exec?action=roi_data&from=YYYY-MM-DD&to=YYYY-MM-DD&token=<REPORT_API_TOKEN>`
   → `{ orders[], promotions[], marketing[], menu_costs{} }`. `marketing[]` chứa số post (reach, views, saves, shares, format, topic, sku_featured…).
 - RFM: `action=rfm_snapshot`. Menu eng: `action=menu_engineering_data`. Web/vị trí: `web_traffic[]` trong roi_data.
+- GBP/Maps: `roi_data` kèm `gbp_daily[]` = ngày × (impr_maps, impr_search, calls, website_clicks, directions). Đây là tín hiệu **khách địa phương/vãng lai** (Maps views → ghé quán); dùng để đo kênh Maps ngoài web/social.
+- Zalo: dòng MARKETING_LOG `platform=zalo` (reach=follower); broadcast chi tiết có thể vẫn nhập tay.
+- TikTok auto (nếu bật scrape): `platform=tiktok, data_source=auto` — **GẮN confidence=LOW** (scrape không chuẩn ngày + có thể thiếu), ưu tiên số nhập tay khi có.
 - Kho (cho dự báo nhập hàng): INVENTORY (`current_stock`/`min_stock`) qua `action=admin_data` hoặc parent cung cấp.
 - Decisions: `action=get_decisions_due` (đọc) · `action=record_decision_result` (ghi) · ghi quyết định mới qua POST `action=log_decision`.
 - GAS base: `https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec`
