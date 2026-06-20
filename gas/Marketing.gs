@@ -18,7 +18,9 @@ var MARKETING_LOG_HEADERS = [
   'utm_tag', 'cost_vnd', 'effort_hours', 'reach', 'clicks', 'notes',
   // --- P1 engagement chiều sâu (append, index >= 12) ---
   'impressions', 'views', 'likes', 'comments', 'shares', 'saves',
-  'watch_time_sec', 'avg_watch_pct', 'format', 'topic', 'sku_featured', 'data_source'
+  'watch_time_sec', 'avg_watch_pct', 'format', 'topic', 'sku_featured', 'data_source',
+  // --- P2 Meta auto-pull: khoá đối soát chống trùng (external_post_id) ---
+  'external_post_id'
 ];
 
 function _marketingSheet() {
@@ -89,6 +91,7 @@ function logMarketingActivity(a) {
     a.topic || '',
     a.sku_featured || '',
     a.data_source || 'manual',
+    a.external_post_id || '',
   ]);
   return id;
 }
@@ -118,6 +121,7 @@ function getMarketingLog(from, to) {
       watch_time_sec: Number(r[18]) || 0, avg_watch_pct: Number(r[19]) || 0,
       format: r[20] || '', topic: r[21] || '', sku_featured: r[22] || '',
       data_source: r[23] || '',
+      external_post_id: r[24] || '',
     });
   }
   return rows;
@@ -277,4 +281,45 @@ function migrateMarketingLogP1() {
   }
   Logger.log('migrateMarketingLogP1: added ' + added + ' columns.');
   return added;
+}
+
+/** P2: thêm cột external_post_id (dùng chung logic migrate P1 — gọi lại an toàn). */
+function migrateMarketingLogP2() { return migrateMarketingLogP1(); }
+
+/**
+ * Upsert 1 row MARKETING_LOG theo external_post_id (cho auto-pull Meta).
+ * Có row cùng external_post_id → cập nhật cột metric TẠI CHỖ; không → append mới (data_source='auto').
+ * KHÔNG đụng row manual (external_post_id rỗng → không khớp).
+ * @param {string} externalId
+ * @param {Object} a - field như logMarketingActivity (platform, title, date, reach, views, likes,
+ *                      comments, shares, saves, watch_time_sec, avg_watch_pct, format, sku_featured...)
+ * @return {string} activity_id
+ */
+function upsertMarketingByExternalId(externalId, a) {
+  var sheet = _marketingSheet();
+  if (!sheet) { initMarketingLog(); sheet = _marketingSheet(); }
+  migrateMarketingLogP1(); // đảm bảo đủ 25 cột
+  var data = sheet.getLastRow() >= 2 ? sheet.getDataRange().getValues() : [];
+  var rowIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][24]) === String(externalId) && externalId) { rowIdx = i + 1; break; }
+  }
+  if (rowIdx === -1) {
+    a.data_source = 'auto';
+    a.external_post_id = externalId;
+    return logMarketingActivity(a); // append mới (25 cột)
+  }
+  // update tại chỗ các cột metric. KEY = index 0-based trong MARKETING_LOG_HEADERS; cột thực = index+1.
+  // reach=9, clicks=10, impressions=12, views=13, likes=14, comments=15, shares=16, saves=17,
+  // watch_time_sec=18, avg_watch_pct=19.
+  var map = {
+    9: a.reach, 10: a.clicks, 12: a.impressions, 13: a.views, 14: a.likes,
+    15: a.comments, 16: a.shares, 17: a.saves, 18: a.watch_time_sec, 19: a.avg_watch_pct
+  };
+  for (var col in map) {
+    if (map[col] !== undefined && map[col] !== null) {
+      sheet.getRange(rowIdx, Number(col) + 1).setValue(Number(map[col]) || 0);
+    }
+  }
+  return data[rowIdx - 1][0]; // activity_id
 }
