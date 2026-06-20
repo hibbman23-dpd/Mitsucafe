@@ -20,12 +20,28 @@ function _cfg(key) {
 }
 
 function getMetaToken() { return _cfg('META_SYSTEM_TOKEN'); }
+
+/**
+ * Page access token — đọc bài Page + media IG CẦN page token (KHÔNG phải user token).
+ * Lấy từ META_PAGE_ID bằng user/system token. Cache trong 1 lần chạy.
+ * Chạy đúng cho CẢ token user (Graph Explorer) lẫn System User token.
+ */
+var _PAGE_TOKEN = null;
+function _getPageToken() {
+  if (_PAGE_TOKEN) return _PAGE_TOKEN;
+  var pageId = _cfg('META_PAGE_ID');
+  if (!pageId) return getMetaToken();
+  var r = _metaGet('/' + pageId, { fields: 'access_token' });
+  _PAGE_TOKEN = (r && r.access_token) ? r.access_token : getMetaToken();
+  return _PAGE_TOKEN;
+}
+
 function _metaProps() { return PropertiesService.getScriptProperties(); }
 function isMetaDegraded() { return _metaProps().getProperty('META_DEGRADED') === '1'; }
 
 /** GET Graph API. Trả parsed object hoặc null (+ set degrade) nếu lỗi. */
-function _metaGet(path, params) {
-  var token = getMetaToken();
+function _metaGet(path, params, tokenOverride) {
+  var token = tokenOverride || getMetaToken();
   if (!token) { _setMetaDegraded('CONFIG.META_SYSTEM_TOKEN chưa set'); return null; }
   params = params || {};
   params.access_token = token;
@@ -103,10 +119,11 @@ function _sumReactions(v) {
 function pullMetaFbInsights(from, to) {
   var pageId = _cfg('META_PAGE_ID');
   if (!pageId) return 0;
+  var pt = _getPageToken(); // bài Page + insights cần PAGE token
   var posts = _metaGet('/' + pageId + '/published_posts', {
     fields: 'id,message,created_time,shares,comments.summary(true)',
     since: from, until: to, limit: 50
-  });
+  }, pt);
   if (!posts || !posts.data) return 0;
   var n = 0;
   for (var i = 0; i < posts.data.length; i++) {
@@ -114,7 +131,7 @@ function pullMetaFbInsights(from, to) {
     var date = _asDateStr(p.created_time);
     var ins = _metaGet('/' + p.id + '/insights', {
       metric: 'post_impressions,post_impressions_unique,post_clicks,post_reactions_by_type_total'
-    });
+    }, pt);
     var m = _flattenInsights(ins);
     upsertMarketingByExternalId('fb_' + p.id, {
       platform: 'fb', type: 'post', title: (p.message || '').slice(0, 80),
@@ -141,10 +158,11 @@ function pullMetaFbInsights(from, to) {
 function pullMetaIgInsights(from, to) {
   var igId = _cfg('META_IG_USER_ID');
   if (!igId) return 0;
+  var pt = _getPageToken(); // IG media + insights cũng dùng PAGE token
   var media = _metaGet('/' + igId + '/media', {
     fields: 'id,caption,timestamp,media_type,like_count,comments_count',
     since: from, until: to, limit: 50
-  });
+  }, pt);
   if (!media || !media.data) return 0;
   var n = 0;
   for (var i = 0; i < media.data.length; i++) {
@@ -155,7 +173,7 @@ function pullMetaIgInsights(from, to) {
     var metric = isReel
       ? 'reach,saved,shares,plays,ig_reels_avg_watch_time'
       : 'reach,impressions,saved,shares';
-    var m = _flattenInsights(_metaGet('/' + md.id + '/insights', { metric: metric }));
+    var m = _flattenInsights(_metaGet('/' + md.id + '/insights', { metric: metric }, pt));
     upsertMarketingByExternalId('ig_' + md.id, {
       platform: 'ig', type: 'post',
       title: (md.caption || '').slice(0, 80), date: date,
