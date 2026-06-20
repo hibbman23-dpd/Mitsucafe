@@ -195,7 +195,8 @@ function doGet(e) {
     'device_approve',
     'device_revoke',
     'dispatch_done',
-    'record_decision_result'
+    'record_decision_result',
+    'ga4_pull'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -356,6 +357,16 @@ function doGet(e) {
       var okRec = recordDecisionResult(
         e.parameter.decision_id, e.parameter.actual_result, e.parameter.hit_or_miss);
       return _jsonResponse({ ok: okRec });
+    }
+
+    // cafe-insight P2: kéo GA4 thủ công (mặc định 7 ngày nếu không truyền from/to)
+    if (action === 'ga4_pull') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var gTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var gFrom = e.parameter.from ||
+        Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var ga4Rows = pullGa4Traffic(gFrom, gTo);
+      return _jsonResponse({ ok: true, pulled_rows: ga4Rows, range: { from: gFrom, to: gTo } });
     }
 
     if (action === 'send_daily_report') {
