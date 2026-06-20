@@ -31,7 +31,8 @@ function extendCustomersSchema() {
   var newCols = [
     'rfm_recency', 'rfm_frequency', 'rfm_monetary',
     'rfm_score', 'rfm_segment',
-    'last_winback_at', 'winback_count', 'nps_score', 'birthday'
+    'last_winback_at', 'winback_count', 'nps_score', 'birthday',
+    'fb_psid', 'ig_igsid'
   ];
   var added = 0;
   newCols.forEach(function (col) {
@@ -268,3 +269,51 @@ function rfmSnapshot() {
     champions: champions
   };
 }
+
+/**
+ * Liên kết các ID mạng xã hội (zalo_id, fb_psid, ig_igsid) với SĐT khách hàng.
+ * Tìm theo phone trong CUSTOMERS. Nếu có -> cập nhật; nếu không -> tạo mới.
+ */
+function linkCustomerSocialId(phone, socialIds) {
+  var normPhone = normalizeCustomerId(phone);
+  if (!normPhone) return { ok: false, error: 'invalid_phone' };
+  
+  extendCustomersSchema(); // Đảm bảo các cột mở rộng có sẵn
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('CUSTOMERS');
+  if (!sheet) return { ok: false, error: 'customers_sheet_missing' };
+  
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var idxId = headers.indexOf('customer_id');
+  var idxPhone = headers.indexOf('phone');
+  var idxZalo = headers.indexOf('zalo_id');
+  var idxFb = headers.indexOf('fb_psid');
+  var idxIg = headers.indexOf('ig_igsid');
+  
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (normalizeCustomerId(data[i][idxPhone]) === normPhone || normalizeCustomerId(data[i][idxId]) === normPhone) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+  
+  if (rowIndex !== -1) {
+    // Cập nhật khách hàng hiện có
+    if (socialIds.zalo_id && idxZalo >= 0) sheet.getRange(rowIndex, idxZalo + 1).setValue(String(socialIds.zalo_id));
+    if (socialIds.fb_psid && idxFb >= 0) sheet.getRange(rowIndex, idxFb + 1).setValue(String(socialIds.fb_psid));
+    if (socialIds.ig_igsid && idxIg >= 0) sheet.getRange(rowIndex, idxIg + 1).setValue(String(socialIds.ig_igsid));
+    return { ok: true, action: 'updated', customer_id: data[rowIndex-1][idxId] };
+  } else {
+    // Tạo khách hàng mới
+    var rowData = new Array(headers.length).fill('');
+    rowData[idxId] = normPhone;
+    rowData[idxPhone] = normPhone;
+    if (idxZalo >= 0) rowData[idxZalo] = socialIds.zalo_id || '';
+    if (idxFb >= 0) rowData[idxFb] = socialIds.fb_psid || '';
+    if (idxIg >= 0) rowData[idxIg] = socialIds.ig_igsid || '';
+    sheet.appendRow(rowData);
+    return { ok: true, action: 'created', customer_id: normPhone };
+  }
+}
+

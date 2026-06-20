@@ -145,6 +145,16 @@ function doPost(e) {
       return _jsonResponse({ ok: true, decision_id: did });
     }
 
+    if (payload && payload.action === 'link_social_id') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var res = linkCustomerSocialId(payload.phone, {
+        fb_psid: payload.fb_psid || null,
+        ig_igsid: payload.ig_igsid || null,
+        zalo_id: payload.zalo_id || null
+      });
+      return _jsonResponse(res);
+    }
+
     // cafe-insight P2.5: nhận metric video TikTok do Mac mini kéo bằng yt-dlp (free, no API key).
     // Gate bằng REPORT_API_TOKEN (token Mac mini đã có trong .claude/.dispatcher-auth.json).
     // Mỗi video upsert theo external key 'tt_<id>' → data_source='auto', giữ NGÀY ĐĂNG THẬT.
@@ -221,7 +231,8 @@ function doGet(e) {
     'meta_pull',
     'gbp_pull',
     'zalo_pull',
-    'tiktok_pull'
+    'tiktok_pull',
+    'link_social_id'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -369,6 +380,21 @@ function doGet(e) {
         roiFrom = Utilities.formatDate(new Date(Date.now() - 28 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
       }
       return _jsonResponse({ ok: true, data: getRoiData(roiFrom, roiTo) });
+    }
+
+    if (action === 'inventory_snapshot') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse({ ok: true, inventory: _adminReadSheet('INVENTORY') });
+    }
+
+    if (action === 'link_social_id') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var res = linkCustomerSocialId(e.parameter.phone, {
+        fb_psid: e.parameter.fb_psid || null,
+        ig_igsid: e.parameter.ig_igsid || null,
+        zalo_id: e.parameter.zalo_id || null
+      });
+      return _jsonResponse(res);
     }
 
     // cafe-insight: lấy quyết định tới hạn review (đọc)

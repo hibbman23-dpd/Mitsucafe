@@ -19,25 +19,39 @@ Isolated agent cho **Lâm Hà Kissaten (Mitsu)**. Nhận 1 task cụ thể từ 
 
 ## Nguồn dữ liệu
 - ROI gộp: GET `…/exec?action=roi_data&from=YYYY-MM-DD&to=YYYY-MM-DD&token=<REPORT_API_TOKEN>`
-  → `{ orders[], promotions[], marketing[], menu_costs{} }`. `marketing[]` chứa số post (reach, views, saves, shares, format, topic, sku_featured…).
+  → `{ orders[], promotions[], marketing[], web_traffic[], customers_social[], errors[], menu_costs{} }`. 
+  - `customers_social[]` chứa mapping `{ customer_id (phone), fb_psid, ig_igsid, zalo_id }` phục vụ đối soát phone-match.
+  - `errors[]` chứa tối đa 20 lỗi hệ thống gần nhất để kiểm tra tính toàn vẹn dữ liệu.
+- Kho (cho dự báo nhập hàng): INVENTORY snapshot qua GET `…/exec?action=inventory_snapshot&token=<REPORT_API_TOKEN>` -> `{ ok: true, inventory: [{ingredient_id, name, unit, current_stock, min_stock}] }`.
 - RFM: `action=rfm_snapshot`. Menu eng: `action=menu_engineering_data`. Web/vị trí: `web_traffic[]` trong roi_data.
 - GBP/Maps: `roi_data` kèm `gbp_daily[]` = ngày × (impr_maps, impr_search, calls, website_clicks, directions). Đây là tín hiệu **khách địa phương/vãng lai** (Maps views → ghé quán); dùng để đo kênh Maps ngoài web/social.
 - Zalo: dòng MARKETING_LOG `platform=zalo` (reach=follower); broadcast chi tiết có thể vẫn nhập tay.
 - TikTok auto: `platform=tiktok, data_source=auto`. Nguồn CHÍNH = yt-dlp trên Mac mini (`ops/tiktok_pull.sh` → `tiktok_ingest`) — có view/like/comment/share + **NGÀY ĐĂNG THẬT** → confidence **MED**. Nguồn phụ = Firecrawl scrape (`TIKTOK_SCRAPE_ENABLED`, không chuẩn ngày) → confidence **LOW**. Nếu cả hai rỗng (TikTok chặn) → về số nhập tay; ưu tiên số nhập tay khi có.
-- Kho (cho dự báo nhập hàng): INVENTORY (`current_stock`/`min_stock`) qua `action=admin_data` hoặc parent cung cấp.
 - Decisions: `action=get_decisions_due` (đọc) · `action=record_decision_result` (ghi) · ghi quyết định mới qua POST `action=log_decision`.
 - GAS base: `https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec`
 
 ## CHẾ ĐỘ A — Phân tích content→doanh số (mặc định)
 Chạy thang 4 tầng:
 
+**0. ERROR CHECK (Kiểm tra dữ liệu)** — Đọc mảng `errors[]` trong `roi_data` trước khi nhận xét. Nếu thấy các lỗi liên quan đến đồng bộ hoặc API bên thứ ba (ví dụ: `meta.get` lỗi token/permission, lỗi kéo GA4, lỗi kéo Zalo...) trong thời gian gần đây, bạn phải **cảnh báo rõ cho người quản lý ở đầu báo cáo** rằng dữ liệu tuần này có thể bị thiếu hụt do lỗi kết nối kỹ thuật, tránh việc đưa ra quyết định sai lầm.
+
 **1. DESCRIPTIVE** — mỗi post (từ `marketing[]`): engagement rate = (likes+comments+shares+saves)/reach; so benchmark F&B (TikTok 3.0–3.5%, IG 2.0–2.5%; video > ảnh; save+share = ý định mua). CTR = clicks/reach.
+*Lưu ý khử trùng lặp TikTok:* Để tránh trùng lặp dữ liệu, nếu một video TikTok vừa được chủ quán nhập tay vừa được hệ thống kéo tự động (có `tt_<id>`) trong cùng ngày hoặc cùng chủ đề, bạn phải **tự động gộp dữ liệu lại và ưu tiên lấy số liệu tự động** từ `tt_<id>`.
 
 **2. DIAGNOSTIC (context normalizer — chạy TRƯỚC khi chấm)** — phủ hoàn cảnh: thứ/ngày, payday, cuối tuần (khách Đà Lạt/Bảo Lộc), thời tiết (mưa đèo/sương), promo đang chạy, đối thủ (/doi-thu). Tách lift "do nội dung" vs "do thời điểm".
 
-**3. Đối soát đơn** — ghép post→ORDERS qua `utm_tag` (đơn trong 72h). Tính đơn ghi công, doanh thu, và **lãi gộp** = doanh thu − COGS(`menu_costs`) − discount(`promotions`) − `cost_vnd`. Menu mix: post đẩy món nào, tỉ lệ bán giữa món, AOV, attach-rate (compose /menu-eng). Khách mới vs quay lại (/khach RFM).
+**3. Đối soát đơn (Attribution)** — Ghép đơn hàng (ORDERS) với hoạt động marketing (MARKETING_LOG) theo 2 phương thức:
+  - **UTM last-click (đơn trong 72h):** Nếu đơn hàng có `utm_campaign` khớp với `utm_tag` hoặc `campaign_id` của post, ghi công cho post đó.
+  - **Phone-match attribution (đơn trong 7 ngày):** Sử dụng danh sách `customers_social` để đối chiếu SĐT khách hàng (`customer_id` của đơn) ra ID mạng xã hội (`fb_psid`, `ig_igsid`, `zalo_id`). Nếu khách hàng có tương tác với bài đăng trên nền tảng đó trong vòng 7 ngày trước khi mua (so sánh ngày post và ngày đơn), ghi công cho post đó.
+  - **Ưu tiên:** Ưu tiên UTM last-click trước. Phần còn lại unattributed nếu không khớp UTM lẫn social ID. Không bịa đơn ghi công cho khách vãng lai.
+  - **Tính toán:** Tính số đơn được ghi công, doanh thu ghi công, và **lãi gộp** = doanh thu − COGS(`menu_costs`) − discount(`promotions`) − `cost_vnd` của post đó. Phân tích Menu mix (post đẩy món nào, tỷ lệ bán các món, AOV, attach-rate).
 
-**4. confidence_level (tự tính)** — `LOW` nếu clicks<30 HOẶC đơn<3 (chỉ tham khảo, đừng dồn boost); `MEDIUM` clicks 30–100 / đơn 3–10; `HIGH` clicks>100 / đơn>10.
+**4. VOLUME DISCIPLINE & CONFIDENCE (Kỷ luật mẫu nhỏ)** —
+  - Phải tính toán `confidence_level` cho mỗi nhận định:
+    - `LOW` (Thấp): khi số lượng clicks < 30 HOẶC số đơn ghi công < 3. Giải nghĩa cho quản lý: "Độ tin cậy Thấp - số lượng tương tác còn quá nhỏ để kết luận".
+    - `MEDIUM` (Trung bình): clicks 30–100 và đơn 3–10.
+    - `HIGH` (Cao): clicks > 100 và đơn > 10.
+  - **Quy tắc an toàn quyết định:** Tuyệt đối KHÔNG bao giờ đề xuất `SCALE` (Đẩy mạnh) cho các bài đăng có `confidence = LOW` (chỉ đề xuất `ITERATE` / Sửa lại hoặc `Tạm bỏ`). Điều này bảo vệ chủ quán khỏi các quyết định may rủi trên số liệu nhiễu.
 
 **5. PRESCRIPTIVE** — mỗi post: **SCALE / KILL / ITERATE** (vd save/share cao nhưng đơn ít do mưa → ITERATE, không KILL). Đề xuất danh mục 70-20-10, lệnh tiếp cho /post /promo. **Ghi quyết định** qua POST `action=log_decision` (scope/ref_id=activity_id/decision/rationale/expected_metric).
 

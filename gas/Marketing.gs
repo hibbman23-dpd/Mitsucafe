@@ -211,6 +211,53 @@ function getRoiData(from, to) {
     }
   }
 
+  // --- CUSTOMERS social profiles for phone-match ---
+  var cSheet = ss.getSheetByName('CUSTOMERS');
+  var customersSocial = [];
+  if (cSheet && cSheet.getLastRow() >= 2) {
+    extendCustomersSchema(); // Đảm bảo cột fb_psid, ig_igsid tồn tại
+    var cd = cSheet.getDataRange().getValues();
+    var cHead = cd[0];
+    var iPhone = cHead.indexOf('phone');
+    var iZalo = cHead.indexOf('zalo_id');
+    var iFb = cHead.indexOf('fb_psid');
+    var iIg = cHead.indexOf('ig_igsid');
+    var iId = cHead.indexOf('customer_id');
+    for (var k = 1; k < cd.length; k++) {
+      var cRow = cd[k];
+      var phone = cRow[iPhone] || cRow[iId];
+      var fb = iFb >= 0 ? cRow[iFb] : '';
+      var ig = iIg >= 0 ? cRow[iIg] : '';
+      var zalo = iZalo >= 0 ? cRow[iZalo] : '';
+      if (phone && (fb || ig || zalo)) {
+        customersSocial.push({
+          customer_id: String(phone),
+          fb_psid: String(fb),
+          ig_igsid: String(ig),
+          zalo_id: String(zalo)
+        });
+      }
+    }
+  }
+
+  // --- RECENT ERRORS (để subagent kiểm tra tính toàn vẹn dữ liệu) ---
+  var errSheet = ss.getSheetByName('ERROR_LOG');
+  var recentErrors = [];
+  if (errSheet && errSheet.getLastRow() >= 2) {
+    var errData = getLastRows(errSheet, 20); // lấy 20 dòng lỗi gần nhất
+    var errHead = errData[0];
+    var iTime = errHead.indexOf('timestamp');
+    var iCtx = errHead.indexOf('context');
+    var iErr = errHead.indexOf('error');
+    for (var m = 1; m < errData.length; m++) {
+      recentErrors.push({
+        timestamp: errData[m][iTime],
+        context: errData[m][iCtx],
+        error: errData[m][iErr]
+      });
+    }
+  }
+
   return {
     range: { from: from || null, to: to || null },
     orders: orders,
@@ -218,6 +265,8 @@ function getRoiData(from, to) {
     marketing: getMarketingLog(from, to),
     web_traffic: getWebTraffic(from, to),
     gbp_daily: getGbpDaily(from, to),
+    customers_social: customersSocial,
+    errors: recentErrors,
     menu_costs: menuCosts,
   };
 }

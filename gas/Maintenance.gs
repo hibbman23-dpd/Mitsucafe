@@ -260,3 +260,75 @@ function cronEquipmentMaintReminder() {
     logError('cronEquipmentMaintReminder', err);
   }
 }
+
+/**
+ * Tạo bản sao lưu định kỳ cho Google Spreadsheet của quán.
+ * Tạo 1 bản sao lưu trong thư mục "Mitsu_Backups" (tự tạo nếu chưa có).
+ * Giới hạn tối đa 5 bản sao lưu cũ nhất (auto dọn dẹp để tránh đầy Drive).
+ */
+function backupSpreadsheet() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var file = DriveApp.getFileById(ss.getId());
+    var tz = 'Asia/Ho_Chi_Minh';
+    var dateStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd-HHmm');
+    var backupName = 'Mitsu_Backup_' + dateStr;
+    
+    // Tìm hoặc tạo thư mục backups
+    var folders = DriveApp.getFoldersByName('Mitsu_Backups');
+    var folder;
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = DriveApp.createFolder('Mitsu_Backups');
+    }
+    
+    // Tạo bản sao lưu
+    var backupFile = file.makeCopy(backupName, folder);
+    Logger.log('Spreadsheet backed up: ' + backupFile.getName());
+    
+    // Tự động dọn dẹp nếu có > 5 bản sao lưu trong thư mục
+    var files = folder.getFiles();
+    var backupList = [];
+    while (files.hasNext()) {
+      var f = files.next();
+      backupList.push({ id: f.getId(), date: f.getDateCreated() });
+    }
+    
+    // Sắp xếp theo ngày tạo (cũ nhất lên đầu)
+    backupList.sort(function(a, b) {
+      return a.date.getTime() - b.date.getTime();
+    });
+    
+    // Xoá các file cũ vượt quá số lượng 5
+    var maxBackups = 5;
+    if (backupList.length > maxBackups) {
+      var toDeleteCount = backupList.length - maxBackups;
+      for (var i = 0; i < toDeleteCount; i++) {
+        var fToDelete = DriveApp.getFileById(backupList[i].id);
+        fToDelete.setTrashed(true);
+        Logger.log('Deleted old backup: ' + fToDelete.getName());
+      }
+    }
+  } catch (e) {
+    logError('backupSpreadsheet', e);
+  }
+}
+
+/** Cài đặt trigger sao lưu tự động hàng tuần chạy lúc 4:00 sáng thứ Hai. */
+function installBackupTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'backupSpreadsheet') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  ScriptApp.newTrigger('backupSpreadsheet')
+           .timeBased()
+           .onWeekDay(ScriptApp.WeekDay.MONDAY)
+           .atHour(4)
+           .nearMinute(0)
+           .create();
+  Logger.log('Installed weekly backup trigger @4:00 Monday.');
+}
+

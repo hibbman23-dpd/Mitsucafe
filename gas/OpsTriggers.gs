@@ -259,18 +259,27 @@ function setupOpsTriggers() {
            .timeBased().onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(6).nearMinute(30).create();
 
   Logger.log('Ops triggers registered: 6 triggers');
+
+  // Register the weekly database backup trigger
+  try {
+    installBackupTrigger();
+  } catch (backupErr) {
+    logError('setupOpsTriggers.backup', backupErr);
+  }
+
   try {
     sendTelegramAlert(
-      '✅ <b>ĐÃ BẬT LỊCH NHẮC VẬN HÀNH</b>\n' +
+      '✅ <b>ĐÃ BẬT LỊCH NHẮC VẬN HÀNH & SAO LƯU</b>\n' +
       '- 06:00 hằng ngày — danh sách mở quán\n' +
       '- 08:00 hằng ngày — cảnh báo tồn kho thấp\n' +
       '- 17:00 hằng ngày — kiểm tra hạn dùng\n' +
       '- 21:30 hằng ngày — danh sách đóng quán + nhắc hao hụt\n' +
       '- 22:00 hằng ngày — bảo trì thiết bị\n' +
-      '- 06:30 Thứ 6 — tổng hợp vận hành tuần'
+      '- 06:30 Thứ 6 — tổng hợp vận hành tuần\n' +
+      '- 04:00 Thứ 2 hằng tuần — tự động sao lưu dữ liệu'
     );
   } catch (_) {}
-  return { ok: true, registered: 6 };
+  return { ok: true, registered: 7 };
 }
 
 /** Idempotent seed Phase D — CUSTOMERS RFM schema extension. */
