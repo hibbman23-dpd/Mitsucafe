@@ -191,4 +191,36 @@ Theo dõi lưu lượng đa nền tảng (web/FB/IG/Threads/TikTok/Zalo/GBP) **�
 - CLAUDE.md + `docs/system/*` (schema chi tiết).
 
 ---
-*Handoff cafe-insight · cập nhật 2026-06-20 cuối phiên · P1+P2+P2.5(TikTok) DONE & verified runtime · GBP/Zalo code-xong-tắt-chờ-credential · P3/P4 có plan hành động.*
+
+## 11. ĐÁNH GIÁ ĐỀ XUẤT NÂNG CẤP (review 2026-06-20)
+
+> Antigravity đề xuất 5 điểm sau khi đọc handoff. Dưới đây là phán quyết đã **đối chiếu code thật + cân theo bối cảnh quán nhỏ** (1 Mac mini, data ít, chủ không phải dev nặng, hệ ordering ĐANG CHẠY thật). Chưa cái nào được code — đây là backlog có ưu tiên.
+
+### 11a. Phán quyết 5 đề xuất Antigravity
+
+| # | Đề xuất | Phán quyết | Cách làm ĐÚNG cho quán |
+|---|---|---|---|
+| 1 | Dedup TikTok bằng fuzzy title >70% | ⚠️ Áp dụng — **đơn giản hóa** | Fuzzy-match trong GAS dễ gộp nhầm 2 video cùng ngày. Thay bằng: (a) **ngưng nhập tay TikTok** (yt-dlp lo) — quy ước, 0 code; (b) xoá 1 dòng trùng cũ; (c) **subagent dedup lúc đọc** (gom theo ngày, ưu tiên `data_source=auto`). Nếu vẫn muốn auto-backfill: chỉ khi có **đúng 1** dòng manual cùng ngày, KHÔNG match chữ. |
+| 2 | CI/CD auto-deploy GAS khi push main | ⚠️ Áp dụng — **đổi thành 1 lệnh LOCAL, KHÔNG auto-on-push** | Auto deploy code chưa test vào hệ nhận đơn = `doPost` lỗi → khách không đặt được (auto-mode chặn retarget production cũng vì vậy). Thay bằng `ops/deploy_gas.sh`: `clasp push → tạo version (POST .../versions) → PUT retarget data-API → smoke-test curl meta_health(_cb)`, có xác nhận. Chuỗi API này ĐÃ kiểm chứng (tạo v62 bằng nó). |
+| 3 | Zalo token: giữ 2-3 token cũ + alert | ✅ Áp dụng (khi bật Zalo) — **chỉnh nội dung** | "Giữ token cũ" vô ích (Zalo huỷ token đã dùng phía server). Alert Telegram khi fail **đã có trong code**. Thêm: (b) ghi token mới xong **đọc lại xác nhận**, fail thì lưu dự phòng PropertiesService; (c) refresh sớm hơn (18h thay 20h); (d) log thời điểm xoay token để truy vết. |
+| 4 | Unit test local (Jest + mock SpreadsheetApp) | ✅ Áp dụng — **chỉ test hàm LOGIC THUẦN** | Mock toàn bộ GAS quá nặng cho quán. Tách & test hàm thuần: map index upsert (chính bug lệch +1 ở P2), `normalizeCustomerId`, chấm RFM, cửa sổ UTM, parse ngày tiktok, **logic phone-match P3**. Dùng `node --test` sẵn có (đã dùng `node --check`), không cần Jest. Làm TRƯỚC khi code P3. |
+| 5 | ERROR_LOG tab + Telegram dev-alert + subagent đọc | 🟢 **ĐÃ CÓ 80%** | `logError()` (Utils.gs) ĐÃ ghi tab `ERROR_LOG` + Telegram (throttle + đếm lần nén). Chỉ còn phần MỚI đáng làm: **subagent ĐỌC ERROR_LOG** để biết data thiếu do lỗi hệ thống → tránh báo cáo "0 đơn/0 engagement" như thật khi thực ra pull fail. Thêm step kiểm-data-completeness vào `cafe-insight.md`. |
+
+### 11b. Đề xuất THÊM (từ rà soát code — quan trọng cho vận hành thật)
+
+| Hạng mục | Vì sao đáng | Mức |
+|---|---|---|
+| 🔴 **A. Backup Sheet định kỳ** | **Toàn bộ DB quán = 1 spreadsheet, hiện CHƯA có backup.** 1 lỗi script / xoá nhầm = mất sạch. Trigger tuần `DriveApp.getFileById(ss.getId()).makeCopy('BACKUP-yyyy-MM-dd')` ~10 dòng. **Quan trọng hơn cả 5 đề xuất trên.** | NGAY |
+| 🔴 **B. Kỷ luật thống kê mẫu nhỏ cho subagent** | Số quán bé (379 view, 6 like) → dễ "bài B gấp đôi like → SCALE" trong khi chỉ là **nhiễu**. Cần ngưỡng volume tối thiểu trước khi phán SCALE/KILL + bắt buộc gắn `confidence`. Bảo vệ chủ khỏi quyết định trên may rủi. (Sửa `cafe-insight.md`.) | NGAY |
+| 🟡 **C. Cảnh báo token Meta sắp hết hạn** | Token 60 ngày; `checkMetaTokenHealth` chưa tính ngày còn lại → 1 ngày tự chết, mất data âm thầm. Thêm cảnh báo trước ~7 ngày (gọi Graph `debug_token` lấy `data_access_expires_at`). | Trước khi token hết |
+| 🟡 **D. Archival ORDERS/WEB_TRAFFIC theo năm** | Append-only + daily rows → Sheet phình, chậm sau ~50-100k dòng. Quán còn vài năm mới chạm nhưng nên có kế hoạch. | Để sau |
+| 🟢 **E. Idempotency** | ĐÃ tốt sẵn (khoá `fb_/ig_/th_/tt_/zalo_followers_` + GA4 batch + GBP theo ngày). Không cần làm — ghi nhận điểm mạnh. | — |
+
+### 11c. Thứ tự ưu tiên đề nghị
+1. **NGAY (rẻ, giá trị cao, không đụng kênh đang tắt, không rủi ro production):** A (backup) · B (kỷ luật mẫu nhỏ) · #5-phần-mới (subagent đọc ERROR_LOG) · #1 (dedup lúc đọc trong subagent).
+2. **Tiện tay:** #2 (script deploy 1 lệnh) — bỏ hẳn cái đau redeploy thủ công.
+3. **Trước khi code P3:** #4 (test hàm thuần).
+4. **Khi bật Zalo:** #3. **Trước khi token Meta hết:** C.
+
+---
+*Handoff cafe-insight · cập nhật 2026-06-20 cuối phiên · P1+P2+P2.5(TikTok) DONE & verified runtime · GBP/Zalo code-xong-tắt-chờ-credential · P3/P4 có plan hành động · §11 review đề xuất nâng cấp.*
