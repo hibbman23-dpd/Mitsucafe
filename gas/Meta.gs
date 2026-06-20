@@ -11,7 +11,15 @@
 var META_API = 'https://graph.facebook.com/v21.0';
 var THREADS_API = 'https://graph.threads.net/v1.0';
 
-function getMetaToken() { return getConfig('META_SYSTEM_TOKEN'); }
+/** Lấy CONFIG value; coi placeholder '<...>' (từ seedInsightConfigKeys) hoặc rỗng là CHƯA set. */
+function _cfg(key) {
+  var v = getConfig(key);
+  if (!v) return '';
+  v = String(v);
+  return v.charAt(0) === '<' ? '' : v;
+}
+
+function getMetaToken() { return _cfg('META_SYSTEM_TOKEN'); }
 function _metaProps() { return PropertiesService.getScriptProperties(); }
 function isMetaDegraded() { return _metaProps().getProperty('META_DEGRADED') === '1'; }
 
@@ -55,7 +63,7 @@ function _clearMetaDegraded() { _metaProps().deleteProperty('META_DEGRADED'); }
 
 /** Health-check: gọi endpoint rẻ. Trả {ok, degraded}. Dùng cho trigger hằng ngày. */
 function checkMetaTokenHealth() {
-  var pageId = getConfig('META_PAGE_ID');
+  var pageId = _cfg('META_PAGE_ID');
   var probe = _metaGet('/' + (pageId || 'me'), { fields: 'id' });
   return { ok: !!probe, degraded: isMetaDegraded() };
 }
@@ -93,7 +101,7 @@ function _sumReactions(v) {
  * @return {number} số post xử lý (0 nếu degrade/không token)
  */
 function pullMetaFbInsights(from, to) {
-  var pageId = getConfig('META_PAGE_ID');
+  var pageId = _cfg('META_PAGE_ID');
   if (!pageId) return 0;
   var posts = _metaGet('/' + pageId + '/published_posts', {
     fields: 'id,message,created_time,shares,comments.summary(true)',
@@ -131,7 +139,7 @@ function pullMetaFbInsights(from, to) {
  * @return {number} số media xử lý
  */
 function pullMetaIgInsights(from, to) {
-  var igId = getConfig('META_IG_USER_ID');
+  var igId = _cfg('META_IG_USER_ID');
   if (!igId) return 0;
   var media = _metaGet('/' + igId + '/media', {
     fields: 'id,caption,timestamp,media_type,like_count,comments_count',
@@ -170,8 +178,8 @@ function pullMetaIgInsights(from, to) {
 
 /** GET Threads Graph API (token + base riêng). Trả object hoặc null (+degrade). */
 function _threadsGet(path, params) {
-  var token = getConfig('THREADS_TOKEN');
-  if (!token) { _setMetaDegraded('CONFIG.THREADS_TOKEN chưa set'); return null; }
+  var token = _cfg('THREADS_TOKEN');
+  if (!token) return null; // Threads tuỳ chọn — KHÔNG degrade cả pipeline Meta vì thiếu nó
   params = params || {};
   params.access_token = token;
   var qs = Object.keys(params).map(function (k) {
@@ -191,7 +199,7 @@ function _threadsGet(path, params) {
  * @return {number} số thread xử lý
  */
 function pullMetaThreadsInsights(from, to) {
-  var uid = getConfig('THREADS_USER_ID');
+  var uid = _cfg('THREADS_USER_ID');
   if (!uid) return 0;
   var posts = _threadsGet('/' + uid + '/threads', {
     fields: 'id,text,timestamp', since: from, until: to, limit: 50
