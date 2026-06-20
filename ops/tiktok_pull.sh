@@ -55,8 +55,14 @@ if [ "$CNT" -eq 0 ] 2>/dev/null; then
 fi
 
 BODY=$(jq -n --argjson v "$JSON" '{action:"tiktok_ingest", videos:$v}')
-RESP=$(curl -sL --max-time 60 -X POST -H "Content-Type: application/json" \
-        --data "$BODY" "$URL?action=tiktok_ingest&token=$TOKEN")
+# Apps Script POST trả 302 → script.googleusercontent.com/macros/echo.
+# doPost ĐÃ chạy + ghi data ngay ở lần POST đầu; echo URL chỉ chứa JSON kết quả.
+# curl -L theo redirect 1-bước hay rớt thành trang lỗi Drive → tách 2 bước:
+# (1) POST bắt redirect_url, (2) GET sạch URL đó để đọc {"ok":true,"ingested":N}.
+LOC=$(curl -sS --max-time 60 -o /dev/null -w '%{redirect_url}' -X POST \
+       -H "Content-Type: application/json" --data "$BODY" \
+       "$URL?action=tiktok_ingest&token=$TOKEN")
+RESP=$(curl -sS --max-time 60 "$LOC")
 echo "$TS · pulled=$CNT · resp=$RESP" >> "$LOG"
 
 tail -n 500 "$LOG" > "$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG"
