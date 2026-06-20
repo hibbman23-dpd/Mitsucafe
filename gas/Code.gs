@@ -145,6 +145,27 @@ function doPost(e) {
       return _jsonResponse({ ok: true, decision_id: did });
     }
 
+    // cafe-insight P2.5: nhận metric video TikTok do Mac mini kéo bằng yt-dlp (free, no API key).
+    // Gate bằng REPORT_API_TOKEN (token Mac mini đã có trong .claude/.dispatcher-auth.json).
+    // Mỗi video upsert theo external key 'tt_<id>' → data_source='auto', giữ NGÀY ĐĂNG THẬT.
+    if (payload && payload.action === 'tiktok_ingest') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var ttVids = payload.videos || [];
+      var ttN = 0;
+      for (var ti = 0; ti < ttVids.length; ti++) {
+        var tv = ttVids[ti];
+        if (!tv || !tv.id) continue;
+        upsertMarketingByExternalId('tt_' + tv.id, {
+          platform: 'tiktok', type: 'post', format: 'reel',
+          title: (tv.title || '').slice(0, 80), date: tv.date || undefined,
+          views: Number(tv.views) || 0, likes: Number(tv.likes) || 0,
+          comments: Number(tv.comments) || 0, shares: Number(tv.shares) || 0
+        });
+        ttN++;
+      }
+      return _jsonResponse({ ok: true, ingested: ttN });
+    }
+
     // Route xử lý webhook biến động số dư từ MacroDroid.
     // Bảo vệ bằng shared secret (CONFIG.BANK_WEBHOOK_SECRET). Nếu chưa set CONFIG →
     // cho qua (tương thích ngược, giống _requireTokenIfSet). Set CONFIG + thêm
