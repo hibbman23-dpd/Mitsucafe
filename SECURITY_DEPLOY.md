@@ -63,22 +63,22 @@ GitHub Pages KHÔNG chạy Worker → bản `mitsu.cafe/dashboard.html` **vẫn 
 Mật khẩu mặc định là `123456`. Vào dashboard → đổi mật khẩu ngay (CameraAI.gs `update_admin_password`).
 Hash giờ có **salt + 1200 vòng SHA-256**; hash cũ tự nâng cấp ngay lần đăng nhập đúng đầu tiên.
 
-### Bước 9 — Cấp quyền thiết bị (device approval)
-Sau khi deploy, MỌI thiết bị đều **chưa được duyệt** → KDS hiện màn "Chờ cấp quyền", Dashboard sau khi đăng nhập hiện màn pending. Cách duyệt:
+### Bước 9 — Cấp quyền thiết bị (ĐÃ GỠ — dùng Cloudflare Access thay thế)
+> **Cơ chế duyệt thiết bị (device approval) đã bị loại bỏ.** Việc gate truy cập giờ do
+> **Cloudflare Access (Bước 6)** đảm nhận — đúng tầng hơn (chặn ngay trước khi tới trang).
+>
+> - `isDeviceApproved()` trong `gas/Devices.gs` luôn `return true` (no-op) → backend không còn chặn theo thiết bị.
+> - Tab **📱 Thiết bị** + màn "chờ duyệt" trong `web/dashboard.html` đã được gỡ; đăng nhập là vào thẳng.
+> - Endpoint `device_*` trong GAS còn nằm đó (vô hại, không ai gọi) — có thể dọn sau nếu muốn.
+>
+> Muốn thu hồi quyền 1 thiết bị/người → làm ở **Cloudflare Zero Trust → Access → policy** (gỡ email khỏi danh sách Allow).
 
-- **Dashboard (máy chủ quán):** đăng nhập mật khẩu → màn pending → bấm **"Duyệt thiết bị này"** (tự duyệt vì đã xác thực mật khẩu). Sau đó vào tab **📱 Thiết bị** để duyệt các tablet KDS (chúng hiện PENDING sau khi mở trang + tự đăng ký).
-- **KDS tablet:** mở `/kds` → màn chờ hiện **device_id**. Duyệt từ tab Thiết bị của Dashboard, HOẶC Mac Mini curl:
-  ```
-  # liệt kê thiết bị
-  curl "<GAS_URL>?action=device_list&token=<TOKEN>"
-  # duyệt 1 thiết bị (device_id lấy từ màn chờ KDS)
-  curl "<GAS_URL>?action=device_approve&token=<TOKEN>&device_id=<DEVICE_ID>"
-  # thu hồi khi mất/đổi máy
-  curl "<GAS_URL>?action=device_revoke&token=<TOKEN>&device_id=<DEVICE_ID>"
-  ```
-- Thu hồi quyền bất cứ lúc nào ở tab Thiết bị → thiết bị đó lập tức không vào được.
-
-> Bootstrap không tự khóa: endpoint `device_list/approve/revoke` KHÔNG bị device-gate — chỉ cần mật khẩu (session) hoặc REPORT_API_TOKEN (Mac Mini).
+### Bước 10 — Bảo vệ webhook biến động số dư (bank_notification)
+Route `bank_notification` (MacroDroid → GAS, gạch nợ tự động) hỗ trợ **shared secret**:
+- CONFIG sheet → thêm key **`BANK_WEBHOOK_SECRET`** = 1 chuỗi ngẫu nhiên (vd `openssl rand -hex 16`).
+- MacroDroid: thêm field `"secret":"<chuỗi đó>"` vào JSON body POST.
+- Nếu **chưa** set CONFIG → endpoint vẫn mở (tương thích ngược). Set CONFIG → **fail-closed**: sai/thiếu secret trả `unauthorized`.
+- Code: [`gas/Code.gs`](gas/Code.gs) route `bank_notification` (so `payload.secret` với CONFIG).
 
 ---
 

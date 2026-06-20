@@ -322,7 +322,7 @@ def _build_test_receipt() -> bytes:
     d += b'--- TEST PRINT ---\r\n'
     d += ESC + b'!\x00'        # Normal
     d += ESC + b'a\x00'        # Left
-    d += b'LAM HA KISSATEN\r\n'
+    d += b'MITSU CAFE\r\n'
     d += b'Print server OK\r\n'
     d += b'BT serial test\r\n'
     d += b'---\r\n'

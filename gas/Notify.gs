@@ -128,7 +128,7 @@ function notifyStampUpdate(customerId, stampsEarned, newCount, totalEver, freeDr
 
   // Gửi Telegram alert để chủ quán theo dõi
   try {
-    var tgMsg = '🐸 <b>TÍCH ĐIỂM THÀNH VIÊN</b>\n' +
+    var tgMsg = '🐝 <b>TÍCH ĐIỂM THÀNH VIÊN</b>\n' +
                 'Khách hàng: <code>' + customerId + '</code>\n' +
                 '• Đơn này tích lũy: <b>+' + stampsEarned + '</b> tem\n' +
                 '• Số tem hiện tại: <b>' + newCount + '/10</b> 🎟️\n' +

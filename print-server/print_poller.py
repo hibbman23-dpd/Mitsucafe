@@ -96,7 +96,7 @@ _CW  = _W - 2 * _PAD      # content width
 
 # Font sizes — receipt (58mm)
 _SZ_HEADER  = 32   # tên quán
-_SZ_LOGO    = 24   # logo frog
+_SZ_LOGO    = 24   # (giữ chỗ — logo giờ là hình con ong vẽ bằng PIL, xem _draw_bee)
 _SZ_ADDR    = 16   # địa chỉ
 _SZ_NORMAL  = 20   # nội dung chính
 _SZ_SMALL   = 16   # modifier, ghi chú
@@ -184,6 +184,49 @@ def _img_to_raster_bytes(img) -> bytes:
     return bytes(result)
 
 
+def _bee_height(s: float = 1.1) -> int:
+    """Chiều cao logo ong (khớp với _draw_bee) để dành chỗ trước khi render."""
+    def S(v):
+        return int(round(v * s))
+    return S(14) + S(30) + S(8)
+
+
+def _draw_bee(draw, cx: int, top: int, s: float = 1.1) -> int:
+    """Vẽ logo con ong (đơn sắc, không phụ thuộc font/emoji) — đầu quay sang trái.
+    Trả về chiều cao (px) đã dùng. Thay cho logo ếch cũ '>(^_^)<'."""
+    def S(v):
+        return int(round(v * s))
+    bw, bh = S(50), S(30)                       # thân (oval)
+    by = top + S(14)                            # chừa chỗ phía trên cho cánh + râu
+    bx0 = cx - bw // 2 + S(6)                   # dịch phải; đầu nằm bên trái
+    bx1, by1 = bx0 + bw, by + bh
+    cym = by + bh // 2
+    # Cánh — 2 ellipse mảnh chếch lên ở lưng trên
+    draw.ellipse([cx - S(4), by - S(13), cx + S(14), by - S(1)], outline=0, width=S(2))
+    draw.ellipse([cx + S(8), by - S(15), cx + S(26), by - S(3)], outline=0, width=S(2))
+    # Thân — viền đen, nền trắng để các sọc nổi rõ
+    draw.ellipse([bx0, by, bx1, by1], outline=0, width=S(3), fill=255)
+    # Sọc — các dải đen dọc xen kẽ
+    band = S(7)
+    for i in range(4):
+        sx = bx0 + S(7) + i * S(11)
+        if sx + band > bx1 - S(4):
+            break
+        draw.rectangle([sx, by + S(4), sx + band, by1 - S(4)], fill=0)
+    # Đầu — hình tròn đen bên trái
+    hr = S(10)
+    hcx, hcy = bx0 + S(1), cym
+    draw.ellipse([hcx - hr, hcy - hr, hcx + hr, hcy + hr], fill=0)
+    # Râu — 2 đường mảnh có chấm đầu
+    draw.line([(hcx - S(3), hcy - hr + S(2)), (hcx - S(10), hcy - hr - S(9))], fill=0, width=S(2))
+    draw.line([(hcx + S(3), hcy - hr + S(2)), (hcx + S(2), hcy - hr - S(11))], fill=0, width=S(2))
+    draw.ellipse([hcx - S(13), hcy - hr - S(12), hcx - S(7), hcy - hr - S(6)], fill=0)
+    draw.ellipse([hcx - S(1), hcy - hr - S(14), hcx + S(5), hcy - hr - S(8)], fill=0)
+    # Ngòi — tam giác nhỏ ở đuôi (phải)
+    draw.polygon([(bx1 - S(2), cym - S(4)), (bx1 + S(9), cym), (bx1 - S(2), cym + S(4))], fill=0)
+    return by1 - top + S(8)
+
+
 def build_receipt_raster(order: dict) -> bytes:
     """Render hoá đơn dưới dạng PIL image, xuất ESC/POS raster bytes.
 
@@ -194,7 +237,6 @@ def build_receipt_raster(order: dict) -> bytes:
 
     W, PAD, CW = _W, _PAD, _CW
 
-    f_logo   = _load_font(_SZ_LOGO)
     f_header = _load_font(_SZ_HEADER)
     f_addr   = _load_font(_SZ_ADDR)
     f_norm   = _load_font(_SZ_NORMAL)
@@ -237,8 +279,13 @@ def build_receipt_raster(order: dict) -> bytes:
         nonlocal y
         y += px
 
+    def add_bee(scale=1.1):
+        nonlocal y
+        cmds.append(("bee", W // 2, y, scale))
+        y += _bee_height(scale)
+
     # ── Header ────────────────────────────────────────────────────────────────
-    add_text(">(^_^)<",          f_logo,   "center")
+    add_bee(1.1)                          # logo con ong (thay logo ếch cũ)
     add_gap(2)
     add_text("Mitsu Café",       f_header, "center")
     add_gap(1)
@@ -311,7 +358,7 @@ def build_receipt_raster(order: dict) -> bytes:
 
     # ── Footer ────────────────────────────────────────────────────────────────
     add_text("Cảm ơn! Hẹn gặp lại nhé!", f_norm, "center")
-    add_text("Mitsu Café",               f_addr,  "center")
+    add_text("mitsu.cafe",               f_addr,  "center")
     add_hline(thick=1, gap_before=3, gap_after=6)
 
     # ── Render to PIL Image ───────────────────────────────────────────────────
@@ -326,6 +373,9 @@ def build_receipt_raster(order: dict) -> bytes:
         elif cmd[0] == "hline":
             _, cy, thick = cmd
             draw.line([(PAD, cy), (W - PAD, cy)], fill=0, width=thick)
+        elif cmd[0] == "bee":
+            _, bcx, bcy, bscale = cmd
+            _draw_bee(draw, bcx, bcy, bscale)
 
     # ── Raster → ESC/POS bytes ────────────────────────────────────────────────
     ESC = b"\x1b"
@@ -355,7 +405,6 @@ import unicodedata
 
 def _viet_cp1258(s: str) -> str:
     """Chuẩn hoá về CP1258: giữ accent base khi không encode được tone phức."""
-    s = s.replace("Đ", "D").replace("đ", "d")
     result = []
     for ch in s:
         try:
@@ -392,7 +441,7 @@ def build_receipt_text(order: dict) -> bytes:
         ESC + b"t\x20",           # CP1258
         ESC + b"a\x01",           # center
         ESC + b"!\x00",
-        enc(">(^_^)<\n"),
+        enc(">(|||)<\n"),          # con ong (chế độ text — sọc thân giữa 2 cánh)
         ESC + b"!\x38",
         enc("Mitsu Café\n"),
         ESC + b"!\x00",
@@ -432,14 +481,14 @@ def build_receipt_text(order: dict) -> bytes:
         parts.append(enc(("  Ghi chú: " + notes)[:W] + "\n"))
     parts.append(enc("-" * W + "\n"))
     parts.append(ESC + b"!\x08")
-    parts.append(enc(rjust("Tông: " + _format_amount(order.get("total", 0)) + "d", W) + "\n"))
+    parts.append(enc(rjust("Tổng: " + _format_amount(order.get("total", 0)) + "đ", W) + "\n"))
     parts.append(ESC + b"!\x00")
     pmt = (order.get("payment") or {}).get("method", "")
     parts.append(enc(rjust("TT: " + _payment_label(pmt), W) + "\n"))
     parts.append(enc("=" * W + "\n"))
     parts.append(ESC + b"a\x01")
-    parts.append(enc("Cam ơn! Hen gap lai nhé!\n"))
-    parts.append(enc("Mitsu Café\n"))
+    parts.append(enc("Cảm ơn! Hẹn gặp lại nhé!\n"))
+    parts.append(enc("mitsu.cafe\n"))
     parts.append(ESC + b"a\x00")
     parts.append(enc("=" * W + "\n"))
     parts.append(b"\n\n\n\n")

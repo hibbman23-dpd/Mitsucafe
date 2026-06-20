@@ -67,4 +67,7 @@ LABEL_PRINTER_MODEL   | POS-58L        (POS-58L hoặc XP-365B)
 PRINT_SERVER_PORT     | 5000           (Port Flask server trên Mac Mini)
 STAMP_PER_CUP         | 1
 STAMPS_FOR_FREE       | 10
+STORE_NAME            | Mitsu Café     (tên in trên hoá đơn — đổi nếu còn "Kaeru Kàphê")
+REPORT_API_TOKEN      | xxx            (token endpoint KDS/Mac Mini poller — xem SECURITY_DEPLOY.md)
+BANK_WEBHOOK_SECRET   | xxx            (tuỳ chọn — bật fail-closed cho webhook bank_notification; khớp field "secret" của MacroDroid)
 ```

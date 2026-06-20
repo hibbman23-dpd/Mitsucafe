@@ -129,8 +129,15 @@ function doPost(e) {
       return _jsonResponse({ ok: true, promo: _getPromoInfoInternal() });
     }
 
-    // Route xử lý webhook biến động số dư từ MacroDroid
+    // Route xử lý webhook biến động số dư từ MacroDroid.
+    // Bảo vệ bằng shared secret (CONFIG.BANK_WEBHOOK_SECRET). Nếu chưa set CONFIG →
+    // cho qua (tương thích ngược, giống _requireTokenIfSet). Set CONFIG + thêm
+    // "secret" vào POST của MacroDroid để bật fail-closed.
     if (payload && payload.action === 'bank_notification') {
+      var _bws = getConfig('BANK_WEBHOOK_SECRET');
+      if (_bws && String(payload.secret || '') !== String(_bws)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
       return handleBankNotification(payload);
     }
 
