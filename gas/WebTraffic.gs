@@ -50,7 +50,7 @@ function pullGa4Traffic(from, to) {
       // → tránh phân mảnh row; nguồn đã lưu riêng qua sessionSource/medium/campaign.
       { name: 'date' }, { name: 'landingPage' },
       { name: 'sessionSource' }, { name: 'sessionMedium' },
-      { name: 'sessionCampaign' }, { name: 'city' }
+      { name: 'sessionCampaignName' }, { name: 'city' }
     ],
     metrics: [
       { name: 'sessions' }, { name: 'totalUsers' },
