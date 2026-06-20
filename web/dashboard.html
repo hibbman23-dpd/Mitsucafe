@@ -84,6 +84,25 @@
   .loginbox .btn{width:100%} .small{font-size:.72rem;color:var(--muted)}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--cyan);padding:10px 18px;border-radius:12px;font-size:.85rem;z-index:60;opacity:0;transition:.3s}
   .toast.show{opacity:1}
+  #content-log-panel { margin-top: 16px; }
+  .cl-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .cl-grid input, .cl-grid select {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: .84rem;
+    width: 100%;
+  }
+  .cl-grid input:focus, .cl-grid select:focus { outline: none; border-color: var(--cyan); }
+  #cl-submit { width: 100%; margin-top: 6px; }
+  .cl-msg { font-size: .8rem; margin-top: 8px; }
 </style>
 </head>
 <body class="mitsu">
@@ -123,7 +142,32 @@
     <div class="tab" data-v="signage" onclick="switchTab('signage')">📺 Màn hình</div>
   </div>
 
-  <div id="v-overview" class="view active"><div class="grid" id="ovGrid"></div></div>
+  <div id="v-overview" class="view active">
+  <div class="grid" id="ovGrid"></div>
+  <section class="card" id="content-log-panel">
+  <h3>📊 Nhập số liệu bài đăng</h3>
+  <div class="cl-grid">
+    <select id="cl-platform"><option value="tiktok">TikTok</option><option value="threads">Threads</option><option value="fb">Facebook</option><option value="ig">Instagram</option></select>
+    <select id="cl-format"><option value="reel">reel</option><option value="photo">photo</option><option value="carousel">carousel</option><option value="story">story</option><option value="live">live</option><option value="text">text</option></select>
+    <select id="cl-topic"><option value="mon-spotlight">món spotlight</option><option value="behind-scene">hậu trường</option><option value="promo">promo</option><option value="ugc">UGC</option><option value="trend">trend</option><option value="thong-bao">thông báo</option><option value="khac">khác</option></select>
+    <input id="cl-title" placeholder="Tiêu đề / mô tả ngắn">
+    <input id="cl-utm" placeholder="utm_tag (vd tt-matcha-reel)">
+    <input id="cl-sku" placeholder="SKU nổi bật (vd DR001)">
+    <input id="cl-reach" type="number" placeholder="reach">
+    <input id="cl-views" type="number" placeholder="views">
+    <input id="cl-likes" type="number" placeholder="likes">
+    <input id="cl-comments" type="number" placeholder="comments">
+    <input id="cl-shares" type="number" placeholder="shares">
+    <input id="cl-saves" type="number" placeholder="saves">
+    <input id="cl-clicks" type="number" placeholder="link clicks">
+    <input id="cl-watch" type="number" placeholder="watch time (giây)">
+    <input id="cl-watchpct" type="number" placeholder="avg watch %">
+    <input id="cl-date" type="date">
+  </div>
+  <button id="cl-submit" class="btn primary">Lưu bài đăng</button>
+  <div id="cl-msg" class="cl-msg"></div>
+  </section>
+</div>
   <div id="v-menu" class="view"></div>
   <div id="v-inventory" class="view"></div>
   <div id="v-promo" class="view"></div>
@@ -604,6 +648,34 @@ document.getElementById('sg-preview') && document.getElementById('sg-preview').a
 /* boot */
 if(tk())showApp();
 document.getElementById('p').addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+
+// content-log panel — auto-fill today's date (local timezone)
+(function(){
+  const clDateEl = document.getElementById('cl-date');
+  if (clDateEl) {
+    const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+    clDateEl.value = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
+  }
+})();
+function clVal(id){const el=document.getElementById(id);return el?el.value:'';}
+function clNum(id){return Number(clVal(id))||0;}
+document.getElementById('cl-submit').addEventListener('click', async function(){
+  const msg=document.getElementById('cl-msg');
+  const utm=clVal('cl-utm').trim();
+  if(!utm){msg.textContent='⚠️ Cần utm_tag để đối soát đơn.';return;}
+  msg.textContent='Đang lưu…';
+  const data={ platform:clVal('cl-platform'), type:'post', format:clVal('cl-format'),
+    topic:clVal('cl-topic'), title:clVal('cl-title'), utm_tag:utm, sku_featured:clVal('cl-sku'),
+    date:clVal('cl-date'), reach:clNum('cl-reach'), views:clNum('cl-views'), likes:clNum('cl-likes'),
+    comments:clNum('cl-comments'), shares:clNum('cl-shares'), saves:clNum('cl-saves'),
+    clicks:clNum('cl-clicks'), watch_time_sec:clNum('cl-watch'), avg_watch_pct:clNum('cl-watchpct'),
+    data_source:'manual' };
+  try{
+    const r=await apiPost({action:'log_content', token:tk(), data:data});
+    if(r.ok){msg.textContent='✅ Đã lưu: '+r.activity_id; document.querySelectorAll('#content-log-panel input').forEach(function(i){i.value='';});}
+    else{msg.textContent='❌ '+(r.error||'lỗi');}
+  }catch(e){msg.textContent='❌ Lỗi kết nối';}
+});
 </script>
 </body>
 </html>
