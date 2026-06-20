@@ -196,7 +196,8 @@ function doGet(e) {
     'device_revoke',
     'dispatch_done',
     'record_decision_result',
-    'ga4_pull'
+    'ga4_pull',
+    'meta_pull'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -367,6 +368,20 @@ function doGet(e) {
         Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
       var ga4Rows = pullGa4Traffic(gFrom, gTo);
       return _jsonResponse({ ok: true, pulled_rows: ga4Rows, range: { from: gFrom, to: gTo } });
+    }
+
+    // cafe-insight P2: kéo Meta FB/IG/Threads thủ công (mặc định 7 ngày)
+    if (action === 'meta_pull') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var mTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var mFrom = e.parameter.from ||
+        Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      return _jsonResponse(pullMetaAll(mFrom, mTo));
+    }
+    // cafe-insight P2: trạng thái token Meta (đọc)
+    if (action === 'meta_health') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse(checkMetaTokenHealth());
     }
 
     if (action === 'send_daily_report') {
