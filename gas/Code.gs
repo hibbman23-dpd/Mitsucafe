@@ -129,6 +129,22 @@ function doPost(e) {
       return _jsonResponse({ ok: true, promo: _getPromoInfoInternal() });
     }
 
+    // ── cafe-insight: nhập số post thủ công + ghi quyết định (admin session) ──
+    if (payload && payload.action === 'log_content') {
+      if (!validateSessionToken(payload.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      var cid = logMarketingActivity(payload.data || {});
+      return _jsonResponse({ ok: true, activity_id: cid });
+    }
+    if (payload && payload.action === 'log_decision') {
+      if (!validateSessionToken(payload.token)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      var did = logDecision(payload.data || {});
+      return _jsonResponse({ ok: true, decision_id: did });
+    }
+
     // Route xử lý webhook biến động số dư từ MacroDroid.
     // Bảo vệ bằng shared secret (CONFIG.BANK_WEBHOOK_SECRET). Nếu chưa set CONFIG →
     // cho qua (tương thích ngược, giống _requireTokenIfSet). Set CONFIG + thêm
@@ -178,7 +194,8 @@ function doGet(e) {
     'winback_candidates',
     'device_approve',
     'device_revoke',
-    'dispatch_done'
+    'dispatch_done',
+    'record_decision_result'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -326,6 +343,19 @@ function doGet(e) {
         roiFrom = Utilities.formatDate(new Date(Date.now() - 28 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
       }
       return _jsonResponse({ ok: true, data: getRoiData(roiFrom, roiTo) });
+    }
+
+    // cafe-insight: lấy quyết định tới hạn review (đọc)
+    if (action === 'get_decisions_due') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse({ ok: true, decisions: getDecisionsDue() });
+    }
+    // cafe-insight: ghi kết quả review 1 quyết định (write — đã có trong writeActions)
+    if (action === 'record_decision_result') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var okRec = recordDecisionResult(
+        e.parameter.decision_id, e.parameter.actual_result, e.parameter.hit_or_miss);
+      return _jsonResponse({ ok: okRec });
     }
 
     if (action === 'send_daily_report') {
