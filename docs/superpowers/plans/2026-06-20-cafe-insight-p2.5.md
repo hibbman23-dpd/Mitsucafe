@@ -385,10 +385,15 @@ function pullTiktokViaFirecrawl() {
   var n = 0;
   for (var i = 0; i < vids.length; i++) {
     var v = vids[i];
-    if (!v.video_url) continue;
-    upsertMarketingByExternalId('tt_' + v.video_url, {
+    var rawUrl = v.video_url || '';
+    // Bóc ID SỐ ổn định của video (vd .../@mitsucafe/video/7382910392?is_copy_url=1 → 7382910392)
+    // → khoá đối soát cố định, tránh trùng dòng khi URL đổi (tương đối/tuyệt đối/kèm tham số chia sẻ).
+    var match = rawUrl.match(/\/video\/(\d+)/);
+    var videoId = match ? match[1] : rawUrl.replace(/[^a-zA-Z0-9]/g, '');
+    if (!videoId) continue;
+    upsertMarketingByExternalId('tt_' + videoId, {
       platform: 'tiktok', type: 'post', format: 'reel',
-      title: (v.caption || '').slice(0, 80), date: today, // scrape không có ngày đăng chính xác → ngày kéo
+      title: (v.caption || '').slice(0, 80), date: today, // scrape không có ngày đăng chuẩn → ngày kéo
       views: Number(v.views) || 0, likes: Number(v.likes) || 0,
       comments: Number(v.comments) || 0, shares: Number(v.shares) || 0
     });
@@ -405,7 +410,7 @@ function installTiktokTrigger() {
   ScriptApp.newTrigger('pullTiktokViaFirecrawl').timeBased().everyDays(1).atHour(7).create();
 }
 ```
-> **Note:** `data.json.videos` là đường dẫn kỳ vọng của Firecrawl v2 json-format; **verify cấu trúc thật** bằng log `resp.getContentText()` lần đầu (Firecrawl có thể bọc khác). `date` để ngày kéo vì scrape khó lấy ngày đăng chuẩn → subagent đừng dùng tiktok-auto cho phân tích theo-ngày chính xác.
+> **Note (đã đối soát docs Firecrawl v2):** dạng `formats: [{type:'json', schema}]` là đúng theo api-reference v2 hiện hành (KHÔNG có field `jsonOptions` riêng — đó là dạng v1 cũ). Đường dẫn kết quả kỳ vọng `data.json.videos`. **Verify lần đầu** bằng log `resp.getContentText()`: nếu Firecrawl trả `400` thì thử dạng v1 cũ `formats:['json'] + jsonOptions:{schema}` và đọc `data.json`/`data.extract` (API Firecrawl từng đổi shape giữa version). `date` để ngày kéo vì scrape khó lấy ngày đăng chuẩn → subagent đừng dùng tiktok-auto cho phân tích theo-ngày chính xác.
 
 - [ ] **Step 2: Verify (cần FIRECRAWL_API_KEY + bật cờ)** — editor `pullTiktokViaFirecrawl()`. Nếu trả >0 và MARKETING_LOG có dòng tiktok-auto → OK. Nếu 0/rỗng → TikTok chặn, **chấp nhận fallback nhập tay** (không coi là fail kiến trúc). Log response để chỉnh đường dẫn `data.json.videos` nếu Firecrawl bọc khác.
 
