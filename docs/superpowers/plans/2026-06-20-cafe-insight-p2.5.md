@@ -321,9 +321,25 @@ git add gas/Zalo.gs && git commit -m "feat(insight): Zalo follower pull (best-ef
 
 ---
 
-# PART C — TikTok qua Firecrawl (opt-in, fragile)
+# PART C — TikTok
 
-> **⚠️ CAVEAT BẮT BUỘC ĐỌC:** scrape profile công khai TikTok có thể **vi phạm ToS TikTok**, **dễ gãy** khi TikTok đổi layout/chặn bot, và Firecrawl **tốn phí + có thể trả rỗng** (TikTok chặn mạnh). Vì vậy Part C **opt-in** (cờ `TIKTOK_SCRAPE_ENABLED=true`), luôn có **fallback nhập tay** (panel P1), và subagent phải gắn `confidence=LOW` cho data tiktok-auto. Cân nhắc kỹ trước khi bật.
+> **CẬP NHẬT 2026-06-20 (quyết định chủ quán):** nguồn TikTok CHÍNH đổi sang **yt-dlp trên Mac mini** (FREE, không cần API key, lấy được **ngày đăng thật**) — xem **Part C′** bên dưới. Bản Firecrawl (C1) giữ lại làm **fallback opt-in**, mặc định TẮT.
+>
+> **Lý do:** TikTok chặn bot mạnh → không có đường free gọi thẳng từ GAS. Mac mini đã chạy 24/7 (print server/dispatcher) → tận dụng làm runtime. yt-dlp maintained số 1, vá nhanh khi TikTok đổi layout.
+
+## Part C′ (CHÍNH) — yt-dlp trên Mac mini → GAS ingest  ✅ ĐÃ CODE
+
+- **GAS:** `doPost` action `tiktok_ingest` (gate REPORT_API_TOKEN) → loop `videos[]` → `upsertMarketingByExternalId('tt_<id>')` (`gas/Code.gs`). Giữ ngày đăng thật khi insert lần đầu.
+- **Mac mini:** `ops/tiktok_pull.sh` — `yt-dlp --skip-download --dump-json --playlist-end N <profile>` → jq chuẩn hoá (id/title/views/likes/comments/shares + upload_date YYYYMMDD→YYYY-MM-DD) → POST. Mirror convention `dispatcher.sh` (PATH cron, token từ `.claude/.dispatcher-auth.json`, log tail).
+- **Setup user:** `brew install yt-dlp jq` trên Mac mini; crontab `10 7 * * * .../ops/tiktok_pull.sh`; chỉnh `TIKTOK_PROFILE_URL`/`TIKTOK_LIMIT` nếu cần (mặc định `@mitsucafe83`, 30 video). Redeploy GAS để có route `tiktok_ingest`.
+- **Verify:** chạy tay `ops/tiktok_pull.sh` → xem `ops/tiktok_pull.log` (`pulled=N · resp={"ok":true,"ingested":N}`) + MARKETING_LOG có dòng `platform=tiktok, data_source=auto` đúng ngày đăng. Rỗng = TikTok chặn → `brew upgrade yt-dlp` hoặc về nhập tay.
+- **Confidence:** MED (số + ngày thật), cao hơn Firecrawl-scrape (LOW).
+
+---
+
+## C1 (FALLBACK opt-in) — TikTok qua Firecrawl
+
+> **⚠️ CAVEAT BẮT BUỘC ĐỌC:** scrape profile công khai TikTok có thể **vi phạm ToS TikTok**, **dễ gãy** khi TikTok đổi layout/chặn bot, và Firecrawl **tốn phí + có thể trả rỗng** (TikTok chặn mạnh). Vì vậy C1 **opt-in** (cờ `TIKTOK_SCRAPE_ENABLED=true`, mặc định TẮT — đã có Part C′ làm nguồn chính), luôn có **fallback nhập tay** (panel P1), và subagent gắn `confidence=LOW` cho data tiktok-firecrawl. Chỉ bật nếu Mac mini không khả dụng.
 
 ## Task C1: TikTokScrape.gs — Firecrawl pull
 

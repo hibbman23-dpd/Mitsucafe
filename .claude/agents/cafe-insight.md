@@ -23,7 +23,7 @@ Isolated agent cho **Lâm Hà Kissaten (Mitsu)**. Nhận 1 task cụ thể từ 
 - RFM: `action=rfm_snapshot`. Menu eng: `action=menu_engineering_data`. Web/vị trí: `web_traffic[]` trong roi_data.
 - GBP/Maps: `roi_data` kèm `gbp_daily[]` = ngày × (impr_maps, impr_search, calls, website_clicks, directions). Đây là tín hiệu **khách địa phương/vãng lai** (Maps views → ghé quán); dùng để đo kênh Maps ngoài web/social.
 - Zalo: dòng MARKETING_LOG `platform=zalo` (reach=follower); broadcast chi tiết có thể vẫn nhập tay.
-- TikTok auto (nếu bật scrape): `platform=tiktok, data_source=auto` — **GẮN confidence=LOW** (scrape không chuẩn ngày + có thể thiếu), ưu tiên số nhập tay khi có.
+- TikTok auto: `platform=tiktok, data_source=auto`. Nguồn CHÍNH = yt-dlp trên Mac mini (`ops/tiktok_pull.sh` → `tiktok_ingest`) — có view/like/comment/share + **NGÀY ĐĂNG THẬT** → confidence **MED**. Nguồn phụ = Firecrawl scrape (`TIKTOK_SCRAPE_ENABLED`, không chuẩn ngày) → confidence **LOW**. Nếu cả hai rỗng (TikTok chặn) → về số nhập tay; ưu tiên số nhập tay khi có.
 - Kho (cho dự báo nhập hàng): INVENTORY (`current_stock`/`min_stock`) qua `action=admin_data` hoặc parent cung cấp.
 - Decisions: `action=get_decisions_due` (đọc) · `action=record_decision_result` (ghi) · ghi quyết định mới qua POST `action=log_decision`.
 - GAS base: `https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec`
