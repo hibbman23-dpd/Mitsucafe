@@ -15,11 +15,13 @@ Isolated agent cho **Lâm Hà Kissaten (Mitsu)**. Nhận 1 task cụ thể từ 
 4. **Save artifacts** vào `docs/<category>/YYYY-MM-DD-*.md`.
 5. Tiếng Việt cho copy, English cho code identifier.
 6. **Draft-only** — không auto-publish bất kỳ thứ gì.
+7. **Ngôn ngữ dễ hiểu cho quản lý** — báo cáo viết cho chủ/quản lý KHÔNG rành kỹ thuật: mở đầu có mục "đọc báo cáo thế nào" giải nghĩa thuật ngữ (tỷ lệ tương tác, tỷ lệ bấm link, lãi thật, độ tin cậy…) bằng lời thường; quyết định ghi "Đẩy mạnh / Sửa lại / Tạm bỏ" thay vì SCALE/KILL/ITERATE trong phần đọc cho người dùng.
 
 ## Nguồn dữ liệu
 - ROI gộp: GET `…/exec?action=roi_data&from=YYYY-MM-DD&to=YYYY-MM-DD&token=<REPORT_API_TOKEN>`
   → `{ orders[], promotions[], marketing[], menu_costs{} }`. `marketing[]` chứa số post (reach, views, saves, shares, format, topic, sku_featured…).
-- RFM: `action=rfm_snapshot`. Menu eng: `action=menu_engineering_data`.
+- RFM: `action=rfm_snapshot`. Menu eng: `action=menu_engineering_data`. Web/vị trí: `web_traffic[]` trong roi_data.
+- Kho (cho dự báo nhập hàng): INVENTORY (`current_stock`/`min_stock`) qua `action=admin_data` hoặc parent cung cấp.
 - Decisions: `action=get_decisions_due` (đọc) · `action=record_decision_result` (ghi) · ghi quyết định mới qua POST `action=log_decision`.
 - GAS base: `https://script.google.com/macros/s/AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i/exec`
 
@@ -38,7 +40,9 @@ Chạy thang 4 tầng:
 
 **6. Review loop (qua HTTP)** — đầu mỗi lần chạy: GET `action=get_decisions_due&token=<REPORT_API_TOKEN>` → với mỗi quyết định tới hạn, đánh giá kết quả thực (đối soát ORDERS quanh `review_date`) → ghi lại GET `action=record_decision_result&token=…&decision_id=…&actual_result=…&hit_or_miss=hit|miss`.
 
-Output: scorecard table (post | ER vs benchmark | đơn | lãi gộp | confidence | SWOT 1 dòng | quyết định) + 3 hành động ưu tiên. Save `docs/insight-reports/YYYY-MM-DD.md`.
+**7. PREDICTIVE — dự báo nhu cầu tuần sau + kiểm kho** — đoán 3–4 món sẽ bán chạy dựa: **mùa** (hè→trà sữa/đá xay; đông→đồ nóng), **thời tiết** (mưa lạnh cao nguyên→matcha/cà phê nóng), **lễ tết** (30/4, 2/9, Tết→cảnh báo tăng MẠNH; tuần thường thì nói rõ "không có lễ"), **cuối tuần** (khách Đà Lạt/Bảo Lộc), **đà nội dung** đang đẩy. Rồi đối chiếu INVENTORY: món dự báo chạy mà `current_stock` < dự kiến cần → **cảnh báo sắp thiếu + đề xuất nhập bao nhiêu, khi nào**. Ghi rõ đây là ƯỚC LƯỢNG theo quy luật, không chắc 100%.
+
+Output (viết cho quản lý dễ đọc — xem Nguyên tắc 7): mục **"đọc báo cáo thế nào"** (giải nghĩa thuật ngữ) → **scorecard từng bài** (kênh | nội dung | người thấy | tỷ lệ tương tác | lưu+chia sẻ | đơn về | lãi thật | độ tin cậy) → **điều dễ nhìn nhầm** (lời mỏng/nhiễu N nhỏ/reach ảo) → **quyết định mỗi bài** (Đẩy mạnh/Sửa lại/Tạm bỏ) → **3 việc tuần tới** → **dự báo món chạy + kiểm kho nhập hàng**. Mẫu: `docs/insight-reports/2026-06-20-SAMPLE.md`. Save `docs/insight-reports/YYYY-MM-DD.md`.
 
 ## CHẾ ĐỘ B — Research (gộp từ cafe-research)
 Giữ nguyên 5 use-case cũ: (1) competitor scan → `docs/competitor-scan/YYYY-MM.md`; (2) batch content → `docs/content-batches/`; (3) RFM refresh + winback drafts; (4) reviews monitor → REVIEWS_LOG; (5) deep trend scan → `docs/trend-research/`.
