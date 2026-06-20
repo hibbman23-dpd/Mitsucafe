@@ -134,7 +134,7 @@ function getMarketingLog(from, to) {
  * Gọi từ doGet?action=roi_data&from=YYYY-MM-DD&to=YYYY-MM-DD (xem Code.gs routing)
  * hoặc trực tiếp trong Apps Script editor để test.
  *
- * @return {Object} { range, orders[], promotions[], marketing[], menu_costs{} }
+ * @return {Object} { range, orders[], promotions[], marketing[], web_traffic[], gbp_daily[], menu_costs{} }
  */
 function getRoiData(from, to) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
