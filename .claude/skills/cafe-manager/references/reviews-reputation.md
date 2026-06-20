@@ -111,7 +111,7 @@ Skill output:
 
 ## Subagent dispatch
 
-Cho task >5 review hoặc cần deep-scan history → dispatch `cafe-research`:
+Cho task >5 review hoặc cần deep-scan history → dispatch `cafe-insight`:
 
 ```
 Task: "Quét Google Maps + FB của Mitsu 6 tháng qua, group review by month, 

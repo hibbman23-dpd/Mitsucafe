@@ -35,7 +35,7 @@ Qua `mcp__scheduled-tasks__create_scheduled_task` — chạy Claude Code remote 
 | `cafe_morning_content_draft` | `30 7 * * *` | Dispatch skill draft 1 IG/FB post cho hôm nay | `docs/content-drafts/YYYY-MM-DD.md` |
 | `cafe_friday_weekly` | `30 6 * * 5` | Run `/tuan` (Friday) → save weekly brief | `docs/briefs/YYYY-WW-weekly.md` |
 | `cafe_friday_content_plan` | `0 9 * * 5` | Brainstorm 7 ý tưởng tuần sau | `docs/content-plans/YYYY-WW.md` |
-| `cafe_monday_rfm_refresh` | `0 8 * * 1` | Subagent `cafe-research` recompute RFM + draft winback/thank-you | `docs/winback-drafts/YYYY-MM-DD.md`, `docs/champions-thanks/...` |
+| `cafe_monday_rfm_refresh` | `0 8 * * 1` | Subagent `cafe-insight` recompute RFM + draft winback/thank-you | `docs/winback-drafts/YYYY-MM-DD.md`, `docs/champions-thanks/...` |
 | `cafe_monthly_competitor` | `0 10 1 * *` | Subagent quét 5 đối thủ Lâm Hà/Bảo Lộc | `docs/competitor-scan/YYYY-MM.md` |
 | `cafe_monthly_menu_engineering` | `0 11 1 * *` | Compute matrix Stars/Plowhorses/Puzzles/Dogs | `docs/menu-engineering/YYYY-MM.md` |
 | `cafe_quarterly_strategy` | `0 9 1 1,4,7,10 *` | Run `/mo-rong` → expansion brainstorm | `docs/strategy/QX-YYYY.md` |

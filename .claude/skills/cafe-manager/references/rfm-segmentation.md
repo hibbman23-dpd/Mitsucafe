@@ -105,7 +105,7 @@ Cảm ơn bạn đã đồng hành. Lần sau ghé thử [SKU vừa launch] — 
 ## Automation flow (Phase D scheduled task)
 
 `cronWeeklyRfmRefresh` Monday 08:00 (Claude scheduled task):
-1. Dispatch subagent `cafe-research` 
+1. Dispatch subagent `cafe-insight` 
 2. Subagent gọi RFM.gs:computeRfmScores() qua GAS endpoint
 3. Output markdown report
 4. Draft 10 Zalo winback (Hibernating top monetary) + 5 thank-you (Champions)

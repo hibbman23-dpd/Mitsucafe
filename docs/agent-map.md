@@ -26,7 +26,7 @@ GAS Event Bus  →  XƯƠNG SỐNG tự động (order → tem → Zalo → invo
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  TẦNG 5 — CHIẾN LƯỢC & MỞ RỘNG                                │
-│  [mo-rong] Expansion · [cafe-research] Deep Research          │
+│  [mo-rong] Expansion · [cafe-insight] Deep Research          │
 ├─────────────────────────────────────────────────────────────┤
 │  TẦNG 4 — PHÂN TÍCH & RA QUYẾT ĐỊNH                           │
 │  [sang] Brief sáng · [tuan] Review tuần · [roi] Đo lường      │
@@ -87,14 +87,14 @@ GAS Event Bus  →  XƯƠNG SỐNG tự động (order → tem → Zalo → invo
 | **Review tuần** | `tuan` | Tổng kết tuần + plan tuần sau | ✅ |
 | **Đo lường ROI** | `roi` | Post/promo nào ĐẺ RA ĐƠN? Campaign nào lãi thật? + verdict SCALE/KILL | ✅ mới xây |
 | **Menu Engineering** | `menu-eng` | Stars/Dogs matrix → giữ/bỏ món (data `?action=menu_engineering_data`) | ✅ mới lên skill |
-| **Đối thủ** | `doi-thu` | Quét quán Lâm Hà: giá, món hot, promo; deep → `cafe-research` | ✅ mới lên skill |
+| **Đối thủ** | `doi-thu` | Quét quán Lâm Hà: giá, món hot, promo; deep → `cafe-insight` | ✅ mới lên skill |
 
 ### TẦNG 5 — CHIẾN LƯỢC & MỞ RỘNG
 
 | Agent | Skill | Chức năng | Trạng thái |
 |---|---|---|---|
 | **Mở rộng** | `mo-rong` | Brainstorm 4 trục cơ hội theo quý | ✅ |
-| **Deep Research** | `cafe-research` | Multi-step: competitor + trend + batch content | ✅ |
+| **Deep Research** | `cafe-insight` | Multi-step: competitor + trend + batch content | ✅ |
 
 ### ĐIỀU PHỐI
 
@@ -145,7 +145,7 @@ GAS gửi Zalo + ghi PROMOTIONS
 ## LỘ TRÌNH 3 BƯỚC TIẾP THEO
 
 1. ~~**Xây [Đo lường ROI]**~~ ✅ XONG (2026-06-07) — skill `/roi` + reference `roi-measurement.md` + backend GAS (`gas/Marketing.gs`, ORDERS cột `utm_campaign`, endpoint `?action=roi_data`). **Cần deploy:** `cd gas && clasp push` → trong Apps Script editor chạy `initMarketingLog()` (+ `seedMarketingLogSamples()` nếu muốn test).
-2. ~~**Hệ thống hóa [Đối thủ] + [Menu Engineering]**~~ ✅ XONG (2026-06-07) — `/menu-eng` (dùng endpoint `menu_engineering_data` có sẵn) + `/doi-thu` (deep delegate `cafe-research`) + reference `competitor-scan.md`.
+2. ~~**Hệ thống hóa [Đối thủ] + [Menu Engineering]**~~ ✅ XONG (2026-06-07) — `/menu-eng` (dùng endpoint `menu_engineering_data` có sẵn) + `/doi-thu` (deep delegate `cafe-insight`) + reference `competitor-scan.md`.
 3. **Nối chuỗi tự chạy** — bắt đầu từ vòng lặp giữ chân khách ở trên.
 4. **Xây [Trend scout]** 🔴 — agent cuối còn thiếu: quét trend đồ uống/format viral → feed `/post` + `/menu-eng`.
 ```

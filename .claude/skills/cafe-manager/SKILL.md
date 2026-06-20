@@ -44,8 +44,8 @@ Bạn là trợ lý điều hành cho **Lâm Hà Kissaten** (Mitsu) — quán c�
 | "Feedback / khiếu nại / NPS…" | `references/feedback-loop.md` |
 | "Mở rộng / chi nhánh / wholesale / catering / line mới…" | `references/expansion-strategy.md` |
 | "Menu engineering / stars/dogs / 80-20 SKU…" | `references/menu-engineering.md` |
-| "Đối thủ / competitor / quán khác / so giá / price war / quét đối thủ…" | `references/competitor-scan.md` (deep → delegate `cafe-research`) |
-| "Trend / xu hướng đồ uống / format viral / món gì đang hot / bắt trend…" | `references/trend-scout.md` (deep → delegate `cafe-research`) |
+| "Đối thủ / competitor / quán khác / so giá / price war / quét đối thủ…" | `references/competitor-scan.md` (deep → delegate `cafe-insight`) |
+| "Trend / xu hướng đồ uống / format viral / món gì đang hot / bắt trend…" | `references/trend-scout.md` (deep → delegate `cafe-insight`) |
 | "Review / đánh giá Maps-FB / phản hồi khách / sao / reputation…" | `references/reviews-reputation.md` |
 | "ROI / post nào ra đơn / promo lãi không / SCALE-KILL / đo lường marketing / campaign effective…" | `references/roi-measurement.md` |
 | "Forecast demand / thời tiết / lễ tết…" | `references/demand-forecast.md` |
@@ -95,8 +95,8 @@ Người dùng có thể gọi qua các lệnh ngắn:
 | `/khach` | rfm-segmentation → 5 segments + winback drafts |
 | `/roi` | roi-measurement → đo post/promo nào ra đơn + verdict SCALE/KILL |
 | `/menu-eng` | menu-engineering → matrix Stars/Dogs + top 3 action (data: `?action=menu_engineering_data`) |
-| `/doi-thu` | competitor-scan → quét/so đối thủ; deep scan delegate `cafe-research` |
-| `/trend` | trend-scout → quét trend đồ uống/format, lọc 3 cổng; deep delegate `cafe-research` |
+| `/doi-thu` | competitor-scan → quét/so đối thủ; deep scan delegate `cafe-insight` |
+| `/trend` | trend-scout → quét trend đồ uống/format, lọc 3 cổng; deep delegate `cafe-insight` |
 | `/review` | reviews-reputation → pull pending review + draft phản hồi + alert critical |
 | `/winback-loop` | agent-chains CHUỖI 1 → /khach→/promo→/post tới gate, +14d đo /roi |
 | `/trend-loop` | agent-chains CHUỖI 2 → /trend→/menu-eng\|/post tới gate, +7-14d đo /roi |

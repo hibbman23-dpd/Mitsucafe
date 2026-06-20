@@ -8,7 +8,7 @@ Workflow:
 1. Skill load `references/trend-scout.md` + `_brand-voice.md`
 2. Phân loại từ `$ARGUMENTS`:
    - **QUICK** ("trend gì hot cho trà sữa", "format reel nào ăn") → trả từ kiến thức + scan gần nhất
-   - **DEEP** ("quét mới", "trend 2 tuần này") → **delegate subagent `cafe-research`** (WebSearch nhiều bước)
+   - **DEEP** ("quét mới", "trend 2 tuần này") → **delegate subagent `cafe-insight`** (WebSearch nhiều bước)
    - rỗng → mặc định DEEP quét mới
 3. Mỗi trend bắt được PHẢI qua 3 cổng lọc trước khi đề xuất:
    - Hợp định vị mid-premium "coffee + trà Nhật"?
@@ -22,7 +22,7 @@ Nguyên tắc:
 - Quán mid-premium ≠ quán bắt trend rẻ tiền → giữ bản sắc
 - Mọi trend "thử" PHẢI đo lại bằng `/roi` 1-2 tuần sau → SCALE/KILL, ghi lại để không đề xuất lại cái đã fail
 - KHÔNG thêm SKU trend mà không có kế hoạch đo/bỏ (tránh tích Dogs)
-- Deep scan = việc nhiều bước → dùng `cafe-research`, không làm inline
+- Deep scan = việc nhiều bước → dùng `cafe-insight`, không làm inline
 
 Nhịp khuyến nghị: 2 tuần/lần (trend đồ uống đổi chậm, đừng quét hằng ngày).
 

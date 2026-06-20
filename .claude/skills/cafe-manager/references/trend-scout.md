@@ -26,7 +26,7 @@ Trend bắt được rất nhiều, nhưng **đa số KHÔNG hợp quán**. Mỗ
 ## 3. DEEP vs QUICK
 
 - **Quick** ("trend gì đang hot cho trà sữa", "format reel nào ăn") → trả từ kiến thức + scan gần nhất.
-- **Deep** (quét mới full) → **delegate subagent `cafe-research`** (WebSearch/WebFetch nhiều bước). Task:
+- **Deep** (quét mới full) → **delegate subagent `cafe-insight`** (WebSearch/WebFetch nhiều bước). Task:
 ```
 "Quét trend đồ uống + format content viral 2 tuần qua hợp quán cà phê/trà Nhật mid-premium tỉnh.
  Lọc qua 3 cổng (định vị / làm được / khách địa phương). Output theo format §4.

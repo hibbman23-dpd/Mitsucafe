@@ -10,20 +10,20 @@
 |---|---|
 | Hỏi nhanh "đối thủ X bán gì / giá bao nhiêu" | Quick — đọc scan gần nhất `docs/competitor-scans/`, trả ngay |
 | "So sánh mình với đối thủ về <món/giá/định vị>" | Quick — dùng scan gần nhất + MENU của mình |
-| **Quét mới full 5 đối thủ** (web search + social) | **DEEP — delegate `cafe-research` agent** (multi-step, WebSearch/WebFetch) |
+| **Quét mới full 5 đối thủ** (web search + social) | **DEEP — delegate `cafe-insight` agent** (multi-step, WebSearch/WebFetch) |
 | Theo dõi 1 đối thủ cụ thể qua thời gian | Quick nếu đã có data; DEEP nếu cần search lại |
 
-> Quét mới = công việc nhiều bước (search từng quán, đọc social, ước lượng engagement) → **gọi subagent `cafe-research`**, đừng làm inline. cafe-manager chỉ tóm tắt + ra action.
+> Quét mới = công việc nhiều bước (search từng quán, đọc social, ước lượng engagement) → **gọi subagent `cafe-insight`**, đừng làm inline. cafe-manager chỉ tóm tắt + ra action.
 
-## 2. DELEGATE SANG cafe-research (deep scan)
+## 2. DELEGATE SANG cafe-insight (deep scan)
 
-Khi user muốn quét mới, dispatch task cho `cafe-research`:
+Khi user muốn quét mới, dispatch task cho `cafe-insight`:
 ```
 Task: "Quét đối thủ cà phê/trà sữa Lâm Hà + Bảo Lộc + Đà Lạt tháng <MM/YYYY>.
        Update từ scan trước docs/competitor-scans/<prev>.md (cái gì đổi?).
        Output theo format §3. Save docs/competitor-scans/<YYYY-MM>.md."
 ```
-cafe-research trả report 1 trang → cafe-manager tóm tắt 3 bullet + top action cho user.
+cafe-insight trả report 1 trang → cafe-manager tóm tắt 3 bullet + top action cho user.
 
 ## 3. FORMAT CHUẨN (mỗi đối thủ)
 
@@ -77,6 +77,6 @@ Compose:
 Anti-pattern:
 - ❌ Copy y nguyên menu/giá đối thủ → mất định vị riêng.
 - ❌ Lao vào price war (đối thủ bình dân rẻ hơn là chuyện đương nhiên) — cạnh tranh bằng chất + trải nghiệm.
-- ❌ Quét mới inline trong cafe-manager (chậm, tốn context) → để cafe-research.
+- ❌ Quét mới inline trong cafe-manager (chậm, tốn context) → để cafe-insight.
 - ❌ Scan rồi để đó không ra action — mỗi scan phải kết bằng 3 action gắn skill cụ thể.
 - ❌ Quét < hằng tháng cho data thay đổi nhanh, nhưng đừng quét hằng tuần (đối thủ không đổi nhanh thế, lãng phí).
