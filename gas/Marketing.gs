@@ -15,7 +15,10 @@
 
 var MARKETING_LOG_HEADERS = [
   'activity_id', 'date', 'type', 'platform', 'campaign_id', 'title',
-  'utm_tag', 'cost_vnd', 'effort_hours', 'reach', 'clicks', 'notes'
+  'utm_tag', 'cost_vnd', 'effort_hours', 'reach', 'clicks', 'notes',
+  // --- P1 engagement chiều sâu (append, index >= 12) ---
+  'impressions', 'views', 'likes', 'comments', 'shares', 'saves',
+  'watch_time_sec', 'avg_watch_pct', 'format', 'topic', 'sku_featured', 'data_source'
 ];
 
 function _marketingSheet() {
@@ -74,6 +77,18 @@ function logMarketingActivity(a) {
     Number(a.reach) || 0,
     Number(a.clicks) || 0,
     a.notes || '',
+    Number(a.impressions) || 0,
+    Number(a.views) || 0,
+    Number(a.likes) || 0,
+    Number(a.comments) || 0,
+    Number(a.shares) || 0,
+    Number(a.saves) || 0,
+    Number(a.watch_time_sec) || 0,
+    Number(a.avg_watch_pct) || 0,
+    a.format || '',
+    a.topic || '',
+    a.sku_featured || '',
+    a.data_source || 'manual',
   ]);
   return id;
 }
@@ -97,6 +112,12 @@ function getMarketingLog(from, to) {
       campaign_id: r[4], title: r[5], utm_tag: r[6],
       cost_vnd: Number(r[7]) || 0, effort_hours: Number(r[8]) || 0,
       reach: Number(r[9]) || 0, clicks: Number(r[10]) || 0, notes: r[11],
+      impressions: Number(r[12]) || 0, views: Number(r[13]) || 0,
+      likes: Number(r[14]) || 0, comments: Number(r[15]) || 0,
+      shares: Number(r[16]) || 0, saves: Number(r[17]) || 0,
+      watch_time_sec: Number(r[18]) || 0, avg_watch_pct: Number(r[19]) || 0,
+      format: r[20] || '', topic: r[21] || '', sku_featured: r[22] || '',
+      data_source: r[23] || '',
     });
   }
   return rows;
@@ -233,4 +254,26 @@ function seedMarketingLogSamples() {
     notes: 'Ad spend 200k, 2 ngày',
   });
   Logger.log('Seeded 3 sample MARKETING_LOG rows.');
+}
+
+/**
+ * P1: thêm các cột engagement mới vào MARKETING_LOG đang tồn tại.
+ * Idempotent — chỉ thêm cột header còn thiếu, không đụng data.
+ */
+function migrateMarketingLogP1() {
+  var sheet = _marketingSheet();
+  if (!sheet) { initMarketingLog(); sheet = _marketingSheet(); }
+  var lastCol = sheet.getLastColumn();
+  // Phòng sheet rỗng hoàn toàn: getRange(1,1,1,0) sẽ crash.
+  var existing = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  var added = 0;
+  for (var i = 0; i < MARKETING_LOG_HEADERS.length; i++) {
+    if (existing.indexOf(MARKETING_LOG_HEADERS[i]) === -1) {
+      sheet.getRange(1, lastCol + 1 + added).setValue(MARKETING_LOG_HEADERS[i])
+        .setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
+      added++;
+    }
+  }
+  Logger.log('migrateMarketingLogP1: added ' + added + ' columns.');
+  return added;
 }
