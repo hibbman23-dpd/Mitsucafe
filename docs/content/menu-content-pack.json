@@ -1,0 +1,146 @@
+{
+  "DR001": {
+    "name": "Cà phê đen đá",
+    "description_vi": "Cà phê đen đá đậm đà, đánh thức mọi giác quan, mang lại năng lượng tràn đầy cho ngày mới tại phố núi.",
+    "name_jp": "ベトナムブラック",
+    "caption_ig": "Một ngày mới ở Lâm Hà bắt đầu thật tỉnh táo với ly cà phê đen đá thơm lừng. Ghé Mitsu nạp năng lượng ngay! #capheden #lamha"
+  },
+  "DR002": {
+    "name": "Cà phê sữa đá phin",
+    "description_vi": "Vị cà phê đậm đà hòa quyện cùng sữa đặc ngọt ngào, đánh thức mọi giác quan, chuẩn vị ký ức tuổi thơ.",
+    "name_jp": "コンデンスミルク・コーヒー",
+    "caption_ig": "Trời Lâm Hà se se mà có ly cà phê sữa đá phin đậm đà thì còn gì bằng? Nhấp một ngụm là thấy yêu đời liền à! ☕ #caphesuada #mitsucafe"
+  },
+  "DR003": {
+    "name": "Bạc xỉu",
+    "description_vi": "Bạc xỉu Mitsu ngọt ngào hương sữa, đậm đà cà phê, đánh thức mọi giác quan trong buổi sớm se lạnh Lâm Hà.",
+    "name_jp": "バクシウ",
+    "caption_ig": "Sáng Lâm Hà hơi se se, làm ly Bạc xỉu Mitsu là ấm lòng ngay! Ngọt ngào mà vẫn đủ tỉnh táo để chill nè. #MitsuCafe #BacXiu"
+  },
+  "DR004": {
+    "name": "Cà phê dừa",
+    "description_vi": "Cà phê dừa béo ngậy, ngọt thanh, mát lạnh, đánh thức giác quan giữa cao nguyên Lâm Hà trong lành.",
+    "name_jp": "ココナッツコーヒー",
+    "caption_ig": "Trời Lâm Hà se se lạnh, có ngay ly cà phê dừa béo thơm, ngọt dịu, đúng là \"đỉnh của chóp\" luôn mấy bác ơi! ☕️🥥 #CapheDua #MitsuLamHa"
+  },
+  "DR005": {
+    "name": "Cà phê muối",
+    "description_vi": "Vị mặn dịu của muối biển hòa quyện cùng cà phê đậm đà, tạo nên trải nghiệm ấm áp và tinh tế khó quên.",
+    "name_jp": "塩珈琲",
+    "caption_ig": "Một chút mặn mà, một chút ngọt ngào, ly cà phê muối này sẽ đánh thức mọi giác quan của bạn giữa tiết trời se lạnh của Lâm Hà. #CàPhêMuối #Mitsu"
+  },
+  "DR006": {
+    "name": "Cà phê kem trứng (Egg Coffee)",
+    "description_vi": "Vị cà phê đậm đà hòa quyện cùng lớp kem trứng béo ngậy, ngọt dịu, đánh thức mọi giác quan trong không gian cao nguyên se lạnh.",
+    "name_jp": "エッグコーヒー",
+    "caption_ig": "Trời Lâm Hà se lạnh, còn gì bằng nhâm nhi ly cà phê kem trứng béo ngậy, ấm lòng. Ghé Mitsu để cảm nhận vị ngon khó cưỡng này nha! #MitsuCafe #CaPheKemTrung"
+  },
+  "DR007": {
+    "name": "Americano",
+    "description_vi": "Hương vị cà phê đen đậm đà, đánh thức mọi giác quan, chuẩn bị cho ngày mới tràn đầy năng lượng trên cao nguyên.",
+    "name_jp": "アメリカーノ",
+    "caption_ig": "Buổi sáng nhẹ nhàng cùng ly Americano tại Mitsu, cảm nhận từng hơi thở của Lâm Hà. Đơn giản mà cuốn hút đến lạ! ☕️ #MitsuLamHa #CafeYenBinh"
+  },
+  "DR008": {
+    "name": "Latte",
+    "description_vi": "Ly Latte ấm áp, sánh mịn với vị cà phê thơm lừng hoà quyện sữa tươi béo ngậy, khẽ lay động giác quan giữa cao nguyên se lạnh.",
+    "name_jp": "ラテ",
+    "caption_ig": "Sáng Lâm Hà, nhâm nhi ly Latte ấm nóng nhà Mitsu, thấy lòng bình yên lạ thường. Mời bạn ghé chơi! #MitsuLatte #CafeCaoNguyen"
+  },
+  "DR009": {
+    "name": "Cappuccino / Caramel Macchiato",
+    "description_vi": "Cà phê sữa thơm nồng, quyện chút béo dịu của kem, đánh thức mọi giác quan trong buổi sớm se lạnh.",
+    "name_jp": "カフェラテ / キャラメル・マキアート",
+    "caption_ig": "Sáng Lâm Hà se lạnh, còn gì bằng nhâm nhi ly cappuccino ấm nóng, ngắm sương giăng mờ ảo? Ghé Mitsu để cảm nhận trọn vẹn bình yên nhé! #capuchino #lamha"
+  },
+  "DR011": {
+    "name": "Trà sữa Ô Long Lâm Đồng",
+    "description_vi": "Trà sữa Ô Long Lâm Đồng - sự hòa quyện dịu êm của trà ô long thơm béo cùng sữa tươi nguyên chất.",
+    "name_jp": "ラムドン烏龍ミルクティー",
+    "caption_ig": "Mitsu ơi Mitsu, chiều nay bạn có hẹn với ly trà sữa Ô Long Lâm Đồng thơm lừng, béo ngậy tan chảy trong miệng chưa? Ghé Mitsu nạp năng lượng yêu thương nha! #MitsuCafe #TraSua"
+  },
+  "DR012": {
+    "name": "Trà sữa trân châu đường đen",
+    "description_vi": "Trà sữa sánh mịn với trân châu đường đen dai ngọt, khơi dậy vị giác giữa tiết trời se lạnh cao nguyên.",
+    "name_jp": "黒糖タピオカ",
+    "caption_ig": "Trà sữa trân châu đường đen – món tủ của bao người. Đến Mitsu nhâm nhi ly trà sữa ấm nồng, nhai trân châu dai ngọt và ngắm cảnh Lâm Hà thơ mộng. Còn gì tuyệt vời hơn nữa? #trasuaduongden #lamha"
+  },
+  "DR013": {
+    "name": "Trà sữa nhài Chặng 2",
+    "description_vi": "Vị chát dịu của trà nhài ủ lạnh hòa quyện cùng sữa béo nhẹ, đánh thức mọi giác quan như một chặng đường mới đầy hứng khởi.",
+    "name_jp": "ジャスミンミルクティー",
+    "caption_ig": "Hôm nay bạn đã \"Chặng 2\" chưa? Một ly trà sữa nhài thanh mát, béo ngậy, ngọt ngào vừa đủ để khởi động một tuần mới thật tươi tắn nè. Ghé Mitsu nạp năng lượng yêu thương nha! #TràSữaNhài #Mitsu"
+  },
+  "DR015": {
+    "name": "Trà sen vàng",
+    "description_vi": "Trà sen vàng thanh mát, ngọt dịu đầu lưỡi, mang đến cảm giác thư thái và bình yên giữa lòng cao nguyên.",
+    "name_jp": "金蓮茶",
+    "caption_ig": "Thức quà của đất trời, trà sen vàng nhà Mitsu khẽ chạm vị giác, cho lòng an nhiên. Một chút mộc mạc giữa cao nguyên xanh, thưởng thức ngay nhé! #Trasen #Mitsu"
+  },
+  "DR016": {
+    "name": "Trà vải / Trà thơm",
+    "description_vi": "Trà vải và trà thơm ngọt dịu, đánh thức giác quan với hương trái cây nhiệt đới, mang đến cảm giác thư thái giữa cao nguyên xanh.",
+    "name_jp": "ライチティー",
+    "caption_ig": "Trà vải hay trà thơm? Chọn một, hay thử cả hai? Một chút ngọt ngào, một chút thanh mát, cho ngày dài thêm nhẹ nhàng! 🌿 #TraThoM #AmAp"
+  },
+  "DR018": {
+    "name": "Freeze trà xanh đá xay",
+    "description_vi": "Hương trà xanh thanh mát hòa quyện đá xay sánh mịn, mang đến cảm giác sảng khoái dịu êm giữa cao nguyên Lâm Đồng.",
+    "name_jp": "抹茶フリーズ",
+    "caption_ig": "Trời Lâm Hà se lạnh, có ngay ly Freeze trà xanh đá xay mát lạnh, ngọt dịu làm ấm lòng bạn nè. Ghé Mitsu nhâm nhi cùng tụi mình nha! #TràXanhĐáXay #MitsuCafe"
+  },
+  "DR019": {
+    "name": "Cookies & Cream đá xay",
+    "description_vi": "Vị kem béo ngậy hoà quyện cùng bánh quy giòn tan, mang đến cảm giác mát lạnh sảng khoái và ngọt ngào.",
+    "name_jp": "クッキー&クリーム",
+    "caption_ig": "Trời nóng mà có ly Cookies & Cream đá xay mát lạnh thì còn gì bằng! Ghé Mitsu “giải nhiệt” liền nha cả nhà ơi. #MitsuCafe #LamHa"
+  },
+  "DR020": {
+    "name": "Matcha đá xay",
+    "description_vi": "Matcha đá xay mát lạnh, ngọt thanh vị trà xanh nguyên bản, đánh thức mọi giác quan giữa cao nguyên dịu êm.",
+    "name_jp": "抹茶フローズン",
+    "caption_ig": "Trời Lâm Hà se se, có ngay Matcha đá xay mát lạnh, thơm lừng vị trà xanh đậm đà. Đừng quên ghé Mitsu để nhâm nhi và tận hưởng chút bình yên nhé! 🍃 #MatchaĐáXay #MitsuLâmHà"
+  },
+  "DR021": {
+    "name": "Hojicha Latte",
+    "description_vi": "Hojicha Latte ấm áp, dịu nhẹ với vị trà rang thơm lừng quyện sữa béo ngậy, ngọt ngào như ôm ấp tâm hồn.",
+    "name_jp": "ほうじ茶ラテ",
+    "caption_ig": "Trời Lâm Hà se lạnh, còn gì tuyệt hơn một ly Hojicha Latte ấm nóng, thơm lừng vị trà rang và sữa ngọt ngào? Ghé Mitsu để cảm nhận sự bình yên nhé! #MitsuCafe #LâmHà"
+  },
+  "DR022": {
+    "name": "Matcha Latte",
+    "description_vi": "Vị matcha thanh mát hòa quyện cùng sữa béo ngậy, mang đến cảm giác yên bình giữa cao nguyên Lâm Hà.",
+    "name_jp": "抹茶ラテ",
+    "caption_ig": "Khi vị đắng nhẹ của matcha gặp gỡ sự ngọt ngào của sữa, tạo nên bản giao hưởng êm dịu cho một ngày thảnh thơi. Đến Mitsu thưởng thức ngay nha! #matcha #mitsu"
+  },
+  "DR023": {
+    "name": "Yuzu Honey Tea",
+    "description_vi": "Trà Yuzu mật ong thơm lừng, chua ngọt dịu mát đánh thức giác quan, mang đến cảm giác thư thái giữa cao nguyên.",
+    "name_jp": "柚子蜂蜜茶",
+    "caption_ig": "Một chiều Lâm Hà, nhấp một ngụm trà Yuzu mật ong ấm áp, nghe tiếng gió reo qua đồi thông, lòng an yên đến lạ. Ghé Mitsu để cảm nhận trọn vẹn hương vị thanh khiết này nhé! 🍵✨ #TraYuzu #MitsuLamHa"
+  },
+  "BK001": {
+    "name": "Bánh croissant bơ Pháp",
+    "description_vi": "Từng thớ bánh giòn rụm tan chảy trên đầu lưỡi, vấn vương hương bơ Pháp thơm lừng, đánh thức mọi giác quan.",
+    "name_jp": "バタークロワッサン",
+    "caption_ig": "Sáng Lâm Hà se lạnh, còn gì tuyệt hơn một chiếc croissant bơ Pháp giòn tan, thơm lừng tại Mitsu chứ! 🥐🍯 #MitsuLâmHà #BánhNgọt"
+  },
+  "BK002": {
+    "name": "Tiramisu",
+    "description_vi": "Tiramisu mềm tan trong miệng, là khúc biến tấu ngọt ngào của cà phê và kem phô mai béo ngậy, làm ấm lòng ngày se lạnh.",
+    "name_jp": "ティラミス",
+    "caption_ig": "Mitsu có món Tiramisu \"ngon quên lối về\" nè cả nhà ơi! Một chút đắng của cà phê, một chút béo của kem, tất cả hòa quyện tạo nên hương vị khó quên. Ghé Mitsu Lâm Hà để thưởng thức ngay nha! #MitsuLamHa #TiramisuNgon"
+  },
+  "BK003": {
+    "name": "Bánh mì pate Hà Nội",
+    "description_vi": "Vỏ bánh giòn rụm ôm trọn nhân pate thơm béo, đậm đà hương vị Hà Nội xưa giữa lòng cao nguyên.",
+    "name_jp": "ハノイパテバインミー",
+    "caption_ig": "Sáng Lâm Hà se lạnh, cắn miếng bánh mì pate Hà Nội giòn rụm nóng hổi là đúng bài! Nhớ về thủ đô mà ấm lòng quá chừng. #BanhMiPate #MitsuCafe"
+  },
+  "BK004": {
+    "name": "Wagashi (theo mùa)",
+    "description_vi": "Wagashi thủ công theo mùa, mang hương vị tinh tế của cao nguyên Lâm Đồng, ngọt ngào khẽ chạm, khiến lòng người nhẹ nhàng thanh thản.",
+    "name_jp": "和菓子",
+    "caption_ig": "Mỗi chiếc Wagashi là một bức tranh nhỏ của mùa, được nghệ nhân Mitsu tạo tác tỉ mỉ, mang đến ngọt ngào nhẹ nhàng cho những buổi chiều Lâm Hà. #WagashiMitsu #NgọtNgàoMùa"
+  }
+}
