@@ -396,7 +396,9 @@ function getMmmData(from, to) {
   var currentMonMs = new Date(currentMonStr + 'T00:00:00+07:00').getTime();
   
   while (currentMonMs <= endMs) {
-    var monStr = _getMondaysDateString(new Date(currentMonMs).toISOString().slice(0, 10));
+    // currentMonMs là 0h thứ Hai theo giờ VN (+07) → format theo +07 để lấy đúng ngày.
+    // (KHÔNG dùng toISOString: nó đổi sang UTC, lùi 7h → sang Chủ Nhật hôm trước → lệch tuần.)
+    var monStr = Utilities.formatDate(new Date(currentMonMs), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
     if (!weeksMap[monStr]) {
       var row = {
         week_start: monStr,
