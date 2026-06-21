@@ -109,6 +109,22 @@ function recordDailyRollup(date) {
   return row;
 }
 
+/**
+ * Backfill HQ_DAILY cho khoảng [from,to] (vd để Looker có data lịch sử, hoặc bù ngày trigger lỡ).
+ * Cap 120 ngày/lần tránh timeout. @return {number} số ngày ghi.
+ */
+function recordRollupRange(from, to) {
+  if (!from || !to) throw new Error('recordRollupRange cần from + to (yyyy-MM-dd)');
+  var ms = 86400000, cur = new Date(from + 'T00:00:00+07:00').getTime();
+  var end = new Date(to + 'T00:00:00+07:00').getTime(), n = 0, guard = 0;
+  while (cur <= end && guard < 120) {
+    recordDailyRollup(Utilities.formatDate(new Date(cur), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd'));
+    cur += ms; n++; guard++;
+  }
+  Logger.log('recordRollupRange ' + from + '..' + to + ' → ' + n + ' ngày');
+  return n;
+}
+
 /** Trigger hằng ngày 1:10 sáng: chốt rollup HÔM QUA. */
 function recordRollupYesterday() { return recordDailyRollup(); }
 function installDailyRollupTrigger() {

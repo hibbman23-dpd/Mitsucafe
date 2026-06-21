@@ -234,7 +234,8 @@ function doGet(e) {
     'tiktok_pull',
     'link_social_id',
     'daily_rollup',
-    'menu_snapshot'
+    'menu_snapshot',
+    'rollup_backfill'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -479,6 +480,12 @@ function doGet(e) {
     if (action === 'menu_snapshot') {
       if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       return _jsonResponse(snapshotMenuFromMaster());
+    }
+    // SCALE: backfill HQ_DAILY cho [from,to] (cho Looker có data lịch sử).
+    if (action === 'rollup_backfill') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      if (!e.parameter.from || !e.parameter.to) return _jsonResponse({ ok: false, error: 'from + to required' });
+      return _jsonResponse({ ok: true, days: recordRollupRange(e.parameter.from, e.parameter.to) });
     }
 
     if (action === 'send_daily_report') {
