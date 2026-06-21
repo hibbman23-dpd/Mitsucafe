@@ -11,7 +11,7 @@
 
 var HQ_DAILY_HEADERS = [
   'location_id', 'date', 'revenue', 'order_count', 'avg_order_value',
-  'expenses', 'waste_cost', 'pulled_at'
+  'expenses', 'waste_cost', 'walk_ins', 'conversion_pct', 'pulled_at'
 ];
 
 /** location_id của chi nhánh NÀY (CONFIG.LOCATION_ID, mặc định LH01). */
@@ -64,6 +64,10 @@ function getDailyRollup(date) {
     }
   } catch (e) { /* waste optional */ }
 
+  // FOOT_TRAFFIC: lượt khách VÀO cửa (đếm ẩn danh) cho ngày+location → conversion = đơn/khách.
+  var walkIns = _getWalkIns(date, loc);
+  var conv = walkIns > 0 ? Math.round(orderCount / walkIns * 1000) / 10 : 0; // %, 1 chữ số
+
   return {
     location_id: loc,
     date: date,
@@ -72,6 +76,8 @@ function getDailyRollup(date) {
     avg_order_value: orderCount ? Math.round(revenue / orderCount) : 0,
     expenses: expenses,
     waste_cost: waste,
+    walk_ins: walkIns,
+    conversion_pct: conv,
     pulled_at: Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm')
   };
 }
@@ -102,7 +108,7 @@ function recordDailyRollup(date) {
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(row.location_id) && _asDateStr(data[i][1]) === row.date) { rowIdx = i + 1; break; }
   }
-  var values = [row.location_id, row.date, row.revenue, row.order_count, row.avg_order_value, row.expenses, row.waste_cost, row.pulled_at];
+  var values = [row.location_id, row.date, row.revenue, row.order_count, row.avg_order_value, row.expenses, row.waste_cost, row.walk_ins, row.conversion_pct, row.pulled_at];
   if (rowIdx === -1) sheet.appendRow(values);
   else sheet.getRange(rowIdx, 1, 1, values.length).setValues([values]);
   Logger.log('recordDailyRollup ' + row.location_id + ' ' + row.date + ' rev=' + row.revenue);
@@ -163,4 +169,52 @@ function installMenuSnapshotTrigger() {
   var t = ScriptApp.getProjectTriggers();
   for (var i = 0; i < t.length; i++) if (t[i].getHandlerFunction() === 'snapshotMenuFromMaster') ScriptApp.deleteTrigger(t[i]);
   ScriptApp.newTrigger('snapshotMenuFromMaster').timeBased().everyDays(1).atHour(3).create();
+}
+
+/* ── FOOT_TRAFFIC (đếm khách VÀO cửa, ẩn danh) — nền cho conversion = đơn/khách ── */
+var FOOT_TRAFFIC_HEADERS = ['date', 'location_id', 'walk_ins', 'source', 'recorded_at'];
+
+function _footSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var s = ss.getSheetByName('FOOT_TRAFFIC');
+  if (!s) {
+    s = ss.insertSheet('FOOT_TRAFFIC');
+    s.appendRow(FOOT_TRAFFIC_HEADERS);
+    s.getRange(1, 1, 1, FOOT_TRAFFIC_HEADERS.length).setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
+    s.setFrozenRows(1);
+  }
+  return s;
+}
+
+/** Lượt khách vào cửa cho ngày + location (0 nếu chưa có). */
+function _getWalkIns(date, loc) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var s = ss.getSheetByName('FOOT_TRAFFIC');
+  if (!s || s.getLastRow() < 2) return 0;
+  var d = s.getDataRange().getValues();
+  for (var i = 1; i < d.length; i++) {
+    if (_asDateStr(d[i][0]) === date && String(d[i][1] || loc) === String(loc)) return Number(d[i][2]) || 0;
+  }
+  return 0;
+}
+
+/**
+ * Ghi/cập nhật lượt khách vào cửa (Mac mini đếm bằng camera → POST traffic_ingest).
+ * Upsert theo (date + location). source: 'camera' | 'manual'.
+ */
+function recordTraffic(date, walkIns, source) {
+  var loc = _locationId();
+  if (!date) date = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  var s = _footSheet();
+  var data = s.getLastRow() >= 2 ? s.getDataRange().getValues() : [];
+  var rowIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (_asDateStr(data[i][0]) === date && String(data[i][1]) === String(loc)) { rowIdx = i + 1; break; }
+  }
+  var now = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd HH:mm');
+  var vals = [date, loc, Number(walkIns) || 0, source || 'camera', now];
+  if (rowIdx === -1) s.appendRow(vals);
+  else s.getRange(rowIdx, 1, 1, vals.length).setValues([vals]);
+  Logger.log('recordTraffic ' + loc + ' ' + date + ' walk_ins=' + walkIns);
+  return { ok: true, date: date, location_id: loc, walk_ins: Number(walkIns) || 0 };
 }

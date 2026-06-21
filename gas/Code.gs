@@ -235,7 +235,8 @@ function doGet(e) {
     'link_social_id',
     'daily_rollup',
     'menu_snapshot',
-    'rollup_backfill'
+    'rollup_backfill',
+    'traffic_ingest'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -260,6 +261,42 @@ function doGet(e) {
       if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
       var orders = getTodayOrders();
       return _jsonResponse({ ok: true, orders: orders });
+    }
+
+    if (action === 'update_status') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var orderId = e.parameter.order_id;
+      var newStatus = e.parameter.status;
+      if (!orderId || !newStatus) return _jsonResponse({ ok: false, error: 'missing params' });
+      updateOrderStatus(orderId, newStatus);
+      return _jsonResponse({ ok: true, order_id: orderId, status: newStatus });
+    }
+
+    if (action === 'order_status') {
+      var orderId = e.parameter.order_id;
+      if (!orderId) return _jsonResponse({ ok: false, error: 'order_id required' });
+      var row = _findOrderRow(orderId);
+      if (!row) return _jsonResponse({ ok: false, error: 'not found' });
+      var order = _rowToOrder(row.data);
+      return _jsonResponse({ 
+        ok: true, 
+        order_id: orderId, 
+        status: order.status, 
+        delivery_type: order.delivery_type,
+        short_code: order.short_code,
+        total: order.total,
+        payment_method: order.payment_method
+      });
+    }
+
+    if (action === 'active_orders') {
+      var allOrders = getTodayOrders(); // this is fast enough for today's orders
+      var filtered = allOrders.filter(function(o) {
+        return ['NEW', 'CONFIRMED', 'MAKING', 'READY'].indexOf(o.status) !== -1;
+      }).map(function(o) {
+        return { order_id: o.order_id, status: o.status, delivery_type: o.delivery_type, short_code: o.short_code };
+      });
+      return _jsonResponse({ ok: true, orders: filtered });
     }
 
     if (action === 'mark_paid') {
@@ -487,6 +524,11 @@ function doGet(e) {
       if (!e.parameter.from || !e.parameter.to) return _jsonResponse({ ok: false, error: 'from + to required' });
       return _jsonResponse({ ok: true, days: recordRollupRange(e.parameter.from, e.parameter.to) });
     }
+    // CAMERA: Mac mini đếm khách VÀO cửa (ẩn danh) → ghi FOOT_TRAFFIC (nền conversion = đơn/khách).
+    if (action === 'traffic_ingest') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse(recordTraffic(e.parameter.date || '', e.parameter.walk_ins, e.parameter.source || 'camera'));
+    }
 
     if (action === 'send_daily_report') {
       if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
@@ -700,7 +742,8 @@ function _getPendingPrintOrders() {
     var status    = row[12];  // col M = status
     var printedAt = row[22];  // col W = printed_at
     var ts        = row[2];   // col C = timestamp
-    if (status !== 'DELIVERED') continue;
+    var paymentStatus = row[19]; // col T = payment_status
+    if (status !== 'DELIVERED' && paymentStatus !== 'PAID') continue;
     if (printedAt) continue;  // đã in
     var orderDate = ts ? new Date(ts) : null;
     if (!orderDate || orderDate < cutoff) continue;
