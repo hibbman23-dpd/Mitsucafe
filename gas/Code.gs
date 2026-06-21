@@ -232,7 +232,9 @@ function doGet(e) {
     'gbp_pull',
     'zalo_pull',
     'tiktok_pull',
-    'link_social_id'
+    'link_social_id',
+    'daily_rollup',
+    'menu_snapshot'
   ];
   var isWrite = writeActions.indexOf(action) !== -1;
 
@@ -463,6 +465,20 @@ function doGet(e) {
     if (action === 'tiktok_pull') {
       if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       return _jsonResponse({ ok: true, videos: pullTiktokViaFirecrawl() });
+    }
+
+    // SCALE (Tier 5): rollup ngày 1 chi nhánh (location_id khóa đầu). HQ pull route này.
+    // &record=true → ghi/cập nhật HQ_DAILY (idempotent). Mặc định chỉ tính + trả về.
+    if (action === 'daily_rollup') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var drDate = e.parameter.date || '';
+      var rollup = (e.parameter.record === 'true') ? recordDailyRollup(drDate) : getDailyRollup(drDate);
+      return _jsonResponse({ ok: true, rollup: rollup });
+    }
+    // SCALE: snapshot MENU cứng từ HQ master (no-op nếu chưa set MENU_MASTER_SHEET_ID).
+    if (action === 'menu_snapshot') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse(snapshotMenuFromMaster());
     }
 
     if (action === 'send_daily_report') {
