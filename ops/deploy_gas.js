@@ -1,27 +1,42 @@
 const fs = require('fs');
 const path = require('path');
 
+/*
+ * deploy_gas.js — Deploy GAS cho 1 hoặc NHIỀU chi nhánh (M34 deploy fan-out).
+ *
+ * Dùng:
+ *   node ops/deploy_gas.js                 # deploy chi nhánh mặc định (branches.json .default)
+ *   node ops/deploy_gas.js --branch=lamha  # deploy 1 chi nhánh cụ thể
+ *   node ops/deploy_gas.js --all           # deploy TẤT CẢ chi nhánh trong branches.json
+ *   node ops/deploy_gas.js --all --dry-run # chỉ in ra sẽ deploy gì, KHÔNG gọi API
+ *
+ * Mỗi branch trong ops/branches.json: { location_id, scriptId, deploymentId }.
+ * Cùng code gas/ push tới từng scriptId → tạo version → retarget deploymentId → smoke-test.
+ */
+
 const GAS_DIR = path.join(__dirname, '../gas');
-const DEPLOYMENT_ID = 'AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i';
+const BRANCHES_PATH = path.join(__dirname, 'branches.json');
+
+function parseArgs() {
+  const args = { branch: null, all: false, dryRun: false };
+  for (const a of process.argv.slice(2)) {
+    if (a === '--all') args.all = true;
+    else if (a === '--dry-run') args.dryRun = true;
+    else if (a.startsWith('--branch=')) args.branch = a.slice('--branch='.length);
+  }
+  return args;
+}
 
 async function getValidAccessToken(rc, rcPath) {
   const tokenObj = rc.tokens && rc.tokens.default;
-  if (!tokenObj) {
-    throw new Error('Could not find default credentials in .clasprc.json');
-  }
-
+  if (!tokenObj) throw new Error('Could not find default credentials in .clasprc.json');
   const now = Date.now();
   const expiry = tokenObj.expiry_date || 0;
-
-  // If token is expired or expires in less than 5 minutes, refresh it
   if (now > (expiry - 300000)) {
-    console.log('Access token is expired or expiring soon. Refreshing...');
-    const refreshUrl = 'https://oauth2.googleapis.com/token';
-    const response = await fetch(refreshUrl, {
+    console.log('Access token expired/expiring — refreshing...');
+    const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         client_id: tokenObj.client_id,
         client_secret: tokenObj.client_secret,
@@ -29,166 +44,102 @@ async function getValidAccessToken(rc, rcPath) {
         grant_type: 'refresh_token'
       })
     });
-
-    if (response.status !== 200) {
-      throw new Error(`Failed to refresh token: ${response.status} ${await response.text()}`);
-    }
-
+    if (response.status !== 200) throw new Error(`Failed to refresh token: ${response.status} ${await response.text()}`);
     const data = await response.json();
     tokenObj.access_token = data.access_token;
     tokenObj.expiry_date = Date.now() + (data.expires_in * 1000);
-    
-    // Save updated token back to .clasprc.json
     fs.writeFileSync(rcPath, JSON.stringify(rc, null, 2), 'utf8');
-    console.log('🎉 Access token refreshed and saved successfully.');
+    console.log('🎉 Access token refreshed.');
   } else {
-    console.log('Using existing cached access token (still valid).');
+    console.log('Using cached access token (still valid).');
   }
-
   return tokenObj.access_token;
 }
 
-async function deploy() {
-  try {
-    // 1. Get Access Token
-    const rcPath = path.join(process.env.HOME, '.clasprc.json');
-    if (!fs.existsSync(rcPath)) {
-      throw new Error(`Credentials file not found at ${rcPath}`);
-    }
-    const rc = JSON.parse(fs.readFileSync(rcPath, 'utf8'));
-    const accessToken = await getValidAccessToken(rc, rcPath);
-
-    // 2. Get Script ID
-    const claspJsonPath = path.join(GAS_DIR, '.clasp.json');
-    if (!fs.existsSync(claspJsonPath)) {
-      throw new Error(`.clasp.json not found in ${GAS_DIR}`);
-    }
-    const claspJson = JSON.parse(fs.readFileSync(claspJsonPath, 'utf8'));
-    const scriptId = claspJson.scriptId;
-    if (!scriptId) {
-      throw new Error('scriptId not found in .clasp.json');
-    }
-    console.log(`Script ID: ${scriptId}`);
-    console.log(`Deployment ID: ${DEPLOYMENT_ID}`);
-
-    // 3. Scan & Read Files
-    const files = [];
-    const dirFiles = fs.readdirSync(GAS_DIR);
-    for (const f of dirFiles) {
-      const fullPath = path.join(GAS_DIR, f);
-      const stat = fs.statSync(fullPath);
-      if (!stat.isFile()) continue;
-
-      if (f === 'appsscript.json') {
-        const source = fs.readFileSync(fullPath, 'utf8');
-        files.push({
-          name: 'appsscript',
-          type: 'JSON',
-          source: source
-        });
-        console.log(`Added: ${f} (JSON)`);
-      } else if (f.endsWith('.gs')) {
-        const source = fs.readFileSync(fullPath, 'utf8');
-        const name = f.slice(0, -3); // remove .gs
-        files.push({
-          name: name,
-          type: 'SERVER_JS',
-          source: source
-        });
-        console.log(`Added: ${f} (SERVER_JS)`);
-      }
-    }
-
-    // 4. Send PUT Request to update project files (HEAD version)
-    console.log('Pushing code to Google Apps Script API...');
-    const contentUrl = `https://script.googleapis.com/v1/projects/${scriptId}/content`;
-    const contentResponse = await fetch(contentUrl, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ files })
-    });
-
-    if (contentResponse.status !== 200) {
-      throw new Error(`Push code failed: ${contentResponse.status} ${await contentResponse.text()}`);
-    }
-    console.log('🎉 Code successfully pushed (HEAD version updated).');
-
-    // 5. Create a new version
-    console.log('Creating a new script version...');
-    const versionUrl = `https://script.googleapis.com/v1/projects/${scriptId}/versions`;
-    const versionResponse = await fetch(versionUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        description: 'Auto deployment from ops/deploy_gas.js'
-      })
-    });
-
-    if (versionResponse.status !== 200) {
-      throw new Error(`Create version failed: ${versionResponse.status} ${await versionResponse.text()}`);
-    }
-
-    const versionData = await versionResponse.json();
-    const newVersionNumber = versionData.versionNumber;
-    console.log(`🎉 Created Version #${newVersionNumber}`);
-
-    // 6. Update the deployment to point to the new version
-    console.log(`Updating deployment ${DEPLOYMENT_ID} to Version #${newVersionNumber}...`);
-    const deployUrl = `https://script.googleapis.com/v1/projects/${scriptId}/deployments/${DEPLOYMENT_ID}`;
-    const deployResponse = await fetch(deployUrl, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        deploymentConfig: {
-          scriptId: scriptId,
-          versionNumber: newVersionNumber,
-          manifestFileName: 'appsscript',
-          description: `Deploy version ${newVersionNumber}`
-        }
-      })
-    });
-
-    if (deployResponse.status !== 200) {
-      throw new Error(`Retarget deployment failed: ${deployResponse.status} ${await deployResponse.text()}`);
-    }
-    console.log('🎉 Deployment successfully updated! Deployment version retargeted.');
-
-    // 7. Smoke test verification request
-    console.log('Running smoke-test query on meta_health...');
-    // Đọc REPORT_API_TOKEN từ file auth (KHÔNG hardcode — luật §4 CLAUDE.md).
-    let reportToken = '';
-    try {
-      const authPath = path.join(__dirname, '../.claude/.dispatcher-auth.json');
-      reportToken = (JSON.parse(fs.readFileSync(authPath, 'utf8')).report_api_token) || '';
-    } catch (e) {
-      console.warn('⚠️ Không đọc được REPORT_API_TOKEN từ .claude/.dispatcher-auth.json — bỏ qua smoke test.');
-    }
-    const cb = Math.floor(Math.random() * 1000000);
-    const smokeUrl = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec?action=meta_health&token=${reportToken}&_cb=${cb}`;
-    const smokeResp = await fetch(smokeUrl);
-    const smokeStatus = smokeResp.status;
-    const smokeBody = await smokeResp.text();
-    console.log(`Smoke test status: ${smokeStatus}`);
-    console.log(`Smoke test body: ${smokeBody}`);
-
-    if (smokeStatus === 200 && smokeBody.indexOf('"ok":true') !== -1) {
-      console.log('🎉 Deploy verified! System is healthy and running the new version.');
-    } else {
-      throw new Error(`Smoke test failed: HTTP ${smokeStatus} - ${smokeBody}`);
-    }
-  } catch (error) {
-    console.error('❌ Error during deploy:', error);
-    process.exit(1);
+/** Đọc toàn bộ file gas/ → payload content API (dùng chung cho mọi branch). */
+function readGasFiles() {
+  const files = [];
+  for (const f of fs.readdirSync(GAS_DIR)) {
+    const full = path.join(GAS_DIR, f);
+    if (!fs.statSync(full).isFile()) continue;
+    if (f === 'appsscript.json') files.push({ name: 'appsscript', type: 'JSON', source: fs.readFileSync(full, 'utf8') });
+    else if (f.endsWith('.gs')) files.push({ name: f.slice(0, -3), type: 'SERVER_JS', source: fs.readFileSync(full, 'utf8') });
   }
+  return files;
 }
 
-deploy();
+function getReportToken() {
+  try {
+    const authPath = path.join(__dirname, '../.claude/.dispatcher-auth.json');
+    return (JSON.parse(fs.readFileSync(authPath, 'utf8')).report_api_token) || '';
+  } catch (e) { return ''; }
+}
+
+async function deployBranch(name, cfg, accessToken, files, reportToken, dryRun) {
+  const { scriptId, deploymentId, location_id } = cfg;
+  console.log(`\n── Branch ${name} (${location_id}) · script ${scriptId.slice(0, 12)}… · deploy ${deploymentId.slice(0, 12)}…`);
+  if (!scriptId || !deploymentId) throw new Error(`branch ${name} thiếu scriptId/deploymentId`);
+  if (dryRun) { console.log('  [dry-run] sẽ push + version + retarget + smoke-test (bỏ qua API).'); return; }
+
+  // 1. Push content (HEAD)
+  let r = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/content`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ files })
+  });
+  if (r.status !== 200) throw new Error(`[${name}] push failed: ${r.status} ${await r.text()}`);
+  console.log('  ✓ pushed content');
+
+  // 2. Create version
+  r = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/versions`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: `Auto deploy ${name} ${new Date().toISOString()}` })
+  });
+  if (r.status !== 200) throw new Error(`[${name}] version failed: ${r.status} ${await r.text()}`);
+  const versionNumber = (await r.json()).versionNumber;
+  console.log(`  ✓ version #${versionNumber}`);
+
+  // 3. Retarget deployment
+  r = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/deployments/${deploymentId}`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deploymentConfig: { scriptId, versionNumber, manifestFileName: 'appsscript', description: `v${versionNumber} ${name}` } })
+  });
+  if (r.status !== 200) throw new Error(`[${name}] retarget failed: ${r.status} ${await r.text()}`);
+  console.log('  ✓ retargeted');
+
+  // 4. Smoke test
+  const cb = Math.floor(Math.random() * 1e9);
+  const smoke = await fetch(`https://script.google.com/macros/s/${deploymentId}/exec?action=meta_health&token=${reportToken}&_cb=${cb}`);
+  const body = await smoke.text();
+  if (smoke.status === 200 && body.indexOf('"ok":true') !== -1) console.log('  🎉 smoke OK');
+  else throw new Error(`[${name}] smoke failed: HTTP ${smoke.status} - ${body.slice(0, 120)}`);
+}
+
+async function main() {
+  const args = parseArgs();
+  const reg = JSON.parse(fs.readFileSync(BRANCHES_PATH, 'utf8'));
+  let targets;
+  if (args.all) targets = Object.keys(reg.branches);
+  else if (args.branch) targets = [args.branch];
+  else targets = [reg.default];
+
+  for (const t of targets) if (!reg.branches[t]) throw new Error(`Branch '${t}' không có trong branches.json (có: ${Object.keys(reg.branches).join(', ')})`);
+  console.log(`Targets: ${targets.join(', ')}${args.dryRun ? ' [DRY-RUN]' : ''}`);
+
+  let accessToken = '', files = [], reportToken = '';
+  if (!args.dryRun) {
+    const rcPath = path.join(process.env.HOME, '.clasprc.json');
+    if (!fs.existsSync(rcPath)) throw new Error(`Credentials not found at ${rcPath}`);
+    accessToken = await getValidAccessToken(JSON.parse(fs.readFileSync(rcPath, 'utf8')), rcPath);
+    files = readGasFiles();
+    reportToken = getReportToken();
+    console.log(`Loaded ${files.length} gas files.`);
+  }
+
+  for (const t of targets) await deployBranch(t, reg.branches[t], accessToken, files, reportToken, args.dryRun);
+  console.log(`\n✅ Done (${targets.length} branch).`);
+}
+
+main().catch(e => { console.error('❌', e.message || e); process.exit(1); });

@@ -1,0 +1,10 @@
+{
+  "default": "lamha",
+  "branches": {
+    "lamha": {
+      "location_id": "LH01",
+      "scriptId": "1nIdKqCQWD-BYGxin50Zf6L0aH41gu402nhM5SqkoaNvWvb4zV4wWhk4q",
+      "deploymentId": "AKfycbylzJojjKcjcaD91I7iVkWrnFhP7Ts_edofw42JgoNek-uGBp5m6_9FPoB5bYYtB87i"
+    }
+  }
+}
