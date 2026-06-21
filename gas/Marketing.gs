@@ -374,3 +374,153 @@ function upsertMarketingByExternalId(externalId, a) {
   }
   return data[rowIdx - 1][0]; // activity_id
 }
+
+/**
+ * Lấy dữ liệu gộp theo tuần (ISO Week) phục vụ cho Marketing Mix Modeling (P4).
+ * @param {string} from - yyyy-MM-dd
+ * @param {string} to - yyyy-MM-dd
+ * @return {Array<Object>} list các tuần kèm chi phí/reach và doanh thu gộp
+ */
+function getMmmData(from, to) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. Tạo danh sách các tuần (Monday start) trong khoảng [from, to]
+  var weeksMap = {};
+  var weeksList = [];
+  
+  var endMs = new Date(to + 'T23:59:59+07:00').getTime();
+  
+  // Lùi về ngày thứ Hai của tuần chứa ngày 'from'
+  var startMonStr = _getMondaysDateString(from);
+  var currentMonStr = startMonStr;
+  var currentMonMs = new Date(currentMonStr + 'T00:00:00+07:00').getTime();
+  
+  while (currentMonMs <= endMs) {
+    var monStr = _getMondaysDateString(new Date(currentMonMs).toISOString().slice(0, 10));
+    if (!weeksMap[monStr]) {
+      var row = {
+        week_start: monStr,
+        revenue: 0,
+        order_count: 0,
+        fb_cost: 0, fb_reach: 0,
+        ig_cost: 0, ig_reach: 0,
+        tiktok_cost: 0, tiktok_reach: 0,
+        zalo_cost: 0, zalo_reach: 0,
+        gbp_cost: 0, gbp_reach: 0,
+        web_cost: 0, web_reach: 0,
+        other_cost: 0, other_reach: 0,
+        active_promos_count: 0
+      };
+      weeksMap[monStr] = row;
+      weeksList.push(row);
+    }
+    currentMonMs += 7 * 86400000; // tiến 7 ngày
+  }
+
+  // 2. Aggregate ORDERS
+  var oSheet = ss.getSheetByName('ORDERS');
+  if (oSheet && oSheet.getLastRow() >= 2) {
+    var od = oSheet.getDataRange().getValues();
+    for (var i = 1; i < od.length; i++) {
+      var status = od[i][12];
+      if (status === 'CANCELLED') continue;
+      var dateStr = _asDateStr(od[i][2]);
+      if (dateStr < from || dateStr > to) continue;
+      var mon = _getMondaysDateString(dateStr);
+      if (weeksMap[mon]) {
+        weeksMap[mon].revenue += (Number(od[i][11]) || 0);
+        weeksMap[mon].order_count += 1;
+      }
+    }
+  }
+
+  // 3. Aggregate MARKETING_LOG
+  var mSheet = ss.getSheetByName('MARKETING_LOG');
+  if (mSheet && mSheet.getLastRow() >= 2) {
+    var md = mSheet.getDataRange().getValues();
+    var mHead = md[0];
+    var iDate = mHead.indexOf('date');
+    var iPlatform = mHead.indexOf('platform');
+    var iCost = mHead.indexOf('cost_vnd');
+    var iReach = mHead.indexOf('reach');
+    var iViews = mHead.indexOf('views');
+    
+    for (var j = 1; j < md.length; j++) {
+      var mRow = md[j];
+      var mDateStr = _asDateStr(mRow[iDate]);
+      if (mDateStr < from || mDateStr > to) continue;
+      var mMon = _getMondaysDateString(mDateStr);
+      if (weeksMap[mMon]) {
+        var plat = String(mRow[iPlatform]).trim().toLowerCase();
+        var cost = Number(mRow[iCost]) || 0;
+        var rchVal = Number(mRow[iReach]) || 0;
+        var viewsVal = iViews >= 0 ? (Number(mRow[iViews]) || 0) : 0;
+        var reach = (plat === 'tiktok') ? (viewsVal || rchVal) : rchVal;
+        
+        var w = weeksMap[mMon];
+        if (plat === 'fb' || plat === 'facebook') {
+          w.fb_cost += cost;
+          w.fb_reach += reach;
+        } else if (plat === 'ig' || plat === 'instagram') {
+          w.ig_cost += cost;
+          w.ig_reach += reach;
+        } else if (plat === 'tiktok') {
+          w.tiktok_cost += cost;
+          w.tiktok_reach += reach;
+        } else if (plat === 'zalo') {
+          w.zalo_cost += cost;
+          w.zalo_reach += reach;
+        } else if (plat === 'gbp' || plat === 'google' || plat === 'maps') {
+          w.gbp_cost += cost;
+          w.gbp_reach += reach;
+        } else if (plat === 'web') {
+          w.web_cost += cost;
+          w.web_reach += reach;
+        } else {
+          w.other_cost += cost;
+          w.other_reach += reach;
+        }
+      }
+    }
+  }
+
+  // 4. Aggregate PROMOTIONS
+  var pSheet = ss.getSheetByName('PROMOTIONS');
+  if (pSheet && pSheet.getLastRow() >= 2) {
+    var pd = pSheet.getDataRange().getValues();
+    for (var k = 1; k < pd.length; k++) {
+      var p = pd[k];
+      var isAct = p[16];
+      if (isAct === false || isAct === 'false') continue;
+      var pStart = _asDateStr(p[6]);
+      var pEnd = _asDateStr(p[7]);
+      if (!pStart || !pEnd) continue;
+      
+      weeksList.forEach(function (w) {
+        var wStart = w.week_start;
+        var wEnd = new Date(new Date(wStart + 'T00:00:00+07:00').getTime() + 6 * 86400000).toISOString().slice(0, 10);
+        if (pStart <= wEnd && pEnd >= wStart) {
+          w.active_promos_count += 1;
+        }
+      });
+    }
+  }
+
+  weeksList.sort(function(a, b) {
+    return a.week_start.localeCompare(b.week_start);
+  });
+
+  return weeksList;
+}
+
+/** Trả về ngày thứ Hai của tuần chứa dateStr. */
+function _getMondaysDateString(dateStr) {
+  var d = new Date(dateStr + 'T00:00:00+07:00');
+  var day = d.getDay();
+  var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  var monday = new Date(d.setDate(diff));
+  var yyyy = monday.getFullYear();
+  var mm = ('0' + (monday.getMonth() + 1)).slice(-2);
+  var dd = ('0' + monday.getDate()).slice(-2);
+  return yyyy + '-' + mm + '-' + dd;
+}

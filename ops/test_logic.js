@@ -53,6 +53,7 @@ loadScript('Orders.gs');
 loadScript('Meta.gs');
 loadScript('Admin.gs');
 loadScript('RFM.gs');
+loadScript('Marketing.gs');
 
 // 3. Define Unit Tests
 test('normalizeCustomerId normalizes VN phone numbers correctly', (t) => {
@@ -92,4 +93,18 @@ test('_adminCoerce converts types according to schema definitions', (t) => {
   assert.strictEqual(global._adminCoerce('available', '0'), false);
   // Normal string
   assert.strictEqual(global._adminCoerce('name', 'Matcha Latte'), 'Matcha Latte');
+});
+
+test('_getMondaysDateString aggregates dates to correct ISO Monday start', (t) => {
+  const cases = [
+    ['2026-06-21', '2026-06-15'], // Sunday to Monday
+    ['2026-06-15', '2026-06-15'], // Monday to Monday
+    ['2026-06-16', '2026-06-15'], // Tuesday to Monday
+    ['2026-06-20', '2026-06-15'], // Saturday to Monday
+    ['2026-06-22', '2026-06-22']  // Next Monday
+  ];
+  for (const [input, expected] of cases) {
+    const actual = global._getMondaysDateString(input);
+    assert.strictEqual(actual, expected, `Failed for date: ${input}`);
+  }
 });

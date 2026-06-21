@@ -382,6 +382,17 @@ function doGet(e) {
       return _jsonResponse({ ok: true, data: getRoiData(roiFrom, roiTo) });
     }
 
+    if (action === 'mmm_data') {
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      var mmmTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var mmmFrom = e.parameter.from;
+      if (!mmmFrom) {
+        // default 1 year
+        mmmFrom = Utilities.formatDate(new Date(Date.now() - 365 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      }
+      return _jsonResponse({ ok: true, data: getMmmData(mmmFrom, mmmTo) });
+    }
+
     if (action === 'inventory_snapshot') {
       if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
       return _jsonResponse({ ok: true, inventory: _adminReadSheet('INVENTORY') });
@@ -607,6 +618,7 @@ function doGet(e) {
         'GET /?action=mark_labels_printed&order_id=ORD-...': 'Mark labels as printed',
         'GET /?action=waste_form': 'Mobile form to log waste (Phase C)',
         'GET /?action=review_form': 'Mobile form to log review (Phase B)',
+        'GET /?action=mmm_data&from=YYYY-MM-DD&to=YYYY-MM-DD': 'Aggregated weekly marketing and revenue data for MMM (Phase 4)',
       },
     });
   } catch (err) {
