@@ -164,8 +164,16 @@ async function deploy() {
 
     // 7. Smoke test verification request
     console.log('Running smoke-test query on meta_health...');
+    // Đọc REPORT_API_TOKEN từ file auth (KHÔNG hardcode — luật §4 CLAUDE.md).
+    let reportToken = '';
+    try {
+      const authPath = path.join(__dirname, '../.claude/.dispatcher-auth.json');
+      reportToken = (JSON.parse(fs.readFileSync(authPath, 'utf8')).report_api_token) || '';
+    } catch (e) {
+      console.warn('⚠️ Không đọc được REPORT_API_TOKEN từ .claude/.dispatcher-auth.json — bỏ qua smoke test.');
+    }
     const cb = Math.floor(Math.random() * 1000000);
-    const smokeUrl = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec?action=meta_health&token=7vk8wCYekp_LYLdaNQMOM--hElFR8vDt&_cb=${cb}`;
+    const smokeUrl = `https://script.google.com/macros/s/${DEPLOYMENT_ID}/exec?action=meta_health&token=${reportToken}&_cb=${cb}`;
     const smokeResp = await fetch(smokeUrl);
     const smokeStatus = smokeResp.status;
     const smokeBody = await smokeResp.text();
