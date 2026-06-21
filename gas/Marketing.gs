@@ -154,6 +154,7 @@ function getRoiData(from, to) {
       try { items = row[9] ? JSON.parse(row[9]) : []; } catch (e) { items = []; }
       orders.push({
         order_id: row[0],
+        customer_id: row[8] ? String(row[8]) : '',
         timestamp: row[2],
         date: date,
         utm_source: row[4],

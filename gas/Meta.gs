@@ -96,7 +96,69 @@ function _clearMetaDegraded() { _metaProps().deleteProperty('META_DEGRADED'); }
 function checkMetaTokenHealth() {
   var pageId = _cfg('META_PAGE_ID');
   var probe = _metaGet('/' + (pageId || 'me'), { fields: 'id' });
-  return { ok: !!probe, degraded: isMetaDegraded() };
+  var result = { ok: !!probe, degraded: isMetaDegraded() };
+  
+  if (probe) {
+    var token = getMetaToken();
+    try {
+      var debugInfo = _metaGet('/debug_token', { input_token: token }, token);
+      if (debugInfo && debugInfo.data) {
+        var data = debugInfo.data;
+        result.is_valid = data.is_valid;
+        result.expires_at = data.expires_at;
+        result.data_access_expires_at = data.data_access_expires_at;
+        
+        var nowSec = Math.floor(Date.now() / 1000);
+        var warningDays = 7;
+        var warningSec = warningDays * 86400;
+        
+        // Kiểm tra hạn token
+        if (data.expires_at && data.expires_at > 0) {
+          var diff = data.expires_at - nowSec;
+          result.expires_in_days = Math.round(diff / 86400);
+          if (diff < warningSec) {
+            result.warning = 'Meta access token sắp hết hạn trong ' + result.expires_in_days + ' ngày!';
+            _sendMetaTokenExpirationWarning(result.expires_in_days, false);
+          }
+        }
+        
+        // Kiểm tra hạn truy cập dữ liệu (data access)
+        if (data.data_access_expires_at && data.data_access_expires_at > 0) {
+          var diffData = data.data_access_expires_at - nowSec;
+          result.data_access_expires_in_days = Math.round(diffData / 86400);
+          if (diffData < warningSec && (!result.warning || diffData < (data.expires_at - nowSec))) {
+            result.warning = 'Quyền truy cập dữ liệu Meta (Data Access) sắp hết hạn trong ' + result.data_access_expires_in_days + ' ngày!';
+            _sendMetaTokenExpirationWarning(result.data_access_expires_in_days, true);
+          }
+        }
+      }
+    } catch (debugErr) {
+      logError('meta.debugToken', debugErr);
+    }
+  }
+  return result;
+}
+
+function _sendMetaTokenExpirationWarning(daysLeft, isDataAccess) {
+  var props = PropertiesService.getScriptProperties();
+  var lastSent = props.getProperty('META_TOKEN_WARN_LAST_SENT');
+  var now = Date.now();
+  if (lastSent && (now - parseInt(lastSent, 10)) < 24 * 60 * 60 * 1000) {
+    return; // throttle 24h
+  }
+  props.setProperty('META_TOKEN_WARN_LAST_SENT', String(now));
+  
+  var typeStr = isDataAccess ? 'Quyền truy cập dữ liệu (Data Access)' : 'Mã truy cập (Access Token)';
+  try {
+    sendTelegramAlert(
+      '⚠️ <b>CẢNH BÁO: HẠN TOKEN META</b>\n' +
+      'Mitsu Café Alert: ' + typeStr + ' Meta sắp hết hạn!\n' +
+      '- <b>Số ngày còn lại:</b> ' + daysLeft + ' ngày\n\n' +
+      'Hãy chuẩn bị gia hạn hoặc cấp mới token trong CONFIG để tránh gián đoạn kéo dữ liệu tự động.'
+    );
+  } catch (e) {
+    logError('meta.tokenWarningAlert', e);
+  }
 }
 
 /** Cài trigger health-check hằng ngày 5:00 (idempotent). */
