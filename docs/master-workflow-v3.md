@@ -101,6 +101,14 @@ CN C: Spreadsheet_C  ───────────────────�
 4. **Branch-scoped token/RBAC** (`M-RBAC`): mỗi CN 1 REPORT_API_TOKEN riêng + device gắn `location_id`; nhân viên CN-A không đọc được data CN-B. Hiện token dùng chung 1 cái.
 5. **Deploy fan-out**: `deploy_gas.js` hiện trỏ 1 deployment. Thêm tham số `--branch=B` (đọc map deploymentId theo CN) để deploy cùng code ra N CN.
 
+### ✅ ĐÃ TRIỂN KHAI + TEST LIVE (2026-06-21, v69 — `gas/Branches.gs`)
+- **M30/M31 — `getDailyRollup()` + tab `HQ_DAILY`**: rollup ngày (revenue/order/AOV/expenses/waste) với **`location_id` LÀ KHÓA ĐẦU** (góp ý #4). Route `daily_rollup` (`&record=true`→upsert HQ_DAILY idempotent) + trigger `installDailyRollupTrigger()` (1:10 sáng). Dùng NGAY cho 1 CN làm bảng KPI Looker. Test: location_id-first ✓, rev=22000 ✓.
+- **M32 — `snapshotMenuFromMaster()` (góp ý #1)**: snapshot MENU cứng từ HQ master (đọc tĩnh, tránh IMPORTRANGE lag chặn đặt món), daily 3AM. **Gated OFF** khi chưa set `CONFIG.MENU_MASTER_SHEET_ID` → 1 CN KHÔNG bị clobber. Route `menu_snapshot`. Test: no-op, MENU giữ 27 ✓.
+- **M34 — deploy fan-out (góp ý #3)**: `ops/branches.json` + `deploy_gas.js --branch=X / --all / --dry-run` (backward-compat). Test: dry-run + deploy thật v69 ✓.
+
+### ⏸ Góp ý #2 — MARKETING_LOG/DECISION_LOG tập trung HQ: ĐÚNG nhưng HOÃN
+Khi có HQ thật (CN2): MARKETING_LOG + DECISION_LOG lưu DUY NHẤT ở HQ; CN chỉ giữ ORDERS + EXPENSES; subagent cấp HQ pull rollup CN + đọc MARKETING_LOG HQ → ROI chéo. **CHƯA migrate giờ** vì 1 CN chưa có HQ + tách MARKETING_LOG ra sẽ phá `getRoiData` (đang đọc cùng sheet ORDERS) đang chạy thật.
+
 ### Làm GỌN cho 2–3 CN (không over-engineer)
 - Chưa cần franchise/RBAC nặng (CN sở hữu, cùng chủ). RBAC = chỉ tách token đọc + nhãn location_id (đủ).
 - HQ rollup = 1 GAS trigger/ngày pull N sheet → đủ. Chưa cần BigQuery.
