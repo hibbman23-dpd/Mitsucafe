@@ -3080,11 +3080,13 @@ function init() {
   }
   
   // Khởi chạy vòng lặp kiểm tra khách quen từ Camera AI (3 giây/lần)
-  setInterval(pollActiveCustomer, 3000);
+  customerPollTimer = setInterval(pollActiveCustomer, 3000);
 }
 
 // ─── CAMERA AI INTEGRATION (ACTIVE CUSTOMER POLLING) ──────────────────────────
 let lastActiveCustomerId = null;
+let customerPollTimer = null;
+let customerPollFails = 0;
 
 async function pollActiveCustomer() {
   // Chỉ chạy trên màn hình menu hoặc checkout
@@ -3097,6 +3099,7 @@ async function pollActiveCustomer() {
     const res = await fetch('http://localhost:5000/api/active_customer');
     if (!res.ok) throw new Error('Flask not running');
     const data = await res.json();
+    customerPollFails = 0;
 
     if (data.detected) {
       if (data.customer_id !== lastActiveCustomerId) {
@@ -3134,7 +3137,12 @@ async function pollActiveCustomer() {
       }
     }
   } catch (err) {
-    // Tránh in log lỗi liên tục nếu Flask Server không chạy
+    // Flask Camera AI không chạy (vd máy khách) → ngừng poll sau 3 lần fail,
+    // tránh spam fetch localhost:5000 mỗi 3s vô tận trên thiết bị khách.
+    if (++customerPollFails >= 3 && customerPollTimer) {
+      clearInterval(customerPollTimer);
+      customerPollTimer = null;
+    }
   }
 }
 
