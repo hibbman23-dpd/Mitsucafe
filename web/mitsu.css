@@ -1,5 +1,5 @@
 /* mitsu.css — nền tảng thiết kế Mitsu (2 theme). Spec: docs/superpowers/specs/2026-06-17-mitsu-foundation-design.md */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap');
 
 :root {
   --bg:#F1E5CB; --surface:#ECE0C4; --surface-2:#E4D8BA;
@@ -7,7 +7,7 @@
   --accent:#C68A3E; --accent-deep:#9C6A2C; --seal:#B83A2E; --moss:#6E7A4F;
   --line:rgba(28,28,26,.14); --line-soft:rgba(28,28,26,.08);
   --radius:8px; --radius-sm:4px;
-  --disp:"Cormorant Garamond",Georgia,serif;
+  --disp:"Fraunces","Cormorant Garamond",Georgia,serif;
   --body:"Be Vietnam Pro",system-ui,sans-serif;
   --jp:"Noto Serif JP",serif;
 }
