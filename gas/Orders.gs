@@ -10,7 +10,8 @@ var ORDERS_HEADERS = [
   'table_id', 'staff_id', 'customer_id', 'items_json', 'subtotal', 'total',
   'status', 'confirmed_at', 'making_at', 'ready_at', 'delivering_at', 'delivered_at',
   'payment_method', 'payment_status', 'label_printed_at', 'invoice_url',
-  'printed_at', 'notes', 'customer_name', 'short_code', 'delivery_type', 'utm_campaign'
+  'printed_at', 'notes', 'customer_name', 'short_code', 'delivery_type', 'utm_campaign',
+  'idempotency_key'
 ];
 // Column indices (1-based, for getRange):
 // payment_status = 20, customer_name = 25, short_code = 26, delivery_type = 27, utm_campaign = 28
@@ -18,7 +19,7 @@ var ORDERS_HEADERS = [
 var VALID_STATUS = ['NEW', 'CONFIRMED', 'MAKING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
 
 var VALID_TRANSITIONS = {
-  'NEW':        ['CONFIRMED', 'CANCELLED'],
+  'NEW':        ['CONFIRMED', 'MAKING', 'CANCELLED'],
   'CONFIRMED':  ['MAKING', 'CANCELLED'],
   'MAKING':     ['READY', 'CANCELLED'],
   'READY':      ['DELIVERED', 'DELIVERING'],
@@ -80,6 +81,7 @@ function validateOrderPayload(p) {
     staff_id: p.staff_id || null,
     customer_id: customerId,
     customer_name: p.customer_name || null,
+    idempotency_key: (p.metadata && p.metadata.idempotency_key) || p.idempotency_key || '',
     items: p.items,
     subtotal: subtotal,
     total: p.total || subtotal,
@@ -127,13 +129,57 @@ function appendOrderToSheet(order) {
     order.metadata.short_code || '',
     order.metadata.delivery_type || '',
     order.utm_campaign || '',
+    order.idempotency_key || '',
   ]);
+}
+
+/**
+ * Idempotency: tìm order_id đã tạo với cùng idempotency_key (chống đơn trùng khi
+ * client retry do mạng yếu). Quét cột idempotency_key (index 28 / cột AC).
+ * Trả order_id nếu trùng, '' nếu chưa có. Gọi trong doPost (đã giữ lock → an toàn race).
+ */
+function findOrderIdByIdempotencyKey(key) {
+  if (!key) return '';
+  var sheet = _ordersSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return '';
+  var col = ORDERS_HEADERS.indexOf('idempotency_key') + 1; // 1-based
+  var keys = sheet.getRange(2, col, lastRow - 1, 1).getValues();
+  for (var i = 0; i < keys.length; i++) {
+    if (String(keys[i][0]) === String(key)) {
+      return String(sheet.getRange(i + 2, 1, 1, 1).getValue());
+    }
+  }
+  return '';
 }
 
 function generateOrderId() {
   var dateStr = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
   var rand = Math.floor(1000 + Math.random() * 9000);
   return 'ORD-' + dateStr + '-' + rand;
+}
+
+/**
+ * Mã đơn hiển thị: <chữ loại><số chạy trong ngày> — vd Q07 (tại quán), M05 (mang đi), G12 (giao).
+ * Server tự cấp (gọi trong doPost đã giữ lock → số chạy không trùng).
+ * Số chạy = số đơn ORD-<hôm nay> đã có + 1. order_id vẫn là khoá gốc.
+ */
+function buildShortCode(deliveryType) {
+  var letter = deliveryType === 'delivery' ? 'G' : (deliveryType === 'dine_in' ? 'Q' : 'M');
+  var sheet = _ordersSheet();
+  var lastRow = sheet.getLastRow();
+  var seq = 1;
+  if (lastRow >= 2) {
+    var dateStr = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
+    var prefix = 'ORD-' + dateStr + '-';
+    var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    var count = 0;
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).indexOf(prefix) === 0) count++;
+    }
+    seq = count + 1;
+  }
+  return letter + (seq < 10 ? '0' + seq : String(seq));
 }
 
 function generateEventId() {
@@ -279,7 +325,11 @@ function _rowToOrder(row) {
     subtotal: row[10],
     total: row[11],
     status: row[12],
+    payment_method: row[18] || '',
+    payment_status: row[19] || '',
     customer_name: row[24] || '',
+    short_code: row[25] || '',
+    delivery_type: row[26] || '',
     metadata: {
       notes: notes,
       short_code: row[25] || '',
@@ -301,8 +351,8 @@ function markOrderPaid(orderId) {
   var sheet = _ordersSheet();
   var now = new Date().toISOString();
   sheet.getRange(row.rowIndex, 20).setValue('PAID');       // payment_status col
-  sheet.getRange(row.rowIndex, 13).setValue('DELIVERED');  // status col
-  sheet.getRange(row.rowIndex, 18).setValue(now);          // delivered_at col
+  // Keep the current cooking status unchanged (so kitchen still sees it).
+  // Only update payment_status to PAID. Receipt will print because of the PAID status.
   
   try {
     var order = _rowToOrder(row.data);
@@ -389,6 +439,7 @@ function getTodayOrders() {
       order_id:       row[0],
       short_code:     row[25] || '',
       timestamp:      Utilities.formatDate(new Date(row[2]), 'Asia/Ho_Chi_Minh', 'HH:mm'),
+      created_iso:    row[2] ? new Date(row[2]).toISOString() : '',
       customer_id:    row[8],
       customer_name:  row[24] || '',
       table_id:       row[6] || '',
@@ -400,6 +451,9 @@ function getTodayOrders() {
       notes:          notes,
       use_free_drink: useFreeDrink,
       customer_stamps: stampInfoText,
+      delivered_at:   row[17] || '',
+      making_at:      row[14] || '',
+      delivering_at:  row[16] || '',
     });
   }
   orders.reverse();

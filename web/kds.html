@@ -74,6 +74,12 @@
     .order-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
     .order-card.pending { border-left: 3px solid var(--coral); }
     .order-card.paid    { border-left: 3px solid var(--green); opacity: .72; }
+    .order-card.overdue { border-left-color: #e53935 !important; box-shadow: 0 0 0 1px rgba(229,57,53,.45); }
+    .age-chip { font-size: .62rem; font-weight: 700; padding: 1px 6px; border-radius: 9px; background: rgba(245,240,232,.12); color: var(--cream); margin-left: 4px; }
+    .age-chip.overdue { background: #e53935; color: #fff; animation: agePulse 1.4s ease-in-out infinite; }
+    @keyframes agePulse { 0%,100%{opacity:1;} 50%{opacity:.55;} }
+    .btn-cancel { background: transparent; color: #e57373; border: 1px solid rgba(229,115,115,.5); border-radius: 8px; padding: 8px 12px; font-size: .8rem; font-weight: 600; cursor: pointer; }
+    .btn-cancel:hover { background: rgba(229,57,53,.12); }
     .card-top {
       display: flex; align-items: center; justify-content: space-between;
       padding: 11px 14px 8px; border-bottom: 1px solid var(--border);
@@ -442,7 +448,19 @@ const GAS_URL  = 'https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_M
 const POLL_MS  = 15000;
 // Token cho các endpoint cần xác thực. Worker thay '__REPORT_API_TOKEN__' lúc serve (xem src/index.js).
 // Chưa thay → GAS từ chối (fail-closed, không lộ data).
-const REPORT_TOKEN = '__REPORT_API_TOKEN__';
+// KHÔNG hardcode token vào source (vi phạm guardrail CLAUDE.md + lộ secret khi push repo).
+// Dev local: truyền token qua URL (?token=...) hoặc localStorage('mitsu_report_token') — không commit.
+function _resolveReportToken() {
+  const injected = '__REPORT_API_TOKEN__';
+  if (injected.indexOf('REPORT_API_TOKEN') === -1) return injected; // Worker đã tiêm
+  // Chưa tiêm (đang chạy local / GitHub Pages thô) → lấy từ URL hoặc localStorage
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get('token');
+    if (fromUrl) { localStorage.setItem('mitsu_report_token', fromUrl); return fromUrl; }
+    return localStorage.getItem('mitsu_report_token') || '';
+  } catch (e) { return ''; }
+}
+const REPORT_TOKEN = _resolveReportToken();
 const TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
 // Device approval: mỗi thiết bị 1 id (localStorage). Thiết bị mới phải được Mac Mini/Dashboard duyệt.
 function _mitsuDeviceId() {
@@ -473,6 +491,11 @@ let activeFilter = 'all';
 let activeView   = 'orders';
 let activeCat    = 'all';
 let ttsReady     = false;
+// #7: cảnh báo đơn trễ + chuông đơn mới
+const OVERDUE_MIN = 10;            // đơn đang xử lý quá X phút → tô đỏ
+let seenOrderIds  = new Set();     // id đã thấy → phát hiện đơn mới
+let firstLoad     = true;          // lần load đầu không kêu chuông
+let audioCtx      = null;          // WebAudio cho chuông đơn mới
 
 // Backup original prices first
 MENU_DATA.forEach(item => {
@@ -537,11 +560,37 @@ function deliveryLabel(type, tableId) {
 
 // ─── TTS ─────────────────────────────────────────────────────────────────────
 function enableTTS() {
-  if (!window.speechSynthesis) return;
+  // Mở khoá cả TTS lẫn AudioContext (cần user gesture do autoplay policy)
+  try {
+    if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) {}
+  if (!window.speechSynthesis) { ttsReady = true; document.getElementById('tts-banner').classList.add('hidden'); return; }
   const u = new SpeechSynthesisUtterance(''); u.volume = 0;
   window.speechSynthesis.speak(u);
   ttsReady = true;
   document.getElementById('tts-banner').classList.add('hidden');
+}
+
+// Chuông "đơn mới": 2 nốt ngắn bằng WebAudio (không cần file âm thanh).
+function playNewOrderChime() {
+  try {
+    if (!audioCtx) return;                       // chưa mở khoá (chưa bấm enable TTS)
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    [880, 1320].forEach((freq, i) => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t0 = audioCtx.currentTime + i * 0.18;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.3, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(t0); osc.stop(t0 + 0.18);
+    });
+  } catch (e) {}
 }
 
 function speak(text) {
@@ -725,24 +774,48 @@ function renderOrders() {
     const payBadge  = isPaid
       ? '<span class="pay-badge paid">✅ Đã TT</span>'
       : '<span class="pay-badge pending">⚠️ Chờ TT</span>';
-    const footer = isPaid ? '' : `
-      <div class="card-footer">
-        <button class="btn-mark-paid" onclick="markPaid('${esc(o.order_id)}',${o.total},'${esc(o.short_code)}',this)">
+    // Tuổi đơn + cảnh báo trễ (chỉ cho đơn đang xử lý)
+    const isActive  = ['NEW','CONFIRMED','MAKING','READY'].includes(o.status);
+    const ageMin    = o.created_iso ? Math.floor((Date.now() - new Date(o.created_iso).getTime()) / 60000) : null;
+    const isOverdue = isActive && ageMin !== null && ageMin >= OVERDUE_MIN;
+    const ageChip   = (isActive && ageMin !== null)
+      ? `<span class="age-chip${isOverdue?' overdue':''}">⏱ ${ageMin}′</span>` : '';
+    let statusAction = '';
+    if (['NEW', 'CONFIRMED'].includes(o.status)) {
+      statusAction = `<button class="btn-mark-paid" style="background:var(--accent);color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}', 'MAKING', this)">🍵 Bắt đầu pha</button>`;
+    } else if (o.status === 'MAKING') {
+      statusAction = `<button class="btn-mark-paid" style="background:#4CAF50;color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}', 'READY', this)">✅ Pha xong</button>`;
+    } else if (o.status === 'READY') {
+      statusAction = `<button class="btn-mark-paid" style="background:#2196F3;color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}', 'DELIVERED', this)">🚀 Đã giao</button>`;
+    }
+
+    const payAction = (isPaid || o.status === 'CANCELLED') ? '' : `
+        <button class="btn-mark-paid" style="flex:1;" onclick="markPaid('${esc(o.order_id)}',${o.total},'${esc(o.short_code)}',this)">
           💳 Đã thanh toán
-        </button>
-      </div>`;
+        </button>`;
+
+    // Huỷ chỉ cho phép trước khi giao (khớp VALID_TRANSITIONS phía GAS)
+    const cancelAction = ['NEW','CONFIRMED','MAKING'].includes(o.status)
+      ? `<button class="btn-cancel" onclick="cancelOrder('${esc(o.order_id)}', this)">✕ Huỷ</button>` : '';
+
+    const footer = (statusAction || payAction || cancelAction) ? `
+      <div class="card-footer" style="display:flex; gap:8px; flex-wrap:wrap;">
+        ${statusAction}
+        ${payAction}
+        ${cancelAction}
+      </div>` : '';
     const cleanNotes = o.notes ? esc(o.notes.replace('[🎁 ĐỔI LY MIỄN PHÍ] ', '')) : '';
     const notesHtml = cleanNotes ? `<div class="card-notes" style="font-size: 0.8rem; color: var(--gold); font-style: italic; margin-top: 8px; border-top: 1px dashed rgba(245,240,232,0.08); padding-top: 6px;">📝 ${cleanNotes}</div>` : '';
 
     return `
-      <div class="order-card ${isPaid?'paid':'pending'}" id="card-${esc(o.order_id)}">
+      <div class="order-card ${isPaid?'paid':'pending'}${isOverdue?' overdue':''}" id="card-${esc(o.order_id)}">
         <div class="card-top">
           <div class="short-code">${esc(o.short_code)||'—'}</div>
           <div class="order-meta">
             <strong>${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong><br>
             ${o.customer_name ? esc(o.customer_name)+' · ' : ''}${esc(o.customer_id) || 'Khách vãng lai'}<br>
             ${o.customer_stamps ? `<span style="color: var(--gold); font-weight: bold; font-size: 0.72rem;">${esc(o.customer_stamps)}</span><br>` : ''}
-            ${esc(o.timestamp)}<span class="status-chip s-${esc(o.status)}">${esc(statusVi(o.status))}</span>
+            ${esc(o.timestamp)} ${ageChip}<span class="status-chip s-${esc(o.status)}">${esc(statusVi(o.status))}</span>
           </div>
         </div>
         <div class="card-body">
@@ -766,6 +839,15 @@ async function loadOrders() {
     const res  = await fetch(`${GAS_URL}?action=orders${TQ}${DQ}`);
     const data = await res.json();
     if (data.ok) {
+      // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc, trừ lần load đầu.
+      const fresh = data.orders.filter(o => !seenOrderIds.has(o.order_id));
+      data.orders.forEach(o => seenOrderIds.add(o.order_id));
+      if (!firstLoad && fresh.length) {
+        playNewOrderChime();
+        speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
+      }
+      firstLoad = false;
+
       allOrders = data.orders;
       renderOrders();
       const now = new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -779,7 +861,7 @@ async function loadOrders() {
 async function markPaid(orderId, total, shortCode, btn) {
   btn.classList.add('loading'); btn.textContent = 'Đang lưu...';
   try {
-    await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}${DQ}`, { mode:'no-cors' });
+    await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}${DQ}`);
     const o = allOrders.find(x => x.order_id === orderId);
     if (o) o.payment_status = 'PAID';
     renderOrders();
@@ -787,6 +869,31 @@ async function markPaid(orderId, total, shortCode, btn) {
   } catch(_) {
     btn.classList.remove('loading'); btn.textContent = '💳 Đã thanh toán';
     alert('Lỗi kết nối — thử lại.');
+  }
+}
+
+function cancelOrder(orderId, btn) {
+  if (!confirm('Huỷ đơn này? Hành động không thể hoàn tác.')) return;
+  updateStatus(orderId, 'CANCELLED', btn);
+}
+
+async function updateStatus(orderId, newStatus, btn) {
+  btn.classList.add('loading');
+  const oldText = btn.textContent;
+  btn.textContent = 'Đang lưu...';
+  try {
+    const res = await fetch(`${GAS_URL}?action=update_status&order_id=${encodeURIComponent(orderId)}&status=${newStatus}${TQ}${DQ}`);
+    const data = await res.json();
+    if (data.ok) {
+      const o = allOrders.find(x => x.order_id === orderId);
+      if (o) o.status = newStatus;
+      renderOrders();
+    } else {
+      throw new Error(data.error || 'Failed to update');
+    }
+  } catch(_) {
+    btn.classList.remove('loading'); btn.textContent = oldText;
+    alert('Lỗi cập nhật trạng thái — thử lại.');
   }
 }
 

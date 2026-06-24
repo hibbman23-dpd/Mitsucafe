@@ -71,3 +71,12 @@ ops/.dispatcher.lock
 
 # Visual brainstorm companion artifacts
 .superpowers/
+
+# Brand source masters + asset backups (hi-res ~74MB — kept out of deploy path & git)
+brand-assets/
+# Stray large image at repo root (personal, not project)
+anh_cua_ban_hd.png
+# Unused loose source images in web/img (only stamps/ + mitsu/ are referenced)
+web/img/[0-9]*.jpg
+web/img/[0-9]*.png
+web/img/[0-9]*.webp

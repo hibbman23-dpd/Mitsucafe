@@ -1,7 +1,7 @@
 /* ── RESET & BRAND VARIABLES ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap');
 
 :root {
   /* ── Mitsu brand palette ── */
@@ -463,6 +463,16 @@ input  { font: inherit; }
   display: flex; flex-direction: column; gap: 0;
 }
 .form-section  { margin-bottom: 18px; }
+
+/* Bộ nhớ đệm — chip điền nhanh dưới ô SĐT / địa chỉ (mỗi ô 3 cái gần nhất) */
+.recall-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.recall-chip {
+  background: rgba(220,135,10,0.1); color: var(--accent);
+  border: 1px solid rgba(220,135,10,0.3); border-radius: 20px;
+  padding: 6px 12px; font-size: .8rem; font-weight: 600; cursor: pointer;
+  white-space: nowrap; transition: background .2s ease;
+}
+.recall-chip:hover, .recall-chip:active { background: rgba(220,135,10,0.2); }
 .form-label    {
   display: block; font-size: .7rem; font-weight: 400; letter-spacing: .16em;
   color: var(--text-muted); text-transform: uppercase;
@@ -846,9 +856,10 @@ input  { font: inherit; }
   box-shadow: 0 0 10px color-mix(in srgb, var(--coral) 15%, transparent);
 }
 .stamp-img {
-  width: 90%;
-  height: 90%;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center; /* ảnh ong dọc → lấy phần mặt cho ô tròn */
   border-radius: 50%;
   animation: stampPop .35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
@@ -1614,5 +1625,99 @@ input  { font: inherit; }
   padding: 8px 12px;
   font-size: 0.82rem;
   text-align: center;
+}
+
+/* TRACKING UI */
+.order-track { margin: 45px 0 30px; max-width: 400px; width: 100%; position: relative; }
+.track-line { height: 4px; background: var(--border); border-radius: 2px; position: absolute; top: 18px; left: 10%; right: 10%; z-index: 1; }
+.track-progress { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.6s ease; }
+.track-dots { display: flex; justify-content: space-between; position: relative; z-index: 2; }
+.track-dot { display: flex; flex-direction: column; align-items: center; color: var(--text-dim); font-size: 0.75rem; font-weight: 500; opacity: 0.6; transition: opacity 0.4s ease; }
+.track-dot.active { opacity: 1; color: var(--text); font-weight: 700; }
+.track-icon { width: 40px; height: 40px; border-radius: 20px; background: var(--surface); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 6px; transition: all 0.4s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.track-dot.active .track-icon { background: var(--accent); border-color: var(--accent); color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(220,135,10,0.4); text-shadow: none; }
+
+/* Customer Bee Sticker */
+.order-track .bee-sticker {
+  position: absolute;
+  top: -44px; /* con trực tiếp của .order-track (line ở top:18px) → -44 giữ đúng vị trí cũ */
+  width: 44px; height: auto;
+  transform: translateX(-50%);
+  transition: left 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex; flex-direction: column; align-items: center;
+  z-index: 5; /* > track-dots(2): sticker ĐÈ LÊN icon trạng thái */
+  animation: floatycustbee 2.5s ease-in-out infinite;
+}
+.order-track .bee-sticker img { width: 100%; height: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+.order-track .bee-code {
+  background: var(--sumi, #1C1C1A);
+  color: var(--gold, #C68A3E);
+  font-family: monospace; font-weight: 700; font-size: 0.65rem;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-bottom: -4px; /* Pull image up slightly to overlap with the tag */
+  border: 1px solid var(--gold, #C68A3E);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  white-space: nowrap;
+  z-index: 4;
+}
+@keyframes floatycustbee { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-6px); } }
+
+/* Tracking FAB */
+.tracking-fab {
+  position: fixed;
+  bottom: 20px;
+  right: 16px;
+  background: var(--gold, #C68A3E);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 50px;
+  box-shadow: 0 4px 18px rgba(198,138,62,0.45), 0 2px 6px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  z-index: 50;
+  transition: transform 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+  font-family: var(--body);
+}
+.tracking-fab:active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 8px rgba(198,138,62,0.3);
+}
+.tracking-badge-count {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Adjust tracking-fab position if cart-fab is present on mobile screens */
+@media (max-width: 480px) {
+  .tracking-fab {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Collapsible QR styling */
+.qr-collapsible {
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+  overflow: hidden;
+}
+.qr-collapsible.hidden {
+  display: none !important;
+}
+
+/* Tracking card styling inside popup */
+.tracking-order-card {
+  transition: all 0.3s ease;
 }
 

@@ -188,7 +188,19 @@ function doPost(e) {
       return handleBankNotification(payload);
     }
 
+    // Idempotency: nếu client retry với cùng key → trả lại đơn cũ, KHÔNG tạo trùng.
+    var _idemKey = (payload.metadata && payload.metadata.idempotency_key) || payload.idempotency_key || '';
+    if (_idemKey) {
+      var _existing = findOrderIdByIdempotencyKey(_idemKey);
+      if (_existing) {
+        return _jsonResponse({ ok: true, order_id: _existing, deduped: true });
+      }
+    }
+
     var order = validateOrderPayload(payload);
+
+    // Mã đơn hiển thị do SERVER cấp (không trùng giữa các khách) — ghi đè short_code client gửi.
+    order.metadata.short_code = buildShortCode(order.metadata.delivery_type);
 
     appendOrderToSheet(order);
 
@@ -198,7 +210,7 @@ function doPost(e) {
       logError('doPost.telegram', tgErr);
     }
 
-    return _jsonResponse({ ok: true, order_id: order.order_id });
+    return _jsonResponse({ ok: true, order_id: order.order_id, short_code: order.metadata.short_code });
   } catch (err) {
     logError('doPost', err);
     return _jsonResponse({ ok: false, error: String(err) });
@@ -285,16 +297,40 @@ function doGet(e) {
         delivery_type: order.delivery_type,
         short_code: order.short_code,
         total: order.total,
-        payment_method: order.payment_method
+        payment_method: order.payment_method,
+        payment_status: order.payment_status
       });
     }
 
     if (action === 'active_orders') {
       var allOrders = getTodayOrders(); // this is fast enough for today's orders
+      var nowTime = new Date().getTime();
       var filtered = allOrders.filter(function(o) {
-        return ['NEW', 'CONFIRMED', 'MAKING', 'READY'].indexOf(o.status) !== -1;
+        if (['NEW', 'CONFIRMED', 'MAKING', 'READY'].indexOf(o.status) !== -1) {
+          return true;
+        }
+        if (o.status === 'DELIVERED' && o.delivered_at) {
+          try {
+            var delTime = new Date(o.delivered_at).getTime();
+            if (nowTime - delTime <= 45000) { // Keep DELIVERED orders on the board for 45s
+              return true;
+            }
+          } catch(e) {}
+        }
+        return false;
       }).map(function(o) {
-        return { order_id: o.order_id, status: o.status, delivery_type: o.delivery_type, short_code: o.short_code };
+        return {
+          order_id:       o.order_id,
+          status:         o.status,
+          delivery_type:  o.delivery_type,
+          short_code:     o.short_code,
+          total:          o.total,
+          payment_status: o.payment_status,
+          table_id:       o.table_id,
+          delivered_at:   o.delivered_at,
+          making_at:      o.making_at,
+          delivering_at:  o.delivering_at
+        };
       });
       return _jsonResponse({ ok: true, orders: filtered });
     }

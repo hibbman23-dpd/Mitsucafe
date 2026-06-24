@@ -313,6 +313,154 @@ if (typeof window !== 'undefined') (function () {
     }).catch(function () {});
   }
 
+  function stableOffset(id, range) {
+    var h = 0;
+    var idStr = String(id || '');
+    for (var i = 0; i < idStr.length; i++) {
+      h = (h * 31 + idStr.charCodeAt(i)) & 0xffff;
+    }
+    return ((h % 1000) / 1000 - 0.5) * range;
+  }
+
+  function renderTimeline(orders) {
+    var tlOverlay = document.getElementById('timeline');
+    var tlTable = document.getElementById('tl-table');
+    var tlDelivery = document.getElementById('tl-delivery');
+    var tv = document.getElementById('tv');
+    var readyBoard = document.getElementById('ready-board');
+
+    orders = orders || [];
+    // Đơn ĐÃ XONG tại quán/mang đi (READY) → tách khỏi timeline, hiện số TO ở bảng riêng cho khách dễ thấy
+    var boardOrders = orders.filter(function(o){ return o.delivery_type !== 'delivery' && o.status === 'READY'; });
+    var timelineOrders = orders.filter(function(o){ return !(o.delivery_type !== 'delivery' && o.status === 'READY'); });
+
+    if (readyBoard) {
+      readyBoard.innerHTML = boardOrders.map(function(o){
+        return '<div class="ready-card"><div class="rc-lbl">Mời lấy nước 🔔</div><div class="rc-code">' + esc(o.short_code || '—') + '</div></div>';
+      }).join('');
+    }
+
+    // Clear old bees mỗi lần render
+    var oldBees = tlOverlay.querySelectorAll('.bee-sticker');
+    for (var i = 0; i < oldBees.length; i++) {
+      oldBees[i].parentNode.removeChild(oldBees[i]);
+    }
+
+    if (timelineOrders.length === 0) {
+      tlOverlay.classList.add('empty');
+      tlOverlay.classList.remove('active');
+      tv.classList.toggle('has-orders', boardOrders.length > 0);
+      return;
+    }
+
+    tlOverlay.classList.remove('empty');
+    tlOverlay.classList.add('active');
+    tv.classList.add('has-orders');
+
+    var hasDelivery = timelineOrders.some(function(o) { return o.delivery_type === 'delivery'; });
+    tlDelivery.style.display = hasDelivery ? 'block' : 'none';
+
+    // Determine position for each bee based on status
+    var EIGHT_MIN = 8 * 60 * 1000; // mỗi đoạn chạy 8 phút
+    timelineOrders.forEach(function(o) {
+      var isDelivery = o.delivery_type === 'delivery';
+      var track = isDelivery ? tlDelivery : tlTable;
+
+      // Mốc (%): table = 10 / 50 / 90 ; delivery = 10 / 37 / 63 / 90
+      var makingStart  = isDelivery ? 37 : 50;
+      var makingEnd    = isDelivery ? 63 : 90;
+      var deliverStart = 63, deliverEnd = 90;
+
+      // Mapping sticker mới:
+      //   Tiếp Nhận (NEW/CONFIRMED) → 8.png
+      //   Đang Pha  (MAKING)        → 2.png (ảnh barista)
+      //   Đang Giao (DELIVERING)    → 1.png
+      //   Đã Xong/Đã Giao (READY/DELIVERED) → 9.png
+      var img = '8.webp';   // mặc định: Tiếp Nhận
+      var leftPct = 10;
+      var crawlEnd = null, sinceTs = null;
+
+      if (o.status === 'MAKING') {
+        img = '2.webp';
+        leftPct = makingStart;
+        crawlEnd = makingEnd;          // chạy từ từ tới mốc kế
+        sinceTs = o.making_at;
+      } else if (o.status === 'READY') {
+        img = '9.webp';
+        leftPct = isDelivery ? deliverStart : 90; // delivery: chờ shipper ở mốc Đang Giao
+      } else if (o.status === 'DELIVERING') {
+        img = '1.webp';
+        leftPct = deliverStart;
+        crawlEnd = deliverEnd;
+        sinceTs = o.delivering_at;
+      } else if (o.status === 'DELIVERED') {
+        img = '9.webp';
+        leftPct = 90;
+      }
+
+      // Vị trí hiện tại theo thời gian đã trôi (8 phút = tới mốc kế)
+      var curLeft = leftPct;
+      var remainingMs = 0;
+      if (crawlEnd !== null) {
+        var frac = 0;
+        if (sinceTs) {
+          var elapsed = Date.now() - new Date(sinceTs).getTime();
+          if (elapsed > 0) frac = Math.min(1, elapsed / EIGHT_MIN);
+        }
+        curLeft = leftPct + frac * (crawlEnd - leftPct);
+        remainingMs = (1 - frac) * EIGHT_MIN;
+      }
+
+      var bee = document.createElement('div');
+      bee.className = 'bee-sticker';
+      if (o.status === 'DELIVERED') {
+        bee.className += ' delivered';
+      }
+      bee.style.transition = 'none';   // đặt vị trí đầu không animate
+      bee.style.left = curLeft + '%';
+
+      // Determine label text (dine-in displays Bàn 0X if table_id is present)
+      var codeText = '#' + o.short_code;
+      if (o.delivery_type !== 'delivery' && o.table_id) {
+        var tableNum = String(o.table_id).replace(/^(table_|ban|bàn)\s*/i, '');
+        if (!isNaN(parseInt(tableNum, 10))) {
+          var num = parseInt(tableNum, 10);
+          codeText = 'Bàn ' + (num < 10 ? '0' + num : num);
+        } else {
+          codeText = 'Bàn ' + o.table_id;
+        }
+      }
+
+      bee.innerHTML = '<div class="bee-code">' + esc(codeText) + '</div><img src="img/' + img + '" alt="">';
+      
+      // Calculate stable offsets based on order_id to prevent bees jumping every 10s
+      var offsetLeft = stableOffset(o.order_id, 4);      // range -2vh to 2vh
+      var offsetBottom = (stableOffset(o.order_id + '_b', 1) + 0.5) * 2; // range 0vh to 2vh
+      bee.style.marginLeft = offsetLeft + 'vh';
+      bee.style.bottom = offsetBottom + 'vh';
+
+      track.appendChild(bee);
+
+      // Crawl: animate từ vị trí hiện tại → mốc kế trong thời gian còn lại (linear, mượt)
+      if (crawlEnd !== null && remainingMs > 500) {
+        (function(b, endP, remMs) {
+          requestAnimationFrame(function() { requestAnimationFrame(function() {
+            b.style.transition = 'left ' + (remMs / 1000) + 's linear';
+            b.style.left = endP + '%';
+          }); });
+        })(bee, crawlEnd, remainingMs);
+      }
+    });
+  }
+
+  function pollOrders() {
+    fetch(GAS_URL + '?action=active_orders').then(function(r) { return r.json(); }).then(function(j) {
+      if (j && j.ok) {
+        renderTimeline(j.orders);
+      }
+    }).catch(function() {});
+  }
+
   window.addEventListener('online', function () { if (queue.length === 0) location.reload(); });
 
   // boot: render from cache immediately, then poll
@@ -322,6 +470,7 @@ if (typeof window !== 'undefined') (function () {
   tickClock(); setInterval(tickClock, 1000);
   setInterval(tickCountdown, 1000);
   poll(); setInterval(poll, 60000);
+  pollOrders(); setInterval(pollOrders, 10000); // 10s poll for orders
 })();
 
 // ── CommonJS export for Node tests (ignored in browser) ──

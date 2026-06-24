@@ -79,6 +79,9 @@ let tableId      = '';        // từ URL ?t=03 → TABLE_03
 let cart         = loadCart();
 let lastOrder    = { shortCode: '', total: 0, delivery: 'pickup' };
 let submitting   = false;
+// Idempotency: giữ key + short_code ổn định qua các lần retry (mạng yếu) để GAS không tạo đơn trùng.
+// Sinh 1 lần cho mỗi lần đặt; xoá khi đặt thành công hoặc khi vào lại checkout mới.
+let pendingSubmit = null;     // { idempotencyKey, shortCode }
 let deliveryMode = 'pickup';  // 'pickup' | 'delivery'
 let paymentMethod = 'bank_transfer'; // 'bank_transfer' | 'cash'
 
@@ -166,6 +169,11 @@ function allergenText(list) {
 }
 
 // Mã đơn ngắn 3 chữ số, reset mỗi ngày, lưu localStorage.
+function genUUID() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'idem-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+
 function genShortCode() {
   const today = new Date().toLocaleDateString('vi-VN').replace(/\//g, '');
   const key = 'lhk_seq_' + today;
@@ -314,7 +322,8 @@ function renderMenuScreen() {
       <button class="${activeMenuMode === 'grid' ? 'active' : ''}" data-action="toggle-view" data-view="grid">Tổ ong</button>
     </div>
     ${html}
-    ${cartBadge()}`;
+    ${cartBadge()}
+    ${trackingBadge()}`;
 }
 
 // ─── BOTTOM SHEET: ITEM ───────────────────────────────────────────────────────
@@ -505,6 +514,7 @@ function renderCheckoutScreen() {
         <label class="form-label" id="lbl-phone">${phoneLabel}</label>
         <input class="form-input" id="inp-phone" type="tel" placeholder="09xx xxx xxx" inputmode="numeric"
                value="${esc(checkoutFormState.phone)}">
+        ${renderRecentPhones()}
         ${renderLoyaltySection()}
       </div>
 
@@ -535,6 +545,7 @@ function renderCheckoutScreen() {
                placeholder="Số nhà, tên đường..."
                autocomplete="street-address"
                value="${esc(checkoutFormState.address)}">
+        ${renderRecentAddresses()}
         <div class="address-region-hint">📍 Khu vực giao: <strong>Lâm Hà, Lâm Đồng</strong></div>
       </div>` : (tableId ? '' : `
       <div class="form-section table-row">
@@ -587,67 +598,445 @@ function renderCheckoutScreen() {
 }
 
 // ─── SCREEN: SUCCESS ──────────────────────────────────────────────────────────
-function renderSuccessScreen() {
-  const isDelivery = lastOrder.delivery === 'delivery';
-  const hasBankInfo = BANK_QR.acct && BANK_QR.bank;
+let trackInterval = null;
+let currentOrderStatus = 'NEW';
 
-  const qrUrl = hasBankInfo
-    ? buildVietQRUrl(lastOrder.total, lastOrder.shortCode)
-    : null;
+// ─── MULTI-ORDER TRACKING & LOCAL NOTIFICATIONS ──────────────────────────────
+let trackingPollInProgress = false;
 
-  let paymentBlock = '';
-  if (lastOrder.paymentMethod === 'bank_transfer') {
-    paymentBlock = hasBankInfo ? `
-        <div class="qr-block">
-          <div class="qr-label">Quét QR — số tiền & nội dung đã có sẵn</div>
-          <img class="qr-img" src="${qrUrl}" alt="QR ngân hàng ${BANK_QR.bank} · ${fmt(lastOrder.total)}">
-          <div class="bank-info-text">
-            <div class="bank-name-badge">${BANK_QR.bank}</div>
-            <div class="bank-acct">${BANK_QR.acct}</div>
-            <div class="bank-owner">${BANK_QR.name}</div>
-          </div>
-          <div class="ck-instruction">Hoặc CK thủ công với nội dung:</div>
-          <div class="ck-code">${lastOrder.shortCode}</div>
-          <div class="ck-amount">Số tiền: <strong>${fmt(lastOrder.total)}</strong></div>
-        </div>`
-    : `<div class="payment-note">
-         💳 Chuyển khoản ngân hàng<br>
-         <div class="ck-instruction" style="margin-top:8px">Ghi nội dung CK:</div>
-         <div class="ck-code">${lastOrder.shortCode}</div>
-       </div>`;
-  } else {
-    // cash payment method
-    if (isDelivery) {
-      paymentBlock = `
-        <div class="payment-note">
-          💵 Bạn hãy thanh toán <strong>${fmt(lastOrder.total)}</strong> tiền mặt khi nhận hàng nhé!
-        </div>`;
-    } else {
-      paymentBlock = `
-        <div class="payment-note">
-          💵 Bạn hãy thanh toán tại quầy nhé!<br>
-          <div class="ck-instruction" style="margin-top:8px">Số tiền cần thanh toán:</div>
-          <div class="ck-amount" style="font-size:24px; color:var(--accent); font-weight:bold; margin-top:4px;">${fmt(lastOrder.total)}</div>
-        </div>`;
-    }
+function loadActiveOrders() {
+  const oldActiveId = localStorage.getItem('active_order_id');
+  if (oldActiveId) {
+    const migrated = [{
+      order_id: oldActiveId,
+      short_code: (typeof lastOrder !== 'undefined' && lastOrder.shortCode) || '...',
+      total: (typeof lastOrder !== 'undefined' && lastOrder.total) || 0,
+      delivery_type: (typeof lastOrder !== 'undefined' && lastOrder.delivery) || 'pickup',
+      payment_method: (typeof lastOrder !== 'undefined' && lastOrder.paymentMethod) || 'cash',
+      status: 'NEW',
+      payment_status: 'PENDING',
+      added_at: Date.now(),
+      completed_at: null
+    }];
+    localStorage.setItem('lhk_active_orders', JSON.stringify(migrated));
+    localStorage.removeItem('active_order_id');
   }
 
+  try {
+    return JSON.parse(localStorage.getItem('lhk_active_orders') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveActiveOrders(orders) {
+  localStorage.setItem('lhk_active_orders', JSON.stringify(orders));
+}
+
+// ─── BỘ NHỚ ĐỆM THÔNG TIN KHÁCH (mỗi ô SĐT / địa chỉ giữ 3 cái gần nhất) ──────
+// Khách có thể đặt giùm → SĐT và địa chỉ độc lập, chọn riêng từng cái.
+function _loadRecent(key) {
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { return []; }
+}
+
+// Lưu SĐT kèm tên (gắn liền với SĐT). Dedupe theo SĐT, giữ 3 gần nhất.
+function saveRecentContact(name, phone) {
+  if (!phone) return;
+  let list = _loadRecent('lhk_recent_contacts').filter(x => x.phone !== phone);
+  list.unshift({ name: name || '', phone: phone });
+  localStorage.setItem('lhk_recent_contacts', JSON.stringify(list.slice(0, 3)));
+}
+
+// Lưu địa chỉ. Dedupe, giữ 3 gần nhất.
+function saveRecentAddress(addr) {
+  if (!addr) return;
+  let list = _loadRecent('lhk_recent_addresses').filter(x => x !== addr);
+  list.unshift(addr);
+  localStorage.setItem('lhk_recent_addresses', JSON.stringify(list.slice(0, 3)));
+}
+
+// Chip gợi ý cho ô SĐT (bấm điền SĐT + tên đi kèm)
+function renderRecentPhones() {
+  const list = _loadRecent('lhk_recent_contacts');
+  if (!list.length) return '';
+  const chips = list.map((c, i) => {
+    const label = '📞 ' + esc(c.phone) + (c.name ? ' · ' + esc(c.name) : '');
+    return `<button class="recall-chip" data-action="fill-contact" data-idx="${i}">${label}</button>`;
+  }).join('');
+  return `<div class="recall-chips">${chips}</div>`;
+}
+
+// Chip gợi ý cho ô địa chỉ (bấm điền địa chỉ)
+function renderRecentAddresses() {
+  const list = _loadRecent('lhk_recent_addresses');
+  if (!list.length) return '';
+  const chips = list.map((a, i) => {
+    const short = a.length > 34 ? a.slice(0, 33) + '…' : a;
+    return `<button class="recall-chip" data-action="fill-address" data-idx="${i}">📍 ${esc(short)}</button>`;
+  }).join('');
+  return `<div class="recall-chips">${chips}</div>`;
+}
+
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendLocalNotification(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, { body: body, icon: 'icon-192.png' });
+    } catch (e) {
+      console.warn('Browser Notification failed:', e);
+    }
+  }
+}
+
+function triggerVibration() {
+  if ('vibrate' in navigator) {
+    navigator.vibrate([200, 100, 200]);
+  }
+}
+
+async function pollActiveOrders() {
+  if (trackingPollInProgress) return;
+  trackingPollInProgress = true;
+
+  try {
+    let localOrders = loadActiveOrders();
+    if (!localOrders.length) {
+      if (trackInterval) {
+        clearInterval(trackInterval);
+        trackInterval = null;
+      }
+      trackingPollInProgress = false;
+      return;
+    }
+
+    const res = await fetch(`${GAS_URL}?action=active_orders&_cb=${Date.now()}`);
+    const data = await res.json();
+    if (!data.ok || !data.orders) {
+      trackingPollInProgress = false;
+      return;
+    }
+
+    const liveById = {};
+    data.orders.forEach(o => {
+      liveById[o.order_id] = o;
+    });
+
+    let changed = false;
+    const tzOffset = 7 * 60 * 60 * 1000; // GMT+7
+    const todayStr = new Date(Date.now() + tzOffset).toISOString().split('T')[0].replace(/-/g, '');
+    const nowTs = Date.now();
+    const updatedOrders = [];
+
+    for (let order of localOrders) {
+      const datePart = order.order_id.split('-')[1];
+      const isOldDay = datePart && datePart !== todayStr;
+      const isExpiredAge = nowTs - order.added_at > 3 * 60 * 60 * 1000;
+
+      if (isOldDay || isExpiredAge) {
+        changed = true;
+        continue;
+      }
+
+      if (order.completed_at !== null) {
+        if (nowTs - order.completed_at > 30000) {
+          changed = true;
+          continue;
+        }
+        updatedOrders.push(order);
+        continue;
+      }
+
+      const live = liveById[order.order_id];
+      if (live) {
+        // Mốc thời gian cho animation bò (đến khi nào cũng cập nhật, không chỉ lúc đổi status)
+        if (live.making_at && order.making_at !== live.making_at) { order.making_at = live.making_at; changed = true; }
+        if (live.delivering_at && order.delivering_at !== live.delivering_at) { order.delivering_at = live.delivering_at; changed = true; }
+        if (live.status !== order.status || live.payment_status !== order.payment_status) {
+          if (live.status === 'READY' && order.status !== 'READY') {
+            sendLocalNotification('Mitsu Cafe', `Đơn #${live.short_code} của bạn đã xong! Mời bạn ra quầy lấy nước nhé ☕`);
+            triggerVibration();
+          }
+          if (live.status === 'DELIVERED' && order.status !== 'DELIVERED') {
+            checkStampAfterDelivery();   // tự tra lại thẻ tem + báo +N tem
+          }
+          order.status = live.status;
+          order.payment_status = live.payment_status;
+          if (live.short_code) order.short_code = live.short_code;
+          if (live.delivery_type) order.delivery_type = live.delivery_type;
+          if (live.table_id) order.table_id = live.table_id;
+          changed = true;
+        }
+        updatedOrders.push(order);
+      } else {
+        try {
+          const detailRes = await fetch(`${GAS_URL}?action=order_status&order_id=${encodeURIComponent(order.order_id)}&_cb=${Date.now()}`);
+          const detailData = await detailRes.json();
+          if (detailData.ok) {
+            order.status = detailData.status;
+            order.payment_status = detailData.payment_status;
+            order.completed_at = nowTs;
+            changed = true;
+
+            if (order.status === 'DELIVERED') {
+              sendLocalNotification('Mitsu Cafe', `Đơn #${order.short_code} đã hoàn thành. Cảm ơn bạn!`);
+              triggerVibration();
+              checkStampAfterDelivery();   // tự tra lại thẻ tem + báo +N tem
+            }
+            updatedOrders.push(order);
+          } else if (detailData.error === 'not found') {
+            changed = true;
+          } else {
+            updatedOrders.push(order);
+          }
+        } catch (e) {
+          updatedOrders.push(order);
+        }
+      }
+    }
+
+    if (changed) {
+      saveActiveOrders(updatedOrders);
+      // Re-render sheet content if it's currently open
+      const sheetEl = document.getElementById('tracking-sheet');
+      if (sheetEl && sheet === 'tracking') {
+        sheetEl.innerHTML = renderTrackingSheetInner();
+        scheduleTrackCrawls();
+      }
+      render();
+    }
+  } catch (err) {
+    console.error('Error polling active orders:', err);
+  } finally {
+    trackingPollInProgress = false;
+  }
+}
+
+function startTrackingPolling() {
+  if (trackInterval) clearInterval(trackInterval);
+  pollActiveOrders();
+  trackInterval = setInterval(pollActiveOrders, 10000);
+}
+
+function trackingBadge() {
+  const activeOrders = loadActiveOrders().filter(o => o.completed_at === null);
+  const count = activeOrders.length;
+  return count > 0
+    ? `<button class="tracking-fab" data-action="open-tracking">
+         🐝 <span class="tracking-badge-count">${count}</span> đơn chuẩn bị
+       </button>`
+    : '';
+}
+
+function renderTrackingSheet() {
   return `
-    <main class="success-screen">
-      <div class="success-icon">${isDelivery ? '🛵' : '✅'}</div>
-      <h1 class="success-title">Đơn đã gửi!</h1>
-      <p class="success-sub">
-        ${isDelivery
-          ? 'Đơn giao hàng đã tiếp nhận — cảm ơn bạn!'
-          : 'Nhân viên đang xác nhận — vui lòng đợi chút ☕'}
-      </p>
-      ${isDelivery ? `
-      <div class="delivery-confirm-note">
-        📞 Chúng mình sẽ gọi cho bạn để xác nhận lại đơn hàng nhé
-      </div>` : ''}
-      ${paymentBlock}
-      <button class="btn-secondary" data-action="go-menu">Đặt thêm</button>
-    </main>`;
+    <div class="sheet-backdrop" data-action="close-sheet"></div>
+    <div class="bottom-sheet sheet-tall" id="tracking-sheet">
+      ${renderTrackingSheetInner()}
+    </div>`;
+}
+
+// Sau khi render thanh trạng thái: cho sticker "Đang pha"/"Đang giao" bò tới mốc kế trong thời gian còn lại.
+// Gọi sau mỗi lần set innerHTML của tracking sheet. An toàn qua re-render vì vị trí đầu đã tính theo timestamp.
+function scheduleTrackCrawls() {
+  requestAnimationFrame(function () { requestAnimationFrame(function () {
+    document.querySelectorAll('#tracking-sheet .bee-sticker[data-crawl-left]').forEach(function (b) {
+      var rem = +b.dataset.crawlRem;
+      b.style.transition = 'left ' + (rem / 1000) + 's linear';
+      b.style.left = b.dataset.crawlLeft + '%';
+    });
+    document.querySelectorAll('#tracking-sheet .track-progress[data-crawl-w]').forEach(function (p) {
+      var rem = +p.dataset.crawlRem;
+      p.style.transition = 'width ' + (rem / 1000) + 's linear';
+      p.style.width = p.dataset.crawlW + '%';
+    });
+  }); });
+}
+
+function renderTrackingSheetInner() {
+  const activeOrders = loadActiveOrders();
+  if (activeOrders.length === 0) {
+    return `
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div>
+          <div class="sheet-title">🐝 Theo dõi chuẩn bị nước</div>
+          <div class="sheet-subtitle">Mitsu Cafe — Gom mật ngọt, Gắn yêu thương</div>
+        </div>
+        <button class="sheet-close" data-action="close-sheet">✕</button>
+      </div>
+      <div class="sheet-body" style="text-align: center; padding: 40px 20px;">
+        <div style="font-size: 3rem; margin-bottom: 16px;">☕</div>
+        <p style="color: var(--text-dim);">Bạn chưa có đơn hàng nào đang chuẩn bị.</p>
+        <button class="btn-primary" style="margin-top: 20px;" data-action="close-sheet">Quay lại Menu</button>
+      </div>`;
+  }
+
+  const cardsHtml = activeOrders.map(order => {
+    const isDelivery = order.delivery_type === 'delivery';
+    const typeLabel = isDelivery ? 'Giao hàng 🛵' : (order.table_id ? `Bàn ${order.table_id.replace(/^TABLE_/i, '')} 🏠` : 'Mang đi 🛍️');
+    
+    // Mốc theo loại đơn: tại quán/mang đi = 3 mốc; giao tận nơi = 4 mốc
+    const stops = isDelivery ? [0, 33.34, 66.67, 100] : [0, 50, 100];
+    const EIGHT_MIN = 8 * 60 * 1000; // mỗi đoạn chạy 8 phút
+    // Sticker: Tiếp nhận→8.png · Đang pha→2.png · Đang giao→1.png · Đã xong/Đã giao→9.png
+    let markIdx = 0, crawlToIdx = null, sinceTs = null, img = '8.webp';
+    if (order.status === 'MAKING') {
+      markIdx = 1; crawlToIdx = 2; sinceTs = order.making_at; img = '2.webp';
+    } else if (order.status === 'READY') {
+      markIdx = 2; img = '9.webp';                       // delivery: chờ shipper ở mốc Đang giao
+    } else if (order.status === 'DELIVERING') {
+      markIdx = 2; crawlToIdx = 3; sinceTs = order.delivering_at; img = '1.webp';
+    } else if (order.status === 'DELIVERED') {
+      markIdx = isDelivery ? 3 : 2; img = '9.webp';
+    }
+    const activeDot = markIdx + 1;
+    const startPct = stops[markIdx];
+    let curPct = startPct, endPct = startPct, remainingMs = 0;
+    if (crawlToIdx !== null) {
+      endPct = stops[crawlToIdx];
+      let frac = 0;
+      if (sinceTs) { const el = Date.now() - new Date(sinceTs).getTime(); if (el > 0) frac = Math.min(1, el / EIGHT_MIN); }
+      curPct = startPct + frac * (endPct - startPct);
+      remainingMs = (1 - frac) * EIGHT_MIN;
+    }
+    const toContainer = p => (10 + p * 0.8); // track-line thụt lề 10%/90% → toạ độ theo order-track
+
+    let statusText = 'Đang tiếp nhận...';
+    if (order.status === 'MAKING') statusText = 'Đang pha chế 🍵';
+    else if (order.status === 'READY') statusText = isDelivery ? 'Chuẩn bị giao 🛵' : 'Mời ra nhận nước 🔔';
+    else if (order.status === 'DELIVERING') statusText = 'Shipper đang giao 🛵';
+    else if (order.status === 'DELIVERED') statusText = 'Hoàn tất! Cảm ơn bạn ❤️';
+    else if (order.status === 'CANCELLED') statusText = 'Đơn đã huỷ ❌';
+
+    let timelineHtml = '';
+    if (order.status === 'CANCELLED') {
+      timelineHtml = `
+        <div style="color: #EF5350; font-weight: bold; font-size: 0.9rem; text-align: center; margin: 20px 0; background: rgba(239,83,80,0.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(239,83,80,0.2);">
+          ❌ Đơn hàng đã huỷ — Vui lòng liên hệ quầy để được hỗ trợ.
+        </div>`;
+    } else {
+      const dotDefs = isDelivery
+        ? [['📥','Tiếp nhận'],['🍵','Đang pha'],['🛵','Đang giao'],['✅','Đã giao']]
+        : [['📥','Tiếp nhận'],['🍵','Đang pha'],['✅','Đã xong']];
+      const dotsHtml = dotDefs.map((d, i) =>
+        `<div class="track-dot ${activeDot >= i + 1 ? 'active' : ''}">
+           <div class="track-icon">${d[0]}</div>
+           <div>${d[1]}</div>
+         </div>`).join('');
+      const crawling = crawlToIdx !== null && remainingMs > 500;
+      // Đơn giao tận nơi: dòng nhắc khách quán sẽ gọi xác nhận
+      const deliveryNote = isDelivery
+        ? `<div style="text-align: center; font-size: 0.85rem; color: var(--accent); background: rgba(220,135,10,0.1); border: 1px solid rgba(220,135,10,0.25); padding: 10px 12px; border-radius: 8px; margin-bottom: 4px;">
+             📞 Chúng mình sẽ liên hệ bạn để xác nhận đơn hàng nhé!
+           </div>`
+        : '';
+      // bee-sticker là con TRỰC TIẾP của .order-track (không nằm trong track-line) → thoát stacking-context, đè lên icon
+      timelineHtml = deliveryNote + `
+        <div class="order-track" style="margin-top: 50px;">
+          <div class="track-line">
+            <div class="track-progress" style="width: ${curPct}%"${crawling ? ` data-crawl-w="${endPct}" data-crawl-rem="${remainingMs}"` : ''}></div>
+          </div>
+          <div class="bee-sticker" style="left: ${toContainer(curPct)}%"${crawling ? ` data-crawl-left="${toContainer(endPct)}" data-crawl-rem="${remainingMs}"` : ''}>
+            <div class="bee-code">#${order.short_code}</div>
+            <img src="img/${img}" alt="">
+          </div>
+          <div class="track-dots">
+            ${dotsHtml}
+          </div>
+        </div>`;
+    }
+
+    let paymentHtml = '';
+    if (order.payment_status === 'PAID') {
+      paymentHtml = `
+        <div style="background: rgba(76,175,80,0.12); color: #81C784; padding: 10px; border-radius: 8px; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(76,175,80,0.2); margin-top: 10px;">
+          <span>✅ Đã thanh toán thành công</span>
+        </div>`;
+    } else {
+      if (order.payment_method === 'bank_transfer') {
+        const hasBankInfo = BANK_QR.acct && BANK_QR.bank;
+        const qrUrl = hasBankInfo ? buildVietQRUrl(order.total, order.short_code) : null;
+        
+        paymentHtml = `
+          <div class="unpaid-block" style="margin-top: 10px;">
+            <div style="background: rgba(220,135,10,0.12); color: var(--accent); padding: 10px; border-radius: 8px; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(220,135,10,0.2);">
+              <span>⚠️ Chờ thanh toán: <strong>${fmt(order.total)}</strong></span>
+              <button class="btn-primary" style="margin: 0; padding: 5px 12px; font-size: 0.75rem; border-radius: 6px; box-shadow: none;" data-action="toggle-qr" data-order-id="${order.order_id}">Xem QR chuyển khoản</button>
+            </div>
+            <div class="qr-collapsible hidden" id="qr-${order.order_id}" style="text-align: center; margin-top: 12px; padding: 12px; border: 1px dashed var(--border-lt); border-radius: 8px; background: rgba(0,0,0,0.15);">
+              ${hasBankInfo ? `
+                <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px;">Quét QR để tự động điền số tiền và nội dung chuyển khoản</div>
+                <img src="${qrUrl}" alt="QR Ngân hàng" style="max-width: 180px; width: 100%; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.25);">
+                <div style="font-size: 0.72rem; color: var(--text-dim);">
+                  <strong style="color: var(--cream);">${BANK_QR.bank}</strong> · ${BANK_QR.acct}<br>
+                  Chủ TK: ${BANK_QR.name}<br>
+                  Nội dung CK: <strong style="color: var(--accent); font-family: monospace; font-size: 0.8rem;">${order.short_code}</strong>
+                </div>` : `
+                <div style="font-size: 0.75rem; color: var(--text-dim);">Vui lòng chuyển khoản ngân hàng với nội dung chuyển khoản là:</div>
+                <div style="font-size: 1.1rem; color: var(--accent); font-weight: bold; font-family: monospace; margin: 8px 0;">${order.short_code}</div>
+                <div style="font-size: 0.85rem; color: var(--cream);">Số tiền: <strong>${fmt(order.total)}</strong></div>`
+              }
+            </div>
+          </div>`;
+      } else {
+        paymentHtml = `
+          <div style="background: rgba(220,135,10,0.12); color: var(--accent); padding: 10px; border-radius: 8px; font-size: 0.85rem; border: 1px solid rgba(220,135,10,0.2); margin-top: 10px; text-align: center;">
+            💵 Vui lòng thanh toán <strong>${fmt(order.total)}</strong> tiền mặt ${isDelivery ? 'khi nhận hàng' : 'tại quầy'}.
+          </div>`;
+      }
+    }
+
+    let completedHtml = '';
+    if (order.completed_at !== null) {
+      const elapsed = Math.max(0, Math.floor((30000 - (Date.now() - order.completed_at)) / 1000));
+      completedHtml = `
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-top: 8px; font-style: italic;">
+          ⏳ Đơn hàng sẽ đóng sau ${elapsed} giây
+        </div>`;
+    }
+
+    const itemsSummaryHtml = order.items_summary ? `
+      <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 6px; padding-left: 4px; border-left: 2px solid var(--accent); font-style: italic;">
+        ${order.items_summary}
+      </div>` : '';
+
+    return `
+      <div class="tracking-order-card" style="margin-bottom: 24px; padding: 45px 16px 16px; border: 1px dashed var(--border-lt); border-radius: 12px; position: relative; background: rgba(245,240,232,0.02); box-shadow: inset 0 0 12px rgba(0,0,0,0.1);">
+        <div style="position: absolute; top: 12px; left: 16px; display: flex; align-items: center; gap: 8px; font-size: 0.82rem;">
+          <span style="background: var(--sumi, #1c1c1a); color: var(--gold); font-family: monospace; font-weight: bold; border: 1px solid var(--gold); border-radius: 4px; padding: 2px 6px;">#${order.short_code}</span>
+          <span style="color: var(--text-muted); font-size: 0.75rem;">(${typeLabel})</span>
+        </div>
+        <div style="position: absolute; top: 12px; right: 16px; font-size: 0.8rem; font-weight: 600; color: ${order.status === 'CANCELLED' ? '#EF5350' : 'var(--accent)'};">
+          ${statusText}
+        </div>
+        
+        ${timelineHtml}
+        
+        <div style="margin-top: 14px; border-top: 1px solid rgba(245,240,232,0.06); padding-top: 12px;">
+          ${itemsSummaryHtml}
+          ${paymentHtml}
+          ${completedHtml}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div>
+        <div class="sheet-title">🐝 Đơn hàng của bạn</div>
+        <div class="sheet-subtitle">Theo dõi trạng thái pha chế nước thời gian thực</div>
+      </div>
+      <button class="sheet-close" data-action="close-sheet">✕</button>
+    </div>
+    <div class="sheet-body" style="padding: 16px 16px 30px;">
+      ${cardsHtml}
+    </div>`;
 }
 
 // ─── BOTTOM SHEET: UPSELL BÁNH ───────────────────────────────────────────────
@@ -734,12 +1123,11 @@ function render() {
 
   if (screen === 'checkout') {
     contentHtml = renderCheckoutScreen();
-  } else if (screen === 'success') {
-    contentHtml = renderSuccessScreen();
   } else if (screen === 'menu') {
     const existingItemSheet = document.getElementById('item-sheet');
     const existingCartSheet = document.getElementById('cart-sheet');
     const existingUpsellSheet = document.getElementById('upsell-sheet');
+    const existingTrackingSheet = document.getElementById('tracking-sheet');
 
     if (sheet === 'item' && existingItemSheet) {
       existingItemSheet.innerHTML = renderItemSheetInner();
@@ -751,6 +1139,11 @@ function render() {
     }
     if (sheet === 'upsell' && existingUpsellSheet) {
       existingUpsellSheet.innerHTML = renderUpsellSheetInner();
+      return;
+    }
+    if (sheet === 'tracking' && existingTrackingSheet) {
+      existingTrackingSheet.innerHTML = renderTrackingSheetInner();
+      scheduleTrackCrawls();
       return;
     }
 
@@ -799,6 +1192,14 @@ function render() {
       app.insertAdjacentHTML('beforeend', renderUpsellSheet());
       requestAnimationFrame(() => {
         const el = document.getElementById('upsell-sheet');
+        if (el) el.classList.add('open');
+      });
+    }
+    if (sheet === 'tracking') {
+      app.insertAdjacentHTML('beforeend', renderTrackingSheet());
+      scheduleTrackCrawls();
+      requestAnimationFrame(() => {
+        const el = document.getElementById('tracking-sheet');
         if (el) el.classList.add('open');
       });
     }
@@ -1897,7 +2298,10 @@ async function submitOrder() {
 
   const utmSource = sessionStorage.getItem('lhk_utm') || 'web_static';
   const deliveryType = isDelivery ? 'delivery' : (tbl ? 'dine_in' : 'pickup');
-  const shortCode = genShortCode();
+  // Sinh idempotency key + short_code 1 lần; lần retry sau lỗi mạng dùng lại cùng giá trị → GAS dedup.
+  if (!pendingSubmit) pendingSubmit = { idempotencyKey: genUUID(), shortCode: genShortCode() };
+  const shortCode = pendingSubmit.shortCode;
+  const idempotencyKey = pendingSubmit.idempotencyKey;
 
   const payload = {
     channel: 'web', utm_source: utmSource,
@@ -1912,6 +2316,7 @@ async function submitOrder() {
       category_type: 'beverage',
       notes,
       short_code: shortCode,
+      idempotency_key: idempotencyKey,
       use_free_drink: checkoutFormState.useFreeDrink,
       ...(isDelivery && { delivery_address: address }),
     },
@@ -1923,11 +2328,44 @@ async function submitOrder() {
   if (btn) { btn.textContent = 'Đang gửi...'; btn.disabled = true; }
 
   try {
-    await fetch(GAS_URL, {
+    const res = await fetch(GAS_URL, {
       method: 'POST',
-      mode: 'no-cors',
       body: JSON.stringify(payload),
     });
+    
+    // Parse response
+    const data = await res.json();
+    if (data.ok && data.order_id) {
+      const isDelivery = deliveryMode === 'delivery';
+      const deliveryType = isDelivery ? 'delivery' : (tbl ? 'dine_in' : 'pickup');
+      const itemsSummary = cart.map(ci => `${ci.name} (x${ci.qty})`).join(', ');
+
+      const activeOrders = loadActiveOrders();
+      // Nếu server dedup (retry trùng key) đơn đã có local → không push trùng.
+      if (!activeOrders.some(o => o.order_id === data.order_id)) {
+        activeOrders.push({
+          order_id: data.order_id,
+          short_code: data.short_code || shortCode,
+          total: total,
+          delivery_type: deliveryType,
+          table_id: isDelivery ? null : tbl,
+          payment_method: paymentMethod,
+          status: 'NEW',
+          payment_status: 'PENDING',
+          items_summary: itemsSummary,
+          added_at: Date.now(),
+          completed_at: null
+        });
+        saveActiveOrders(activeOrders);
+      }
+      // Đặt thành công → xoá pendingSubmit để đơn kế tiếp có key/short_code mới.
+      pendingSubmit = null;
+      // Lưu để lần sau điền nhanh — SĐT và địa chỉ riêng (khách có thể đặt giùm)
+      saveRecentContact(name, normPhone);
+      if (isDelivery && rawAddress) saveRecentAddress(rawAddress);
+      // Xin quyền thông báo ngay sau khi đặt đơn (vẫn còn user gesture) → notify/rung khi READY mới chạy
+      requestNotificationPermission();
+    }
 
     // Tích hợp lưu đặc điểm khách hàng quen qua camera AI nội bộ
     fetch('http://localhost:5000/api/associate_order', {
@@ -1940,9 +2378,11 @@ async function submitOrder() {
       })
     }).catch(err => console.log('Không kết nối được Camera AI local:', err));
 
-    lastOrder = { shortCode, total, delivery: deliveryMode, paymentMethod: paymentMethod };
     clearCart();
-    screen = 'success';
+    
+    screen = 'menu';
+    sheet = 'tracking';
+    startTrackingPolling();
     render();
 
   } catch (err) {
@@ -2187,6 +2627,43 @@ document.addEventListener('click', e => {
     case 'submit':
       submitOrder();
       break;
+
+    case 'open-tracking':
+      // Mở lại popup theo dõi đơn từ nút nổi 🐝
+      screen = 'menu';
+      sheet = 'tracking';
+      startTrackingPolling();
+      render();
+      break;
+
+    case 'fill-contact': {
+      // Bấm chip SĐT gần nhất → điền SĐT + tên đi kèm
+      const c = _loadRecent('lhk_recent_contacts')[parseInt(el.dataset.idx, 10)];
+      if (c) {
+        checkoutFormState.phone = c.phone || '';
+        if (c.name) checkoutFormState.name = c.name;
+        if (c.phone) fetchLoyaltyInfo(c.phone);
+        render();
+      }
+      break;
+    }
+
+    case 'fill-address': {
+      // Bấm chip địa chỉ gần nhất → điền địa chỉ
+      const a = _loadRecent('lhk_recent_addresses')[parseInt(el.dataset.idx, 10)];
+      if (a) {
+        checkoutFormState.address = a;
+        render();
+      }
+      break;
+    }
+
+    case 'toggle-qr': {
+      // Bung/thu gọn QR chuyển khoản trong card theo dõi
+      const qrEl = document.getElementById(`qr-${el.dataset.orderId}`);
+      if (qrEl) qrEl.classList.toggle('hidden');
+      break;
+    }
   }
 });
 
@@ -2212,6 +2689,7 @@ function initCheckoutState() {
 
 function enterCheckout() {
   initCheckoutState();
+  pendingSubmit = null;   // checkout mới → idempotency key mới
   screen = 'checkout';
   if (checkoutFormState.phone) {
     fetchLoyaltyInfo(checkoutFormState.phone);
@@ -2235,6 +2713,9 @@ async function fetchLoyaltyInfo(phone) {
     const data = await res.json();
     if (data.ok && data.customer) {
       customerLoyalty = data.customer;
+      // Mốc tem/ly free hiện tại để so sánh sau khi đơn DELIVERED (stamp_total_ever chỉ tăng → đếm delta chuẩn)
+      localStorage.setItem('lhk_stamp_total', String(parseInt(data.customer.stamp_total_ever || 0, 10)));
+      localStorage.setItem('lhk_free_earned', String(parseInt(data.customer.free_drinks_earned || 0, 10)));
     } else {
       customerLoyalty = null;
     }
@@ -2245,6 +2726,34 @@ async function fetchLoyaltyInfo(phone) {
     loadingLoyalty = false;
     render();
   }
+}
+
+// Khi đơn DELIVERED: tự tra lại thẻ tem, nếu tăng thì báo "Bạn vừa nhận +N tem".
+async function checkStampAfterDelivery() {
+  let user;
+  try { user = JSON.parse(localStorage.getItem('lhk_user') || '{}'); } catch (e) { user = {}; }
+  const phone = (user.phone || '').replace(/\D/g, '');
+  if (phone.length < 9) return;
+  try {
+    const res = await fetch(`${GAS_URL}?action=customer_info&phone=${encodeURIComponent(phone)}&_cb=${Date.now()}`);
+    const data = await res.json();
+    if (!data.ok || !data.customer) return;
+    const c = data.customer;
+    const rawPrev = localStorage.getItem('lhk_stamp_total');
+    const prevTotal = parseInt(rawPrev || '0', 10);
+    const newTotal = parseInt(c.stamp_total_ever || 0, 10);
+    const prevFree = parseInt(localStorage.getItem('lhk_free_earned') || '0', 10);
+    const newFree = parseInt(c.free_drinks_earned || 0, 10);
+    localStorage.setItem('lhk_stamp_total', String(newTotal));
+    localStorage.setItem('lhk_free_earned', String(newFree));
+    customerLoyalty = c; // để màn thanh toán (nếu mở) hiện số mới
+    if (rawPrev === null) return; // chưa có mốc trước → không báo delta sai lần đầu
+    if (newFree > prevFree) {
+      showToast(`🎁 Chúc mừng! Bạn vừa nhận ${newFree - prevFree} ly nước miễn phí!`);
+    } else if (newTotal > prevTotal) {
+      showToast(`🎟️ Bạn vừa nhận +${newTotal - prevTotal} tem! Hiện có ${c.stamp_count}/10`);
+    }
+  } catch (e) { /* im lặng */ }
 }
 
 function getCartDiscount() {
@@ -2270,16 +2779,16 @@ function getCartDiscount() {
 }
 
 const STAMP_STICKERS = [
-  'img/mitsu/char-kin-determined.webp',
-  'img/mitsu/char-ritsu-joyful.webp',
-  'img/mitsu/char-so-surprised.webp',
-  'img/mitsu/char-queen-sleepy.webp',
-  'img/mitsu/char-kin-proud.webp',
-  'img/mitsu/char-ritsu-goodbye.webp',
-  'img/mitsu/char-so-determined.webp',
-  'img/mitsu/char-queen-joyful.webp',
-  'img/mitsu/char-kin-surprised.webp',
-  'img/mitsu/char-ritsu-proud.webp'
+  'img/stamps/s1.webp',
+  'img/stamps/s2.webp',
+  'img/stamps/s3.webp',
+  'img/stamps/s4.webp',
+  'img/stamps/s5.webp',
+  'img/stamps/s6.webp',
+  'img/stamps/s7.webp',
+  'img/stamps/s8.webp',
+  'img/stamps/s9.webp',
+  'img/stamps/s10.webp'
 ];
 
 function renderLoyaltySection() {
@@ -2299,7 +2808,7 @@ function renderLoyaltySection() {
   for (let i = 0; i < 10; i++) {
     const isActive = i < stamps;
     if (isActive) {
-      const stickerImg = STAMP_STICKERS[i] || 'img/stk-quyet-tam.webp';
+      const stickerImg = STAMP_STICKERS[i] || 'img/stamps/s1.webp';
       gridHtml += `
         <div class="stamp-slot active" title="Tem ${i+1}">
           <img src="${stickerImg}" class="stamp-img" alt="🐝">
@@ -2538,6 +3047,19 @@ function init() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+
+  // Migration & load active orders
+  const activeOrders = loadActiveOrders();
+  if (activeOrders.length > 0) {
+    screen = 'menu';
+    startTrackingPolling();
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      pollActiveOrders();
+    }
+  });
 
   render();
   checkPromoStatus().then(() => render());
