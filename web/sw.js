@@ -1,38 +1,59 @@
-// Service Worker — Lâm Hà Kissaten
-// Cache shell files → offline menu view. POST (đặt hàng) luôn online.
+// Service Worker — Mitsu Cafe (Lâm Hà Kissaten)
+// Chiến lược: HTML = network-first (luôn tươi, offline mới rơi về cache);
+//             tài nguyên tĩnh = stale-while-revalidate (trả cache nhanh + cập nhật ngầm).
+// POST (đặt hàng) luôn online. Bump CACHE khi cần xoá sạch cache cũ.
 
-const CACHE = 'lhk-v4';
-const SHELL = ['./','./index.html','./style.css','./order.js','./menu-data.js','./manifest.json'];
+const CACHE = 'lhk-v5';
+const SHELL = [
+  './', './index.html', './mitsu.html',
+  './style.css', './mitsu.css', './mitsu-landing.css',
+  './order.js', './menu-data.js', './mitsu-theme.js', './manifest.json',
+];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
-  // POST (gửi đơn) → network only, không cache
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  if (req.method !== 'GET') return;                  // POST đặt hàng → online
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;   // cross-origin (Google Fonts…) → để trình duyệt lo
 
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        // Cache các file tĩnh
-        if (res.ok && SHELL.some(u => e.request.url.endsWith(u.replace('./',''))))  {
+  // Điều hướng trang (HTML) → network-first
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req)
+        .then(res => {
           const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(req, clone));
+          return res;
+        })
+        .catch(() => caches.match(req).then(c => c || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Tài nguyên tĩnh → stale-while-revalidate
+  e.respondWith(
+    caches.match(req).then(cached => {
+      const network = fetch(req).then(res => {
+        if (res && res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(req, clone));
         }
         return res;
-      }).catch(() => cached); // Offline fallback: trả về cache cũ
+      }).catch(() => cached);
+      return cached || network;
     })
   );
 });
