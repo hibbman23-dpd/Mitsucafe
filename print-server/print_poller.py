@@ -184,6 +184,34 @@ def _img_to_raster_bytes(img) -> bytes:
     return bytes(result)
 
 
+# ── Logo thật (tem/bill) ──────────────────────────────────────────────────────
+# Thay logo ong vẽ-tay (_draw_bee) bằng wordmark "Mitsu" raster thật.
+# Asset: print-server/assets/receipt-logo.png (1-bit, đã dither, ~300px rộng).
+# Nếu thiếu file → fallback _draw_bee (an toàn, không vỡ in).
+_LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "receipt-logo.png")
+_logo_cache = {}   # target_width → PIL Image (L mode) hoặc None nếu không có
+
+
+def _get_logo(target_w: int):
+    """Trả về PIL Image (mode L) của logo, scale về target_w; None nếu thiếu/ lỗi."""
+    if target_w in _logo_cache:
+        return _logo_cache[target_w]
+    img = None
+    try:
+        if os.path.exists(_LOGO_PATH):
+            from PIL import Image
+            src = Image.open(_LOGO_PATH).convert("L")
+            if src.width != target_w:
+                h = max(1, round(src.height * target_w / src.width))
+                src = src.resize((target_w, h), Image.LANCZOS).point(lambda p: 0 if p < 128 else 255)
+            img = src
+    except Exception as exc:
+        log.warning("Logo load failed (%s) → fallback _draw_bee", exc)
+        img = None
+    _logo_cache[target_w] = img
+    return img
+
+
 def _bee_height(s: float = 1.1) -> int:
     """Chiều cao logo ong (khớp với _draw_bee) để dành chỗ trước khi render."""
     def S(v):
@@ -284,8 +312,19 @@ def build_receipt_raster(order: dict) -> bytes:
         cmds.append(("bee", W // 2, y, scale))
         y += _bee_height(scale)
 
+    def add_logo(target_w=300):
+        """Dán wordmark "Mitsu" thật; fallback con ong nếu thiếu asset."""
+        nonlocal y
+        logo = _get_logo(min(target_w, CW))
+        if logo is None:
+            add_bee(1.1)
+            return
+        x = max(0, (W - logo.width) // 2)
+        cmds.append(("logo", x, y, logo))
+        y += logo.height
+
     # ── Header ────────────────────────────────────────────────────────────────
-    add_bee(1.1)                          # logo con ong (thay logo ếch cũ)
+    add_logo(300)                         # logo wordmark Mitsu thật (fallback: con ong)
     add_gap(2)
     add_text("Mitsu Café",       f_header, "center")
     add_gap(1)
@@ -376,6 +415,9 @@ def build_receipt_raster(order: dict) -> bytes:
         elif cmd[0] == "bee":
             _, bcx, bcy, bscale = cmd
             _draw_bee(draw, bcx, bcy, bscale)
+        elif cmd[0] == "logo":
+            _, lx, ly, limg = cmd
+            img.paste(limg, (lx, ly))
 
     # ── Raster → ESC/POS bytes ────────────────────────────────────────────────
     ESC = b"\x1b"
