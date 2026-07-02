@@ -6,6 +6,7 @@
   --bg:#F1E5CB; --surface:#ECE0C4; --surface-2:#E4D8BA;
   --text:#1C1C1A; --text-dim:#3A3833; --text-muted:rgba(28,28,26,.55);
   --accent:#C68A3E; --accent-deep:#9C6A2C; --seal:#B83A2E; --moss:#6E7A4F;
+  --text-on-accent:var(--text);
   --line:rgba(28,28,26,.14); --line-soft:rgba(28,28,26,.08);
   --radius:8px; --radius-sm:4px;
   --disp:"Fraunces","Cormorant Garamond",Georgia,serif;
@@ -16,6 +17,7 @@
   --bg:#16130E; --surface:#221C14; --surface-2:#2C2419;
   --text:#F2EBDD; --text-dim:rgba(242,235,221,.62); --text-muted:rgba(242,235,221,.4);
   --accent:#E0AC5E; --accent-deep:#C68A3E; --seal:#C9483B; --moss:#8A9568;
+  --text-on-accent:var(--bg);
   --line:rgba(242,235,221,.12); --line-soft:rgba(242,235,221,.07);
 }
 @media (prefers-color-scheme: dark) {
@@ -23,6 +25,7 @@
     --bg:#16130E; --surface:#221C14; --surface-2:#2C2419;
     --text:#F2EBDD; --text-dim:rgba(242,235,221,.62); --text-muted:rgba(242,235,221,.4);
     --accent:#E0AC5E; --accent-deep:#C68A3E; --seal:#C9483B; --moss:#8A9568;
+    --text-on-accent:var(--bg);
     --line:rgba(242,235,221,.12); --line-soft:rgba(242,235,221,.07);
   }
 }

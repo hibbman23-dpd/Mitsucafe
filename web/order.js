@@ -287,8 +287,10 @@ function renderMenuScreen() {
   return `
     <header class="app-header">
       <a href="mitsu.html" class="header-home-btn" title="Trang chủ" style="display:flex; align-items:center;">
-        <img src="img/mitsu/logo-light.webp" class="header-logo-img logo-light-only" alt="Mitsu Logo" style="height:24px; width:auto;">
-        <img src="img/mitsu/logo-dark.webp" class="header-logo-img logo-dark-only" alt="Mitsu Logo" style="height:24px; width:auto;">
+        <picture style="display:flex; align-items:center;">
+          <source srcset="img/mitsu/logo-dark.webp" media="(prefers-color-scheme: dark)" class="theme-logo-source" data-light="img/mitsu/logo-light.webp" data-dark="img/mitsu/logo-dark.webp">
+          <img src="img/mitsu/logo-light.webp" class="header-logo-img" alt="Mitsu Logo" style="height:24px; width:auto;">
+        </picture>
       </a>
       <div style="display:flex; align-items:center; gap:12px;">
         <button class="theme-toggle" data-theme-toggle aria-label="Đổi giao diện">
@@ -301,7 +303,7 @@ function renderMenuScreen() {
         </button>
 
         <!-- Honeycomb Cart Icon -->
-        <button class="header-cart-btn ${n > 0 ? 'has-items' : ''}" id="header-cart-wrapper" data-action="open-cart" aria-label="Giỏ hàng">
+        <button class="header-cart-btn ${n > 0 ? 'has-items' : ''}" id="header-cart-wrapper" data-action="open-cart" aria-label="Giỏ hàng${n > 0 ? ` - ${n} món` : ''}">
           <div class="hc-cart-icon">
             <svg class="hc-shape" viewBox="0 0 100 100" fill="currentColor">
               <polygon points="50 3, 97 27, 97 73, 50 97, 3 73, 3 27"/>
@@ -310,7 +312,7 @@ function renderMenuScreen() {
               <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
             </svg>
           </div>
-          <span class="header-cart-badge" id="header-cart-count">${n}</span>
+          <span class="header-cart-badge" id="header-cart-count" aria-hidden="true">${n}</span>
         </button>
 
         ${tableId ? `<div class="table-chip">Bàn ${tableId}</div>` : ''}

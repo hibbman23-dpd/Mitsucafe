@@ -795,15 +795,10 @@ function renderOrders() {
           💳 Đã thanh toán
         </button>`;
 
-    // Huỷ chỉ cho phép trước khi giao (khớp VALID_TRANSITIONS phía GAS)
-    const cancelAction = ['NEW','CONFIRMED','MAKING'].includes(o.status)
-      ? `<button class="btn-cancel" onclick="cancelOrder('${esc(o.order_id)}', this)">✕ Huỷ</button>` : '';
-
-    const footer = (statusAction || payAction || cancelAction) ? `
+    const footer = (statusAction || payAction) ? `
       <div class="card-footer" style="display:flex; gap:8px; flex-wrap:wrap;">
         ${statusAction}
         ${payAction}
-        ${cancelAction}
       </div>` : '';
     const cleanNotes = o.notes ? esc(o.notes.replace('[🎁 ĐỔI LY MIỄN PHÍ] ', '')) : '';
     const notesHtml = cleanNotes ? `<div class="card-notes" style="font-size: 0.8rem; color: var(--gold); font-style: italic; margin-top: 8px; border-top: 1px dashed rgba(245,240,232,0.08); padding-top: 6px;">📝 ${cleanNotes}</div>` : '';

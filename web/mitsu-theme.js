@@ -40,9 +40,24 @@ if (typeof document !== 'undefined') {
     // Khi user override thủ công (pref != 'auto'), ép media của source để bypass OS pref
     // và tránh tải cả 2 file logo (thay vì bày cả hai rồi ẩn bằng CSS).
     document.querySelectorAll('.theme-logo-source').forEach(function (src) {
-      if (pref === 'auto') src.media = '(prefers-color-scheme: dark)';
-      else if (pref === 'dark') src.media = 'all';
-      else src.media = 'not all';
+      var picture = src.parentElement;
+      var img = picture ? picture.querySelector('img') : null;
+      var lightUrl = src.getAttribute('data-light');
+      var darkUrl = src.getAttribute('data-dark');
+
+      if (eff === 'dark') {
+        src.media = 'all';
+        if (darkUrl) {
+          src.srcset = darkUrl;
+          if (img) img.src = darkUrl;
+        }
+      } else {
+        src.media = 'not all';
+        if (lightUrl) {
+          src.srcset = lightUrl;
+          if (img) img.src = lightUrl;
+        }
+      }
     });
   }
 
@@ -55,4 +70,26 @@ if (typeof document !== 'undefined') {
   mq.addEventListener('change', apply);
   document.addEventListener('DOMContentLoaded', apply);
   apply();
+
+  // Quan sát DOM để tự động áp dụng theme cho logo source mới render dynamic
+  if (typeof MutationObserver !== 'undefined') {
+    var observer = new MutationObserver(function (mutations) {
+      var needsApply = false;
+      for (var i = 0; i < mutations.length; i++) {
+        var addedNodes = mutations[i].addedNodes;
+        for (var j = 0; j < addedNodes.length; j++) {
+          var node = addedNodes[j];
+          if (node.nodeType === 1) {
+            if (node.classList.contains('theme-logo-source') || node.querySelector('.theme-logo-source')) {
+              needsApply = true;
+              break;
+            }
+          }
+        }
+        if (needsApply) break;
+      }
+      if (needsApply) apply();
+    });
+    observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  }
 }
