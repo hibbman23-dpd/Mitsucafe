@@ -35,8 +35,80 @@ const NOINDEX_PATHS = ['/signage.html', '/signage'];
 // Asset có version query (?v=...) đổi tên khi nội dung đổi → cache dài hạn an toàn.
 const VERSIONED_ASSET_RE = /\.(css|js|webp|png|svg|woff2)$/i;
 
+// Bot UA phổ biến (crawler/monitoring) — không log hit cho các request này.
+const BOT_UA_RE = /bot|crawler|spider|preview|lighthouse|headless/i;
+
+// Web app GAS đang sống (cùng URL client dùng cho order.js/kds.html/dashboard.html).
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec';
+
+/**
+ * HTML navigation công khai — điều kiện log (thay GA4 client-side, xem
+ * docs/ga4-to-cloudflare-plan.md). GET + Accept:text/html + UA không phải bot +
+ * path "/" hoặc ".html" công khai (không BLOCKED_PATHS/NOINDEX_PATHS/sig-img).
+ */
+function isHtmlNavRequest(request, url) {
+  if (request.method !== 'GET') return false;
+  const accept = request.headers.get('Accept') || '';
+  if (!accept.includes('text/html')) return false;
+  const ua = request.headers.get('User-Agent') || '';
+  if (BOT_UA_RE.test(ua)) return false;
+  if (url.pathname !== '/' && !url.pathname.endsWith('.html')) return false;
+  if (BLOCKED_PATHS.includes(url.pathname)) return false;
+  if (NOINDEX_PATHS.includes(url.pathname)) return false;
+  if (url.pathname.startsWith('/sig-img/')) return false;
+  return true;
+}
+
+/**
+ * Log 1 lượt xem trang → GAS action=web_hit (fire-and-forget qua ctx.waitUntil).
+ * KHÔNG lưu IP thô: visitor_hash = SHA-256(IP+UA+ngày) cắt 16 ký tự, đổi mỗi ngày.
+ * Lỗi thì nuốt im — không được ảnh hưởng serve trang.
+ */
+async function logWebHit(request, env) {
+  try {
+    const url = new URL(request.url);
+    const ua = request.headers.get('User-Agent') || '';
+    const ip = request.headers.get('CF-Connecting-IP') || '';
+    const day = new Date().toISOString().slice(0, 10);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ip + ua + day));
+    const visitorHash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+
+    let refererHost = '';
+    const refHeader = request.headers.get('Referer');
+    if (refHeader) {
+      try { refererHost = new URL(refHeader).hostname; } catch (_) { refererHost = ''; }
+    }
+
+    const cf = request.cf || {};
+    const device = /Mobile|Android|iPhone|iPad/i.test(ua) ? 'mobile' : 'desktop';
+
+    const body = {
+      action: 'web_hit',
+      path: url.pathname,
+      utm_source: url.searchParams.get('utm_source') || '',
+      utm_medium: url.searchParams.get('utm_medium') || '',
+      utm_campaign: url.searchParams.get('utm_campaign') || '',
+      referer: refererHost,
+      country: cf.country || '',
+      city: cf.city || '',
+      region: cf.region || '',
+      device,
+      visitor_hash: visitorHash,
+    };
+
+    const token = env.REPORT_API_TOKEN || '';
+    await fetch(GAS_URL + '?action=web_hit&token=' + encodeURIComponent(token), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (_) {
+    // nuốt im — logging không được phép làm gãy serve trang
+  }
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     // Redirect /mitsu or /mitsu.html to the clean root "/"
@@ -48,6 +120,10 @@ export default {
     if (url.pathname === '/kaeru' || url.pathname === '/kaeru.html') {
       return Response.redirect(url.origin + '/', 301);
     }
+
+    // Log hit TRƯỚC khi serve — đặt sau các redirect ở trên để không đếm hit cho URL
+    // cũ (chỉ redirect, không thực sự render trang).
+    if (isHtmlNavRequest(request, url)) ctx.waitUntil(logWebHit(request, env));
 
     // Root "/": QR bàn (?t=NN) → ordering app (index.html), giữ nguyên query;
     //           còn lại → landing (mitsu.html). Rewrite (không redirect) để URL sạch.
