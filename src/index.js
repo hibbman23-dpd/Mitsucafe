@@ -32,6 +32,9 @@ const BLOCKED_PATHS = [
 // Trang công khai nhưng không muốn index (signage trên màn hình tại quán).
 const NOINDEX_PATHS = ['/signage.html', '/signage'];
 
+// Asset có version query (?v=...) đổi tên khi nội dung đổi → cache dài hạn an toàn.
+const VERSIONED_ASSET_RE = /\.(css|js|webp|png|svg|woff2)$/i;
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -83,6 +86,14 @@ export default {
 
     for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
     if (NOINDEX_PATHS.includes(url.pathname)) res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+
+    // Ảnh trong /img/ (path ổn định, đổi ảnh = đổi tên file) hoặc CSS/JS có ?v= cache-bust
+    // → cache dài hạn an toàn. HTML giữ nguyên must-revalidate (SW đã stale-while-revalidate).
+    const isImgAsset = url.pathname.startsWith('/img/');
+    const isVersionedAsset = VERSIONED_ASSET_RE.test(url.pathname) && url.searchParams.has('v');
+    if (isImgAsset || isVersionedAsset) {
+      res.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    }
     return res;
   },
 };
