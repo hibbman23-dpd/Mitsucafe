@@ -324,7 +324,6 @@ function doGet(e) {
           status:         o.status,
           delivery_type:  o.delivery_type,
           short_code:     o.short_code,
-          total:          o.total,
           payment_status: o.payment_status,
           table_id:       o.table_id,
           delivered_at:   o.delivered_at,

@@ -18,4 +18,13 @@
     <text x="60" y="54" text-anchor="middle" font-family="'Cormorant Garamond',serif" font-size="22" font-weight="600" fill="var(--text,#1C1C1A)">mitsu</text>
     <text x="60" y="80" text-anchor="middle" font-family="'Noto Serif JP',serif" font-size="20" fill="var(--seal,#B83A2E)">蜜</text>
   </symbol>
+  <!-- Dấu lõi (khắc dấu): hanko tiến hóa từ ô vuông → lục giác tổ ong.
+       蜜 khắc âm bản (knockout = màu nền/giấy) · 3 chấm hổ phách dưới đáy = tam mật (loyalty 3 ong).
+       1 màu, đọc được ở ~32-50px (favicon, bill nhiệt). var() → tự đổi 2 theme. -->
+  <symbol id="seal-hex" viewBox="0 0 100 100">
+    <polygon fill="var(--seal,#B83A2E)" points="50,6 88.1,28 88.1,72 50,94 11.9,72 11.9,28"/>
+    <polygon fill="none" stroke="var(--bg,#F2EBDD)" stroke-width="2.2" points="50,13 82,31.5 82,68.5 50,87 18,68.5 18,31.5"/>
+    <text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif JP',serif" font-size="44" fill="var(--bg,#F2EBDD)">蜜</text>
+    <g fill="var(--accent,#C68A3E)"><circle cx="40" cy="81.5" r="2.4"/><circle cx="50" cy="84.5" r="2.4"/><circle cx="60" cy="81.5" r="2.4"/></g>
+  </symbol>
 </svg>

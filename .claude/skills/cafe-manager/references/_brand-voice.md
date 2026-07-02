@@ -26,24 +26,23 @@
 
 ## Tagline quick-copy
 
-- JP chính: `蜜は一匹では作れない。`
-- VN chính: `Gom mật ngọt, Gắn yêu thương.`
-- VN phụ: `Một giọt mật, ba con ong.`
-- JP phụ: `一杯ごとに、ひとさじの蜜と愛を。`
-- EN ngắn: `Mitsu waits at Lâm Hà.`
+- VN chính (đã verify trên trang thật): `Gom mật ngọt, Gắn yêu thương.`
+- Hero hook: `Một giọt mật cần ba con ong. Bạn đoán được mỗi con làm gì không?`
+- EN (chơi chữ, tông vui): `Thank you for bee-ing part of the hive.`
+- ⚠️ Các câu JP dài (`蜜は一匹では作れない。`, `一杯ごとに、ひとさじの蜜と愛を。`) **chưa xác nhận chính thức** — không xuất hiện trên trang đã ship, không dùng cho tới khi chủ duyệt. Cần JP thì dùng kanji đơn: `蜜` `密` `三蜜` `勤` `律` `創` `女王`.
 
 ## Social handles để paste link
 
 ```
 FB: https://www.facebook.com/profile.php?id=61590071517195
-IG: https://www.instagram.com/mitsucafe/
-TikTok: https://www.tiktok.com/@mitsucafe
-Threads: https://www.threads.com/@mitsucafe
+IG: https://www.instagram.com/mitsucafe83/
+TikTok: https://www.tiktok.com/@mitsucafe83
+Threads: https://www.threads.com/@mitsucafe83
 Maps: https://maps.app.goo.gl/zRE1hNLej9oWhtEP6
-Web: https://mitsu.cafe
 Phone: 0975 087 429
-Address: Mitsu, 938 Đường Hùng Vương, Lâm Hà, Lâm Đồng
+Address: Mitsu, 938 Đường Hùng Vương, Đinh Văn, Lâm Hà, Lâm Đồng
 ```
+⚠️ Handle có đuôi `83` (`mitsucafe83`) — KHÔNG phải `@mitsucafe` trơn (đã trùng tên, quán không sở hữu handle đó).
 
 ## Hashtag bank
 

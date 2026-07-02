@@ -2,44 +2,50 @@
 
 > Single source of truth cho mọi content, post, copy, email, in-store sign.
 > Mọi reference file của skill `cafe-manager` đều phải link về đây trước khi draft.
+> **Cập nhật 2026-07-01**: đồng bộ lại theo rebrand かえる (Kaeru) → **Mitsu 蜜** (chốt 2026-06-17). Bản trước mô tả mascot ếch — đã lỗi thời, không dùng nữa.
+> Nguồn xác minh: [web/mitsu.html](../web/mitsu.html) (trang đã ship) · [web/mitsu.css](../web/mitsu.css) (token design system) · [docs/superpowers/specs/2026-06-17-mitsu-foundation-design.md](superpowers/specs/2026-06-17-mitsu-foundation-design.md)
 
 ## 1. Brand essence
 
-**Name**: Mitsu (かえる + Cà phê) — đọc "Ka-e-ru Kà-phê".
-**Mascot**: かえる — con ếch đội nón lá, gánh 2 giỏ tre đựng cốc trà sữa + bánh.
-**Wordplay cốt lõi**: かえる có 2 nghĩa — "con ếch" và "trở về (nhà)". Mỗi ly trà là một chuyến trở về.
+**Name**: Mitsu 蜜 (mật ong). Quán dạng **Junkissa** (純喫茶) — phong cách kissaten Nhật cổ điển, tại Lâm Hà.
+**Mascot**: bộ ba ong thợ + 1 ong chúa — không phải linh vật đơn lẻ.
+- **Kin 勤** (chăm chỉ) — khăn đầu có chữ 勤, gánh giỏ cà phê
+- **Ritsu 律** (kỷ luật) — tạp dề, ấm rót + V60
+- **Sō 創** (sáng tạo) — bông hoa, ly trà sữa
+- **Ong Chúa / Joō 女王** — vương miện, ôm giọt mật — đại diện cho chính quán Mitsu (không phải nhân vật thứ 4 ngang hàng, mà là "nơi chốn" cả ba ong hướng về)
 
-**Tagline chính**:
-- JP: `お茶の心を、ふるさとへ。` (Ocha no kokoro o, furusato e.)
-- VN: `Hương trà từ trái tim, về miền quê hương.`
+**Wordplay cốt lõi**: 蜜 (mitsu, "mật") và 密 (mitsu, "gắn kết/khăng khít") đọc gần giống nhau — một giọt mật cần sự gắn kết của ba con ong khác tính mới làm ra được.
 
-**Tagline phụ** (dùng khi đóng post/email):
-- JP: `すべての一杯に、「おかえりなさい」を。`
-- VN: `Mỗi ly là một chuyến trở về.`
+**Tagline chính (đã verify trên trang thật)**:
+- VN: `Gom mật ngọt, Gắn yêu thương.`
+- EN (chơi chữ, dùng cho tông vui/social): `Thank you for bee-ing part of the hive.`
+- Hero hook (dùng mở bài/landing): `"Một giọt mật cần ba con ong. Bạn đoán được mỗi con làm gì không?"`
+
+**JP tagline — CẢNH BÁO**: các câu JP từng dùng ở bản trước (`蜜は一匹では作れない。`, `一杯ごとに、ひとさじの蜜と愛を。`) **KHÔNG xuất hiện trên trang đã ship** — không rõ đã được người bản ngữ/chủ duyệt hay chưa. Coi là **draft, chưa chính thức** — không đưa vào caption publish cho tới khi verify. Khi cần dòng JP, ưu tiên các kanji đã verify: `蜜` `密` `三蜜` `勤` `律` `創` `女王`.
 
 ## 2. Personality (Brand archetypes)
 
-Mitsu là sự pha trộn của 3 archetype:
+Mitsu là sự pha trộn của 3 archetype (không đổi so với trước, chỉ đổi hiện thân từ ếch sang ong):
 
 | Archetype | % | Biểu hiện |
 |---|---|---|
-| **Caregiver** (Người chăm sóc) | 50 | "おかえりなさい" — chào như đón người về nhà. Quan tâm đến quá trình pha. Tôn vinh nguyên liệu địa phương. |
-| **Sage** (Người hiểu chuyện) | 30 | Story-telling về nguồn gốc trà, văn hoá Nhật, vùng nguyên liệu Lâm Đồng. Không phô trương. |
-| **Explorer** (Người khám phá) | 20 | Hành trình かえる sang Nhật học trà rồi trở về. Theo mùa, theo vùng. Có chút phiêu lưu. |
+| **Caregiver** (Người chăm sóc) | 50 | Tôn vinh nguyên liệu địa phương, quan tâm quá trình pha, đón khách như đón người thân. |
+| **Sage** (Người hiểu chuyện) | 30 | Story-telling về vùng nguyên liệu Lâm Đồng, hành trình ba con ong học nghề. Không phô trương. |
+| **Explorer** (Người khám phá) | 20 | Hành trình Kin/Ritsu/Sō bay sang Nhật học nghề rồi trở về Lâm Hà. Theo mùa, theo vùng. |
 
-**KHÔNG phải**: Hero (chinh phục), Ruler (cao cấp/luxury), Jester (vui đùa rẻ tiền), Outlaw (nổi loạn).
+**KHÔNG phải**: Hero (chinh phục), Ruler (cao cấp/luxury), Jester (vui đùa rẻ tiền), Outlaw (nổi loạn/gây shock).
 
 ## 3. Tone & voice
 
 | Trục | Vị trí | Ghi chú |
 |---|---|---|
-| Formal ↔ Casual | **65% casual** | Bạn-tôi, không xưng "Quý khách". Nhưng giữ kính trọng với nguyên liệu/người làm trà. |
-| Serious ↔ Playful | **60% warm-serious** | Có thể đùa nhẹ qua mascot. Không sến súa. Không meme rẻ tiền. |
-| Poetic ↔ Direct | **55% poetic** | Dùng hình ảnh: "hương trà bay qua đèo", "lúc 6 giờ sương vẫn còn trên lá matcha". Nhưng vẫn rõ CTA. |
-| Local ↔ Global | **70% local** | Tự hào Lâm Đồng / Bảo Lộc / Lâm Hà. Mở rộng với JP làm gia vị, không làm chủ. |
+| Formal ↔ Casual | **65% casual** | Bạn-tôi, không xưng "Quý khách". Giữ kính trọng với nguyên liệu/người làm trà. |
+| Serious ↔ Playful | **60% warm-serious** | Có thể đùa nhẹ qua 3 chú ong. Không sến súa, không meme rẻ tiền. |
+| Poetic ↔ Direct | **55% poetic** | Hình ảnh: "sương còn đọng trên lá trà Bảo Lộc sáng sớm". Vẫn rõ CTA. |
+| Local ↔ Global | **70% local** | Tự hào Lâm Đồng / Bảo Lộc / Lâm Hà. Nhật là gia vị (kiểu Junkissa), không làm chủ câu chuyện. |
 
 **Câu mẫu đúng tone**:
-> "Mùa khô ở Lâm Hà có cái nắng riêng — vàng nhạt, hơi se. かえる pha cho bạn ly hojicha hôm nay: rang sâu thêm 30 giây, để hợp với thời tiết."
+> "40km từ Mitsu có một vùng đồi xanh quanh năm sương phủ — đó là nơi matcha trong ly bạn đang cầm được trồng."
 
 **Câu mẫu SAI tone**:
 > "🔥 Trà sữa siêu phẩm đỉnh cao đẳng cấp! Hot trend không thể bỏ lỡ!!! Đặt ngay #1 #1 #1"
@@ -48,26 +54,23 @@ Mitsu là sự pha trộn của 3 archetype:
 
 ### ✅ Words/phrases nên dùng (do)
 
-**Tiếng Nhật (đan xen, không lạm dụng)**:
-- `お茶` (ocha) — trà nói chung
-- `おかえりなさい` (okaerinasai) — "Mừng bạn trở về"
-- `ふるさと` (furusato) — quê nhà
-- `かえる` — mascot/brand
-- `茶` / `帰` — seal kanji trên hero
-- `季節限定` (kisetsu gentei) — phiên bản theo mùa
-- `お持ち帰り` (omochikaeri) — takeaway
-- `バリスタ` (barista) — khi gọi đúng tên
+**Tiếng Nhật (đan xen, không lạm dụng — chỉ dùng kanji đã verify)**:
+- `蜜` (mitsu) — mật/tên brand
+- `密` (mitsu) — gắn kết
+- `三蜜` (san-mitsu) — "Tam Mật", tên gọi bộ ba ong
+- `勤` `律` `創` `女王` — Kin / Ritsu / Sō / Ong Chúa
+- `純喫茶` (junkissa) — kiểu quán cổ điển Nhật (đúng định vị quán, KHÔNG dùng lẫn với claim "Nhật chính gốc")
 
 **Tiếng Việt — vùng & nguyên liệu**:
-- Lâm Hà, Lâm Đồng, Bảo Lộc, B'lao, cao nguyên
-- Hồng trà nhài, ô long, matcha, hojicha, sencha, gyokuro, hoa cúc, atisô
-- Trân châu đường đen, thạch dừa, hạt sen Đồng Tháp, sữa Mộc Châu
-- Bạc xỉu, cà phê phin, cà phê trứng (đặc sản VN)
+- Lâm Hà, Lâm Đồng, Bảo Lộc, B'lao, Đinh Văn, cao nguyên
+- Hồng trà nhài, ô long, matcha, hojicha, sencha, hoa cúc
+- Trân châu đường đen, sữa Mộc Châu
+- Bạc xỉu, cà phê phin, cà phê trứng, cà phê muối, cà phê dừa (đặc sản VN)
 - Nông sản địa phương, hái sáng, rang trong ngày
 
 **Hành động**:
-- "Mời bạn ghé", "Hôm nay quán có…", "Pha thử", "Ủ kỹ", "Đợi nguội", "Chia sẻ"
-- "Trở về", "Về nhà", "Quay lại"
+- "Mời bạn ghé", "Hôm nay quán có…", "Pha thử", "Ủ kỹ", "Gom lại", "Chia sẻ"
+- "Ba con ong", "Gom mật", "Về tổ"
 
 ### ❌ Words/phrases TRÁNH (don't)
 
@@ -80,123 +83,124 @@ Mitsu là sự pha trộn của 3 archetype:
 - Caps lock "HÔM NAY GIẢM GIÁ"
 - All-CAPS hashtag `#HOTTREND2026`
 - Slang TikTok rẻ tiền: "đỉnh nóc", "trendy phong cách"
+- Gọi mascot là "ếch"/"かえる" (đã đổi hẳn sang ong — nếu thấy nội dung cũ nhắc ếch, đó là tài liệu chưa cập nhật, KHÔNG dùng)
 
 ## 5. Format per platform
 
 ### Facebook
-- **Length**: 50-150 từ
-- **Structure**: Hook 1 câu → story/insight 2-3 câu → CTA 1 câu
-- **Visual**: 1 ảnh chính (mascot/drink/quán), tỷ lệ 4:5 hoặc 1:1
-- **Hashtag**: 3-5, đặt cuối, mix tiếng Việt + tên brand
-  - VD: `#Mitsu #LâmHà #TràSữaMatcha #かえる #CàPhêLâmĐồng`
+- **Length**: 50-150 từ · Hook 1 câu → story/insight 2-3 câu → CTA 1 câu
+- **Visual**: 1 ảnh chính (ong/drink/quán), tỷ lệ 4:5 hoặc 1:1
+- **Hashtag**: 3-5, đặt cuối — VD: `#Mitsu #蜜 #LâmHà #TràSữaMatcha #CàPhêLâmĐồng`
 - **CTA**: "Ghé quán ở Lâm Hà / Đặt online tại mitsucafe.vn / Inbox để giữ chỗ"
-- **Tần suất**: 3-5 post/tuần
-- **Best time post (Lâm Đồng)**: 7:30, 11:30, 19:30 (giờ break, ăn trưa, sau giờ làm)
+- **Tần suất**: 3-5 post/tuần · **Best time**: 7:30, 11:30, 19:30
 
 ### Instagram
-- **Length caption**: 80-200 từ (chuộng story-telling dài hơn FB)
-- **Structure**: 
-  - Dòng 1 (hook trước "more"): 1 câu mạnh, có emoji nếu cần
-  - Body: micro-story / chi tiết về nguyên liệu / về người làm
-  - Cuối: tagline VN/JP + 8-12 hashtag
-- **Visual**: photo dossier — 9-grid aesthetic. Tone earthy, không filter quá. Mascot xuất hiện 30% post.
-- **Hashtag**: 8-12, mix:
-  - Brand: `#Mitsu #かえる`
-  - Vùng: `#LâmHà #LâmĐồng #LâmHàKissaten`
-  - Sản phẩm: `#Matcha #Hojicha #BạcXỉu #TràSữa`
-  - JP touch: `#お茶 #抹茶 #ほうじ茶 #バブルティー`
-  - Niche: `#cafeĐàLạt #catchengoài #specialtycafe`
-- **Alt text**: BẮT BUỘC. Format: "[loại drink/sản phẩm] [màu] [setting] — [chi tiết mascot/nguyên liệu]"
-  - VD alt: "Ly trà sữa hojicha trong cốc tre cạnh cửa sổ gỗ, mascot かえる đứng cạnh, ánh nắng sáng Lâm Hà"
-- **Story**: 1-2 story/ngày khi mở quán, behind-the-scenes
-- **Reels**: 1-2/tuần, format pha drink quay close-up + voice-over Vietnamese
-- **Best time**: 8:00, 12:00, 20:30
+- **Length caption**: 80-200 từ (story-telling dài hơn FB)
+- **Structure**: hook 1 câu (trước "more") → micro-story → tagline → 8-12 hashtag
+- **Visual**: 9-grid aesthetic, tone earthy. Mascot (1 trong 3 ong hoặc ong chúa) xuất hiện ~30% post.
+- **Hashtag mix**: Brand `#Mitsu #蜜` · Vùng `#LâmHà #LâmĐồng #LâmHàKissaten` · Sản phẩm `#Matcha #Hojicha #BạcXỉu #TràSữa` · JP touch `#お茶 #抹茶 #ほうじ茶` (chỉ dùng kanji/từ đã verify, tránh bịa câu JP dài) · Niche `#specialtycafe #junkissa`
+- **Alt text**: BẮT BUỘC. Format: "[loại drink] [màu] [setting] — [chi tiết mascot/nguyên liệu]"
+- **Story**: 1-2/ngày · **Reels**: 1-2/tuần · **Best time**: 8:00, 12:00, 20:30
 
 ### TikTok
-- **Length**: 15-45s (sweet spot 22-30s)
-- **Hook 3s đầu**: phải GÂY CHÚ Ý — tiếng nước trà rót, mascot xuất hiện, drink swirl
-- **Caption**: <100 từ — không lặp lại hook
-- **Hashtag**: 5-7, mix trend + niche
-  - VD: `#FYP #LâmHà #TràSữa #cafeStyle #かえる #boba`
-- **Sound**: ưu tiên original sound (giọng + tiếng pha drink), tránh trending pop nếu không phù hợp brand
+- **Length**: 15-45s (sweet spot 22-30s) · Hook 3s đầu phải gây chú ý
+- **Caption**: <100 từ, không lặp hook · **Hashtag**: 5-7, mix trend + niche
+- **Sound**: ưu tiên original sound, tránh nhạc trend không liên quan
 - **Best time**: 12:00, 19:00, 21:00
-- **Avoid**: meme rẻ tiền, lip-sync drama, không "ghép cảnh quán với bài hát viral" lười
+- **Avoid**: meme rẻ tiền, lip-sync drama, ghép cảnh quán + nhạc viral lười
 
 ### Threads
-- **Length**: 50-80 từ, conversational
-- **Structure**: 1 quan sát / câu hỏi mở / chia sẻ nhỏ
-- **Hashtag**: KHÔNG dùng (Threads không weight hashtag)
-- **Visual**: optional, đơn giản
-- **Tone**: mở, hỏi cộng đồng — kiểu "Hôm nay Lâm Hà mưa, mọi người uống gì?"
-- **Best time**: 9:00, 14:00, 22:00
-- **Avoid**: spam, copy-paste y hệt FB/IG
+- **Length**: 50-80 từ, conversational · KHÔNG hashtag
+- **Tone**: mở, hỏi cộng đồng · **Best time**: 9:00, 14:00, 22:00
 
-### Zalo OA (broadcast khách)
-- **Length**: 30-60 từ, action-oriented
-- **Structure**: Tên khách (nếu có) → 1 lý do → 1 CTA → tagline
-- **CTA**: link ngắn → mitsucafe.vn hoặc Zalo chat
-- **Tần suất**: ≤2/tuần. KHÔNG broadcast sale liên tục.
-- **Compliance**: chỉ gửi cho khách đã follow OA + opt-in.
+### Zalo OA
+- **Length**: 30-60 từ · **Tần suất**: ≤2/tuần · Chỉ gửi khách đã opt-in
+
+**Social handles (đã verify trên `web/mitsu.html`)**:
+```
+FB: https://www.facebook.com/profile.php?id=61590071517195
+IG: https://www.instagram.com/mitsucafe83/
+TikTok: https://www.tiktok.com/@mitsucafe83
+Threads: https://www.threads.com/@mitsucafe83
+Maps: https://maps.app.goo.gl/zRE1hNLej9oWhtEP6
+Phone: 0975 087 429
+Address: Mitsu, 938 Đường Hùng Vương, Đinh Văn, Lâm Hà, Lâm Đồng
+```
+⚠️ Handle KHÔNG phải `@mitsucafe` (không có số) — tên đó đã bị trùng/không dùng được, quán dùng `mitsucafe83`. Mọi caption tag/mention phải dùng đúng handle này.
 
 ## 6. Story arcs có thể dùng lại
 
-Lặp lại các arc này nhưng thay nhân vật/sản phẩm/mùa:
+1. **Tam Mật — hành trình ba con ong**: Kin (chăm chỉ) + Ritsu (kỷ luật) + Sō (sáng tạo) sang Nhật học nghề → trở về thung lũng Lâm Hà, xây tổ cho Ong Chúa (= chính quán Mitsu)
+2. **Vùng nguyên liệu Lâm Đồng**: trà Bảo Lộc, cà phê Cầu Đất, đặc sản Lâm Hà
+3. **Người làm trà**: người rang cà phê, người làm bánh croissant
+4. **Theo mùa**: mưa Lâm Hà → hojicha ấm; nắng hè → trà vải/matcha đá; Tết → matcha truyền thống
+5. **Khách thân**: kể chuyện 1 khách quen, cách họ quay lại mỗi tuần
+6. **Behind-the-scenes**: ủ trà, làm trân châu, quy trình rang
+7. **Sưu tầm ba con ong**: loyalty stamp card — khách gom đủ stamp Kin/Ritsu/Sō để đổi thưởng (gắn với hệ thống loyalty thật, xem `docs/system/loyalty-stamps.md`)
 
-1. **Hành trình của かえる**: ếch ra biển → học trà Nhật → trở về Lâm Hà
-2. **Vùng nguyên liệu Lâm Đồng**: trà Bảo Lộc, đặc sản Lâm Hà, cà phê Cầu Đất
-3. **Người làm trà**: bác bán matcha, anh rang cà phê, cô làm bánh croissant
-4. **Theo mùa**: mưa Lâm Hà → hojicha ấm; nắng tháng 3 → trà đào; Tết → matcha truyền thống
-5. **Khách thân**: kể chuyện 1 khách quen, cách họ "trở về" mỗi tuần
-6. **Behind-the-scenes**: pha 1 ly takes 4 phút, ủ trà 6 phút, làm trân châu 3 tiếng
+## 7. Visual palette & design system (đồng bộ `web/mitsu.css`)
 
-## 7. Visual palette (đồng bộ với landing)
+> Hệ 2 theme sáng/tối, KHÔNG phải bảng màu tĩnh — khi mô tả visual brief cho Canva/Higgsfield, mặc định dùng bộ **theme sáng** trừ khi có lý do cụ thể dùng tối.
 
 ```
---teal:     #2D5F6B   /* nav, h1, trust */
---coral:    #EB624A   /* CTA, accent, sale */
---moss:     #7A8C4F   /* matcha, frog, fresh */
---cream:    #F5F0E8   /* background, calm */
---earth:    #A89B80   /* warm earthy */
---ink:      #1E2D32   /* text body */
---straw:    #C4A872   /* hojicha, warm */
+Theme sáng (mặc định):
+--bg:        #F1E5CB   /* nền chính, cream/washi ấm */
+--surface:   #ECE0C4   /* nền phụ/card */
+--text:      #1C1C1A   /* chữ chính */
+--accent:    #C68A3E   /* mật ong/vàng đồng — CTA, nhấn chính */
+--accent-deep: #9C6A2C /* accent đậm hơn, dùng viền/hover */
+--seal:      #B83A2E   /* đỏ hanko/con dấu — CHỈ dùng cho hanko/chữ ký, không làm nền lớn */
+--moss:      #6E7A4F   /* xanh rêu — matcha, tự nhiên */
+
+Theme tối:
+--bg:#16130E --surface:#221C14 --text:#F2EBDD
+--accent:#E0AC5E --accent-deep:#C68A3E --seal:#C9483B --moss:#8A9568
 ```
+
+**Quy tắc**: mỗi bề mặt/ảnh dùng tối đa 3/5 màu chính. Hanko (con dấu đỏ `--seal`) chỉ dùng làm chữ ký/niêm phong, KHÔNG làm nền hay mảng lớn.
 
 Font:
-- Headline JP: Noto Serif JP (300/400/700)
-- Headline EN: IM Fell English SC
-- Body: Lora (regular + italic)
+- Display/headline: Fraunces (hoặc Cormorant Garamond) — serif
+- Body: Be Vietnam Pro
+- JP: Noto Serif JP
 
-Visual mood-board: ukiyo-e gentle wave, washi paper texture, nón lá, conical baskets, cao nguyên Lâm Đồng pine forest, morning fog.
+Pattern/texture: honeycomb (lục giác, hoạ tiết chính), sóng seigaiha 青海波, washi paper grain, hoa & quả cà phê (trang trí nhẹ).
+
+Mascot trong ảnh: ưu tiên 1 trong 4 nhân vật (Kin/Ritsu/Sō/Ong Chúa) theo đúng dấu hiệu riêng (Kin: khăn đầu 勤 + giỏ cà phê; Ritsu: tạp dề + V60; Sō: bông hoa + ly trà sữa; Ong Chúa: vương miện + giọt mật). Không tự vẽ ếch hay nhân vật ngoài bộ 4 này.
 
 ## 8. Compliance / không bao giờ làm
 
 - Không claim chữa bệnh, sức khoẻ thần kỳ
-- Không gắn brand với chính trị
+- Không gắn brand/mascot với chính trị hoặc drama xã hội gây chia rẽ
 - Không trêu vùng/dân tộc khác
 - Không photoshop sản phẩm không khớp thực tế (bowl size, topping)
 - Không dùng ảnh khách chưa xin phép
 - Không broadcast Zalo cho khách chưa follow OA / chưa opt-in
-- Không claim "Nhật chính gốc" — chính xác là "cảm hứng Nhật, nguyên liệu Việt"
-- Không gắn mascot với drama / political content
+- Không claim "Nhật chính gốc" — chính xác là "phong cách Junkissa Nhật, nguyên liệu Việt"
+- Không so sánh hạ thấp quán/đối thủ cụ thể bằng tên
+
+**Về nội dung "hot-take" / mời tranh luận (bổ sung 2026-07-01)**: được phép làm nội dung mời góp ý/tranh luận xây dựng (giá cả, công thức, định vị quán) **miễn là**:
+1. Không chạm chính trị, tôn giáo, vùng miền, giới tính — chỉ chủ đề F&B/vận hành quán.
+2. Câu hỏi có 2 lựa chọn thực tế + bối cảnh thật, không khiêu khích cảm xúc kiểu rage-bait.
+3. Chủ quán (solo-operator) phải có thời gian trực trả lời comment trong vài giờ đầu — không đăng "hỏi thật" rồi bỏ mặc.
+4. Nếu là cam kết (vd "khách vote công thức, tuần sau pha thật") thì BẮT BUỘC thực hiện đúng cam kết, không bỏ dở.
+Xem ví dụ áp dụng tại `docs/content-plans/2026-07.md` (mục "Bổ sung sau brand-review").
 
 ## 9. Voice signature — đóng post
 
-Có thể luân phiên 3 signature đóng:
+Có thể luân phiên các signature đóng (chỉ dùng bản đã verify, tránh JP chưa xác nhận — xem cảnh báo §1):
 
-1. `お茶の心を、ふるさとへ。 — Hương trà từ trái tim, về miền quê hương.`
-2. `すべての一杯に、「おかえりなさい」を。 — Mỗi ly là một chuyến trở về.`
-3. `かえる waits at Lâm Hà.`
+1. `Gom mật ngọt, Gắn yêu thương.` (VN, mặc định, an toàn nhất)
+2. `Thank you for bee-ing part of the hive.` (EN, tông vui — dùng cho social, không dùng cho biển hiệu/PR chính thức)
+3. `蜜` hoặc `三蜜` đứng riêng như một con dấu thị giác (không ghép câu JP dài chưa verify)
 
 ## 10. References (dữ liệu nguồn)
 
-- Landing page: [web/mitsu.html](../web/mitsu.html) — copy đã ship
-- Mascot assets: [web/img/](../web/img/) — 9 stickers cảm xúc + 3 merch
-- Schema.org / SEO meta: mitsu.html:28-58
-- Social handles (đã verified): mitsu.html:1030-1049
-  - FB: https://www.facebook.com/profile.php?id=61590071517195
-  - IG: @mitsucafe
-  - TikTok: @mitsucafe
-  - Threads: @mitsucafe
-  - Maps: https://maps.app.goo.gl/zRE1hNLej9oWhtEP6
-- Phone: 0975 087 429 — Lâm Hà, Lâm Đồng
-- Story arc gốc: CLAUDE.md (Kissaten v1.1) + mitsu.html section #story
+- Landing page: [web/mitsu.html](../web/mitsu.html) — copy đã ship, nguồn xác minh chính
+- Design tokens: [web/mitsu.css](../web/mitsu.css) — 2 theme sáng/tối
+- Design spec gốc: [docs/superpowers/specs/2026-06-17-mitsu-foundation-design.md](superpowers/specs/2026-06-17-mitsu-foundation-design.md)
+- Mascot assets: [web/img/mitsu/](../web/img/mitsu/) — `char-{kin|ritsu|so|queen}-{6 biểu cảm}.webp`
+- Sprite SVG: [web/mitsu-assets.svg](../web/mitsu-assets.svg) — `#hanko`, `#three-bees`, `#badge`
+- Social handles (đã verify 2026-07-01): xem §5 — lưu ý handle có đuôi `83`
+- Story arc gốc: `web/mitsu.html` section `#story` (dòng ~194-250) + `#tam-mật` (dòng ~269+)
+- Loyalty stamp: `docs/system/loyalty-stamps.md`
