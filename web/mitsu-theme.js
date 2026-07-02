@@ -36,6 +36,14 @@ if (typeof document !== 'undefined') {
       btn.setAttribute('data-pref', pref);
       btn.setAttribute('aria-label', 'Giao diện: ' + pref + ' (đang hiện: ' + eff + ')');
     });
+    // <picture><source media="(prefers-color-scheme: dark)"> chỉ tự chọn theo OS.
+    // Khi user override thủ công (pref != 'auto'), ép media của source để bypass OS pref
+    // và tránh tải cả 2 file logo (thay vì bày cả hai rồi ẩn bằng CSS).
+    document.querySelectorAll('.theme-logo-source').forEach(function (src) {
+      if (pref === 'auto') src.media = '(prefers-color-scheme: dark)';
+      else if (pref === 'dark') src.media = 'all';
+      else src.media = 'not all';
+    });
   }
 
   function cycle() { localStorage.setItem(KEY, nextPref(getPref())); apply(); }

@@ -1,5 +1,6 @@
 /* mitsu.css — nền tảng thiết kế Mitsu (2 theme). Spec: docs/superpowers/specs/2026-06-17-mitsu-foundation-design.md */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap');
+/* Fonts KHÔNG @import ở đây (chuỗi render-blocking phá preload-async fonts của index.html) —
+   trang nào dùng mitsu.css phải tự <link> Google Fonts css2 Fraunces + Be Vietnam Pro + Noto Serif JP. */
 
 :root {
   --bg:#F1E5CB; --surface:#ECE0C4; --surface-2:#E4D8BA;

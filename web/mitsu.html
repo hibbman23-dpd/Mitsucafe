@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#C68A3E">
   
   <!-- Open Graph -->
-  <meta property="og:title" content="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi">
+  <meta property="og:title" content="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi | Lâm Hà, Lâm Đồng">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://mitsu.cafe/">
   <meta property="og:image" content="https://mitsu.cafe/img/og-cover-mitsu.jpg">
@@ -22,11 +22,11 @@
   
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi">
+  <meta name="twitter:title" content="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi | Lâm Hà, Lâm Đồng">
   <meta name="twitter:description" content="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
   <meta name="twitter:image" content="https://mitsu.cafe/img/og-cover-mitsu.jpg">
   
-  <title>Mitsu 蜜 — Cà phê · Trà sữa · Mang đi</title>
+  <title>Mitsu 蜜 — Cà phê · Trà sữa · Mang đi | Lâm Hà, Lâm Đồng</title>
   
   <link rel="canonical" href="https://mitsu.cafe/">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
@@ -56,6 +56,18 @@
       "addressRegion": "Lâm Đồng",
       "addressCountry": "VN"
     },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 11.7868919,
+      "longitude": 108.2500939
+    },
+    "hasMenu": "https://mitsu.cafe/index.html",
+    "sameAs": [
+      "https://www.facebook.com/profile.php?id=61590071517195",
+      "https://www.instagram.com/mitsucafe83/",
+      "https://www.tiktok.com/@mitsucafe83",
+      "https://www.threads.com/@mitsucafe83"
+    ],
     "openingHoursSpecification": {
       "@type": "OpeningHoursSpecification",
       "dayOfWeek": [
@@ -73,7 +85,7 @@
   }
   </script>
 
-  <link rel="preload" as="image" href="img/mitsu/logo-banner.webp" fetchpriority="high">
+  <link rel="preload" as="image" href="img/mitsu/logo-banner.webp" imagesrcset="img/mitsu/logo-banner-512.webp 512w, img/mitsu/logo-banner.webp 1024w" imagesizes="(max-width: 900px) 400px, 540px" fetchpriority="high">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap">
   <link rel="stylesheet" href="mitsu.css?v=20260620">
   <link rel="stylesheet" href="mitsu-landing.css?v=20260620">
@@ -102,8 +114,10 @@
 <nav id="nav">
   <div class="wrap nav-inner">
     <a href="mitsu.html" class="nav-logo" aria-label="Mitsu Trang chủ">
-      <img src="img/mitsu/logo-light.webp" width="1400" height="687" class="nav-logo-img logo-light-only" alt="Mitsu Logo">
-      <img src="img/mitsu/logo-dark.webp" width="1400" height="686" class="nav-logo-img logo-dark-only" alt="Mitsu Logo">
+      <picture>
+        <source srcset="img/mitsu/logo-dark.webp" media="(prefers-color-scheme: dark)" class="theme-logo-source" data-light="img/mitsu/logo-light.webp" data-dark="img/mitsu/logo-dark.webp">
+        <img src="img/mitsu/logo-light.webp" width="1400" height="687" class="nav-logo-img" alt="Mitsu Logo">
+      </picture>
     </a>
     <ul class="nav-links">
       <li><a href="#story">Câu chuyện</a></li>
@@ -153,8 +167,10 @@
       <div class="hero-text">
         <p class="hero-q">“Một giọt mật cần ba con ong.<br>Bạn đoán được mỗi con làm gì không?”</p>
         <h1 class="hero-title">
-          <img src="img/mitsu/logo-full-light.webp" width="1200" height="851" class="hero-logo-img logo-light-only" alt="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
-          <img src="img/mitsu/logo-full-dark.webp" width="1200" height="848" class="hero-logo-img logo-dark-only" alt="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
+          <picture>
+            <source srcset="img/mitsu/logo-full-dark.webp" media="(prefers-color-scheme: dark)" class="theme-logo-source" data-light="img/mitsu/logo-full-light.webp" data-dark="img/mitsu/logo-full-dark.webp">
+            <img src="img/mitsu/logo-full-light.webp" width="1200" height="851" class="hero-logo-img" alt="Mitsu 蜜 — Cà phê · Trà sữa · Mang đi. Gom mật ngọt, Gắn yêu thương. Lâm Hà, Lâm Đồng.">
+          </picture>
         </h1>
         <p class="hero-desc">Cà phê &amp; trà sữa mang đi, pha với cái tâm của một quán Junkissa Nhật — ở Lâm Hà. Nơi vị ngọt bắt đầu từ sự chân thành và gắn kết.</p>
         
@@ -184,7 +200,7 @@
       
       <div class="hero-art">
         <div class="hero-banner-wrapper">
-          <img src="img/mitsu/logo-banner.webp" width="1024" height="900" fetchpriority="high" class="hero-banner-img" alt="Mitsu Banner">
+          <img src="img/mitsu/logo-banner.webp" srcset="img/mitsu/logo-banner-512.webp 512w, img/mitsu/logo-banner.webp 1024w" sizes="(max-width: 900px) 400px, 540px" width="1024" height="900" fetchpriority="high" class="hero-banner-img" alt="Mitsu Banner">
         </div>
       </div>
     </div>
@@ -380,8 +396,10 @@
     <div class="footer-body">
       <div class="foot-brand">
         <div class="logo-container">
-          <img src="img/mitsu/logo-light.webp" width="1400" height="687" loading="lazy" decoding="async" class="foot-logo-img logo-light-only" alt="Mitsu Logo">
-          <img src="img/mitsu/logo-dark.webp" width="1400" height="686" loading="lazy" decoding="async" class="foot-logo-img logo-dark-only" alt="Mitsu Logo">
+          <picture>
+            <source srcset="img/mitsu/logo-dark.webp" media="(prefers-color-scheme: dark)" class="theme-logo-source" data-light="img/mitsu/logo-light.webp" data-dark="img/mitsu/logo-dark.webp">
+            <img src="img/mitsu/logo-light.webp" width="1400" height="687" loading="lazy" decoding="async" class="foot-logo-img" alt="Mitsu Logo">
+          </picture>
         </div>
         <p class="foot-tagline">
           <span>Gom mật ngọt, Gắn yêu thương</span>
@@ -398,7 +416,7 @@
                 🕒 6:00 đến 23:59 hàng ngày
               </div>
             </li>
-            <li><a href="index.html?utm_source=landing">Đặt hàng online · オー더</a></li>
+            <li><a href="index.html?utm_source=landing">Đặt hàng online · オーダー</a></li>
             <li>
               <a href="#" id="contact-toggle" role="button" aria-expanded="false" aria-controls="contact-details">Liên hệ · お問い合わせ</a>
               <div id="contact-details" style="max-height:0; overflow:hidden; transition:max-height 0.3s ease, margin-top 0.3s ease; font-size:0.76rem; color:var(--text-muted); margin-top:0px;">
