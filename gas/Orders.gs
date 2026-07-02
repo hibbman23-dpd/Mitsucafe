@@ -59,14 +59,58 @@ function validateOrderPayload(p) {
     p.metadata.notes = notes;
   }
 
+  // Giá luôn tính lại server-side từ MENU + promo đang active — KHÔNG bao giờ tin
+  // it.price/it.promo_price/p.total từ client (DevTools sửa payload = mua giá 1đ).
+  var promoInfo = _getPromoInfoInternal();
   var subtotal = 0;
   p.items.forEach(function (it) {
-    if (!it.sku || !it.qty || !it.price) {
-      throw new Error('item must have sku, qty, price');
+    if (!it.sku || !it.qty) {
+      throw new Error('item must have sku, qty');
     }
-    var unit = it.on_promo && it.promo_price ? it.promo_price : it.price;
-    subtotal += unit * it.qty;
+    var qty = parseInt(it.qty, 10);
+    if (!(qty > 0)) throw new Error('item qty must be a positive number');
+
+    var menuItem = getMenuItemBySku(it.sku);
+    if (!menuItem) throw new Error('Món không tồn tại hoặc đã ngừng bán: ' + it.sku);
+
+    var mods = it.modifiers || {};
+    var unit = (mods.size === 'L' && menuItem.price_l) ? Number(menuItem.price_l) : Number(menuItem.price_m);
+
+    // Promo toàn quán (PROMO_PERCENT) áp lên giá size TRƯỚC khi cộng topping —
+    // phải khớp từng đồng với client (applyPromoPercent làm tròn price_m/price_l,
+    // topping cộng nguyên giá sau), vì bank_notification gạch nợ khớp theo số tiền.
+    if (promoInfo.active && promoInfo.percent > 0) {
+      unit = Math.round(unit * (1 - promoInfo.percent / 100));
+    }
+
+    // Topping: client chỉ gửi tên (chuỗi "a, b"), giá luôn tra lại theo customizations_json của SKU.
+    if (mods.toppings) {
+      var toppingNames = String(mods.toppings).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      var customizations = menuItem.customizations_json ? _safeJsonParse(menuItem.customizations_json) : null;
+      var validToppings = (customizations && customizations.toppings) || [];
+      toppingNames.forEach(function (name) {
+        var match = validToppings.filter(function (t) { return t.name === name; })[0];
+        if (match) unit += Number(match.price) || 0;
+      });
+    }
+
+    it.qty = qty;
+    it.price = unit; // ghi đè giá client gửi — dùng lại khi in tem/bill/report doanh thu
+    subtotal += unit * qty;
   });
+
+  var total = subtotal;
+  if (useFreeDrink) {
+    // Đổi 1 ly nước (không tính bánh) giá cao nhất trong đơn thành miễn phí — khớp logic client getCartDiscount().
+    var highestDrinkPrice = 0;
+    p.items.forEach(function (it) {
+      var sku = String(it.sku || '').toUpperCase();
+      if (sku.indexOf('BK') !== 0 && it.price > highestDrinkPrice) {
+        highestDrinkPrice = it.price;
+      }
+    });
+    total = Math.max(0, subtotal - highestDrinkPrice);
+  }
 
   return {
     order_id: generateOrderId(),
@@ -84,14 +128,14 @@ function validateOrderPayload(p) {
     idempotency_key: (p.metadata && p.metadata.idempotency_key) || p.idempotency_key || '',
     items: p.items,
     subtotal: subtotal,
-    total: p.total || subtotal,
+    total: total,
     status: 'NEW',
     confirmed_at: null,
     making_at: null,
     ready_at: null,
     delivering_at: null,
     delivered_at: null,
-    payment: p.payment || { method: 'vietqr', total: p.total || subtotal, status: 'PENDING' },
+    payment: { method: (p.payment && p.payment.method) || 'vietqr', total: total, status: 'PENDING' },
     label_printed_at: null,
     invoice_url: null,
     printed_at: null,
