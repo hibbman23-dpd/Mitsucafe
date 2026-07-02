@@ -5,9 +5,10 @@ Ra đời 2026-07-02 vì `clasp push` (v3.3.0) chết ở bước refresh token 
 ("Premature close" — bug fetch/undici), còn clasp v2 không đọc được ~/.clasprc.json
 định dạng v3. Script này dùng thẳng Apps Script API với credentials sẵn có của clasp.
 
-Dùng:  python3 ops/gas_push.py            # push toàn bộ gas/
-Sau đó vẫn phải redeploy: Apps Script editor → Deploy → Manage deployments →
-Edit → Version: New version → Deploy (giữ nguyên URL /exec).
+Dùng:  python3 ops/gas_push.py            # chỉ push code (an toàn, chưa ảnh hưởng prod)
+       python3 ops/gas_push.py --deploy   # push + tạo version mới + trỏ deployment
+                                          # prod (/exec giữ nguyên URL) — LÀ DEPLOY THẬT,
+                                          # tương đương editor → Manage deployments → New version.
 
 Yêu cầu: đã từng `clasp login` (có ~/.clasprc.json) + Apps Script API bật.
 """
@@ -61,6 +62,45 @@ def build_files():
     return files
 
 
+def api(script_id, token, path, method='GET', body=None):
+    req = urllib.request.Request(
+        'https://script.googleapis.com/v1/projects/%s%s' % (script_id, path),
+        data=json.dumps(body).encode() if body is not None else None, method=method,
+        headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+    try:
+        return json.load(urllib.request.urlopen(req, timeout=60))
+    except urllib.error.HTTPError as e:
+        die('%s %s fail HTTP %s: %s' % (method, path, e.code, e.read()[:400]))
+
+
+# Deployment prod /exec mà web (order.js) + KDS + poller đang gọi — chỉ update deployment
+# này, không đụng @HEAD hay deployment cũ.
+PROD_DEPLOYMENT_URL_KEY = 'AKfycbynDqbg'
+
+
+def deploy(script_id, token):
+    deps = api(script_id, token, '/deployments')
+    target = None
+    for d in deps.get('deployments', []):
+        for e in d.get('entryPoints', []):
+            if e.get('entryPointType') == 'WEB_APP' and PROD_DEPLOYMENT_URL_KEY in e['webApp']['url']:
+                target = d
+    if not target:
+        die('Không tìm thấy deployment prod (URL chứa %s) — redeploy tay trong editor.' % PROD_DEPLOYMENT_URL_KEY)
+    old_ver = target['deploymentConfig'].get('versionNumber')
+    ver = api(script_id, token, '/versions', 'POST',
+              {'description': 'gas_push.py auto-version'})
+    api(script_id, token, '/deployments/' + target['deploymentId'], 'PUT', {
+        'deploymentConfig': {
+            'scriptId': script_id,
+            'versionNumber': ver['versionNumber'],
+            'manifestFileName': 'appsscript',
+            'description': 'v%s via gas_push.py' % ver['versionNumber'],
+        }})
+    print('✅ Deployment prod: v%s → v%s (URL /exec giữ nguyên).' % (old_ver, ver['versionNumber']))
+    print('   Verify: tab ẩn danh mở <GAS_URL>?action=menu → phải trả JSON.')
+
+
 def main():
     clasp_cfg = json.load(open(os.path.join(GAS_DIR, '.clasp.json')))
     script_id = clasp_cfg['scriptId']
@@ -76,7 +116,10 @@ def main():
     except urllib.error.HTTPError as e:
         die('Push fail HTTP %s: %s' % (e.code, e.read()[:400]))
     print('✅ Đã push %d file lên script %s…' % (len(res.get('files', [])), script_id[:12]))
-    print('   Nhớ redeploy: Apps Script editor → Deploy → Manage deployments → Edit → New version.')
+    if '--deploy' in sys.argv:
+        deploy(script_id, token)
+    else:
+        print('   Chưa deploy — chạy `python3 ops/gas_push.py --deploy` hoặc redeploy trong editor.')
 
 
 if __name__ == '__main__':
