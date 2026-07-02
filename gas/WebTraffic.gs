@@ -1,5 +1,13 @@
 /**
  * WebTraffic.gs — kéo GA4 traffic vào tab WEB_TRAFFIC.
+ *
+ * @deprecated (2026-07-02) — GA4 pipeline nghỉ hưu, thay bằng Worker-side hit logging
+ * (src/index.js → doPost action=web_hit → gas/WebHits.gs → rollupWebHits() ghi WEB_TRAFFIC
+ * cùng schema). Xem docs/ga4-to-cloudflare-plan.md. Các hàm dưới đây CHỈ dùng để backfill
+ * lịch sử thủ công khi cần so sánh giai đoạn giao thời — KHÔNG còn chạy tự động
+ * (trigger pullGa4Recent đã xoá, xem removeGa4Trigger()). getWebTraffic() vẫn dùng bình
+ * thường (getRoiData, Marketing.gs) — đọc chung WEB_TRAFFIC bất kể nguồn ghi là GA4 hay hit log.
+ *
  * GA4 chạy bằng quyền Google của script owner (executeAs USER_DEPLOYING) → KHÔNG cần token.
  * Cần CONFIG.GA4_PROPERTY_ID = Property ID dạng SỐ (GA4 Admin → Property Settings),
  * KHÔNG phải measurement id 'G-XXXX'.
@@ -122,7 +130,7 @@ function pullGa4Recent() {
   return pullGa4Traffic(from, to);
 }
 
-/** Cài trigger hằng ngày 6:00 (idempotent — xoá trigger cũ cùng hàm trước). */
+/** Cài trigger hằng ngày 6:00 (idempotent — xoá trigger cũ cùng hàm trước). Chỉ dùng nếu rollback GA4. */
 function installGa4DailyTrigger() {
   var triggers = ScriptApp.getProjectTriggers();
   for (var i = 0; i < triggers.length; i++) {
@@ -130,4 +138,15 @@ function installGa4DailyTrigger() {
   }
   ScriptApp.newTrigger('pullGa4Recent').timeBased().everyDays(1).atHour(6).create();
   Logger.log('Installed daily GA4 trigger @6:00.');
+}
+
+/** Xoá trigger tự động pullGa4Recent (GA4 pipeline nghỉ hưu — xem @deprecated đầu file). Chạy tay 1 lần trong editor. */
+function removeGa4Trigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  triggers.forEach(function (t) {
+    if (t.getHandlerFunction() === 'pullGa4Recent') { ScriptApp.deleteTrigger(t); removed++; }
+  });
+  Logger.log('removeGa4Trigger: removed ' + removed + ' trigger(s).');
+  return { ok: true, removed: removed };
 }

@@ -18,6 +18,22 @@
  */
 
 function doPost(e) {
+  // Web hit logging (Worker src/index.js) — bypass lock HOÀN TOÀN: appendRow thuần,
+  // tần suất cao (mỗi lượt xem trang), KHÔNG được chèn ép hàng đợi lock của đơn hàng.
+  // Xem docs/ga4-to-cloudflare-plan.md + gas/WebHits.gs.
+  try {
+    var earlyRaw = e.postData && e.postData.contents;
+    if (earlyRaw) {
+      var earlyPayload = JSON.parse(earlyRaw);
+      if (earlyPayload && earlyPayload.action === 'web_hit') {
+        if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+        return _jsonResponse(logWebHit(earlyPayload));
+      }
+    }
+  } catch (earlyErr) {
+    // Không phải web_hit hoặc JSON lỗi → rơi xuống luồng bình thường (parse lại + xử lý lỗi ở đó).
+  }
+
   var lock = LockService.getScriptLock();
   try {
     // Chờ tối đa 20 giây để lấy lock cho doPost
