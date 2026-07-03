@@ -235,7 +235,7 @@ function doPost(e) {
   }
 }
 
-function doGet(e) {
+function _doGetInternal(e) {
   var action = e && e.parameter && e.parameter.action;
 
   // Chỉ khóa cho các action ghi (mutation) để tránh tắc nghẽn luồng đọc (menu, pending_print, orders, v.v.)
@@ -923,5 +923,47 @@ function setStorePromo(percent, active, duration, msg) {
   } catch (err) {
     logError('setStorePromo', err);
     return { ok: false, error: String(err) };
+  }
+}
+
+/**
+  * Wrapper cho doGet để tự động thử lại (retry) khi gặp lỗi dịch vụ bảng tính tạm thời (transient Google Sheets service error).
+  * Giúp tránh gãy hệ thống KDS/Web Order khi Google API gặp sự cố gián đoạn dưới 1 giây.
+  */
+function doGet(e) {
+  return _executeWithRetry(function () {
+    return _doGetInternal(e);
+  }, 3, 1000);
+}
+
+/**
+  * Thực thi một hàm với cơ chế thử lại (exponential backoff retry).
+  * Chỉ thử lại với các lỗi liên quan đến Google Sheets API / Service.
+  */
+function _executeWithRetry(fn, maxRetries, delayMs) {
+  var lastError;
+  for (var attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return fn();
+    } catch (err) {
+      lastError = err;
+      var errMsg = String(err);
+      
+      // Nhận diện lỗi dịch vụ bảng tính (Vietnamese + English variants)
+      var isSpreadsheetError = 
+        errMsg.indexOf('Dịch vụ Bảng tính') !== -1 || 
+        errMsg.indexOf('Spreadsheet') !== -1 ||
+        errMsg.indexOf('Service error') !== -1 ||
+        errMsg.indexOf('Action not allowed') !== -1 ||
+        errMsg.indexOf('không thể truy cập') !== -1;
+      
+      if (isSpreadsheetError && attempt < maxRetries) {
+        // Log cảnh báo thử lại để theo dõi trong Apps Script logs
+        Logger.log('Gặp lỗi Spreadsheet Service. Thử lại lần ' + attempt + '/' + maxRetries + ' sau ' + (delayMs * attempt) + 'ms. Lỗi: ' + errMsg);
+        Utilities.sleep(delayMs * attempt);
+        continue;
+      }
+      throw err;
+    }
   }
 }
