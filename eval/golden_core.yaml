@@ -1,0 +1,39 @@
+- id: core-01
+  q: "Một món đồ uống bán được 150 ly trong tháng, mang lại lợi nhuận gộp 75% mỗi ly. Trong khi mức trung bình của quán là 50 ly và 60% lợi nhuận gộp. Theo menu engineering, món này thuộc nhóm nào và hành động là gì?"
+  must_include: ["(star|ngôi sao)", "(giữ nguyên|đẩy mạnh|nổi bật)"]
+  must_not: ["(dog|chú chó|puzzle|plowhorse)"]
+
+- id: core-02
+  q: "Một món đồ uống chỉ bán được 5 ly trong tháng, mang lại lợi nhuận gộp 30% mỗi ly, trong khi trung bình quán là 50 ly và 60% lợi nhuận. Nên làm gì với món này?"
+  must_include: ["(dog|chú chó|loại bỏ|gỡ bỏ|kill|dừng)"]
+  must_not: ["(scale|đẩy mạnh|ngôi sao|star)"]
+
+- id: core-03
+  q: "Khách hàng A đã chi tiêu tổng cộng 5 triệu đồng, mua 25 lần, nhưng lần mua cuối cùng cách đây đã 90 ngày. Khách hàng này thuộc phân khúc RFM nào và chiến dịch đề xuất là gì?"
+  must_include: ["(hibernating|ngủ đông|ngủ)", "(winback|nhớ bạn|voucher|khuyến mãi|kéo lại)"]
+  must_not: ["(champions|tinh hoa|mới|promising)"]
+
+- id: core-04
+  q: "Hệ thống phát hiện một pattern doanh thu sụt giảm vào thứ Ba vừa rồi, nhưng đây mới là tuần đầu tiên thu thập dữ liệu (n=1 đơn hàng, 1 tuần). Có nên đề xuất dừng hoạt động ngày thứ Ba (KILL) không?"
+  must_include: ["(chưa|không) đủ (dữ liệu|mẫu|thông tin)", "(quan sát thêm|tín hiệu sớm)"]
+  must_not: ["nên dừng", "nên kill", "đồng ý dừng"]
+
+- id: core-05
+  q: "Chiến dịch quảng cáo bài viết A tốn 200,000đ. Đơn hàng nhận được có gắn mã utm_campaign khớp bài viết này ghi nhận doanh thu 1,000,000đ, giá vốn nguyên liệu COGS là 400,000đ, không giảm giá. Hãy tính lãi gộp và ROI của bài viết này?"
+  must_include: ["(lãi gộp|lợi nhuận gộp).*(600\\.?000|sáu trăm)", "(roi).*(200%)"]
+  must_not: []
+
+- id: core-06
+  q: "Một đơn hàng được giao dịch từ khách hàng có số điện thoại đăng ký Zalo đã tương tác với bài viết khuyến mãi trên trang Zalo OA 3 ngày trước. Đơn này không chứa mã UTM. Theo quy tắc đối soát, đơn hàng này được ghi công cho bài đăng nào?"
+  must_include: ["(phone-match|số điện thoại|sđt)", "(ghi công|attribution)"]
+  must_not: ["(utm last-click|last click|last-click)"]
+
+- id: core-07
+  q: "Khi khách hàng tích lũy được 10 tem thành viên (stamps), họ nhận được quyền lợi gì và quy trình tiếp theo như thế nào?"
+  must_include: ["(1 ly|đồ uống|nước).*(miễn phí|free)", "(trừ|giảm).*10 tem"]
+  must_not: ["(bánh|pastry)"]
+
+- id: core-08
+  q: "Nếu mạng Internet tại quầy bị mất hoàn toàn trên 5 phút, nhân viên pha chế phải làm gì để tiếp nhận đơn hàng của khách?"
+  must_include: ["(chrome form|form chrome|form offline)", "(ghi tay|giấy a5)"]
+  must_not: ["đợi mạng", "không nhận đơn", "đóng cửa"]

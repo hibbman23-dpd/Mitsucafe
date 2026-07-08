@@ -1,0 +1,14 @@
+{
+  "name": "approve",
+  "main": "src/index.js",
+  "compatibility_date": "2024-03-01",
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "PLACEHOLDER_KV_ID"
+    }
+  ],
+  "triggers": {
+    "crons": ["0 1 * * *"]
+  }
+}

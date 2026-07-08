@@ -1,0 +1,34 @@
+schema_version: "1.0"
+shop:
+  id: "mitsu-lamha"
+  name: "Mitsu Café"
+  location_id: "LH01"
+  closed_days: [] # Danh sách các ngày nghỉ đặc biệt nếu có
+operating_rules:
+  peak_hours: ["07:00-09:00", "15:00-17:00"]
+  low_season: "Mùa mưa (Tháng 5 - Tháng 10)"
+  high_season: "Mùa hồng chín / Vụ hoa"
+data_source:
+  type: "gsheet"
+  sheet_id: "11deYWNXahlbGhBl4AIRqbBSGAVgUYmyJF570hbwrFzc"
+  tabs: ["ORDERS", "WASTE_LOG", "CUSTOMERS", "MENU", "CONFIG"]
+data_mapping:
+  ORDERS:
+    order_id: "order_id"
+    timestamp: "timestamp"
+    location_id: "location_id"
+    items_json: "items_json"
+    total: "total"
+    status: "status"
+  MENU:
+    sku: "sku"
+    name: "name"
+    category: "category"
+    price: "price_m"
+alert:
+  telegram_chat_id: "-1002166549214" # Sẽ đọc từ CONFIG sheet làm fallback nếu rỗng, hoặc điền trực tiếp
+analysis:
+  min_sample_per_pattern: 30
+  quarantine_ttl_days: 14
+ops:
+  worker_url: "https://approve.dpd.workers.dev"
