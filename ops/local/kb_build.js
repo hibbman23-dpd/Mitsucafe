@@ -11,7 +11,7 @@ const LOCAL = path.join(ROOT, 'local');
 const KB_DIR = path.join(ROOT, 'kb');
 
 const OLLAMA_URL = 'http://localhost:11434/api/embed';
-const EMBED_MODEL = 'bge-m3';
+const EMBED_MODEL = 'nomic-embed-text:latest';
 
 // Trích xuất namespace từ frontmatter hoặc đường dẫn thư mục
 function getNamespaceAndSource(filePath) {

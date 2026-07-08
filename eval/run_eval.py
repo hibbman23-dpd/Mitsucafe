@@ -33,7 +33,7 @@ def query_rag(question):
     try:
         # Loại bỏ bộ lọc namespace và tăng k lên 10 để bao quát toàn bộ KB
         res = subprocess.run(
-            ["node", kb_query_path, "--k=10", question],
+            ["node", kb_query_path, "--k=5", question],
             capture_output=True, text=True, check=True
         )
         return json.loads(res.stdout)

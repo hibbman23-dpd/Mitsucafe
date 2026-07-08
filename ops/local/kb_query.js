@@ -10,7 +10,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '../..');
 const LOCAL = path.join(ROOT, 'local');
 const OLLAMA_URL = 'http://localhost:11434/api/embed';
-const EMBED_MODEL = 'bge-m3';
+const EMBED_MODEL = 'nomic-embed-text:latest';
 
 // Tính cosine similarity giữa hai vector
 function cosine(a, b) {
