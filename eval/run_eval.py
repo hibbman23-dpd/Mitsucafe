@@ -27,19 +27,17 @@ def normalize_text(text):
     text = text.lower().strip()
     return text
 
-def query_rag(question):
-    """Gọi kb_query.js lấy context tri thức RAG."""
-    kb_query_path = os.path.join(ROOT, "ops", "local", "kb_query.js")
+def load_all_kb_context():
+    """Đọc trực tiếp tất cả các chunk từ kb-index.json để tránh gọi Ollama embedding model."""
+    kb_index_path = os.path.join(ROOT, "local", "kb-index.json")
     try:
-        # Loại bỏ bộ lọc namespace và tăng k lên 10 để bao quát toàn bộ KB
-        res = subprocess.run(
-            ["node", kb_query_path, "--k=15", question],
-            capture_output=True, text=True, check=True
-        )
-        return json.loads(res.stdout)
+        with open(kb_index_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        chunks = data.get("chunks", [])
+        return "\n\n".join([f"[{c['id']}] {c['text']}" for c in chunks])
     except Exception as e:
-        print(f"[warning] Lỗi khi truy vấn RAG: {e}", file=sys.stderr)
-        return []
+        print(f"[warning] Không thể đọc kb-index.json: {e}", file=sys.stderr)
+        return ""
 
 def call_ollama(prompt):
     """Gọi Ollama model mitsu-insight với temperature=0 để đánh giá."""
@@ -68,16 +66,15 @@ def call_ollama(prompt):
         print(f"[error] Lỗi khi gọi Ollama: {e}", file=sys.stderr)
     return ""
 
-def eval_single_question(item):
+def eval_single_question(item, all_kb_context):
     """Đánh giá một câu hỏi đơn lẻ."""
     qid = item["id"]
     q_text = item["q"]
     must_include = item.get("must_include", [])
     must_not = item.get("must_not", [])
     
-    # 1. Lấy RAG context
-    rag_chunks = query_rag(q_text)
-    context_str = "\n\n".join([f"[{idx+1}] {c['text']}" for idx, c in enumerate(rag_chunks)])
+    # Sử dụng toàn bộ KB làm ngữ cảnh tĩnh để tránh gọi API embedding lặp đi lặp lại
+    context_str = all_kb_context
     
     # Bổ sung dữ liệu thực tế từ CSV cho các câu hỏi động của quán
     if qid.startswith("shop-"):
@@ -210,6 +207,8 @@ def main():
             "must_not": ["chắc chắn", "cam kết"]
         }
     ]
+    # Tải toàn bộ tri thức tĩnh để dùng chung cho tất cả các câu hỏi
+    all_kb_context = load_all_kb_context()
     
     # Chạy kiểm thử từng nhóm
     groups = {
@@ -225,7 +224,7 @@ def main():
         results[group_name] = []
         print(f"\n--- Đang đánh giá nhóm {group_name.upper()} ({len(q_list)} câu) ---")
         for item in q_list:
-            passed, response, reasons = eval_single_question(item)
+            passed, response, reasons = eval_single_question(item, all_kb_context)
             if passed:
                 passed_counts[group_name] += 1
                 status = "PASS"
