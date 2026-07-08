@@ -39,7 +39,7 @@ def tg_send(text, reply_markup=None):
             return json.loads(response.read().decode())
     except Exception as e:
         print(f"[error] tg_send fail: {e}", file=sys.stderr)
-        raise
+        return {}
 
 def ping(job):
     """Dead-man switch — gọi cuối MỌI job. Lỗi ping không được làm chết job."""
