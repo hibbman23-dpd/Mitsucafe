@@ -8,7 +8,14 @@ import json
 import requests
 import subprocess
 import unicodedata
-from common import LOCAL, ROOT, tg_send, quan
+import datetime
+import pandas as pd
+
+# Thiết lập Python path để import từ ops/local/
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(ROOT, "ops", "local"))
+from common import LOCAL, tg_send, quan
+
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 
@@ -24,8 +31,9 @@ def query_rag(question):
     """Gọi kb_query.js lấy context tri thức RAG."""
     kb_query_path = os.path.join(ROOT, "ops", "local", "kb_query.js")
     try:
+        # Loại bỏ bộ lọc namespace và tăng k lên 10 để bao quát toàn bộ KB
         res = subprocess.run(
-            ["node", kb_query_path, "--ns=insight", "--k=4", question],
+            ["node", kb_query_path, "--k=10", question],
             capture_output=True, text=True, check=True
         )
         return json.loads(res.stdout)
@@ -53,7 +61,7 @@ def call_ollama(prompt):
         ]
     }
     try:
-        r = requests.post(OLLAMA_URL, json=payload, timeout=45)
+        r = requests.post(OLLAMA_URL, json=payload, timeout=180)
         if r.status_code == 200:
             return r.json()["message"]["content"]
     except Exception as e:
@@ -71,6 +79,48 @@ def eval_single_question(item):
     rag_chunks = query_rag(q_text)
     context_str = "\n\n".join([f"[{idx+1}] {c['text']}" for idx, c in enumerate(rag_chunks)])
     
+    # Bổ sung dữ liệu thực tế từ CSV cho các câu hỏi động của quán
+    if qid.startswith("shop-"):
+        try:
+            import golden_shop
+            orders, menu, customers = golden_shop.load_data()
+            today = datetime.date.today()
+            yesterday = today - datetime.timedelta(days=1)
+            
+            # Đọc mapping cột
+            q_conf = quan()
+            ts_col = q_conf["data_mapping"]["ORDERS"].get("timestamp", "timestamp")
+            status_col = q_conf["data_mapping"]["ORDERS"].get("status", "status")
+            total_col = q_conf["data_mapping"]["ORDERS"].get("total", "total")
+            
+            orders[ts_col] = pd.to_datetime(orders[ts_col], errors='coerce')
+            df_yest = orders[(orders[ts_col].dt.date == yesterday) & (orders[status_col] != "CANCELLED")]
+            
+            orders_summary = []
+            for _, row in df_yest.iterrows():
+                orders_summary.append(f"- Đơn {row['order_id']}: Tổng tiền {row[total_col]}đ, Trạng thái {row[status_col]}, Món: {row['items_json']}")
+            orders_str = "\n".join(orders_summary) or "Không có đơn hàng nào hôm qua."
+            
+            menu_summary = []
+            for _, row in menu.iterrows():
+                menu_summary.append(f"- SKU: {row['sku']}, Tên: {row['name']}, Phân loại: {row['category']}, Giá: {row['price_m']}đ, Bán: {row['available']}")
+            menu_str = "\n".join(menu_summary) or "Menu trống."
+            
+            cust_count = len(customers)
+            
+            shop_data_context = f"""
+[DỮ LIỆU THỰC TẾ CỦA QUÁN]
+- Ngày hôm qua là: {yesterday.isoformat()}
+- Danh sách đơn hàng hôm qua:
+{orders_str}
+- Danh sách thực đơn (Menu):
+{menu_str}
+- Tổng số khách hàng thành viên: {cust_count} khách hàng
+"""
+            context_str += "\n" + shop_data_context
+        except Exception as e:
+            print(f"[warning] Không thể nạp dữ liệu thực tế cho câu hỏi shop: {e}", file=sys.stderr)
+            
     # 2. Dựng prompt gửi Ollama
     prompt = f"""Bạn chỉ được trả lời dựa trên NGỮ CẢNH dưới đây. Nếu ngữ cảnh không đủ thông tin, hãy trả lời 'chưa đủ dữ liệu'.
 

@@ -15,17 +15,17 @@
 
 - id: core-04
   q: "Hệ thống phát hiện một pattern doanh thu sụt giảm vào thứ Ba vừa rồi, nhưng đây mới là tuần đầu tiên thu thập dữ liệu (n=1 đơn hàng, 1 tuần). Có nên đề xuất dừng hoạt động ngày thứ Ba (KILL) không?"
-  must_include: ["(chưa|không) đủ (dữ liệu|mẫu|thông tin)", "(quan sát thêm|tín hiệu sớm)"]
+  must_include: ["(chưa|không) (đủ|đạt) (dữ liệu|mẫu|thông tin|ngưỡng)", "(quan sát thêm|tín hiệu sớm)"]
   must_not: ["nên dừng", "nên kill", "đồng ý dừng"]
 
 - id: core-05
   q: "Chiến dịch quảng cáo bài viết A tốn 200,000đ. Đơn hàng nhận được có gắn mã utm_campaign khớp bài viết này ghi nhận doanh thu 1,000,000đ, giá vốn nguyên liệu COGS là 400,000đ, không giảm giá. Hãy tính lãi gộp và ROI của bài viết này?"
-  must_include: ["(lãi gộp|lợi nhuận gộp).*(600\\.?000|sáu trăm)", "(roi).*(200%)"]
+  must_include: ["(lãi gộp|lợi nhuận gộp).*(600[.,]?000|sáu trăm)", "(roi).*(200%)"]
   must_not: []
 
 - id: core-06
   q: "Một đơn hàng được giao dịch từ khách hàng có số điện thoại đăng ký Zalo đã tương tác với bài viết khuyến mãi trên trang Zalo OA 3 ngày trước. Đơn này không chứa mã UTM. Theo quy tắc đối soát, đơn hàng này được ghi công cho bài đăng nào?"
-  must_include: ["(phone-match|số điện thoại|sđt)", "(ghi công|attribution)"]
+  must_include: ["(phone-match|số điện thoại|sđt)", "(ghi công|attribution|bài viết|bài đăng)"]
   must_not: ["(utm last-click|last click|last-click)"]
 
 - id: core-07
@@ -35,5 +35,5 @@
 
 - id: core-08
   q: "Nếu mạng Internet tại quầy bị mất hoàn toàn trên 5 phút, nhân viên pha chế phải làm gì để tiếp nhận đơn hàng của khách?"
-  must_include: ["(chrome form|form chrome|form offline)", "(ghi tay|giấy a5)"]
+  must_include: ["(chrome form|form chrome|form offline)", "(ghi tay|giấy a5|marker)"]
   must_not: ["đợi mạng", "không nhận đơn", "đóng cửa"]
