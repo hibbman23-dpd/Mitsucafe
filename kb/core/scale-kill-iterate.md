@@ -22,3 +22,8 @@ Trước khi đưa ra bất kỳ kết luận nào về hoạt động Marketing
 3. **ITERATE (Sửa lại/Cải tiến):**
    - *Áp dụng:* Điều chỉnh nội dung bài đăng, thay đổi hình ảnh thiết kế, chỉnh sửa nhẹ công thức món.
    - *Điều kiện:* Áp dụng khi bài viết có tương tác rất tốt (like/share/save cao) nhưng tỷ lệ chuyển đổi ra đơn kém (do thời tiết bất lợi như mưa Lâm Hà hoặc do giá bán chưa hấp dẫn).
+
+## Định nghĩa chỉ số tài chính
+- **Giá trị đơn hàng trung bình (AOV - Average Order Value):**
+  `AOV = Doanh thu tổng cộng / Số đơn hàng thành công`
+  - *Ý nghĩa:* Dùng để đánh giá mức chi tiêu trung bình của một khách hàng trên một giao dịch thành công tại quán.

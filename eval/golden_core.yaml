@@ -24,16 +24,16 @@
   must_not: []
 
 - id: core-06
-  q: "Một đơn hàng được giao dịch từ khách hàng có số điện thoại đăng ký Zalo đã tương tác với bài viết khuyến mãi trên trang Zalo OA 3 ngày trước. Đơn này không chứa mã UTM. Theo quy tắc đối soát, đơn hàng này được ghi công cho bài đăng nào?"
+  q: "Một đơn hàng được giao dịch từ khách hàng có số điện thoại đăng ký Zalo đã tương tác với bài viết khuyến mãi trên trang Zalo OA 3 ngày trước. Đơn này không chứa mã UTM. Theo phương thức đối soát nào (nêu rõ tên phương thức) và đơn hàng này được ghi công cho bài đăng nào?"
   must_include: ["(phone-match|số điện thoại|sđt)", "(ghi công|attribution|bài viết|bài đăng)"]
   must_not: ["(utm last-click|last click|last-click)"]
 
 - id: core-07
-  q: "Khi khách hàng tích lũy được 10 tem thành viên (stamps), họ nhận được quyền lợi gì và quy trình tiếp theo như thế nào?"
-  must_include: ["(1 ly|đồ uống|nước).*(miễn phí|free)", "(trừ|giảm).*10 tem"]
+  q: "Khi khách hàng tích lũy được 10 tem thành viên (stamps), họ nhận được quyền lợi gì và số lượng tem thay đổi thế nào sau khi nhận quà?"
+  must_include: ["(1 ly|đồ uống|nước).*(miễn phí|free)", "(trừ|giảm).*10 (tem|stamps)"]
   must_not: ["(bánh|pastry)"]
 
 - id: core-08
-  q: "Nếu mạng Internet tại quầy bị mất hoàn toàn trên 5 phút, nhân viên pha chế phải làm gì để tiếp nhận đơn hàng của khách?"
+  q: "Nếu mạng Internet tại quầy bị mất hoàn toàn trên 5 phút, nhân viên sử dụng công cụ offline nào để nhập đơn hàng, và nếu thiết bị tablet cũng hỏng thì phương án dự phòng cuối cùng là gì?"
   must_include: ["(chrome form|form chrome|form offline)", "(ghi tay|giấy a5|marker)"]
   must_not: ["đợi mạng", "không nhận đơn", "đóng cửa"]

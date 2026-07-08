@@ -25,6 +25,8 @@ def normalize_text(text):
         return ""
     text = unicodedata.normalize("NFC", text)
     text = text.lower().strip()
+    # Loại bỏ dấu phân tách hàng nghìn (dấu phẩy, dấu chấm) để so sánh số chính xác
+    text = re.sub(r'(\d)[.,](\d{3})', r'\1\2', text)
     return text
 
 def load_all_kb_context():
