@@ -100,6 +100,10 @@ def eval_single_question(item, all_kb_context):
                 orders_summary.append(f"- Đơn {row['order_id']}: Tổng tiền {row[total_col]}đ, Trạng thái {row[status_col]}, Món: {row['items_json']}")
             orders_str = "\n".join(orders_summary) or "Không có đơn hàng nào hôm qua."
             
+            yest_rev = int(df_yest[total_col].sum())
+            yest_count = len(df_yest)
+            yest_aov = int(yest_rev / yest_count) if yest_count > 0 else 0
+            
             menu_summary = []
             for _, row in menu.iterrows():
                 menu_summary.append(f"- SKU: {row['sku']}, Tên: {row['name']}, Phân loại: {row['category']}, Giá: {row['price_m']}đ, Bán: {row['available']}")
@@ -112,6 +116,7 @@ def eval_single_question(item, all_kb_context):
 - Ngày hôm qua là: {yesterday.isoformat()}
 - Danh sách đơn hàng hôm qua:
 {orders_str}
+- Giá trị đơn hàng trung bình (AOV - Average Order Value) ngày hôm qua: {yest_aov:,}đ (Tổng doanh thu: {yest_rev:,}đ trên {yest_count} đơn hàng thành công)
 - Danh sách thực đơn (Menu):
 {menu_str}
 - Tổng số khách hàng thành viên: {cust_count} khách hàng
