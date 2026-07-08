@@ -83,8 +83,6 @@ def eval_single_question(item, all_kb_context):
         try:
             import golden_shop
             orders, menu, customers = golden_shop.load_data()
-            today = datetime.date.today()
-            yesterday = today - datetime.timedelta(days=1)
             
             # Đọc mapping cột
             q_conf = quan()
@@ -92,7 +90,18 @@ def eval_single_question(item, all_kb_context):
             status_col = q_conf["data_mapping"]["ORDERS"].get("status", "status")
             total_col = q_conf["data_mapping"]["ORDERS"].get("total", "total")
             
-            orders[ts_col] = pd.to_datetime(orders[ts_col], errors='coerce')
+            # Xác định ngày hôm qua dựa trên dữ liệu thực tế lớn nhất trong ORDERS.csv
+            if not orders.empty:
+                orders[ts_col] = pd.to_datetime(orders[ts_col], errors='coerce')
+                max_date = orders[ts_col].dt.date.max()
+                if not pd.isnull(max_date):
+                    yesterday = max_date
+                else:
+                    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+            else:
+                yesterday = datetime.date.today() - datetime.timedelta(days=1)
+            today = yesterday + datetime.timedelta(days=1)
+            
             df_yest = orders[(orders[ts_col].dt.date == yesterday) & (orders[status_col] != "CANCELLED")]
             
             orders_summary = []

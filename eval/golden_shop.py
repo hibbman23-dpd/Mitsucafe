@@ -23,20 +23,29 @@ def get_dynamic_questions():
     orders, menu, customers = load_data()
     q = quan()
     
-    questions = []
-    today = datetime.date.today()
-    yesterday = today - datetime.timedelta(days=1)
-    
     # Chuẩn bị cột
     ts_col = q["data_mapping"]["ORDERS"].get("timestamp", "timestamp")
     status_col = q["data_mapping"]["ORDERS"].get("status", "status")
     total_col = q["data_mapping"]["ORDERS"].get("total", "total")
     
+    # Xác định ngày hôm qua dựa trên dữ liệu thực tế lớn nhất trong ORDERS.csv để tránh lệch múi giờ/qua đêm
+    if not orders.empty:
+        orders[ts_col] = pd.to_datetime(orders[ts_col], errors='coerce')
+        max_date = orders[ts_col].dt.date.max()
+        if not pd.isnull(max_date):
+            yesterday = max_date
+        else:
+            yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    else:
+        yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    today = yesterday + datetime.timedelta(days=1)
+    
+    questions = []
+    
     # 1. Doanh thu hôm qua
     yest_rev = 0
     yest_count = 0
     if not orders.empty:
-        orders[ts_col] = pd.to_datetime(orders[ts_col], errors='coerce')
         df_yest = orders[(orders[ts_col].dt.date == yesterday) & (orders[status_col] != "CANCELLED")]
         yest_rev = int(df_yest[total_col].sum())
         yest_count = len(df_yest)
