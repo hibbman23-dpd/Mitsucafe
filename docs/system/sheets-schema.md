@@ -1,5 +1,5 @@
 # Google Sheets Schema
-> Tách từ CLAUDE.md §3. Index: ../../CLAUDE.md · Đọc khi đụng cột Sheets hoặc CONFIG keys.
+> Split from CLAUDE.md §3. Index: ../../CLAUDE.md · Read when touching Sheets columns or CONFIG keys.
 
 ## Tab: ORDERS (append-only)
 ```
@@ -29,24 +29,24 @@ total_orders | total_spent |
 stamp_count | stamp_total_ever | free_drinks_earned | free_drinks_used |
 notes
 ```
-> `stamp_count` reset về 0 sau mỗi lần đổi free drink.
-> `stamp_total_ever` không bao giờ reset — dùng để tính free_drinks_earned.
-> `stamp_count` chỉ cộng khi category_type = "beverage".
+> `stamp_count` resets to 0 after each free drink redemption.
+> `stamp_total_ever` never resets — used to calculate free_drinks_earned.
+> `stamp_count` increments only when category_type = "beverage".
 
 ## Tab: STAFF
 ```
 staff_id | name | role | pin | active | hourly_rate | shift_start | shift_end
 ```
 
-## Tab: PROMOTIONS (Campaign-based — không phải daily)
+## Tab: PROMOTIONS (campaign-based — not daily)
 ```
 campaign_id | name | type (flash|discount|bogo|happy_hour) |
 discount_value | discount_type (pct|fixed) |
 schedule_type (one_time|weekly|daily) |
 start_date | end_date |
 start_time | end_time |
-days_of_week (Mon,Fri,Sat hoặc * = mọi ngày) |
-target_skus (null = tất cả beverage) |
+days_of_week (Mon,Fri,Sat or * = every day) |
+target_skus (null = all beverages) |
 currently_running | zalo_sent | telegram_sent | slides_updated | is_active
 ```
 
@@ -61,10 +61,10 @@ VIETQR_ACCT_NAME      | xxx
 LOCATION_ID           | LH01
 PROMO_SLIDES_ID       | xxx
 INVOICE_TEMPLATE_ID   | xxx
-LABEL_PRINTER_IP      | 192.168.1.xxx  (IP local của máy in)
+LABEL_PRINTER_IP      | 192.168.1.xxx  (local IP of printer)
 LABEL_PRINTER_PORT    | 9100           (RAW TCP port)
-LABEL_PRINTER_MODEL   | POS-58L        (POS-58L hoặc XP-365B)
-PRINT_SERVER_PORT     | 5000           (Port Flask server trên Mac Mini)
+LABEL_PRINTER_MODEL   | POS-58L        (POS-58L or XP-365B)
+PRINT_SERVER_PORT     | 5000           (Flask server port on Mac Mini)
 STAMP_PER_CUP         | 1
 STAMPS_FOR_FREE       | 10
 STORE_NAME            | Mitsu Café     (tên in trên hoá đơn — đổi nếu còn "Kaeru Kàphê")

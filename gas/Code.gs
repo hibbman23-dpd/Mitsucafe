@@ -359,6 +359,12 @@ function _doGetInternal(e) {
       return _jsonResponse({ ok: true, order_id: orderId, payment_status: 'PAID' });
     }
 
+    if (action === 'payment_heartbeat') {
+      // Nhịp tim từ điện thoại báo ngân hàng (MacroDroid) — yêu cầu token
+      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+      return _jsonResponse(recordPaymentHeartbeat());
+    }
+
     if (action === 'pending_print') {
       // Mac Mini poller lấy đơn cần in receipt (DELIVERED + printed_at empty) — yêu cầu token
       if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });

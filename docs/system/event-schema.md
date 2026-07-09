@@ -1,5 +1,5 @@
 # Event Schema (Canonical v1.1)
-> Tách từ CLAUDE.md §2. Index: ../../CLAUDE.md · Đọc khi sửa doPost / validateOrderPayload / payload webhook.
+> Split from CLAUDE.md §2. Index: ../../CLAUDE.md · Read when editing doPost / validateOrderPayload / webhook payload.
 
 ```json
 {
