@@ -46,12 +46,12 @@ Gốc rễ:  Script gắn GCP project chuẩn (bật cho GBP/Analytics 2026-06-2
          ẩn danh ăn trang 403 HTML (không phải lỗi code / deployment).
 Detect:  ops/local/gas_health.py (launchd 15 phút) báo Telegram; hoặc
          curl '<GAS_URL>?action=ping' → HTML 403 thay vì JSON = dính.
-Fix NGAY (5 phút, tài khoản mitsucafe83):
+Fix NGAY (5 phút, tài khoản Google chủ script):
   1. script.google.com → mở project Kissaten → Run 1 hàm bất kỳ → màn hình consent
      hiện ra → cấp lại quyền. KHÔNG cần redeploy (URL /exec giữ nguyên).
   2. Verify: curl '?action=ping' trả JSON {"ok":true,...}.
 Fix TRIỆT ĐỂ (1 lần, hết tái phát):
-  console.cloud.google.com (mitsucafe83) → chọn đúng GCP project đang gắn với
+  console.cloud.google.com (tài khoản chủ script) → chọn đúng GCP project đang gắn với
   Apps Script (Project Settings trong editor cho biết) → APIs & Services →
   OAuth consent screen → nếu chỉ dùng trong Google Workspace thì chọn audience Internal;
   nếu external thì đổi Publishing status "Testing" → PUBLISH APP ("In production").

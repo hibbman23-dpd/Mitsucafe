@@ -8,7 +8,7 @@ request ẩn danh (KDS, đặt hàng online, poller in tem, signage) ăn trang 4
 Chết kiểu này IM LẶNG — KDS chỉ treo "Đang tải đơn hàng...". Script này phát hiện
 trong ≤15 phút thay vì đợi nhân viên phát hiện ở quầy.
 
-Cách fix khi báo đỏ (việc tay của chủ, tài khoản mitsucafe83):
+Cách fix khi báo đỏ (việc tay của chủ, tài khoản Google chủ script):
   1. Mở script.google.com → project Kissaten → Run 1 hàm bất kỳ → cấp lại quyền.
   2. Hết tái phát: console.cloud.google.com → APIs & Services → OAuth consent screen
      → Publishing status: "Testing" → PUBLISH APP ("In production").
@@ -38,7 +38,7 @@ STATE_PATH = os.path.join(LOCAL, "data", "gas_health_state.json")
 REALERT_SECONDS = 6 * 3600  # vẫn chết → nhắc lại mỗi 6h
 
 FIX_STEPS = (
-    "🛠 Fix (tài khoản mitsucafe83):\n"
+    "🛠 Fix (tài khoản Google chủ script):\n"
     "1. script.google.com → mở project → Run 1 hàm → cấp lại quyền\n"
     "2. Hết tái phát: Cloud Console → OAuth consent screen → PUBLISH APP (In production)\n"
     "3. Verify: curl '?action=ping' phải trả JSON"
