@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.mitsu.gas-health</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+        <string>/Users/dpd/Projects/lamha-kissaten/ops/local/gas_health.py</string>
+    </array>
+    <key>WorkingDirectory</key><string>/Users/dpd/Projects/lamha-kissaten</string>
+    <key>StartInterval</key><integer>900</integer>
+    <key>RunAtLoad</key><true/>
+    <key>StandardOutPath</key><string>/tmp/gas_health.log</string>
+    <key>StandardErrorPath</key><string>/tmp/gas_health.log</string>
+</dict>
+</plist>

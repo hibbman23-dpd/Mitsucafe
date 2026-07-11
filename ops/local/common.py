@@ -3,10 +3,21 @@
 import csv
 import json
 import os
+import ssl
 import sys
 import urllib.request
 import urllib.parse
 import yaml
+
+sys.dont_write_bytecode = True
+
+def ssl_ctx():
+    """Framework Python trên macOS thiếu CA bundle → certifi (giống print_poller._ssl_ctx)."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LOCAL = os.path.join(ROOT, "local")
@@ -35,7 +46,7 @@ def tg_send(text, reply_markup=None):
         f"https://api.telegram.org/bot{token}/sendMessage",
         json.dumps(body).encode(), {"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=20) as response:
+        with urllib.request.urlopen(req, timeout=20, context=ssl_ctx()) as response:
             return json.loads(response.read().decode())
     except Exception as e:
         print(f"[error] tg_send fail: {e}", file=sys.stderr)
@@ -46,7 +57,7 @@ def ping(job):
     try:
         q = quan()
         url = f"{q['ops']['worker_url']}/ping?job={job}&shop={q['shop']['id']}&key={config_value('OPS_WORKER_KEY')}"
-        with urllib.request.urlopen(url, timeout=10) as response:
+        with urllib.request.urlopen(url, timeout=10, context=ssl_ctx()) as response:
             return response.read()
     except Exception as e:
         print(f"[warn] ping fail: {e}", file=sys.stderr)

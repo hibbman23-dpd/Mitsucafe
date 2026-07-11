@@ -1,5 +1,5 @@
 /*
- * kb_build.js — Dựng RAG index cục bộ cho Mitsu Café (embeddings Ollama bge-m3).
+ * kb_build.js — Dựng RAG index cục bộ cho Mitsu Café (embeddings Ollama nomic-embed-text).
  * Nguồn kiến thức: kb/core/*.md, kb/core/sop/*.md, kb/shop/*.md, local/memory/confirmed_patterns.jsonl.
  * Output: local/kb-index.json {built_at, model, dim, chunks:[{id,text,ns,source,vector}]}.
  */

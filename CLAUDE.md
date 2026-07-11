@@ -37,7 +37,7 @@ Docs khác: `docs/architecture.md` (kiến trúc chi tiết) · `docs/agent-map.
 [Google Sheets — DATABASE]
    ORDERS | MENU | INVENTORY | CUSTOMERS | STAFF | PROMOTIONS | CONFIG
    ↓
-[Output] Xprinter POS-58L/XP-365B (tem khi CONFIRMED) · Telegram (alert chủ)
+[Output] Xprinter POS-58L/XP-365B (tem được Mac Mini poller in ngay khi đơn NEW) · Telegram (alert chủ)
          Zalo OA (status+stamp+invoice) · KDS tab · Bill nhiệt/PDF (khi DELIVERED)
 ```
 
@@ -59,8 +59,8 @@ Transitions hợp lệ: NEW→CONFIRMED · CONFIRMED→MAKING · MAKING→READY
                     READY→DELIVERED · READY→DELIVERING · DELIVERING→DELIVERED
 
 Side effects theo state:
-NEW        → sendTelegramAlert()                  (alert chủ quán ngay)
-CONFIRMED  → printOrderLabels()                   ← IN TEM DÁN LY
+NEW        → sendTelegramAlert() + enqueue label  (Mac Mini poller in tem ngay)
+CONFIRMED  → xác nhận đơn (tem đã được in trước khi pha)
 MAKING     → sendZaloNotify("Đang pha chế ☕")
 READY      → sendZaloNotify("Xong rồi! Mời ra lấy 🔔")
 DELIVERING → sendZaloNotify("Shipper en route 🛵")

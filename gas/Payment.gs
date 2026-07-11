@@ -58,14 +58,16 @@ function handleBankNotification(payload) {
   Logger.log('handleBankNotification: Matched order ' + matched.orderId + ' at row ' + matched.rowIndex);
 
   // Đánh dấu đơn đã thanh toán (markOrderPaid in Orders.gs)
-  markOrderPaid(matched.orderId);
+  var payResult = markOrderPaid(matched.orderId);
 
-  // Gửi thông báo Telegram
-  try {
-    var displayCode = matched.shortCode ? '#' + matched.shortCode : matched.orderId.slice(-4);
-    sendTelegramAlert('✅ [Tự động] Đơn ' + displayCode + ' (' + matched.orderId + ') đã tự động thanh toán qua Vietcombank (' + parsed.amount.toLocaleString() + 'đ).');
-  } catch (tgErr) {
-    logError('handleBankNotification.telegram', tgErr);
+  // Gửi thông báo Telegram nếu chưa thanh toán trước đó
+  if (payResult && !payResult.already_paid) {
+    try {
+      var displayCode = matched.shortCode ? '#' + matched.shortCode : matched.orderId.slice(-4);
+      sendTelegramAlert('✅ [Tự động] Đơn ' + displayCode + ' (' + matched.orderId + ') đã tự động thanh toán qua Vietcombank (' + parsed.amount.toLocaleString() + 'đ).');
+    } catch (tgErr) {
+      logError('handleBankNotification.telegram', tgErr);
+    }
   }
 
   return _jsonResponse({

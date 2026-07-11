@@ -385,15 +385,19 @@ function _rowToOrder(row) {
 
 /**
  * Đánh dấu đơn đã thanh toán. Gọi từ KDS khi nhân viên xác nhận.
- * Set payment_status=PAID + status=DELIVERED + in hóa đơn nhiệt.
+ * Set payment_status=PAID và chạy side effect đúng một lần.
  * Bypass transition validation vì KDS có thể thanh toán từ bất kỳ state nào.
+ * Hàm phải idempotent: browser/poller có thể retry sau khi timeout, không được
+ * cộng tem, tăng doanh thu hay in bill lần thứ hai.
  * @param {string} orderId
  */
 function markOrderPaid(orderId) {
   var row = _findOrderRow(orderId);
   if (!row) throw new Error('Order not found: ' + orderId);
+  if (String(row.data[19] || '').toUpperCase() === 'PAID') {
+    return { payment_status: 'PAID', already_paid: true };
+  }
   var sheet = _ordersSheet();
-  var now = new Date().toISOString();
   sheet.getRange(row.rowIndex, 20).setValue('PAID');       // payment_status col
   // Keep the current cooking status unchanged (so kitchen still sees it).
   // Only update payment_status to PAID. Receipt will print because of the PAID status.
@@ -421,7 +425,7 @@ function markOrderPaid(orderId) {
     logError('markOrderPaid.financials', fErr);
   }
 
-  return 'PAID';
+  return { payment_status: 'PAID', already_paid: false };
 }
 
 /**

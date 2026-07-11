@@ -463,16 +463,6 @@ function _resolveReportToken() {
 }
 const REPORT_TOKEN = _resolveReportToken();
 const TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
-// Device approval: mỗi thiết bị 1 id (localStorage). Thiết bị mới phải được Mac Mini/Dashboard duyệt.
-function _mitsuDeviceId() {
-  try {
-    let id = localStorage.getItem('mitsu_device_id');
-    if (!id) { id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'dev-' + Date.now() + '-' + Math.random().toString(36).slice(2); localStorage.setItem('mitsu_device_id', id); }
-    return id;
-  } catch (e) { return 'dev-nostore'; }
-}
-const DEVICE_ID = _mitsuDeviceId();
-const DQ = '&device_id=' + encodeURIComponent(DEVICE_ID);
 
 // ─── MENU CONSTANTS ──────────────────────────────────────────────────────────
 const CAT_EMOJI = {
@@ -515,6 +505,8 @@ let pendingOpts  = {
 };
 let orderMode    = 'dine_in';
 let selectedTable = '';
+// Snapshot đơn nội bộ để lần thử lại không tạo idempotency key mới sau timeout.
+let pendingStaffSubmit = null;
 
 let selectedDuration = '60'; // Default 1 hour
 let selectedPercent = '5'; // Default tier
@@ -707,7 +699,7 @@ async function activatePromo() {
   btn.textContent = 'Đang kích hoạt...';
   
   try {
-    const url = `${GAS_URL}?action=set_promo&active=true&percent=${selectedPercent}&duration=${selectedDuration}&message=${encodeURIComponent(msg)}${TQ}${DQ}`;
+    const url = `${GAS_URL}?action=set_promo&active=true&percent=${selectedPercent}&duration=${selectedDuration}&message=${encodeURIComponent(msg)}${TQ}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.ok) {
@@ -730,7 +722,7 @@ async function deactivatePromo() {
   btn.textContent = 'Đang tắt...';
   
   try {
-    const url = `${GAS_URL}?action=set_promo&active=false${TQ}${DQ}`;
+    const url = `${GAS_URL}?action=set_promo&active=false${TQ}`;
     const res = await fetch(url);
     const data = await res.json();
     if (data.ok) {
@@ -830,41 +822,81 @@ function renderOrders() {
   }).join('');
 }
 
-async function loadOrders() {
-  try {
-    const res  = await fetch(`${GAS_URL}?action=orders${TQ}${DQ}`);
-    const data = await res.json();
-    if (data.ok) {
-      // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc, trừ lần load đầu.
-      const fresh = data.orders.filter(o => !seenOrderIds.has(o.order_id));
-      data.orders.forEach(o => seenOrderIds.add(o.order_id));
-      if (!firstLoad && fresh.length) {
-        playNewOrderChime();
-        speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
-      }
-      firstLoad = false;
+// Lỗi tải đơn: hiện lý do + cách xử lý ngay trên board thay vì treo "Đang tải đơn hàng...".
+// Chỉ thay list khi board còn trống — lỗi thoáng qua không được xoá đơn đang hiển thị.
+function showOrdersError(title, detail) {
+  document.getElementById('refresh-time').textContent = '⚠️ ' + title;
+  if (allOrders.length) return;
+  document.getElementById('orders-list').innerHTML =
+    `<div class="empty-state"><div class="icon">⚠️</div><strong>${esc(title)}</strong><br><br>` +
+    `<span style="font-size:.82rem;line-height:1.6">${esc(detail)}</span><br><br>` +
+    `<span style="font-size:.74rem;color:var(--dim)">Tự thử lại sau ${POLL_MS / 1000} giây.</span></div>`;
+}
 
-      allOrders = data.orders;
-      renderOrders();
-      const now = new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-      document.getElementById('refresh-time').textContent = 'Cập nhật: ' + now;
-    }
-  } catch(_) {
-    document.getElementById('refresh-time').textContent = '⚠️ Mất kết nối';
+const GAS_BLOCKED_MSG =
+  'Ủy quyền của chủ script hết hạn. Chủ quán: đăng nhập mitsucafe83 → mở Apps Script → Run 1 hàm → cấp lại quyền. ' +
+  'Hết tái phát: Cloud Console → OAuth consent screen → Publish app ("In production"). Xem docs/system/offline-failover.md.';
+
+async function loadOrders() {
+  let res;
+  try {
+    res = await fetch(`${GAS_URL}?action=orders${TQ}`);
+  } catch (_) {
+    // fetch ném lỗi = mất mạng HOẶC Google chặn (trang 403 của Google không có header CORS
+    // nên browser cũng ném TypeError). Phân biệt: probe 1 asset cùng origin — mạng sống mà
+    // GAS fail → GAS bị chặn, không phải WiFi.
+    let onlineOk = false;
+    try {
+      const p = await fetch('favicon-32.png?ping=' + Date.now(), { cache: 'no-store' });
+      onlineOk = p.ok;
+    } catch (_) {}
+    if (onlineOk) showOrdersError('Google chặn API (GAS)', GAS_BLOCKED_MSG);
+    else showOrdersError('Mất kết nối mạng', 'Kiểm tra WiFi/4G của thiết bị này.');
+    return;
   }
+  let data;
+  try {
+    data = JSON.parse(await res.text());
+  } catch (_) {
+    // GAS trả HTML thay vì JSON (trang chặn của Google) → hỏng phía server, KHÔNG phải mất mạng.
+    showOrdersError('Google chặn API (HTTP ' + res.status + ')', GAS_BLOCKED_MSG);
+    return;
+  }
+  if (!data.ok) {
+    const msg = data.error === 'unauthorized'
+      ? 'Thiếu/sai token API — mở KDS qua đúng địa chỉ mitsu-ops (token tự tiêm), hoặc thêm ?token=... vào URL.'
+      : 'Server báo lỗi: ' + (data.error || 'không rõ');
+    showOrdersError('Không tải được đơn', msg);
+    return;
+  }
+  // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc, trừ lần load đầu.
+  const fresh = data.orders.filter(o => !seenOrderIds.has(o.order_id));
+  data.orders.forEach(o => seenOrderIds.add(o.order_id));
+  if (!firstLoad && fresh.length) {
+    playNewOrderChime();
+    speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
+  }
+  firstLoad = false;
+
+  allOrders = data.orders;
+  renderOrders();
+  const now = new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('refresh-time').textContent = 'Cập nhật: ' + now;
 }
 
 async function markPaid(orderId, total, shortCode, btn) {
-  btn.classList.add('loading'); btn.textContent = 'Đang lưu...';
+  btn.classList.add('loading'); btn.disabled = true; btn.textContent = 'Đang lưu...';
   try {
-    await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}${DQ}`);
+    const res  = await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}`);
+    const data = await res.json(); // GAS trả HTML (bị chặn) → throw → không được báo "đã thanh toán" láo
+    if (!data.ok) throw new Error(data.error || 'server_error');
     const o = allOrders.find(x => x.order_id === orderId);
     if (o) o.payment_status = 'PAID';
     renderOrders();
-    speak(`Nhận tiền ${fmtSpeak(total)} đồng, đơn số ${shortCode || orderId}`);
-  } catch(_) {
-    btn.classList.remove('loading'); btn.textContent = '💳 Đã thanh toán';
-    alert('Lỗi kết nối — thử lại.');
+    if (!data.already_paid) speak(`Nhận tiền ${fmtSpeak(total)} đồng, đơn số ${shortCode || orderId}`);
+  } catch(err) {
+    btn.classList.remove('loading'); btn.disabled = false; btn.textContent = '💳 Đã thanh toán';
+    alert('CHƯA ghi nhận thanh toán được (' + ((err && err.message) || 'mất kết nối') + ') — sổ sách KHÔNG có đơn này, bấm lại.');
   }
 }
 
@@ -878,7 +910,7 @@ async function updateStatus(orderId, newStatus, btn) {
   const oldText = btn.textContent;
   btn.textContent = 'Đang lưu...';
   try {
-    const res = await fetch(`${GAS_URL}?action=update_status&order_id=${encodeURIComponent(orderId)}&status=${newStatus}${TQ}${DQ}`);
+    const res = await fetch(`${GAS_URL}?action=update_status&order_id=${encodeURIComponent(orderId)}&status=${newStatus}${TQ}`);
     const data = await res.json();
     if (data.ok) {
       const o = allOrders.find(x => x.order_id === orderId);
@@ -1126,6 +1158,7 @@ function resetStaffCart() {
   staffCart = [];
   selectedTable = '';
   orderMode = 'dine_in';
+  pendingStaffSubmit = null;
   document.getElementById('staff-phone').value = '';
   document.getElementById('staff-notes').value  = '';
   document.getElementById('submit-success').classList.add('hidden');
@@ -1201,67 +1234,64 @@ async function submitStaffOrder() {
   const btn = document.getElementById('btn-submit-order');
   btn.disabled = true; btn.textContent = 'Đang gửi...';
 
-  const phone = document.getElementById('staff-phone').value.trim().replace(/\D/g,'');
-  const notes = document.getElementById('staff-notes').value.trim();
-  const normPhone = phone ? (phone.startsWith('0') ? phone : '0'+phone) : '0000000000';
-  const tbl = orderMode === 'dine_in' && selectedTable ? `TABLE_${selectedTable}` : null;
-  const shortCode = genStaffCode();
-
-  const total = cartTotal();
-  const payload = {
-    channel: 'staff', utm_source: 'kds',
-    table_id: tbl,
-    customer_id: normPhone,
-    items: staffCart.map(ci => ({
-      sku: ci.sku, name: ci.name, qty: ci.qty, price: ci.price,
-      modifiers: ci.modifiers || {},
-    })),
-    total,
-    payment: { method: 'cash', total, status: 'PENDING' },
-    metadata: {
-      delivery_type: orderMode,
-      business_line: 'kissaten',
-      category_type: 'beverage',
-      notes,
-      short_code: shortCode,
-    },
-  };
+  if (!pendingStaffSubmit) {
+    const phone = document.getElementById('staff-phone').value.trim().replace(/\D/g,'');
+    const notes = document.getElementById('staff-notes').value.trim();
+    const normPhone = phone ? (phone.startsWith('0') ? phone : '0'+phone) : '0000000000';
+    const tbl = orderMode === 'dine_in' && selectedTable ? `TABLE_${selectedTable}` : null;
+    const shortCode = genStaffCode();
+    const total = cartTotal();
+    pendingStaffSubmit = {
+      shortCode,
+      total,
+      selectedTable,
+      tableId: tbl,
+      payload: {
+        channel: 'staff', utm_source: 'kds',
+        table_id: tbl,
+        customer_id: normPhone,
+        items: staffCart.map(ci => ({
+          sku: ci.sku, name: ci.name, qty: ci.qty, price: ci.price,
+          modifiers: ci.modifiers || {},
+        })),
+        total,
+        payment: { method: 'cash', total, status: 'PENDING' },
+        metadata: {
+          delivery_type: orderMode,
+          business_line: 'kissaten',
+          category_type: 'beverage',
+          notes,
+          short_code: shortCode,
+          idempotency_key: 'kds-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        },
+      },
+    };
+  }
+  const { payload, shortCode, total, tableId, selectedTable: submittedTable } = pendingStaffSubmit;
 
   try {
-    await fetch(GAS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify(payload) });
+    // CORS thường (giống order.js) — PHẢI đọc được response để biết đơn vào sổ thật.
+    // no-cors cũ = mù kết quả → GAS chết vẫn hiện "Đơn đã gửi!" (mất đơn im lặng).
+    const res  = await fetch(GAS_URL, { method:'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'server_error');
+    pendingStaffSubmit = null;
+    btn.disabled = false; btn.textContent = 'Đặt đơn';
     document.getElementById('order-form').classList.add('hidden');
     document.getElementById('submit-success').classList.remove('hidden');
+    // short_code hiển thị = mã SERVER cấp (server ghi đè mã client) — trước đây hiện mã local sai.
     document.getElementById('submit-success-msg').textContent =
-      `Mã đơn: ${shortCode}${tbl ? '  ·  Bàn ' + selectedTable : ''}  ·  ${fmt(total)}`;
-  } catch(_) {
+      `Mã đơn: ${data.short_code || shortCode}${tableId ? '  ·  Bàn ' + submittedTable : ''}  ·  ${fmt(total)}`;
+    loadOrders();
+  } catch(err) {
     btn.disabled = false;
     btn.textContent = 'Đặt đơn';
-    alert('Lỗi kết nối — thử lại.');
+    alert('Đơn CHƯA gửi được (' + ((err && err.message) || 'mất kết nối') + ') — giỏ hàng vẫn giữ nguyên, thử lại.');
   }
 }
-
-// ─── DEVICE GATE ─────────────────────────────────────────────────────────────
-function _showDeviceGate(statusText) {
-  let el = document.getElementById('device-gate');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'device-gate';
-    el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0d1117;color:#e6edf3;display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;text-align:center;padding:24px';
-    document.body.appendChild(el);
-  }
-  el.innerHTML = '<div style="max-width:440px">'
-    + '<div style="font-size:48px">🔒</div>'
-    + '<h2 style="margin:12px 0 6px">Thiết bị chưa được cấp quyền</h2>'
-    + '<p style="color:#8b949e;line-height:1.5">' + statusText + '</p>'
-    + '<div style="margin:16px 0;padding:12px;background:#161b22;border:1px solid #30363d;border-radius:10px;font-family:monospace;font-size:12px;word-break:break-all">' + DEVICE_ID + '</div>'
-    + '<p style="color:#8b949e;font-size:13px">Duyệt ở Dashboard → tab “Thiết bị”, hoặc Mac Mini duyệt bằng REPORT_API_TOKEN.</p>'
-    + '</div>';
-}
-function _hideDeviceGate() { const el = document.getElementById('device-gate'); if (el) el.remove(); }
 
 function startKDS() {
   if (window.__kdsStarted) return; window.__kdsStarted = true;
-  _hideDeviceGate();
   if (!window.speechSynthesis) document.getElementById('tts-banner').classList.add('hidden');
   renderTableGrid();
   loadPromoStatus();
@@ -1269,24 +1299,7 @@ function startKDS() {
   setInterval(loadOrders, POLL_MS);
 }
 
-async function deviceGate() {
-  try {
-    const r = await fetch(`${GAS_URL}?action=device_check${DQ}`).then(x => x.json());
-    if (r && r.status === 'approved') { startKDS(); return; }
-    if (!r || r.status === 'unknown') {
-      await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'device_register', device_id: DEVICE_ID, label: 'KDS', user_agent: navigator.userAgent }) });
-    }
-    _showDeviceGate('Đang chờ cấp quyền cho thiết bị này. Màn hình tự mở khi được duyệt.');
-    setTimeout(deviceGate, 5000);
-  } catch (e) {
-    _showDeviceGate('Lỗi kết nối máy chủ — đang thử lại…');
-    setTimeout(deviceGate, 6000);
-  }
-}
-
 // ─── INIT ────────────────────────────────────────────────────────────────────
-// Device-approval đã tắt (gate ở tầng Cloudflare/Worker). Chạy KDS thẳng.
 startKDS();
 </script>
 </body>

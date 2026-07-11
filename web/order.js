@@ -81,7 +81,9 @@ let lastOrder    = { shortCode: '', total: 0, delivery: 'pickup' };
 let submitting   = false;
 // Idempotency: giữ key + short_code ổn định qua các lần retry (mạng yếu) để GAS không tạo đơn trùng.
 // Sinh 1 lần cho mỗi lần đặt; xoá khi đặt thành công hoặc khi vào lại checkout mới.
-let pendingSubmit = null;     // { idempotencyKey, shortCode }
+// Giữ nguyên payload của lần gửi đầu tiên cho tới khi server xác nhận. Nếu request
+// timeout sau khi GAS đã ghi đơn, lần thử lại phải gửi đúng cùng đơn + cùng key.
+let pendingSubmit = null;     // { idempotencyKey, shortCode, payload, display }
 let deliveryMode = 'pickup';  // 'pickup' | 'delivery'
 let paymentMethod = 'bank_transfer'; // 'bank_transfer' | 'cash'
 
@@ -2292,37 +2294,42 @@ async function submitOrder() {
     localStorage.setItem('lhk_user', JSON.stringify({ name, phone: normPhone }));
   }
 
-  const total = cartTotal();
-  const items = cart.map(ci => ({
-    sku: ci.sku, name: ci.name, qty: ci.qty, price: ci.price,
-    modifiers: ci.modifiers || {},
-  }));
-
-  const utmSource = sessionStorage.getItem('lhk_utm') || 'web_static';
-  const deliveryType = isDelivery ? 'delivery' : (tbl ? 'dine_in' : 'pickup');
-  // Sinh idempotency key + short_code 1 lần; lần retry sau lỗi mạng dùng lại cùng giá trị → GAS dedup.
-  if (!pendingSubmit) pendingSubmit = { idempotencyKey: genUUID(), shortCode: genShortCode() };
-  const shortCode = pendingSubmit.shortCode;
-  const idempotencyKey = pendingSubmit.idempotencyKey;
-
-  const payload = {
-    channel: 'web', utm_source: utmSource,
-    table_id: isDelivery ? null : tbl,
-    customer_name: name || null,
-    customer_id: normPhone || null,
-    items, total,
-    payment: { method: paymentMethod, total, status: 'PENDING' },
-    metadata: {
-      delivery_type: deliveryType,
-      business_line: 'kissaten',
-      category_type: 'beverage',
-      notes,
-      short_code: shortCode,
-      idempotency_key: idempotencyKey,
-      use_free_drink: checkoutFormState.useFreeDrink,
-      ...(isDelivery && { delivery_address: address }),
-    },
-  };
+  // Snapshot đơn ở lần bấm đầu. Sau lỗi không rõ kết quả (timeout/CORS), người dùng
+  // có thể sửa form nhưng nút thử lại vẫn chỉ được phép retry chính đơn ban đầu.
+  if (!pendingSubmit) {
+    const total = cartTotal();
+    const items = cart.map(ci => ({
+      sku: ci.sku, name: ci.name, qty: ci.qty, price: ci.price,
+      modifiers: ci.modifiers || {},
+    }));
+    const shortCode = genShortCode();
+    const idempotencyKey = genUUID();
+    const deliveryType = isDelivery ? 'delivery' : (tbl ? 'dine_in' : 'pickup');
+    pendingSubmit = {
+      idempotencyKey,
+      shortCode,
+      payload: {
+        channel: 'web', utm_source: sessionStorage.getItem('lhk_utm') || 'web_static',
+        table_id: isDelivery ? null : tbl,
+        customer_name: name || null,
+        customer_id: normPhone || null,
+        items, total,
+        payment: { method: paymentMethod, total, status: 'PENDING' },
+        metadata: {
+          delivery_type: deliveryType,
+          business_line: 'kissaten',
+          category_type: 'beverage',
+          notes,
+          short_code: shortCode,
+          idempotency_key: idempotencyKey,
+          use_free_drink: checkoutFormState.useFreeDrink,
+          ...(isDelivery && { delivery_address: address }),
+        },
+      },
+      display: { total, deliveryType, tableId: isDelivery ? null : tbl, paymentMethod, name, normPhone, rawAddress, itemsSummary: items.map(ci => `${ci.name} (x${ci.qty})`).join(', ') },
+    };
+  }
+  const { payload, shortCode, display } = pendingSubmit;
 
   // UI: loading
   submitting = true;
@@ -2337,10 +2344,11 @@ async function submitOrder() {
     
     // Parse response
     const data = await res.json();
-    if (data.ok && data.order_id) {
-      const isDelivery = deliveryMode === 'delivery';
-      const deliveryType = isDelivery ? 'delivery' : (tbl ? 'dine_in' : 'pickup');
-      const itemsSummary = cart.map(ci => `${ci.name} (x${ci.qty})`).join(', ');
+    if (!data.ok || !data.order_id) {
+      throw new Error(data.error || 'server_error');
+    }
+    {
+      const isDelivery = display.deliveryType === 'delivery';
 
       const activeOrders = loadActiveOrders();
       // Nếu server dedup (retry trùng key) đơn đã có local → không push trùng.
@@ -2348,13 +2356,13 @@ async function submitOrder() {
         activeOrders.push({
           order_id: data.order_id,
           short_code: data.short_code || shortCode,
-          total: total,
-          delivery_type: deliveryType,
-          table_id: isDelivery ? null : tbl,
-          payment_method: paymentMethod,
+          total: display.total,
+          delivery_type: display.deliveryType,
+          table_id: display.tableId,
+          payment_method: display.paymentMethod,
           status: 'NEW',
           payment_status: 'PENDING',
-          items_summary: itemsSummary,
+          items_summary: display.itemsSummary,
           added_at: Date.now(),
           completed_at: null
         });
@@ -2363,8 +2371,8 @@ async function submitOrder() {
       // Đặt thành công → xoá pendingSubmit để đơn kế tiếp có key/short_code mới.
       pendingSubmit = null;
       // Lưu để lần sau điền nhanh — SĐT và địa chỉ riêng (khách có thể đặt giùm)
-      saveRecentContact(name, normPhone);
-      if (isDelivery && rawAddress) saveRecentAddress(rawAddress);
+      saveRecentContact(display.name, display.normPhone);
+      if (isDelivery && display.rawAddress) saveRecentAddress(display.rawAddress);
       // Xin quyền thông báo ngay sau khi đặt đơn (vẫn còn user gesture) → notify/rung khi READY mới chạy
       requestNotificationPermission();
     }
@@ -2374,9 +2382,9 @@ async function submitOrder() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        customer_phone: normPhone,
-        customer_name: name || 'Khách Quen',
-        items: cart.map(ci => `${ci.name} (${ci.qty})`).join(', ')
+        customer_phone: display.normPhone,
+        customer_name: display.name || 'Khách Quen',
+        items: display.itemsSummary
       })
     }).catch(err => console.log('Không kết nối được Camera AI local:', err));
 
@@ -2389,7 +2397,7 @@ async function submitOrder() {
 
   } catch (err) {
     submitting = false;
-    if (btn) { btn.textContent = `Gửi đơn — ${fmt(total)}`; btn.disabled = false; }
+    if (btn) { btn.textContent = `Gửi đơn — ${fmt(display.total)}`; btn.disabled = false; }
     showErr(errEl, 'Mất kết nối — kiểm tra mạng và thử lại.');
   }
 }

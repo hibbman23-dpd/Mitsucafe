@@ -108,3 +108,20 @@ test('_getMondaysDateString aggregates dates to correct ISO Monday start', (t) =
     assert.strictEqual(actual, expected, `Failed for date: ${input}`);
   }
 });
+
+test('markOrderPaid is idempotent and skips all side effects for an already paid order', () => {
+  let writes = 0;
+  let stamps = 0;
+  let receipts = 0;
+  let metrics = 0;
+
+  global._findOrderRow = () => ({ rowIndex: 2, data: ['ORD-20260711-1000', '', '', '', '', '', '', '', '', '', '', 45000, 'NEW', '', '', '', '', '', 'cash', 'PAID'] });
+  global._ordersSheet = () => ({ getRange: () => ({ setValue: () => { writes++; } }) });
+  global._creditStampsForOrder = () => { stamps++; };
+  global.printThermalReceipt = () => { receipts++; };
+  global.computeDailyMetrics = () => { metrics++; };
+
+  const result = global.markOrderPaid('ORD-20260711-1000');
+  assert.deepStrictEqual(result, { payment_status: 'PAID', already_paid: true });
+  assert.deepStrictEqual({ writes, stamps, receipts, metrics }, { writes: 0, stamps: 0, receipts: 0, metrics: 0 });
+});
