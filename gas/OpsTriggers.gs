@@ -50,11 +50,16 @@ function cronCloseChecklistReminder() {
   try {
     var today = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
     var formUrl = ScriptApp.getService().getUrl();
+    // CHỈ dùng token quyền thấp cho link gửi vào group. Tuyệt đối không fallback
+    // sang REPORT_API_TOKEN (master) — group chat không được thấy master token.
+    var token = getConfig('STAFF_FORM_TOKEN') || '';
+    var linkSuffix = token ? '&token=' + token : '';
+    var tokenWarn = token ? '' : '\n⚠️ CONFIG thiếu STAFF_FORM_TOKEN — link form sẽ bị từ chối. Set key này trong CONFIG sheet.';
 
     sendTelegramAlert(
       '🌙 <b>NHẮC ĐÓNG QUÁN</b>\n' +
       '<i>21:30 - ' + today + '</i>\n\n' +
-      '☐ <b>Ghi hao hụt cuối ngày</b> — <code>/huy</code> hoặc biểu mẫu: ' + formUrl + '?action=waste_form\n' +
+      '☐ <b>Ghi hao hụt cuối ngày</b> — <code>/huy</code> hoặc biểu mẫu: ' + formUrl + '?action=waste_form' + linkSuffix + '\n' +
       '☐ <b>Đối soát két tiền</b> — <code>/chot-ca close</code>\n' +
       '☐ Máy pha cà phê: súc rửa bằng hoá chất\n' +
       '☐ Kiểm tra hạn tủ mát — dán nhãn mẻ đã mở\n' +
@@ -62,7 +67,7 @@ function cronCloseChecklistReminder() {
       '☐ Đổ rác + khử khuẩn nhà vệ sinh\n' +
       '☐ Tắt máy + đèn (giữ Wi-Fi)\n' +
       '☐ Khóa cửa + biển "ĐÓNG CỬA"\n\n' +
-      '<i>Nếu có sự cố/đánh giá xấu → gõ /handover hoặc /sang sáng mai.</i>'
+      '<i>Nếu có sự cố/đánh giá xấu → gõ /handover hoặc /sang sáng mai.</i>' + tokenWarn
     );
 
     // Đồng thời chạy cronWasteLogReminder (nếu user chưa nhập waste, send thêm urgent prompt)
