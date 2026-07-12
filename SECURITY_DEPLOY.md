@@ -21,6 +21,8 @@ Tạo 1 chuỗi ngẫu nhiên mạnh (vd `openssl rand -hex 24`). Gọi là `<TO
 
 ### Bước 1 — Set token bên Google Apps Script (CONFIG sheet)
 - Mở CONFIG sheet → thêm/sửa key **`REPORT_API_TOKEN`** = `<TOKEN>`.
+- Thêm/sửa key **`STAFF_FORM_TOKEN`** = `<STAFF_TOKEN>` (token riêng cho nhân viên ghi nhận hao hụt/đánh giá).
+- Thêm/sửa key **`BANK_WEBHOOK_SECRET`** = `<BANK_SECRET>` (mã bảo mật webhook ngân hàng).
 - (Tuỳ chọn migration) set **`ALLOW_OPEN_API`** = `true` tạm thời nếu cần giữ endpoint mở trong lúc cập nhật client. **XOÁ ngay sau khi xong.**
 
 ### Bước 2 — Deploy GAS
@@ -77,7 +79,7 @@ Hash giờ có **salt + 1200 vòng SHA-256**; hash cũ tự nâng cấp ngay l�
 Route `bank_notification` (MacroDroid → GAS, gạch nợ tự động) hỗ trợ **shared secret**:
 - CONFIG sheet → thêm key **`BANK_WEBHOOK_SECRET`** = 1 chuỗi ngẫu nhiên (vd `openssl rand -hex 16`).
 - MacroDroid: thêm field `"secret":"<chuỗi đó>"` vào JSON body POST.
-- Nếu **chưa** set CONFIG → endpoint vẫn mở (tương thích ngược). Set CONFIG → **fail-closed**: sai/thiếu secret trả `unauthorized`.
+- Nếu **chưa** set CONFIG → endpoint vẫn mở (tương thích ngược — tránh giết auto-reconcile im lặng khi chưa kịp cấu hình MacroDroid). Set CONFIG → **fail-closed**: sai/thiếu secret trả `unauthorized`. **TODO: set `BANK_WEBHOOK_SECRET` + field `secret` bên MacroDroid sớm, rồi gỡ back-compat trong `_authorize` (gas/Code.gs).**
 - Code: [`gas/Code.gs`](gas/Code.gs) route `bank_notification` (so `payload.secret` với CONFIG).
 
 ---
@@ -86,11 +88,11 @@ Route `bank_notification` (MacroDroid → GAS, gạch nợ tự động) hỗ tr
 
 | File | Thay đổi |
 |------|----------|
-| `gas/Code.gs` | `_requireTokenIfSet` fail-closed; bọc token `orders`/`mark_paid`/`set_promo`/`pending_*`/`mark_*`/`setup_financials`/`send_daily_report`/`compute_cogs`; `customer_info` lọc `zalo_id`+`notes`; **device-gate** cho orders/set_promo + dashboard data + admin writes; route `device_*` |
-| `gas/CameraAI.gs` | Token/secret bằng `Utilities.getUuid()`; **password salt + 1200-vòng SHA-256** + auto-migrate hash cũ |
-| `gas/Devices.gs` | **MỚI** — DEVICES sheet + register/check/list/approve/revoke/label |
-| `web/kds.html` | Gửi `&token=`+`&device_id=`; **cổng chờ duyệt thiết bị** |
-| `web/dashboard.html` | `device_id` vào mọi request; **màn pending + self-approve**; **tab 📱 Thiết bị** |
+| `gas/Code.gs` | **Route Registry & Auth Middleware**: Chuyển đổi toàn bộ bộ định tuyến sang registry cấu hình tập trung. Tự động kiểm soát quyền truy cập và token. Ẩn hoàn toàn trường tên thật (`name`) và thông tin liên kết (`zalo_id`, `notes`) ở API tích điểm `customer_info` để bảo vệ thông tin PII khách hàng. |
+| `gas/CameraAI.gs` | Token/secret bằng `Utilities.getUuid()`; **password salt + 1200-vòng SHA-256** + auto-migrate hash cũ. Ngăn chặn sử dụng mật khẩu mặc định `"123456"`. |
+| `gas/Devices.gs` | **ĐÃ GỠ** — Cơ chế duyệt thiết bị cũ đã bị xoá bỏ và thay thế hoàn toàn bởi Cloudflare Access. |
+| `web/kds.html` | Gửi `&token=`+`&device_id=`. |
+| `web/dashboard.html` | `device_id` vào mọi request; **màn login**. |
 | `web/{dashboard,kds,camera}.html` | `<meta robots noindex>` |
 | `web/robots.txt` | Disallow 3 trang control + Sitemap → workers.dev |
 | `wrangler.jsonc` | `main` + assets `binding`+`run_worker_first` |
