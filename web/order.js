@@ -2377,16 +2377,18 @@ async function submitOrder() {
       requestNotificationPermission();
     }
 
-    // Tích hợp lưu đặc điểm khách hàng quen qua camera AI nội bộ
-    fetch('http://localhost:5000/api/associate_order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        customer_phone: display.normPhone,
-        customer_name: display.name || 'Khách Quen',
-        items: display.itemsSummary
-      })
-    }).catch(err => console.log('Không kết nối được Camera AI local:', err));
+    // Tích hợp lưu đặc điểm khách hàng quen qua camera AI nội bộ — chỉ máy quầy
+    if (isPosDevice()) {
+      fetch('http://localhost:5000/api/associate_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_phone: display.normPhone,
+          customer_name: display.name || 'Khách Quen',
+          items: display.itemsSummary
+        })
+      }).catch(err => console.log('Không kết nối được Camera AI local:', err));
+    }
 
     clearCart();
     
@@ -3089,8 +3091,19 @@ function init() {
     setTimeout(() => openCartSheet(), 150);
   }
   
-  // Khởi chạy vòng lặp kiểm tra khách quen từ Camera AI (3 giây/lần)
-  customerPollTimer = setInterval(pollActiveCustomer, 3000);
+  // Khởi chạy vòng lặp kiểm tra khách quen từ Camera AI (3 giây/lần) — chỉ máy quầy
+  if (isPosDevice()) customerPollTimer = setInterval(pollActiveCustomer, 3000);
+}
+
+// Cờ thiết bị quầy (POS): camera AI chỉ chạy trên máy quầy, không chạy trên máy khách.
+// Bật 1 lần: mở trang với ?pos=1 (lưu localStorage). Tắt: ?pos=0.
+function isPosDevice() {
+  try {
+    const p = new URLSearchParams(location.search).get('pos');
+    if (p === '1') localStorage.setItem('lhk_pos', '1');
+    if (p === '0') localStorage.removeItem('lhk_pos');
+    return localStorage.getItem('lhk_pos') === '1';
+  } catch (_) { return false; }
 }
 
 // ─── CAMERA AI INTEGRATION (ACTIVE CUSTOMER POLLING) ──────────────────────────
