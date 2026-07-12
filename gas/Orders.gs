@@ -45,9 +45,10 @@ function validateOrderPayload(p) {
       throw new Error('Cần có số điện thoại để đổi ly nước miễn phí.');
     }
     var info = getCustomerInfo(customerId);
-    var available = info.free_drinks_earned - info.free_drinks_used;
+    var reserved = getPendingReservedFreeDrinks(customerId);
+    var available = info.free_drinks_earned - info.free_drinks_used - reserved;
     if (available <= 0) {
-      throw new Error('Tài khoản của bạn hiện tại không có ly nước miễn phí nào khả dụng.');
+      throw new Error('Tài khoản của bạn hiện tại không có ly nước miễn phí nào khả dụng (đã dùng hết hoặc đang chờ đối soát thanh toán đơn trước).');
     }
   }
 
@@ -198,9 +199,26 @@ function findOrderIdByIdempotencyKey(key) {
 }
 
 function generateOrderId() {
+  var sheet = _ordersSheet();
   var dateStr = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
-  var rand = Math.floor(1000 + Math.random() * 9000);
-  return 'ORD-' + dateStr + '-' + rand;
+  
+  var existingIds = {};
+  var data = getLastRows(sheet, 500);
+  for (var i = 0; i < data.length; i++) {
+    if (data[i] && data[i].length > 0) {
+      existingIds[String(data[i][0])] = true;
+    }
+  }
+
+  var orderId;
+  var attempts = 0;
+  do {
+    var rand = Math.floor(1000 + Math.random() * 9000);
+    orderId = 'ORD-' + dateStr + '-' + rand;
+    attempts++;
+  } while (existingIds[orderId] && attempts < 100);
+
+  return orderId;
 }
 
 /**
@@ -506,6 +524,43 @@ function getTodayOrders() {
   }
   orders.reverse();
   return orders;
+}
+
+/**
+ * Đếm số lượng ly nước miễn phí đang ở trạng thái "chờ" (đơn hàng UNPAID và không bị CANCELLED).
+ * Giúp ngăn chặn race condition double-spend khi đặt nhiều đơn cùng lúc.
+ */
+function getPendingReservedFreeDrinks(customerId) {
+  var sheet = _ordersSheet();
+  var data = getLastRows(sheet, 200);
+  if (data.length === 0) return 0;
+  
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var idxId = headers.indexOf('customer_id');
+  var idxStatus = headers.indexOf('status');
+  var idxPayStatus = headers.indexOf('payment_status');
+  var idxMeta = headers.indexOf('metadata');
+  
+  var count = 0;
+  var normPhone = normalizeCustomerId(customerId);
+  
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var custPhone = normalizeCustomerId(row[idxId]);
+    if (custPhone === normPhone) {
+      var status = row[idxStatus];
+      var payStatus = row[idxPayStatus];
+      if (status !== 'CANCELLED' && payStatus !== 'PAID') {
+        var metaStr = row[idxMeta] || '{}';
+        var meta = {};
+        try { meta = JSON.parse(metaStr); } catch(e) {}
+        if (meta && meta.use_free_drink === true) {
+          count++;
+        }
+      }
+    }
+  }
+  return count;
 }
 
 function getCustomerInfo(phone) {

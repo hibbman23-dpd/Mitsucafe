@@ -38,13 +38,13 @@ function handleBankNotification(payload) {
   Logger.log('handleBankNotification: Bank = ' + bank + ', Text = ' + text);
 
   if (bank.toLowerCase() !== 'vietcombank') {
-    return _jsonResponse({ ok: false, error: 'Unsupported bank: ' + bank });
+    return { ok: false, error: 'Unsupported bank: ' + bank };
   }
 
   var parsed = parseVcbNotificationText(text);
   if (!parsed) {
     Logger.log('handleBankNotification: Not a deposit transaction or parsing failed.');
-    return _jsonResponse({ ok: false, error: 'Not a deposit or unable to parse' });
+    return { ok: false, error: 'Not a deposit or unable to parse' };
   }
 
   Logger.log('handleBankNotification: Parsed Amount = ' + parsed.amount + ', Content = ' + parsed.content);
@@ -52,7 +52,7 @@ function handleBankNotification(payload) {
   var matched = findOrderForReconciliation(parsed);
   if (!matched) {
     Logger.log('handleBankNotification: No matching pending order found.');
-    return _jsonResponse({ ok: false, error: 'No matching order found' });
+    return { ok: false, error: 'No matching order found' };
   }
 
   Logger.log('handleBankNotification: Matched order ' + matched.orderId + ' at row ' + matched.rowIndex);
@@ -70,13 +70,7 @@ function handleBankNotification(payload) {
     }
   }
 
-  return _jsonResponse({
-    ok: true,
-    matched: true,
-    order_id: matched.orderId,
-    amount: parsed.amount,
-    content: parsed.content
-  });
+  return { ok: true, matched: true, order_id: matched.orderId, amount: parsed.amount, content: parsed.content };
 }
 
 /**
@@ -152,27 +146,51 @@ function findOrderForReconciliation(parsed) {
 
 /**
  * Kiểm tra xem short_code có xuất hiện trong nội dung chuyển khoản hay không.
- * Hỗ trợ so khớp khi người dùng nhập thiếu số 0 ở đầu (ví dụ: short_code "007" nhưng khách chuyển "ck 7").
+ * - Đối với mã có chữ cái đầu (ví dụ: Q07, M05): Tạo regex khớp chính xác chữ cái + số chạy (cho phép có hoặc không có số 0 dẫn đầu như Q7/Q07), không cho phép theo sau bởi chữ số khác (ví dụ: Q070) và không khớp nhầm số đơn thuần (ví dụ: "chuyển 7 ly").
+ * - Đối với mã thuần số (ví dụ: 007): So khớp số nguyên độc lập (ranh giới ký tự phi số).
  */
 function isShortCodeInDescription(shortCode, description) {
   if (!shortCode || !description) return false;
-  var descClean = description.toUpperCase();
+  var descClean = String(description).toUpperCase();
   var scClean = String(shortCode).toUpperCase();
 
-  // 1. Khớp theo ranh giới ký tự đặc biệt/khoảng trắng với mã gốc (ví dụ: "007")
-  // Điều này tránh trường hợp "007" khớp nhầm với "9007" hoặc "0070"
-  var regexRaw = new RegExp('(?:^|[^a-zA-Z0-9])' + _escapeRegExp(scClean) + '(?:$|[^a-zA-Z0-9])');
-  if (regexRaw.test(descClean)) return true;
+  // 1. Trường hợp mã ngắn chỉ có số (ví dụ: "007")
+  var isNumeric = /^\d+$/.test(scClean);
+  if (isNumeric) {
+    var numStr = parseInt(scClean, 10).toString();
+    // Đảm bảo khớp nguyên số độc lập, không phải là một phần của số lớn hơn
+    var regex = new RegExp('(?:^|[^0-9])0*' + numStr + '(?![0-9])');
+    return regex.test(descClean);
+  }
 
-  // 2. Khớp số nguyên nếu mã gốc có số (ví dụ: short_code gốc là "007", scNum là "7" độc lập)
-  var scNum = parseInt(shortCode, 10);
-  if (!isNaN(scNum)) {
-    var scNumStr = String(scNum);
-    var regexNum = new RegExp('(?:^|[^0-9])' + scNumStr + '(?:$|[^0-9])');
-    if (regexNum.test(descClean)) {
+  // 2. Trường hợp mã ngắn dạng chữ-số (ví dụ: "Q07", "M05", "G12")
+  var match = scClean.match(/^([A-Z])0*(\d+)$/);
+  if (!match) return false;
+  var letter = match[1];
+  var numStr = match[2];
+
+  // Pattern 1: Khớp mã đầy đủ có số 0 (ví dụ: "Q07", "CKQ07", "CK Q07")
+  // Yêu cầu chữ cái đứng trước, có ít nhất một số 0 đứng giữa, và không bị dính chữ cái khác ở bên trái (trừ CK/ND/LHK)
+  var regexWithZero = new RegExp('(?:^|[^A-Z0-9])(?:CK|ND|CKND|LHK)?\\s*' + letter + '\\s*0+' + numStr + '(?![0-9])');
+  if (regexWithZero.test(descClean)) {
+    return true;
+  }
+
+  // Pattern 2: Khớp mã không có số 0 (ví dụ: "Q7", "CKQ7", "CK Q7")
+  // Để tránh trùng với các từ phổ thông như "G7" (cà phê G7), chỉ cho phép khớp không số 0 nếu có tiền tố CK/ND/LHK
+  var regexWithoutZero = new RegExp('(?:^|[^A-Z0-9])(?:CK|ND|CKND|LHK)\\s*' + letter + '\\s*' + numStr + '(?![0-9])');
+  if (regexWithoutZero.test(descClean)) {
+    return true;
+  }
+
+  // Đối với các chữ cái không nhạy cảm như Q và M, nếu không có tiền tố chuyển khoản nhưng đứng độc lập vẫn có thể chấp nhận
+  if (letter === 'Q' || letter === 'M') {
+    var regexStandalone = new RegExp('(?:^|[^A-Z0-9])' + letter + '\\s*' + numStr + '(?![0-9])');
+    if (regexStandalone.test(descClean)) {
       return true;
     }
   }
+
   return false;
 }
 
