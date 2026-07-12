@@ -204,7 +204,7 @@ function generateOrderId() {
   
   var existingIds = {};
   var data = getLastRows(sheet, 500);
-  for (var i = 0; i < data.length; i++) {
+  for (var i = 1; i < data.length; i++) { // i=1: getLastRows unshift header ở data[0]
     if (data[i] && data[i].length > 0) {
       existingIds[String(data[i][0])] = true;
     }
@@ -543,8 +543,8 @@ function getPendingReservedFreeDrinks(customerId) {
   
   var count = 0;
   var normPhone = normalizeCustomerId(customerId);
-  
-  for (var i = 0; i < data.length; i++) {
+
+  for (var i = 1; i < data.length; i++) { // i=1: getLastRows unshift header ở data[0]
     var row = data[i];
     var custPhone = normalizeCustomerId(row[idxId]);
     if (custPhone === normPhone) {
