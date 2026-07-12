@@ -77,6 +77,15 @@ export default {
     // Toàn bộ worker này là trang nội bộ → noindex + CSP cho tất cả.
     res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
     res.headers.set('Content-Security-Policy', CONTROL_CSP);
+    // Riêng signage: dashboard (cùng origin) nhúng iframe preview → cho phép
+    // frame cùng origin. Mọi path khác giữ DENY / 'none'.
+    if (url.pathname === '/signage' || url.pathname === '/signage.html') {
+      res.headers.set('X-Frame-Options', 'SAMEORIGIN');
+      res.headers.set(
+        'Content-Security-Policy',
+        CONTROL_CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+      );
+    }
     return res;
   },
 };
