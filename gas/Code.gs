@@ -17,10 +17,584 @@
  *   GET  /?action=roi_data&from=YYYY-MM-DD&to=YYYY-MM-DD → Data cho Agent ROI (ORDERS+PROMOTIONS+MARKETING_LOG+MENU costs)
  */
 
+var AUTH = {
+  PUBLIC: 'public',
+  REPORT: 'report',
+  STAFF: 'staff',
+  ADMIN: 'admin',
+  BANK: 'bank',
+  NONE: 'none'
+};
+
+function _authorize(authClass, e, payload) {
+  if (authClass === AUTH.PUBLIC || authClass === AUTH.NONE) {
+    return true;
+  }
+  if (authClass === AUTH.BANK) {
+    var secret = (payload && payload.secret) || (e && e.parameter && e.parameter.secret) || '';
+    var _bws = getConfig('BANK_WEBHOOK_SECRET');
+    // Chưa set CONFIG.BANK_WEBHOOK_SECRET → cho qua (tương thích ngược, khớp hành vi
+    // live trước restructure). Set CONFIG + field "secret" bên MacroDroid để bật
+    // fail-closed — xem SECURITY_DEPLOY.md. TODO: gỡ back-compat sau khi secret set.
+    if (!_bws) return true;
+    return String(secret) === String(_bws);
+  }
+  if (authClass === AUTH.STAFF) {
+    return _requireStaffToken(e || { parameter: { token: payload && payload.token } });
+  }
+  if (authClass === AUTH.REPORT) {
+    return _requireTokenIfSet(e || { parameter: { token: payload && payload.token } });
+  }
+  if (authClass === AUTH.ADMIN) {
+    var token = (payload && payload.token) || (e && e.parameter && e.parameter.token) || '';
+    return validateSessionToken(token);
+  }
+  return false;
+}
+
+var GET_ROUTES = {
+  'ping': {
+    auth: AUTH.PUBLIC,
+    handler: function(e) {
+      return { ok: true, message: 'pong' };
+    }
+  },
+  'menu': {
+    auth: AUTH.PUBLIC,
+    handler: function(e) {
+      var menu = getActiveMenu().map(function (item) {
+        return {
+          sku: item.sku,
+          name: item.name,
+          name_jp: item.name_jp || '',
+          category: item.category,
+          subcategory: item.subcategory || '',
+          role: item.role || '',
+          price_m: item.price_m,
+          price_l: item.price_l || null,
+          on_promo: !!item.on_promo,
+          promo_price: item.promo_price || null,
+          customizations: item.customizations_json ? _safeJsonParse(item.customizations_json) : {},
+          allergens: item.allergens ? _safeJsonParse(item.allergens) : [],
+          image_url: item.image_url || '',
+          sort_order: item.sort_order || 999,
+          story_telling: item.story_telling || '',
+        };
+      });
+      var promo = _getPromoInfoInternal();
+      return { ok: true, count: menu.length, items: menu, promo: promo };
+    }
+  },
+  'promo_info': {
+    auth: AUTH.PUBLIC,
+    handler: function(e) {
+      return { ok: true, promo: _getPromoInfoInternal() };
+    }
+  },
+  'signage_config': {
+    auth: AUTH.PUBLIC,
+    handler: function(e) {
+      return getSignageConfig();
+    }
+  },
+  'customer_info': {
+    auth: AUTH.PUBLIC,
+    handler: function(e) {
+      var phone = e.parameter.phone;
+      if (!phone) return { ok: false, error: 'phone required' };
+      var info = getCustomerInfo(phone);
+      return { ok: true, customer: toPublicLoyaltyView(info) };
+    }
+  },
+  'order_status': {
+    auth: AUTH.PUBLIC,
+    handler: function(e) {
+      var orderId = e.parameter.order_id;
+      if (!orderId) return { ok: false, error: 'order_id required' };
+      var row = _findOrderRow(orderId);
+      if (!row) return { ok: false, error: 'not found' };
+      var order = _rowToOrder(row.data);
+      return { 
+        ok: true, 
+        order_id: orderId, 
+        status: order.status, 
+        delivery_type: order.delivery_type,
+        short_code: order.short_code,
+        total: order.total,
+        payment_method: order.payment_method,
+        payment_status: order.payment_status
+      };
+    }
+  },
+  'active_orders': {
+    auth: AUTH.PUBLIC,
+    handler: function(e) {
+      var allOrders = getTodayOrders();
+      var nowTime = new Date().getTime();
+      var filtered = allOrders.filter(function(o) {
+        if (['NEW', 'CONFIRMED', 'MAKING', 'READY'].indexOf(o.status) !== -1) {
+          return true;
+        }
+        if (o.status === 'DELIVERED' && o.delivered_at) {
+          try {
+            var delTime = new Date(o.delivered_at).getTime();
+            if (nowTime - delTime <= 45000) {
+              return true;
+            }
+          } catch(err) {}
+        }
+        return false;
+      }).map(function(o) {
+        return {
+          order_id:       o.order_id,
+          status:         o.status,
+          delivery_type:  o.delivery_type,
+          short_code:     o.short_code,
+          payment_status: o.payment_status,
+          table_id:       o.table_id,
+          delivered_at:   o.delivered_at,
+          making_at:      o.making_at,
+          delivering_at:  o.delivering_at
+        };
+      });
+      return { ok: true, orders: filtered };
+    }
+  },
+  'orders': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: true, orders: getTodayOrders() };
+    }
+  },
+  'update_status': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var orderId = e.parameter.order_id;
+      var newStatus = e.parameter.status;
+      if (!orderId || !newStatus) return { ok: false, error: 'missing params' };
+      updateOrderStatus(orderId, newStatus);
+      return { ok: true, order_id: orderId, status: newStatus };
+    }
+  },
+  'mark_paid': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var orderId = e.parameter.order_id;
+      if (!orderId) return { ok: false, error: 'order_id required' };
+      var paymentResult = markOrderPaid(orderId);
+      return { ok: true, order_id: orderId, payment_status: paymentResult.payment_status, already_paid: paymentResult.already_paid };
+    }
+  },
+  'pending_print': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: true, orders: _getPendingPrintOrders() };
+    }
+  },
+  'mark_printed': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var orderId = e.parameter.order_id;
+      if (!orderId) return { ok: false, error: 'order_id required' };
+      updateField(orderId, 'printed_at', new Date().toISOString());
+      return { ok: true, order_id: orderId };
+    }
+  },
+  'pending_labels': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: true, orders: _getPendingLabelOrders() };
+    }
+  },
+  'mark_labels_printed': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var orderId = e.parameter.order_id;
+      if (!orderId) return { ok: false, error: 'order_id required' };
+      updateField(orderId, 'label_printed_at', new Date().toISOString());
+      return { ok: true, order_id: orderId };
+    }
+  },
+  'get_camera_events': {
+    auth: AUTH.ADMIN,
+    handler: function(e) {
+      var limit = e.parameter.limit;
+      return getCameraEvents(e.parameter.token, limit);
+    }
+  },
+  'setup_financials': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var res = setupExpenseForm();
+      createFinancialDashboard();
+      return { ok: true, message: 'Financial system initialized.', form_url: res.formUrl, edit_url: res.editUrl };
+    }
+  },
+  'compute_cogs': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var date = e.parameter.date || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      return { ok: true, metrics: computeDailyMetrics(date) };
+    }
+  },
+  'roi_data': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var roiTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var roiFrom = e.parameter.from || Utilities.formatDate(new Date(Date.now() - 28 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      return { ok: true, data: getRoiData(roiFrom, roiTo) };
+    }
+  },
+  'mmm_data': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var mmmTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var mmmFrom = e.parameter.from || Utilities.formatDate(new Date(Date.now() - 365 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      return { ok: true, data: getMmmData(mmmFrom, mmmTo) };
+    }
+  },
+  'inventory_snapshot': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: true, inventory: _adminReadSheet('INVENTORY') };
+    }
+  },
+  'link_social_id': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return linkCustomerSocialId(e.parameter.phone, {
+        fb_psid: e.parameter.fb_psid || null,
+        ig_igsid: e.parameter.ig_igsid || null,
+        zalo_id: e.parameter.zalo_id || null
+      });
+    }
+  },
+  'get_decisions_due': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: true, decisions: getDecisionsDue() };
+    }
+  },
+  'record_decision_result': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var okRec = recordDecisionResult(
+        e.parameter.decision_id, e.parameter.actual_result, e.parameter.hit_or_miss);
+      return { ok: okRec };
+    }
+  },
+  'meta_pull': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var mTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var mFrom = e.parameter.from || Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      return pullMetaAll(mFrom, mTo);
+    }
+  },
+  'meta_health': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return checkMetaTokenHealth();
+    }
+  },
+  'gbp_pull': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var gbTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      var gbFrom = e.parameter.from || Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      return { ok: true, days: pullGbpDaily(gbFrom, gbTo) };
+    }
+  },
+  'zalo_pull': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: pullZaloDailyFollowers() };
+    }
+  },
+  'tiktok_pull': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: true, videos: pullTiktokViaFirecrawl() };
+    }
+  },
+  'daily_rollup': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var drDate = e.parameter.date || '';
+      var rollup = (e.parameter.record === 'true') ? recordDailyRollup(drDate) : getDailyRollup(drDate);
+      return { ok: true, rollup: rollup };
+    }
+  },
+  'menu_snapshot': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return snapshotMenuFromMaster();
+    }
+  },
+  'rollup_backfill': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      if (!e.parameter.from || !e.parameter.to) return { ok: false, error: 'from + to required' };
+      return { ok: true, days: recordRollupRange(e.parameter.from, e.parameter.to) };
+    }
+  },
+  'traffic_ingest': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return recordTraffic(e.parameter.date || '', e.parameter.walk_ins, e.parameter.source || 'camera');
+    }
+  },
+  'send_daily_report': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var date = e.parameter.date || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+      sendDailyEmailReport(date);
+      return { ok: true, message: 'Report sent for date: ' + date };
+    }
+  },
+  'set_promo': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var active = e.parameter.active === 'true';
+      var duration = e.parameter.duration || '60';
+      var percent = e.parameter.percent || '5';
+      var msg = e.parameter.message || 'Ưu đãi đặc biệt: Giảm giá toàn bộ menu!';
+      var result = setStorePromo(percent, active, duration, msg);
+      if (!result.ok) return { ok: false, error: result.error || 'set_promo_failed' };
+      return { ok: true, promo: _getPromoInfoInternal() };
+    }
+  },
+  'rfm_snapshot': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return rfmSnapshot();
+    }
+  },
+  'rfm_refresh': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return rfmSnapshot();
+    }
+  },
+  'winback_candidates': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return rfmSnapshot();
+    }
+  },
+  'menu_engineering_data': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var meMonth = e.parameter.month;
+      return getMenuEngineeringData(meMonth);
+    }
+  },
+  'waste_report': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var fromW = e.parameter.from, toW = e.parameter.to;
+      if (!fromW || !toW) return { ok: false, error: 'from + to required' };
+      return wasteReport(fromW, toW);
+    }
+  },
+  'cash_report': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var fromC = e.parameter.from, toC = e.parameter.to;
+      if (!fromC || !toC) return { ok: false, error: 'from + to required' };
+      return cashVarianceReport(fromC, toC);
+    }
+  },
+  'maintenance_status': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: true, tasks: getAllMaintenanceTasks() };
+    }
+  },
+  'pending_reviews': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return { ok: true, reviews: getPendingResponses() };
+    }
+  },
+  'dashboard_summary': {
+    auth: AUTH.ADMIN,
+    handler: function(e) {
+      return getDashboardSummary();
+    }
+  },
+  'agent_insights': {
+    auth: AUTH.ADMIN,
+    handler: function(e) {
+      var insLimit = parseInt(e.parameter.limit, 10) || 20;
+      return { ok: true, insights: getAgentInsights(insLimit) };
+    }
+  },
+  'admin_data': {
+    auth: AUTH.ADMIN,
+    handler: function(e) {
+      return getAdminData();
+    }
+  },
+  'command_queue': {
+    auth: AUTH.ADMIN,
+    handler: function(e) {
+      var cqStatus = e.parameter.status || null;
+      var cqLimit = parseInt(e.parameter.limit, 10) || 30;
+      return { ok: true, commands: getCommandQueue(cqStatus, cqLimit) };
+    }
+  },
+  'dispatcher_status': {
+    auth: AUTH.ADMIN,
+    handler: function(e) {
+      return getDispatcherStatus();
+    }
+  },
+  'dispatch_pull': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return dispatchPull();
+    }
+  },
+  'dispatch_done': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      return updateCommand({
+        command_id: e.parameter.id,
+        status: e.parameter.status || 'done',
+        result: e.parameter.result || '',
+      });
+    }
+  },
+  'waste_form': {
+    auth: AUTH.STAFF,
+    handler: function(e) {
+      return webAppWasteForm();
+    },
+    renderHtml: true
+  },
+  'waste_submit': {
+    auth: AUTH.STAFF,
+    handler: function(e) {
+      return webAppWasteSubmit(e);
+    }
+  },
+  'review_form': {
+    auth: AUTH.STAFF,
+    handler: function(e) {
+      return webAppReviewForm();
+    },
+    renderHtml: true
+  },
+  'review_submit': {
+    auth: AUTH.STAFF,
+    handler: function(e) {
+      return webAppReviewSubmit(e);
+    }
+  }
+};
+
+var POST_ROUTES = {
+  'admin_login': {
+    auth: AUTH.PUBLIC,
+    handler: function(p) {
+      return adminLogin(p.username, p.password);
+    }
+  },
+  'update_admin_password': {
+    auth: AUTH.PUBLIC,
+    handler: function(p) {
+      return updateAdminPassword(p.token, p.old_password, p.new_password);
+    }
+  },
+  'log_camera_event': {
+    auth: AUTH.PUBLIC,
+    handler: function(p) {
+      return saveCameraEvent(p.secret, p.event_data || {});
+    }
+  },
+  'log_agent_insight': {
+    auth: AUTH.ADMIN,
+    handler: function(p) {
+      return { ok: true, insight_id: logAgentInsight(p) };
+    }
+  },
+  'menu_update': { auth: AUTH.ADMIN, handler: function(p) { return adminMenuUpdate(p); } },
+  'menu_add': { auth: AUTH.ADMIN, handler: function(p) { return adminMenuAdd(p); } },
+  'inventory_update': { auth: AUTH.ADMIN, handler: function(p) { return adminInventoryUpdate(p); } },
+  'inventory_add': { auth: AUTH.ADMIN, handler: function(p) { return adminInventoryAdd(p); } },
+  'staff_update': { auth: AUTH.ADMIN, handler: function(p) { return adminStaffUpdate(p); } },
+  'staff_add': { auth: AUTH.ADMIN, handler: function(p) { return adminStaffAdd(p); } },
+  'promo_toggle': { auth: AUTH.ADMIN, handler: function(p) { return adminPromoToggle(p); } },
+  'config_set': { auth: AUTH.ADMIN, handler: function(p) { return adminConfigSet(p); } },
+  'queue_command': { auth: AUTH.ADMIN, handler: function(p) { return queueCommand(p); } },
+  'command_update': { auth: AUTH.ADMIN, handler: function(p) { return updateCommand(p); } },
+  'dispatcher_heartbeat': {
+    auth: AUTH.ADMIN,
+    handler: function(p) {
+      return recordDispatcherHeartbeat();
+    }
+  },
+  'set_signage': { auth: AUTH.ADMIN, handler: function(p) { return setSignageConfig(p); } },
+  'set_promo': {
+    auth: AUTH.ADMIN,
+    handler: function(p) {
+      var result = setStorePromo(p.percent, p.active === true || p.active === 'true', p.duration || '60', p.message);
+      if (!result.ok) return { ok: false, error: result.error || 'set_promo_failed' };
+      return { ok: true, promo: _getPromoInfoInternal() };
+    }
+  },
+  'log_content': {
+    auth: AUTH.ADMIN,
+    handler: function(p) {
+      return { ok: true, activity_id: logMarketingActivity(p.data || {}) };
+    }
+  },
+  'log_decision': {
+    auth: AUTH.ADMIN,
+    handler: function(p) {
+      return { ok: true, decision_id: logDecision(p.data || {}) };
+    }
+  },
+  'link_social_id': {
+    auth: AUTH.REPORT,
+    handler: function(p) {
+      return linkCustomerSocialId(p.phone, {
+        fb_psid: p.fb_psid || null,
+        ig_igsid: p.ig_igsid || null,
+        zalo_id: p.zalo_id || null
+      });
+    }
+  },
+  'tiktok_ingest': {
+    auth: AUTH.REPORT,
+    handler: function(p) {
+      var ttVids = p.videos || [];
+      var ttN = 0;
+      for (var ti = 0; ti < ttVids.length; ti++) {
+        var tv = ttVids[ti];
+        if (!tv || !tv.id) continue;
+        upsertMarketingByExternalId('tt_' + tv.id, {
+          platform: 'tiktok', type: 'post', format: 'reel',
+          title: (tv.title || '').slice(0, 80), date: tv.date || undefined,
+          views: Number(tv.views) || 0, likes: Number(tv.likes) || 0,
+          comments: Number(tv.comments) || 0, shares: Number(tv.shares) || 0
+        });
+        ttN++;
+      }
+      return { ok: true, ingested: ttN };
+    }
+  },
+  'bank_notification': {
+    auth: AUTH.BANK,
+    handler: function(p) {
+      return handleBankNotification(p);
+    }
+  }
+};
+
 function doPost(e) {
-  // Web hit logging (Worker src/index.js) — bypass lock HOÀN TOÀN: appendRow thuần,
-  // tần suất cao (mỗi lượt xem trang), KHÔNG được chèn ép hàng đợi lock của đơn hàng.
-  // Xem docs/ga4-to-cloudflare-plan.md + gas/WebHits.gs.
+  // 1. Lock-bypass early check for web_hit tracking (tối ưu hóa tốc độ ghi log)
   try {
     var earlyRaw = e.postData && e.postData.contents;
     if (earlyRaw) {
@@ -31,12 +605,11 @@ function doPost(e) {
       }
     }
   } catch (earlyErr) {
-    // Không phải web_hit hoặc JSON lỗi → rơi xuống luồng bình thường (parse lại + xử lý lỗi ở đó).
+    // Rơi xuống luồng xử lý chính dưới lock
   }
 
   var lock = LockService.getScriptLock();
   try {
-    // Chờ tối đa 20 giây để lấy lock cho doPost
     lock.waitLock(20000);
   } catch (lockErr) {
     logError('doPost.lock', lockErr);
@@ -50,161 +623,21 @@ function doPost(e) {
     }
 
     var payload = JSON.parse(raw);
+    var action = payload.action;
 
-    // Route xử lý các sự kiện Camera AI & Bảo mật
-    if (payload && payload.action === 'admin_login') {
-      var res = adminLogin(payload.username, payload.password);
+    if (action) {
+      var route = POST_ROUTES[action];
+      if (!route) {
+        return _jsonResponse({ ok: false, error: 'unknown_action: ' + action });
+      }
+      if (!_authorize(route.auth, e, payload)) {
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
+      var res = route.handler(payload);
       return _jsonResponse(res);
     }
 
-    if (payload && payload.action === 'update_admin_password') {
-      var res = updateAdminPassword(payload.token, payload.old_password, payload.new_password);
-      return _jsonResponse(res);
-    }
-
-    if (payload && payload.action === 'log_camera_event') {
-      var res = saveCameraEvent(payload.secret, payload.event_data || {});
-      return _jsonResponse(res);
-    }
-
-    // ── Device approval ──
-    // Đăng ký thiết bị mới (open — thiết bị tự xin quyền, mặc định PENDING).
-    if (payload && payload.action === 'device_register') {
-      return _jsonResponse(deviceRegister(payload.device_id, payload.label, payload.user_agent));
-    }
-    // Duyệt/thu hồi/đặt nhãn từ dashboard — cần admin session (KHÔNG device-gate → bootstrap).
-    if (payload && (payload.action === 'device_approve' || payload.action === 'device_revoke' || payload.action === 'device_label')) {
-      if (!validateSessionToken(payload.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      if (payload.action === 'device_approve') return _jsonResponse(deviceApprove(payload.device_id, 'admin', payload.label));
-      if (payload.action === 'device_revoke') return _jsonResponse(deviceRevoke(payload.device_id));
-      return _jsonResponse(deviceLabel(payload.device_id, payload.label));
-    }
-
-    // Agent ghi 1 dòng insight lên dashboard (yêu cầu admin session token)
-    if (payload && payload.action === 'log_agent_insight') {
-      if (!validateSessionToken(payload.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      var insId = logAgentInsight(payload);
-      return _jsonResponse({ ok: true, insight_id: insId });
-    }
-
-    // ── Dashboard admin writes (đều cần admin session token) ──
-    var _ADMIN_WRITE = {
-      'menu_update': adminMenuUpdate, 'menu_add': adminMenuAdd,
-      'inventory_update': adminInventoryUpdate, 'inventory_add': adminInventoryAdd,
-      'staff_update': adminStaffUpdate, 'staff_add': adminStaffAdd,
-      'promo_toggle': adminPromoToggle, 'config_set': adminConfigSet,
-    };
-    if (payload && _ADMIN_WRITE[payload.action]) {
-      if (!validateSessionToken(payload.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      if (!isDeviceApproved(payload.device_id)) {
-        return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      }
-      return _jsonResponse(_ADMIN_WRITE[payload.action](payload));
-    }
-
-    // ── Command queue (chat → Claude Code) ──
-    if (payload && payload.action === 'queue_command') {
-      if (!validateSessionToken(payload.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      if (!isDeviceApproved(payload.device_id)) {
-        return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      }
-      return _jsonResponse(queueCommand(payload));
-    }
-    if (payload && payload.action === 'command_update') {
-      if (!validateSessionToken(payload.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      return _jsonResponse(updateCommand(payload));
-    }
-    if (payload && payload.action === 'dispatcher_heartbeat') {
-      if (!validateSessionToken(payload.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      return _jsonResponse(recordDispatcherHeartbeat());
-    }
-
-    if (payload && payload.action === 'set_signage') {
-      if (!validateSessionToken(payload.token)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      if (!isDeviceApproved(payload.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      return _jsonResponse(setSignageConfig(payload));
-    }
-
-    if (payload && payload.action === 'set_promo') {
-      if (!validateSessionToken(payload.token)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      if (!isDeviceApproved(payload.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      var result = setStorePromo(payload.percent, payload.active === true || payload.active === 'true', payload.duration || '60', payload.message);
-      if (!result.ok) return _jsonResponse({ ok: false, error: result.error || 'set_promo_failed' });
-      return _jsonResponse({ ok: true, promo: _getPromoInfoInternal() });
-    }
-
-    // ── cafe-insight: nhập số post thủ công + ghi quyết định (admin session) ──
-    if (payload && payload.action === 'log_content') {
-      if (!validateSessionToken(payload.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      var cid = logMarketingActivity(payload.data || {});
-      return _jsonResponse({ ok: true, activity_id: cid });
-    }
-    if (payload && payload.action === 'log_decision') {
-      if (!validateSessionToken(payload.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      var did = logDecision(payload.data || {});
-      return _jsonResponse({ ok: true, decision_id: did });
-    }
-
-    if (payload && payload.action === 'link_social_id') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var res = linkCustomerSocialId(payload.phone, {
-        fb_psid: payload.fb_psid || null,
-        ig_igsid: payload.ig_igsid || null,
-        zalo_id: payload.zalo_id || null
-      });
-      return _jsonResponse(res);
-    }
-
-    // cafe-insight P2.5: nhận metric video TikTok do Mac mini kéo bằng yt-dlp (free, no API key).
-    // Gate bằng REPORT_API_TOKEN (token Mac mini đã có trong .claude/.dispatcher-auth.json).
-    // Mỗi video upsert theo external key 'tt_<id>' → data_source='auto', giữ NGÀY ĐĂNG THẬT.
-    if (payload && payload.action === 'tiktok_ingest') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var ttVids = payload.videos || [];
-      var ttN = 0;
-      for (var ti = 0; ti < ttVids.length; ti++) {
-        var tv = ttVids[ti];
-        if (!tv || !tv.id) continue;
-        upsertMarketingByExternalId('tt_' + tv.id, {
-          platform: 'tiktok', type: 'post', format: 'reel',
-          title: (tv.title || '').slice(0, 80), date: tv.date || undefined,
-          views: Number(tv.views) || 0, likes: Number(tv.likes) || 0,
-          comments: Number(tv.comments) || 0, shares: Number(tv.shares) || 0
-        });
-        ttN++;
-      }
-      return _jsonResponse({ ok: true, ingested: ttN });
-    }
-
-    // Route xử lý webhook biến động số dư từ MacroDroid.
-    // Bảo vệ bằng shared secret (CONFIG.BANK_WEBHOOK_SECRET). Nếu chưa set CONFIG →
-    // cho qua (tương thích ngược, giống _requireTokenIfSet). Set CONFIG + thêm
-    // "secret" vào POST của MacroDroid để bật fail-closed.
-    if (payload && payload.action === 'bank_notification') {
-      var _bws = getConfig('BANK_WEBHOOK_SECRET');
-      if (_bws && String(payload.secret || '') !== String(_bws)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      return handleBankNotification(payload);
-    }
-
-    // Idempotency: nếu client retry với cùng key → trả lại đơn cũ, KHÔNG tạo trùng.
+    // Default POST fallback: Đặt hàng (submit order)
     var _idemKey = (payload.metadata && payload.metadata.idempotency_key) || payload.idempotency_key || '';
     if (_idemKey) {
       var _existing = findOrderIdByIdempotencyKey(_idemKey);
@@ -214,10 +647,7 @@ function doPost(e) {
     }
 
     var order = validateOrderPayload(payload);
-
-    // Mã đơn hiển thị do SERVER cấp (không trùng giữa các khách) — ghi đè short_code client gửi.
     order.metadata.short_code = buildShortCode(order.metadata.delivery_type);
-
     appendOrderToSheet(order);
 
     try {
@@ -238,41 +668,24 @@ function doPost(e) {
 function _doGetInternal(e) {
   var action = e && e.parameter && e.parameter.action;
 
-  // Chỉ khóa cho các action ghi (mutation) để tránh tắc nghẽn luồng đọc (menu, pending_print, orders, v.v.)
+  if (action === 'web_hit') {
+    if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
+    return _jsonResponse(logWebHit(e.parameter));
+  }
+
   var writeActions = [
-    'mark_paid',
-    'mark_printed',
-    'mark_labels_printed',
-    'set_promo',
-    'setup_financials',
-    'compute_cogs',
-    'waste_submit',
-    'review_submit',
-    'rfm_snapshot',
-    'rfm_refresh',
-    'winback_candidates',
-    'device_approve',
-    'device_revoke',
-    'dispatch_done',
-    'record_decision_result',
-    'ga4_pull',
-    'meta_pull',
-    'gbp_pull',
-    'zalo_pull',
-    'tiktok_pull',
-    'link_social_id',
-    'daily_rollup',
-    'menu_snapshot',
-    'rollup_backfill',
-    'traffic_ingest'
+    'mark_paid', 'mark_printed', 'mark_labels_printed', 'set_promo',
+    'setup_financials', 'compute_cogs', 'waste_submit', 'review_submit',
+    'rfm_snapshot', 'rfm_refresh', 'winback_candidates', 'dispatch_done',
+    'record_decision_result', 'meta_pull', 'gbp_pull', 'zalo_pull',
+    'tiktok_pull', 'link_social_id', 'daily_rollup', 'menu_snapshot',
+    'rollup_backfill', 'traffic_ingest'
   ];
-  var isWrite = writeActions.indexOf(action) !== -1;
 
   var lock = null;
-  if (isWrite) {
+  if (writeActions.indexOf(action) !== -1) {
     lock = LockService.getScriptLock();
     try {
-      // Chờ tối đa 15 giây để lấy lock cho doGet
       lock.waitLock(15000);
     } catch (lockErr) {
       logError('doGet.lock', lockErr);
@@ -281,442 +694,27 @@ function _doGetInternal(e) {
   }
 
   try {
-    var action = e && e.parameter && e.parameter.action;
-
-    if (action === 'orders') {
-      // KDS đọc đơn hôm nay (kèm PII khách) — yêu cầu token + thiết bị đã duyệt
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      var orders = getTodayOrders();
-      return _jsonResponse({ ok: true, orders: orders });
-    }
-
-    if (action === 'update_status') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var orderId = e.parameter.order_id;
-      var newStatus = e.parameter.status;
-      if (!orderId || !newStatus) return _jsonResponse({ ok: false, error: 'missing params' });
-      updateOrderStatus(orderId, newStatus);
-      return _jsonResponse({ ok: true, order_id: orderId, status: newStatus });
-    }
-
-    if (action === 'order_status') {
-      var orderId = e.parameter.order_id;
-      if (!orderId) return _jsonResponse({ ok: false, error: 'order_id required' });
-      var row = _findOrderRow(orderId);
-      if (!row) return _jsonResponse({ ok: false, error: 'not found' });
-      var order = _rowToOrder(row.data);
-      return _jsonResponse({ 
-        ok: true, 
-        order_id: orderId, 
-        status: order.status, 
-        delivery_type: order.delivery_type,
-        short_code: order.short_code,
-        total: order.total,
-        payment_method: order.payment_method,
-        payment_status: order.payment_status
-      });
-    }
-
-    if (action === 'active_orders') {
-      var allOrders = getTodayOrders(); // this is fast enough for today's orders
-      var nowTime = new Date().getTime();
-      var filtered = allOrders.filter(function(o) {
-        if (['NEW', 'CONFIRMED', 'MAKING', 'READY'].indexOf(o.status) !== -1) {
-          return true;
+    if (action) {
+      var route = GET_ROUTES[action];
+      if (!route) {
+        return _jsonResponse({ ok: false, error: 'unknown_action: ' + action });
+      }
+      if (!_authorize(route.auth, e, null)) {
+        if (route.renderHtml) {
+          return HtmlService.createHtmlOutput('<h1>401 Unauthorized</h1><p>Mã token không hợp lệ.</p>');
         }
-        if (o.status === 'DELIVERED' && o.delivered_at) {
-          try {
-            var delTime = new Date(o.delivered_at).getTime();
-            if (nowTime - delTime <= 45000) { // Keep DELIVERED orders on the board for 45s
-              return true;
-            }
-          } catch(e) {}
-        }
-        return false;
-      }).map(function(o) {
-        return {
-          order_id:       o.order_id,
-          status:         o.status,
-          delivery_type:  o.delivery_type,
-          short_code:     o.short_code,
-          payment_status: o.payment_status,
-          table_id:       o.table_id,
-          delivered_at:   o.delivered_at,
-          making_at:      o.making_at,
-          delivering_at:  o.delivering_at
-        };
-      });
-      return _jsonResponse({ ok: true, orders: filtered });
-    }
+        return _jsonResponse({ ok: false, error: 'unauthorized' });
+      }
 
-    if (action === 'mark_paid') {
-      // Mutation tiền: KDS / Mac Mini poller — yêu cầu token (+ device nếu gọi từ KDS)
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var orderId = e.parameter.order_id;
-      if (!orderId) return _jsonResponse({ ok: false, error: 'order_id required' });
-      markOrderPaid(orderId);
-      return _jsonResponse({ ok: true, order_id: orderId, payment_status: 'PAID' });
-    }
-
-    if (action === 'pending_print') {
-      // Mac Mini poller lấy đơn cần in receipt (DELIVERED + printed_at empty) — yêu cầu token
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var pending = _getPendingPrintOrders();
-      return _jsonResponse({ ok: true, orders: pending });
-    }
-
-    if (action === 'mark_printed') {
-      // Mac Mini poller đánh dấu đã in xong — yêu cầu token
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var orderId = e.parameter.order_id;
-      if (!orderId) return _jsonResponse({ ok: false, error: 'order_id required' });
-      updateField(orderId, 'printed_at', new Date().toISOString());
-      return _jsonResponse({ ok: true, order_id: orderId });
-    }
-
-    if (action === 'pending_labels') {
-      // Mac Mini poller lấy đơn cần in tem (label_printed_at rỗng, chưa bị huỷ, trong 4h) — yêu cầu token
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var pending = _getPendingLabelOrders();
-      return _jsonResponse({ ok: true, orders: pending });
-    }
-
-    if (action === 'mark_labels_printed') {
-      // Mac Mini poller đánh dấu đã in tem xong — yêu cầu token
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var orderId = e.parameter.order_id;
-      if (!orderId) return _jsonResponse({ ok: false, error: 'order_id required' });
-      updateField(orderId, 'label_printed_at', new Date().toISOString());
-      return _jsonResponse({ ok: true, order_id: orderId });
-    }
-
-    if (action === 'menu') {
-      var menu = getActiveMenu().map(function (item) {
-        return {
-          sku: item.sku,
-          name: item.name,
-          name_jp: item.name_jp || '',
-          category: item.category,
-          subcategory: item.subcategory || '',
-          role: item.role || '',
-          price_m: item.price_m,
-          price_l: item.price_l || null,
-          on_promo: !!item.on_promo,
-          promo_price: item.promo_price || null,
-          customizations: item.customizations_json
-            ? _safeJsonParse(item.customizations_json)
-            : {},
-          allergens: item.allergens
-            ? _safeJsonParse(item.allergens)
-            : [],
-          image_url: item.image_url || '',
-          sort_order: item.sort_order || 999,
-          story_telling: item.story_telling || '',
-        };
-      });
-      var promo = _getPromoInfoInternal();
-      return _jsonResponse({ ok: true, count: menu.length, items: menu, promo: promo });
-    }
-
-    if (action === 'promo_info') {
-      var promo = _getPromoInfoInternal();
-      return _jsonResponse({ ok: true, promo: promo });
-    }
-
-    if (action === 'signage_config') {
-      // Public: màn signage chỉ đọc dữ liệu marketing.
-      return _jsonResponse(getSignageConfig());
-    }
-
-    if (action === 'customer_info') {
-      // Public (order.js dùng để autofill loyalty). KHÔNG trả field nội bộ.
-      var phone = e.parameter.phone;
-      if (!phone) return _jsonResponse({ ok: false, error: 'phone required' });
-      var info = getCustomerInfo(phone);
-      if (info) { delete info.zalo_id; delete info.notes; }
-      return _jsonResponse({ ok: true, customer: info });
-    }
-
-    if (action === 'get_camera_events') {
-      var token = e.parameter.token;
-      var limit = e.parameter.limit;
-      var res = getCameraEvents(token, limit);
+      var res = route.handler(e);
+      if (route.renderHtml) {
+        res.setTitle(action === 'waste_form' ? 'Log waste — Mitsu Café' : 'Log review — Mitsu Café');
+        return res;
+      }
       return _jsonResponse(res);
     }
 
-    if (action === 'setup_financials') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var res = setupExpenseForm();
-      createFinancialDashboard();
-      return _jsonResponse({ ok: true, message: 'Financial system initialized.', form_url: res.formUrl, edit_url: res.editUrl });
-    }
-
-    if (action === 'compute_cogs') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var date = e.parameter.date;
-      if (!date) {
-        date = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      }
-      var metrics = computeDailyMetrics(date);
-      return _jsonResponse({ ok: true, metrics: metrics });
-    }
-
-    if (action === 'roi_data') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var roiTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      var roiFrom = e.parameter.from;
-      if (!roiFrom) {
-        // mặc định 28 ngày để đủ baseline so sánh
-        roiFrom = Utilities.formatDate(new Date(Date.now() - 28 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      }
-      return _jsonResponse({ ok: true, data: getRoiData(roiFrom, roiTo) });
-    }
-
-    if (action === 'mmm_data') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var mmmTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      var mmmFrom = e.parameter.from;
-      if (!mmmFrom) {
-        // default 1 year
-        mmmFrom = Utilities.formatDate(new Date(Date.now() - 365 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      }
-      return _jsonResponse({ ok: true, data: getMmmData(mmmFrom, mmmTo) });
-    }
-
-    if (action === 'inventory_snapshot') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse({ ok: true, inventory: _adminReadSheet('INVENTORY') });
-    }
-
-    if (action === 'link_social_id') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var res = linkCustomerSocialId(e.parameter.phone, {
-        fb_psid: e.parameter.fb_psid || null,
-        ig_igsid: e.parameter.ig_igsid || null,
-        zalo_id: e.parameter.zalo_id || null
-      });
-      return _jsonResponse(res);
-    }
-
-    // cafe-insight: lấy quyết định tới hạn review (đọc)
-    if (action === 'get_decisions_due') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse({ ok: true, decisions: getDecisionsDue() });
-    }
-    // cafe-insight: ghi kết quả review 1 quyết định (write — đã có trong writeActions)
-    if (action === 'record_decision_result') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var okRec = recordDecisionResult(
-        e.parameter.decision_id, e.parameter.actual_result, e.parameter.hit_or_miss);
-      return _jsonResponse({ ok: okRec });
-    }
-
-    // cafe-insight P2: kéo GA4 thủ công (mặc định 7 ngày nếu không truyền from/to)
-    if (action === 'ga4_pull') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var gTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      var gFrom = e.parameter.from ||
-        Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      var ga4Rows = pullGa4Traffic(gFrom, gTo);
-      return _jsonResponse({ ok: true, pulled_rows: ga4Rows, range: { from: gFrom, to: gTo } });
-    }
-
-    // cafe-insight P2: kéo Meta FB/IG/Threads thủ công (mặc định 7 ngày)
-    if (action === 'meta_pull') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var mTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      var mFrom = e.parameter.from ||
-        Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      return _jsonResponse(pullMetaAll(mFrom, mTo));
-    }
-    // cafe-insight P2: trạng thái token Meta (đọc)
-    if (action === 'meta_health') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse(checkMetaTokenHealth());
-    }
-
-    // cafe-insight P2.5: kéo metric GBP/Maps thủ công (mặc định 7 ngày)
-    if (action === 'gbp_pull') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var gbTo = e.parameter.to || Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      var gbFrom = e.parameter.from ||
-        Utilities.formatDate(new Date(Date.now() - 7 * 86400000), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      return _jsonResponse({ ok: true, days: pullGbpDaily(gbFrom, gbTo) });
-    }
-
-    // cafe-insight P2.5: kéo follower Zalo OA (best-effort) → MARKETING_LOG
-    if (action === 'zalo_pull') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse({ ok: pullZaloDailyFollowers() });
-    }
-    // cafe-insight P2.5: kéo video TikTok qua Firecrawl (opt-in; 0 nếu tắt/chặn → nhập tay)
-    if (action === 'tiktok_pull') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse({ ok: true, videos: pullTiktokViaFirecrawl() });
-    }
-
-    // SCALE (Tier 5): rollup ngày 1 chi nhánh (location_id khóa đầu). HQ pull route này.
-    // &record=true → ghi/cập nhật HQ_DAILY (idempotent). Mặc định chỉ tính + trả về.
-    if (action === 'daily_rollup') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var drDate = e.parameter.date || '';
-      var rollup = (e.parameter.record === 'true') ? recordDailyRollup(drDate) : getDailyRollup(drDate);
-      return _jsonResponse({ ok: true, rollup: rollup });
-    }
-    // SCALE: snapshot MENU cứng từ HQ master (no-op nếu chưa set MENU_MASTER_SHEET_ID).
-    if (action === 'menu_snapshot') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse(snapshotMenuFromMaster());
-    }
-    // SCALE: backfill HQ_DAILY cho [from,to] (cho Looker có data lịch sử).
-    if (action === 'rollup_backfill') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      if (!e.parameter.from || !e.parameter.to) return _jsonResponse({ ok: false, error: 'from + to required' });
-      return _jsonResponse({ ok: true, days: recordRollupRange(e.parameter.from, e.parameter.to) });
-    }
-    // CAMERA: Mac mini đếm khách VÀO cửa (ẩn danh) → ghi FOOT_TRAFFIC (nền conversion = đơn/khách).
-    if (action === 'traffic_ingest') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse(recordTraffic(e.parameter.date || '', e.parameter.walk_ins, e.parameter.source || 'camera'));
-    }
-
-    if (action === 'send_daily_report') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var date = e.parameter.date;
-      if (!date) {
-        date = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
-      }
-      sendDailyEmailReport(date);
-      return _jsonResponse({ ok: true, message: 'Report sent for date: ' + date });
-    }
-
-    if (action === 'set_promo') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      var active = e.parameter.active === 'true';
-      var duration = e.parameter.duration || '60'; // minutes or 'end_of_day'
-      var percent = e.parameter.percent || '5';     // default 5 for backward-compat
-      var msg = e.parameter.message || 'Ưu đãi đặc biệt: Giảm giá toàn bộ menu!';
-
-      var result = setStorePromo(percent, active, duration, msg);
-      if (!result.ok) return _jsonResponse({ ok: false, error: result.error || 'set_promo_failed' });
-
-      var promo = _getPromoInfoInternal();
-      return _jsonResponse({ ok: true, promo: promo });
-    }
-
-    // ── Web app forms (Phase B/C/D operational tools) ──
-    if (action === 'waste_form') return webAppWasteForm();
-    if (action === 'waste_submit') return webAppWasteSubmit(e);
-    if (action === 'review_form') return webAppReviewForm();
-    if (action === 'review_submit') return webAppReviewSubmit(e);
-
-    // ── Phase D analytics endpoints ──
-    // Optional token guard: nếu CONFIG.REPORT_API_TOKEN có set, các endpoint phơi PII/sales
-    // sẽ require ?token=<value>. Nếu không set → mở (backward compat).
-    if (action === 'rfm_snapshot' || action === 'rfm_refresh' || action === 'winback_candidates') {
-      // 3 aliases cùng trả rfmSnapshot() (đã refresh + winback + champions)
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse(rfmSnapshot());
-    }
-    if (action === 'menu_engineering_data') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var meMonth = e.parameter.month; // YYYY-MM; default = tháng trước
-      return _jsonResponse(getMenuEngineeringData(meMonth));
-    }
-    if (action === 'waste_report') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var fromW = e.parameter.from, toW = e.parameter.to;
-      if (!fromW || !toW) return _jsonResponse({ ok: false, error: 'from + to required' });
-      return _jsonResponse(wasteReport(fromW, toW));
-    }
-    if (action === 'cash_report') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      var fromC = e.parameter.from, toC = e.parameter.to;
-      if (!fromC || !toC) return _jsonResponse({ ok: false, error: 'from + to required' });
-      return _jsonResponse(cashVarianceReport(fromC, toC));
-    }
-    if (action === 'maintenance_status') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse({ ok: true, tasks: getAllMaintenanceTasks() });
-    }
-    if (action === 'pending_reviews') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse({ ok: true, reviews: getPendingResponses() });
-    }
-
-    // ── Device approval (GET) ──
-    if (action === 'device_check') {
-      // Open — trang nội bộ poll trạng thái thiết bị của chính nó.
-      return _jsonResponse(deviceCheck(e.parameter.device_id));
-    }
-    if (action === 'device_list') {
-      // Dashboard tab "Thiết bị" (session) HOẶC Mac Mini (report token). KHÔNG device-gate → bootstrap.
-      if (!validateSessionToken(e.parameter.token) && !_requireTokenIfSet(e)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      return _jsonResponse(deviceList());
-    }
-    if (action === 'device_approve' || action === 'device_revoke') {
-      // Mac Mini curl bằng REPORT_API_TOKEN (bootstrap thiết bị đầu tiên không cần đăng nhập web).
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      if (action === 'device_approve') return _jsonResponse(deviceApprove(e.parameter.device_id, 'mac-mini', e.parameter.label));
-      return _jsonResponse(deviceRevoke(e.parameter.device_id));
-    }
-
-    // ── Ops Dashboard (web/dashboard.html) — admin session token + thiết bị đã duyệt ──
-    if (action === 'dashboard_summary') {
-      if (!validateSessionToken(e.parameter.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      return _jsonResponse(getDashboardSummary());
-    }
-    if (action === 'agent_insights') {
-      if (!validateSessionToken(e.parameter.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      var insLimit = parseInt(e.parameter.limit, 10) || 20;
-      return _jsonResponse({ ok: true, insights: getAgentInsights(insLimit) });
-    }
-    if (action === 'admin_data') {
-      if (!validateSessionToken(e.parameter.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      return _jsonResponse(getAdminData());
-    }
-    if (action === 'command_queue') {
-      if (!validateSessionToken(e.parameter.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      if (!isDeviceApproved(e.parameter.device_id)) return _jsonResponse({ ok: false, error: 'device_not_approved' });
-      var cqStatus = e.parameter.status || null;
-      var cqLimit = parseInt(e.parameter.limit, 10) || 30;
-      return _jsonResponse({ ok: true, commands: getCommandQueue(cqStatus, cqLimit) });
-    }
-    if (action === 'dispatcher_status') {
-      if (!validateSessionToken(e.parameter.token)) {
-        return _jsonResponse({ ok: false, error: 'unauthorized' });
-      }
-      return _jsonResponse(getDispatcherStatus());
-    }
-    // Dispatcher GET endpoints (curl-friendly; gate bằng REPORT_API_TOKEN nếu set)
-    if (action === 'dispatch_pull') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse(dispatchPull());
-    }
-    if (action === 'dispatch_done') {
-      if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
-      return _jsonResponse(updateCommand({
-        command_id: e.parameter.id,
-        status: e.parameter.status || 'done',
-        result: e.parameter.result || '',
-      }));
-    }
-
+    // Default GET fallback: trả danh sách hướng dẫn API
     return _jsonResponse({
       ok: true,
       service: 'Lâm Hà Kissaten Order API',
@@ -739,6 +737,9 @@ function _doGetInternal(e) {
     });
   } catch (err) {
     logError('doGet', err);
+    if (action && GET_ROUTES[action] && GET_ROUTES[action].renderHtml) {
+      return HtmlService.createHtmlOutput('<h1>500 Internal Error</h1><p>' + err.message + '</p>');
+    }
     return _jsonResponse({ ok: false, error: String(err) });
   } finally {
     if (lock) {
@@ -845,6 +846,21 @@ function _jsonResponse(obj) {
  * hành vi mở cũ trong lúc cập nhật client. SAU KHI set token + cập nhật KDS/poller →
  * XOÁ ALLOW_OPEN_API để khoá lại. KHÔNG để ALLOW_OPEN_API='true' khi chạy thật.
  */
+/**
+ * Lọc thông tin tích điểm công khai của khách hàng.
+ * CHỈ trả về số lượng điểm tích lũy và số ly nước miễn phí khả dụng.
+ * Tuyệt đối không trả về thông tin cá nhân (tên, sđt, zalo_id, ghi chú).
+ */
+function toPublicLoyaltyView(info) {
+  if (!info) return null;
+  return {
+    stamp_count: info.stamp_count || 0,
+    stamp_total_ever: info.stamp_total_ever || 0,
+    free_drinks_earned: info.free_drinks_earned || 0,
+    free_drinks_used: info.free_drinks_used || 0
+  };
+}
+
 function _requireTokenIfSet(e) {
   var expected = getConfig('REPORT_API_TOKEN');
   if (!expected) {
@@ -853,6 +869,27 @@ function _requireTokenIfSet(e) {
   }
   var provided = (e && e.parameter && e.parameter.token) || '';
   return String(provided).trim() === String(expected).trim();
+}
+
+/**
+ * Token guard dành riêng cho nhân viên truy cập form (Waste/Review).
+ * Cho phép STAFF_FORM_TOKEN hoặc REPORT_API_TOKEN.
+ */
+function _requireStaffToken(e) {
+  var provided = (e && e.parameter && e.parameter.token) || '';
+  var staffToken = getConfig('STAFF_FORM_TOKEN');
+  var masterToken = getConfig('REPORT_API_TOKEN');
+
+  if (staffToken && String(provided).trim() === String(staffToken).trim()) {
+    return true;
+  }
+  if (masterToken && String(provided).trim() === String(masterToken).trim()) {
+    return true;
+  }
+  if (!staffToken && !masterToken) {
+    return getConfig('ALLOW_OPEN_API') === 'true';
+  }
+  return false;
 }
 
 function _getPromoInfoInternal() {

@@ -226,14 +226,16 @@ function webAppReviewForm() {
     '<p class="note">Sentiment + draft response tự động sinh. 1⭐ sẽ flagged pending cho chủ quán xử lý cá nhân.</p>' +
     '</form>' +
     '<script>' +
+    'var token = new URLSearchParams(window.location.search).get("token") || "";' +
     'document.getElementById("f").addEventListener("submit",function(e){' +
     'e.preventDefault();' +
     'var fd=new FormData(this);' +
     'var params=new URLSearchParams();' +
     'fd.forEach(function(v,k){params.append(k,v);});' +
     'params.append("action","review_submit");' +
+    'if (token) params.append("token", token);' +
     'fetch(window.location.pathname+"?"+params.toString()).then(function(r){return r.json();}).then(function(d){' +
-    'document.body.innerHTML="<h1>✅ Lưu xong</h1><pre style=\\"white-space:pre-wrap;background:#fff;padding:14px;border-radius:6px;\\">"+JSON.stringify(d,null,2)+"</pre><a href=\\"?action=review_form\\">Log thêm review</a>";' +
+    'document.body.innerHTML="<h1>✅ Lưu xong</h1><pre style=\\"white-space:pre-wrap;background:#fff;padding:14px;border-radius:6px;\\">"+JSON.stringify(d,null,2)+"</pre><a href=\\"?action=review_form&token="+token+"\\">Log thêm review</a>";' +
     '});' +
     '});' +
     '</script>' +

@@ -21,7 +21,7 @@ web/
 - ✅ Item detail: chọn Size / Đường / Đá / Topping / Số lượng
 - ✅ Giỏ hàng: localStorage (persistent qua reload)
 - ✅ Checkout: tên + SĐT + ghi chú + mã bàn
-- ✅ POST tới GAS (no-cors, không quota Glide)
+- ✅ POST tới GAS và chỉ xác nhận đơn khi nhận JSON `ok:true`
 - ✅ Offline: Service Worker cache menu + shell
 - ✅ PWA: installable trên iPhone/Android
 - ✅ URL param `?t=03` → tự điền TABLE_03
@@ -97,10 +97,11 @@ const GAS_URL = 'https://script.google.com/macros/s/NEW_ID/exec';
 
 ## Lưu ý kỹ thuật
 
-**Tại sao no-cors?**
-GAS Web App không trả CORS headers → không thể dùng `fetch` bình thường từ browser.
-`mode: 'no-cors'` với body dạng plain text → GAS nhận được đơn, xử lý, gửi Telegram.
-Nhược điểm: không đọc được order_id từ response → hiện "Đơn đã gửi" thay vì "ORD-XXXX".
+**Xác nhận đặt đơn**
+Ứng dụng gửi POST bình thường và chỉ xoá giỏ sau khi GAS trả JSON `ok:true` kèm `order_id`.
+Mỗi lần đặt dùng một idempotency key; request timeout sẽ retry cùng payload/key để GAS trả lại
+đơn cũ thay vì tạo trùng. Nếu deployment không cho browser đọc response (CORS/403), ứng dụng
+giữ nguyên giỏ và báo lỗi thay vì báo “Đơn đã gửi”.
 
 **Offline hoạt động thế nào?**
 Service Worker cache index.html, style.css, order.js, menu-data.js.

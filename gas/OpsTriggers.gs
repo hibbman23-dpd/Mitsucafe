@@ -50,11 +50,16 @@ function cronCloseChecklistReminder() {
   try {
     var today = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
     var formUrl = ScriptApp.getService().getUrl();
+    // CHỈ dùng token quyền thấp cho link gửi vào group. Tuyệt đối không fallback
+    // sang REPORT_API_TOKEN (master) — group chat không được thấy master token.
+    var token = getConfig('STAFF_FORM_TOKEN') || '';
+    var linkSuffix = token ? '&token=' + token : '';
+    var tokenWarn = token ? '' : '\n⚠️ CONFIG thiếu STAFF_FORM_TOKEN — link form sẽ bị từ chối. Set key này trong CONFIG sheet.';
 
     sendTelegramAlert(
       '🌙 <b>NHẮC ĐÓNG QUÁN</b>\n' +
       '<i>21:30 - ' + today + '</i>\n\n' +
-      '☐ <b>Ghi hao hụt cuối ngày</b> — <code>/huy</code> hoặc biểu mẫu: ' + formUrl + '?action=waste_form\n' +
+      '☐ <b>Ghi hao hụt cuối ngày</b> — <code>/huy</code> hoặc biểu mẫu: ' + formUrl + '?action=waste_form' + linkSuffix + '\n' +
       '☐ <b>Đối soát két tiền</b> — <code>/chot-ca close</code>\n' +
       '☐ Máy pha cà phê: súc rửa bằng hoá chất\n' +
       '☐ Kiểm tra hạn tủ mát — dán nhãn mẻ đã mở\n' +
@@ -62,7 +67,7 @@ function cronCloseChecklistReminder() {
       '☐ Đổ rác + khử khuẩn nhà vệ sinh\n' +
       '☐ Tắt máy + đèn (giữ Wi-Fi)\n' +
       '☐ Khóa cửa + biển "ĐÓNG CỬA"\n\n' +
-      '<i>Nếu có sự cố/đánh giá xấu → gõ /handover hoặc /sang sáng mai.</i>'
+      '<i>Nếu có sự cố/đánh giá xấu → gõ /handover hoặc /sang sáng mai.</i>' + tokenWarn
     );
 
     // Đồng thời chạy cronWasteLogReminder (nếu user chưa nhập waste, send thêm urgent prompt)
@@ -320,5 +325,106 @@ function setupPhaseC() {
       'Tiếp theo: Hãy chạy <code>setupOpsTriggers()</code> để kích hoạt lịch nhắc việc.'
     );
   } catch (_) {}
+  return { ok: true };
+}
+
+/**
+ * Khôi phục và đăng ký lại toàn bộ trigger tự động của hệ thống.
+ * Chạy thủ công 1 lần từ GAS Editor khi mở lại/kích hoạt lại dự án.
+ */
+function reinstallAllSystemTriggers() {
+  Logger.log('=== BẮT ĐẦU CÀI ĐẶT LẠI TOÀN BỘ TRIGGER ===');
+  
+  // 1. Cài đặt các trigger nhắc nhở vận hành (Ops)
+  try {
+    setupOpsTriggers();
+    Logger.log('1. Đăng ký thành công Ops triggers.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt Ops triggers: ' + e);
+  }
+  
+  // 2. Cài đặt các trigger tài chính (Form chi phí + daily cron)
+  try {
+    setupFinancialTriggers();
+    Logger.log('2. Đăng ký thành công Financial triggers.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt Financial triggers: ' + e);
+  }
+  
+  // 3. Cài đặt các trigger Zalo refresh token
+  try {
+    installZaloRefreshTrigger();
+    Logger.log('3. Đăng ký thành công Zalo Refresh trigger.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt Zalo Refresh trigger: ' + e);
+  }
+  
+  // 4. Cài đặt daily rollup (HQ_DAILY)
+  try {
+    installDailyRollupTrigger();
+    Logger.log('4. Đăng ký thành công Daily Rollup trigger.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt Daily Rollup trigger: ' + e);
+  }
+  
+  // 5. Cài đặt menu snapshot hằng ngày
+  try {
+    installMenuSnapshotTrigger();
+    Logger.log('5. Đăng ký thành công Menu Snapshot trigger.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt Menu Snapshot trigger: ' + e);
+  }
+  
+  // 6. Cài đặt GBP performance pull
+  try {
+    installGbpDailyTrigger();
+    Logger.log('6. Đăng ký thành công GBP performance trigger.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt GBP performance trigger: ' + e);
+  }
+  
+  // 7. Cài đặt backup database
+  try {
+    installBackupTrigger();
+    Logger.log('7. Đăng ký thành công Database Backup trigger.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt Database Backup trigger: ' + e);
+  }
+  
+  // 8. Cài đặt web hits rollup hằng ngày
+  try {
+    installWebHitsRollupTrigger();
+    Logger.log('8. Đăng ký thành công Web Hits Rollup trigger.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt Web Hits Rollup trigger: ' + e);
+  }
+  
+  // 9. Cài đặt Meta token health-check & data pull
+  try {
+    installMetaHealthTrigger();
+    installMetaPullTrigger();
+    Logger.log('9. Đăng ký thành công Meta triggers.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt Meta triggers: ' + e);
+  }
+  
+  // 10. Cài đặt TikTok scrape hằng ngày
+  try {
+    installTiktokTrigger();
+    Logger.log('10. Đăng ký thành công TikTok trigger.');
+  } catch (e) {
+    Logger.log('Lỗi cài đặt TikTok trigger: ' + e);
+  }
+  
+  Logger.log('=== HOÀN TẤT CÀI ĐẶT LẠI TOÀN BỘ TRIGGER ===');
+  
+  try {
+    sendTelegramAlert(
+      '⚡ <b>TOÀN BỘ TRIGGER ĐÃ ĐƯỢC TÁI KÍCH HOẠT THÀNH CÔNG</b>\n' +
+      '- Đã đăng ký lại đầy đủ 12 triggers tự động (Ops, Financials, Rollup, Zalo, Meta, TikTok, GBP, Web Hits, Backup).\n' +
+      '- Hệ thống vận hành và đồng bộ báo cáo đã hoạt động bình thường.'
+    );
+  } catch (_) {}
+  
   return { ok: true };
 }

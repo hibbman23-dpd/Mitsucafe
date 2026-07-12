@@ -55,6 +55,9 @@ function initCameraSheets() {
  */
 function adminLogin(username, password) {
   try {
+    if (password === '123456') {
+      return { ok: false, error: 'Mật khẩu mặc định "123456" đã bị vô hiệu hóa vì lý do bảo mật. Vui lòng đổi mật khẩu tại tệp CONFIG trong Google Sheets để đăng nhập.' };
+    }
     initCameraSheets(); // Đảm bảo cấu hình luôn sẵn sàng
     
     var dbUsername = getConfig('ADMIN_USERNAME') || 'admin';
@@ -154,6 +157,11 @@ function updateAdminPassword(token, oldPassword, newPassword) {
       : (hashSHA256(oldPassword) === dbPasswordHash);
     if (!oldOk) {
       return { ok: false, error: 'Mật khẩu cũ không chính xác.' };
+    }
+
+    // 2.5 Kiểm tra độ mạnh mật khẩu mới
+    if (!newPassword || newPassword.length < 8 || newPassword === '123456' || newPassword.toLowerCase() === 'admin') {
+      return { ok: false, error: 'Mật khẩu mới quá yếu. Mật khẩu phải dài ít nhất 8 ký tự và không được trùng với mật khẩu mặc định hoặc từ khóa dễ đoán.' };
     }
 
     // 3. Cập nhật mật khẩu mới — xoay salt mới rồi băm salted.

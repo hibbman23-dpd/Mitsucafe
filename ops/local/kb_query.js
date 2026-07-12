@@ -1,6 +1,6 @@
 /*
  * kb_query.js — Truy vấn tìm kiếm ngữ nghĩa (RAG retrieval) cục bộ.
- * Nhận câu hỏi, gọi Ollama bge-m3 để embed, so sánh cosine và trả về top-k chunks.
+ * Nhận câu hỏi, gọi Ollama nomic-embed-text để embed, so sánh cosine và trả về top-k chunks.
  *
  * Chạy: node ops/local/kb_query.js "Mitsu mở cửa mấy giờ?" --ns insight --k 3
  */

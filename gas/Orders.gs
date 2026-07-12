@@ -45,9 +45,10 @@ function validateOrderPayload(p) {
       throw new Error('Cần có số điện thoại để đổi ly nước miễn phí.');
     }
     var info = getCustomerInfo(customerId);
-    var available = info.free_drinks_earned - info.free_drinks_used;
+    var reserved = getPendingReservedFreeDrinks(customerId);
+    var available = info.free_drinks_earned - info.free_drinks_used - reserved;
     if (available <= 0) {
-      throw new Error('Tài khoản của bạn hiện tại không có ly nước miễn phí nào khả dụng.');
+      throw new Error('Tài khoản của bạn hiện tại không có ly nước miễn phí nào khả dụng (đã dùng hết hoặc đang chờ đối soát thanh toán đơn trước).');
     }
   }
 
@@ -198,9 +199,26 @@ function findOrderIdByIdempotencyKey(key) {
 }
 
 function generateOrderId() {
+  var sheet = _ordersSheet();
   var dateStr = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
-  var rand = Math.floor(1000 + Math.random() * 9000);
-  return 'ORD-' + dateStr + '-' + rand;
+  
+  var existingIds = {};
+  var data = getLastRows(sheet, 500);
+  for (var i = 1; i < data.length; i++) { // i=1: getLastRows unshift header ở data[0]
+    if (data[i] && data[i].length > 0) {
+      existingIds[String(data[i][0])] = true;
+    }
+  }
+
+  var orderId;
+  var attempts = 0;
+  do {
+    var rand = Math.floor(1000 + Math.random() * 9000);
+    orderId = 'ORD-' + dateStr + '-' + rand;
+    attempts++;
+  } while (existingIds[orderId] && attempts < 100);
+
+  return orderId;
 }
 
 /**
@@ -385,15 +403,19 @@ function _rowToOrder(row) {
 
 /**
  * Đánh dấu đơn đã thanh toán. Gọi từ KDS khi nhân viên xác nhận.
- * Set payment_status=PAID + status=DELIVERED + in hóa đơn nhiệt.
+ * Set payment_status=PAID và chạy side effect đúng một lần.
  * Bypass transition validation vì KDS có thể thanh toán từ bất kỳ state nào.
+ * Hàm phải idempotent: browser/poller có thể retry sau khi timeout, không được
+ * cộng tem, tăng doanh thu hay in bill lần thứ hai.
  * @param {string} orderId
  */
 function markOrderPaid(orderId) {
   var row = _findOrderRow(orderId);
   if (!row) throw new Error('Order not found: ' + orderId);
+  if (String(row.data[19] || '').toUpperCase() === 'PAID') {
+    return { payment_status: 'PAID', already_paid: true };
+  }
   var sheet = _ordersSheet();
-  var now = new Date().toISOString();
   sheet.getRange(row.rowIndex, 20).setValue('PAID');       // payment_status col
   // Keep the current cooking status unchanged (so kitchen still sees it).
   // Only update payment_status to PAID. Receipt will print because of the PAID status.
@@ -421,7 +443,7 @@ function markOrderPaid(orderId) {
     logError('markOrderPaid.financials', fErr);
   }
 
-  return 'PAID';
+  return { payment_status: 'PAID', already_paid: false };
 }
 
 /**
@@ -502,6 +524,43 @@ function getTodayOrders() {
   }
   orders.reverse();
   return orders;
+}
+
+/**
+ * Đếm số lượng ly nước miễn phí đang ở trạng thái "chờ" (đơn hàng UNPAID và không bị CANCELLED).
+ * Giúp ngăn chặn race condition double-spend khi đặt nhiều đơn cùng lúc.
+ */
+function getPendingReservedFreeDrinks(customerId) {
+  var sheet = _ordersSheet();
+  var data = getLastRows(sheet, 200);
+  if (data.length === 0) return 0;
+  
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var idxId = headers.indexOf('customer_id');
+  var idxStatus = headers.indexOf('status');
+  var idxPayStatus = headers.indexOf('payment_status');
+  var idxMeta = headers.indexOf('metadata');
+  
+  var count = 0;
+  var normPhone = normalizeCustomerId(customerId);
+
+  for (var i = 1; i < data.length; i++) { // i=1: getLastRows unshift header ở data[0]
+    var row = data[i];
+    var custPhone = normalizeCustomerId(row[idxId]);
+    if (custPhone === normPhone) {
+      var status = row[idxStatus];
+      var payStatus = row[idxPayStatus];
+      if (status !== 'CANCELLED' && payStatus !== 'PAID') {
+        var metaStr = row[idxMeta] || '{}';
+        var meta = {};
+        try { meta = JSON.parse(metaStr); } catch(e) {}
+        if (meta && meta.use_free_drink === true) {
+          count++;
+        }
+      }
+    }
+  }
+  return count;
 }
 
 function getCustomerInfo(phone) {

@@ -51,7 +51,9 @@ if __name__ == '__main__':
 
 ## Tem dán ly — Order Label System
 
-**Trigger**: `updateOrderStatus(order_id, "CONFIRMED")` → tự gọi `printOrderLabels()`.
+**Trigger thực tế**: Mac Mini `print_poller.py` polling `?action=pending_labels` và in ngay khi
+đơn được tạo (`NEW`, chưa huỷ, `label_printed_at` trống). GAS không thể gọi IP LAN nên không
+push trực tiếp tới máy in. Mục tiêu vận hành: tem đã ra **trước khi** barista bấm `MAKING`.
 **Rule**: Mỗi item trong đơn = 1 tem riêng. qty=2 → in 2 tem giống nhau.
 
 ### Xprinter POS-58L (Primary)

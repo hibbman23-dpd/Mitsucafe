@@ -111,10 +111,20 @@ async function deployBranch(name, cfg, accessToken, files, reportToken, dryRun) 
 
   // 4. Smoke test
   const cb = Math.floor(Math.random() * 1e9);
-  const smoke = await fetch(`https://script.google.com/macros/s/${deploymentId}/exec?action=meta_health&token=${reportToken}&_cb=${cb}`);
+  const smoke = await fetch(`https://script.google.com/macros/s/${deploymentId}/exec?action=ping&_cb=${cb}`);
   const body = await smoke.text();
-  if (smoke.status === 200 && body.indexOf('"ok":true') !== -1) console.log('  🎉 smoke OK');
-  else throw new Error(`[${name}] smoke failed: HTTP ${smoke.status} - ${body.slice(0, 120)}`);
+  if (smoke.status !== 200 || body.indexOf('"ok":true') === -1) {
+    throw new Error(`[${name}] public smoke failed: HTTP ${smoke.status} - ${body.slice(0, 120)}`);
+  }
+
+  if (reportToken) {
+    const authSmoke = await fetch(`https://script.google.com/macros/s/${deploymentId}/exec?action=orders&token=${reportToken}&_cb=${cb}`);
+    const authBody = await authSmoke.text();
+    if (authSmoke.status !== 200 || authBody.indexOf('"ok":true') === -1) {
+      throw new Error(`[${name}] auth smoke failed (token connectivity check): HTTP ${authSmoke.status} - ${authBody.slice(0, 120)}`);
+    }
+  }
+  console.log('  🎉 smoke OK');
 }
 
 async function main() {

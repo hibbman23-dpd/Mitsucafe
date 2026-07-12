@@ -36,6 +36,30 @@ Action:  Pin dự phòng cho tablet · Form giấy A5 laminated
 Fix:     Nhập lại Sheets thủ công khi có điện
 ```
 
+## L5 — GAS chết 403 (mạng SỐNG nhưng API bị Google chặn)
+```
+Trigger: KDS hiện "Google chặn API (GAS)" · đặt hàng online báo lỗi · tem không in
+         (đã xảy ra 2026-07-02 và ~2026-07-10 — chu kỳ 7 ngày)
+Gốc rễ:  Script gắn GCP project chuẩn (bật cho GBP/Analytics 2026-06-20) mà
+         OAuth consent screen ở "Testing". Với OAuth external dùng scope không cơ bản,
+         refresh token có hạn 7 ngày; grant owner của web app hết hạn → mọi request
+         ẩn danh ăn trang 403 HTML (không phải lỗi code / deployment).
+Detect:  ops/local/gas_health.py (launchd 15 phút) báo Telegram; hoặc
+         curl '<GAS_URL>?action=ping' → HTML 403 thay vì JSON = dính.
+Fix NGAY (5 phút, tài khoản Google chủ script):
+  1. script.google.com → mở project Kissaten → Run 1 hàm bất kỳ → màn hình consent
+     hiện ra → cấp lại quyền. KHÔNG cần redeploy (URL /exec giữ nguyên).
+  2. Verify: curl '?action=ping' trả JSON {"ok":true,...}.
+Fix TRIỆT ĐỂ (1 lần, hết tái phát):
+  console.cloud.google.com (tài khoản chủ script) → chọn đúng GCP project đang gắn với
+  Apps Script (Project Settings trong editor cho biết) → APIs & Services →
+  OAuth consent screen → nếu chỉ dùng trong Google Workspace thì chọn audience Internal;
+  nếu external thì đổi Publishing status "Testing" → PUBLISH APP ("In production").
+  Sau đó re-auth 1 lần cuối (bước Fix NGAY) — grant từ đây không còn hết hạn 7 ngày.
+Lưu ý:   Lần fix 2026-07-03 làm bằng redeploy trong editor — redeploy chỉ tình cờ
+         ép re-auth (che triệu chứng), KHÔNG chữa gốc → 7 ngày sau chết lại.
+```
+
 ## SOP Offline (In laminated, dán tại quầy)
 ```
 1. Mạng chết     → Chrome Form cache · In tem LAN
