@@ -54,6 +54,8 @@ loadScript('Meta.gs');
 loadScript('Admin.gs');
 loadScript('RFM.gs');
 loadScript('Marketing.gs');
+loadScript('Payment.gs');
+loadScript('Code.gs');
 
 // 3. Define Unit Tests
 test('normalizeCustomerId normalizes VN phone numbers correctly', (t) => {
@@ -125,3 +127,94 @@ test('markOrderPaid is idempotent and skips all side effects for an already paid
   assert.deepStrictEqual(result, { payment_status: 'PAID', already_paid: true });
   assert.deepStrictEqual({ writes, stamps, receipts, metrics }, { writes: 0, stamps: 0, receipts: 0, metrics: 0 });
 });
+
+test('isShortCodeInDescription matches correctly and avoids false positives', () => {
+  const cases = [
+    // Alphanumeric short codes (like Q07)
+    ['Q07', 'CK Q07', true],
+    ['Q07', 'Q7', true],
+    ['Q07', 'CKQ07', true],
+    ['Q07', 'CK Q070', false],
+    ['Q07', 'Q070', false],
+    ['Q07', 'chuyen 7 ly', false],
+    ['Q07', 'ban 7', false],
+
+    // Alphanumeric G07 brand-sensitive checks (prevent false positive matching for brand G7)
+    ['G07', 'mua ca phe G7', false],
+    ['G07', 'CK G7', true],
+    ['G07', 'G07', true],
+    ['G07', 'CK G07', true],
+    ['G07', 'FT2218MG07X', false], // boundary alphanumeric collision
+
+    // Numeric short codes (like 007)
+    ['007', 'ND: 007', true],
+    ['007', 'ck 7', true],
+    ['007', '007', true],
+    ['007', '9007', false],
+    ['007', '0070', false]
+  ];
+
+  for (const [shortCode, description, expected] of cases) {
+    const actual = global.isShortCodeInDescription(shortCode, description);
+    assert.strictEqual(actual, expected, `Failed for shortCode: ${shortCode}, description: ${description}`);
+  }
+});
+
+test('toPublicLoyaltyView strips name, phone, zalo_id and notes', () => {
+  const fullInfo = {
+    customer_id: '0975087429',
+    name: 'Nguyễn Văn Hùng',
+    phone: '0975087429',
+    zalo_id: 'zalo-123',
+    stamp_count: 5,
+    stamp_total_ever: 15,
+    free_drinks_earned: 2,
+    free_drinks_used: 1,
+    notes: 'Khách VIP'
+  };
+
+  const actual = global.toPublicLoyaltyView(fullInfo);
+  assert.strictEqual(actual.name, undefined);
+  assert.strictEqual(actual.phone, undefined);
+  assert.strictEqual(actual.customer_id, undefined);
+  assert.strictEqual(actual.zalo_id, undefined);
+  assert.strictEqual(actual.notes, undefined);
+  assert.strictEqual(actual.stamp_count, 5);
+  assert.strictEqual(actual.free_drinks_earned, 2);
+  assert.strictEqual(actual.free_drinks_used, 1);
+});
+
+test('ROUTE_REGISTRY enforces strict authentication rules and short public allowlist', () => {
+  const getRoutes = global.GET_ROUTES;
+  const postRoutes = global.POST_ROUTES;
+  const auths = global.AUTH;
+
+  // Expected public routes
+  const publicGetAllowlist = ['ping', 'menu', 'promo_info', 'signage_config', 'customer_info', 'order_status', 'active_orders'];
+  const publicPostAllowlist = ['admin_login', 'update_admin_password', 'log_camera_event'];
+
+  const validAuthValues = Object.values(auths);
+
+  // Validate GET_ROUTES
+  for (const [action, route] of Object.entries(getRoutes)) {
+    assert.strictEqual(typeof route, 'object', `GET Route ${action} must be an object`);
+    assert.strictEqual(validAuthValues.includes(route.auth), true, `GET Route ${action} has invalid auth: ${route.auth}`);
+    assert.strictEqual(typeof route.handler, 'function', `GET Route ${action} must have a handler function`);
+    
+    if (route.auth === auths.PUBLIC) {
+      assert.strictEqual(publicGetAllowlist.includes(action), true, `GET Route ${action} is PUBLIC but not in the allowlist!`);
+    }
+  }
+
+  // Validate POST_ROUTES
+  for (const [action, route] of Object.entries(postRoutes)) {
+    assert.strictEqual(typeof route, 'object', `POST Route ${action} must be an object`);
+    assert.strictEqual(validAuthValues.includes(route.auth), true, `POST Route ${action} has invalid auth: ${route.auth}`);
+    assert.strictEqual(typeof route.handler, 'function', `POST Route ${action} must have a handler function`);
+
+    if (route.auth === auths.PUBLIC) {
+      assert.strictEqual(publicPostAllowlist.includes(action), true, `POST Route ${action} is PUBLIC but not in the allowlist!`);
+    }
+  }
+});
+
