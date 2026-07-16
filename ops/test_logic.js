@@ -343,3 +343,49 @@ test('hai token khác nhau ra fingerprint khác nhau — vẫn so sánh được
   const b = global._tokenFingerprint('token_bbbb');
   assert.notStrictEqual(a, b, 'fingerprint phải phân biệt được token lệch nhau');
 });
+
+test('redactSnapshot che SĐT giữ 4 số cuối, xoá tên/địa chỉ, giữ order_id/sku', () => {
+  const input = {
+    order_id: 'ORD-001',
+    customer_id: '0987654321',
+    customer_name: 'Nguyễn Văn A',
+    delivery_address: '123 Lâm Hà',
+    notes: 'giao trước 8h',
+    items: [{ sku: 'CF01', qty: 2 }],
+    status: 'NEW'
+  };
+  const out = JSON.parse(global.redactSnapshot(input));
+  assert.strictEqual(out.customer_id, '****4321');
+  assert.strictEqual(out.customer_name, '[redacted]');
+  assert.strictEqual(out.delivery_address, '[redacted]');
+  assert.strictEqual(out.notes, '[redacted]');
+  assert.strictEqual(out.order_id, 'ORD-001');
+  assert.deepStrictEqual(out.items, [{ sku: 'CF01', qty: 2 }]);
+  assert.strictEqual(out.status, 'NEW');
+});
+
+test('redactSnapshot cắt tại 2000 ký tự', () => {
+  const huge = { notes_raw: 'x'.repeat(5000) };
+  const out = global.redactSnapshot(huge);
+  assert.ok(out.length <= 2000);
+});
+
+test('logError param snapshot optional — 2 tham số vẫn chạy như cũ', () => {
+  const origSpreadsheetApp = global.SpreadsheetApp;
+  const appended = [];
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({ appendRow: (row) => appended.push(row) })
+    })
+  };
+  const origProps = global.PropertiesService;
+  global.PropertiesService = { getScriptProperties: () => ({ getProperty: () => '', setProperty: () => {} }) };
+  try {
+    assert.doesNotThrow(() => global.logError('test.context', new Error('boom')));
+    assert.strictEqual(appended.length, 1);
+    assert.strictEqual(appended[0][4], '', 'snapshot rỗng khi không truyền tham số 3');
+  } finally {
+    global.SpreadsheetApp = origSpreadsheetApp;
+    global.PropertiesService = origProps;
+  }
+});
