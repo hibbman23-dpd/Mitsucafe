@@ -73,6 +73,7 @@ loadScript('RFM.gs');
 loadScript('Marketing.gs');
 loadScript('Payment.gs');
 loadScript('Code.gs');
+loadScript('Zalo.gs');
 
 // 3. Define Unit Tests
 test('normalizeCustomerId normalizes VN phone numbers correctly', (t) => {
@@ -318,3 +319,27 @@ test('doGet returns a proper JSON error response when every retry attempt fails'
   }
 });
 
+
+test('_tokenFingerprint không rò token — ERROR_LOG là sheet, ai đọc được cũng thấy', () => {
+  const fp = global._tokenFingerprint('SUPER_SECRET_ZALO_TOKEN_abcd');
+
+  // Cái phải KHÔNG có: bất kỳ mẩu nào của token đủ để dùng lại.
+  assert.ok(!fp.includes('SUPER_SECRET'), 'không được chứa thân token');
+  assert.ok(!fp.includes('ZALO_TOKEN'), 'không được chứa thân token');
+
+  // Cái phải CÓ: đủ chẩn đoán "sheet ghi đúng chưa" — độ dài + 4 ký tự cuối.
+  assert.match(fp, /len=28/, 'phải nêu độ dài để thấy token cụt/lệch');
+  assert.match(fp, /…abcd$/, 'phải nêu 4 ký tự cuối để so 2 token có khớp không');
+});
+
+test('_tokenFingerprint phân biệt rỗng với có giá trị (ca lỗi hay gặp nhất)', () => {
+  assert.strictEqual(global._tokenFingerprint(''), '(rỗng)');
+  assert.strictEqual(global._tokenFingerprint(null), '(rỗng)');
+  assert.strictEqual(global._tokenFingerprint(undefined), '(rỗng)');
+});
+
+test('hai token khác nhau ra fingerprint khác nhau — vẫn so sánh được', () => {
+  const a = global._tokenFingerprint('token_aaaa');
+  const b = global._tokenFingerprint('token_bbbb');
+  assert.notStrictEqual(a, b, 'fingerprint phải phân biệt được token lệch nhau');
+});
