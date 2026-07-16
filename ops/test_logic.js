@@ -34,7 +34,24 @@ global.Utilities = {
   formatDate: (date, tz, format) => {
     // Simple mock formatter
     return date.toISOString().slice(0, 10);
-  }
+  },
+  // No-op: các test retry không cần chờ delay thật (xem _executeWithRetry).
+  sleep: () => {}
+};
+global.ContentService = {
+  createTextOutput: (text) => ({
+    _content: text,
+    setMimeType: function () { return this; },
+    getContent: function () { return this._content; }
+  }),
+  MimeType: { JSON: 'JSON' }
+};
+global.HtmlService = {
+  createHtmlOutput: (html) => ({
+    _content: html,
+    setTitle: function () { return this; },
+    getContent: function () { return this._content; }
+  })
 };
 
 // 2. Load production Apps Script files into the Node context
@@ -215,6 +232,89 @@ test('ROUTE_REGISTRY enforces strict authentication rules and short public allow
     if (route.auth === auths.PUBLIC) {
       assert.strictEqual(publicPostAllowlist.includes(action), true, `POST Route ${action} is PUBLIC but not in the allowlist!`);
     }
+  }
+});
+
+// --- _executeWithRetry / doGet retry behavior ---
+// Bối cảnh: _executeWithRetry chỉ retry khi fn() THROW. doGet gọi
+// _executeWithRetry(_doGetInternal, 3, 1000) để chịu được lỗi Google Sheets
+// service gián đoạn dưới 1 giây (Dịch vụ Bảng tính / Spreadsheet). Nếu
+// _doGetInternal tự nuốt lỗi (try/catch nội bộ) thì fn() không bao giờ throw
+// và cơ chế retry chết lâm sàng — đây là bug mà bản fix (di chuyển catch ra
+// doGet) sửa. Utilities.sleep được mock no-op ở trên nên các test này không
+// chờ delay thật dù delayMs thật của doGet là 1000ms.
+
+test('_executeWithRetry retries a throwing function and returns its value once it succeeds', () => {
+  let calls = 0;
+  const fn = () => {
+    calls++;
+    if (calls < 3) {
+      throw new Error('Dịch vụ Bảng tính đang bận, vui lòng thử lại');
+    }
+    return 'success-value';
+  };
+
+  const result = global._executeWithRetry(fn, 3, 1);
+  assert.strictEqual(result, 'success-value');
+  assert.strictEqual(calls, 3, 'fn phải được gọi đúng 3 lần (2 lần fail + 1 lần thành công)');
+});
+
+test('_executeWithRetry gives up after maxRetries and surfaces the failure', () => {
+  let calls = 0;
+  const fn = () => {
+    calls++;
+    throw new Error('Spreadsheet service error: timeout');
+  };
+
+  assert.throws(() => global._executeWithRetry(fn, 3, 1), /Spreadsheet service error/);
+  assert.strictEqual(calls, 3, 'phải thử đủ maxRetries lần trước khi bỏ cuộc');
+});
+
+test('doGet retries a transient failure end-to-end and returns the eventual success (catches the dead-retry bug)', () => {
+  // Ping route: PUBLIC, không cần lock/auth phức tạp — phù hợp để lái toàn bộ
+  // đường đi thật của doGet → _executeWithRetry → _doGetInternal → route.handler.
+  const originalHandler = global.GET_ROUTES.ping.handler;
+  const originalLogError = global.logError;
+  let calls = 0;
+  global.logError = () => {}; // tránh phụ thuộc ERROR_LOG sheet thật trong mock SpreadsheetApp
+  global.GET_ROUTES.ping.handler = function (e) {
+    calls++;
+    if (calls < 3) {
+      throw new Error('Dịch vụ Bảng tính đang quá tải, thử lại sau');
+    }
+    return { ok: true, message: 'pong' };
+  };
+
+  try {
+    const res = global.doGet({ parameter: { action: 'ping' } });
+    assert.strictEqual(calls, 3, 'handler phải được gọi lại sau mỗi lần fail — nếu = 1 thì retry đã chết (bug cũ)');
+    const body = JSON.parse(res.getContent());
+    assert.deepStrictEqual(body, { ok: true, message: 'pong' });
+  } finally {
+    global.GET_ROUTES.ping.handler = originalHandler;
+    global.logError = originalLogError;
+  }
+});
+
+test('doGet returns a proper JSON error response when every retry attempt fails', () => {
+  const originalHandler = global.GET_ROUTES.ping.handler;
+  const originalLogError = global.logError;
+  let calls = 0;
+  global.logError = () => {};
+  global.GET_ROUTES.ping.handler = function (e) {
+    calls++;
+    throw new Error('Dịch vụ Bảng tính không phản hồi');
+  };
+
+  try {
+    const res = global.doGet({ parameter: { action: 'ping' } });
+    assert.strictEqual(calls, 3, 'phải thử đủ 3 lần trước khi doGet trả lỗi cho client');
+    const body = JSON.parse(res.getContent());
+    assert.strictEqual(body.ok, false);
+    assert.match(body.error, /Dịch vụ Bảng tính không phản hồi/);
+  } finally {
+    global.GET_ROUTES.ping.handler = originalHandler;
+    global.logError = originalLogError;
   }
 });
 
