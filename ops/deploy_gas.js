@@ -152,4 +152,10 @@ async function main() {
   console.log(`\n✅ Done (${targets.length} branch).`);
 }
 
-main().catch(e => { console.error('❌', e.message || e); process.exit(1); });
+// Chỉ chạy khi gọi trực tiếp từ CLI. Khi bị require (test, healer) thì chỉ export —
+// nếu không, require vào là deploy thật lên prod.
+if (require.main === module) {
+  main().catch(e => { console.error('❌', e.message || e); process.exit(1); });
+}
+
+module.exports = { deployBranch };
