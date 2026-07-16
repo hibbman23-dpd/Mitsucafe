@@ -21,7 +21,11 @@
 - **Không có mảnh nào trong plan này tự chạy.** Không cron, không trigger, không sửa `dispatcher.sh`. Đó là Plan 2.
 - **GREEN_LIST là hằng số hardcode trong `ops/healer_gate.js`** — không đọc từ CONFIG sheet, không đọc từ file ngoài. Lý do: cổng không được phép đổi bởi thứ mà healer ghi được.
 - **Fail-closed tuyệt đối.** Mọi nhánh không chắc chắn trong gate → trả red. Không có đường nào mặc định green.
-- **Nhánh làm việc:** tạo `feat/healer-safety-net` từ `main`. KHÔNG làm trên `launch-hardening` (đang có ~40 file WIP không liên quan).
+- **Nhánh làm việc:** `feat/healer-safety-net`, nhánh **từ `launch-hardening`**, PR về `launch-hardening`.
+  KHÔNG nhánh từ `main` — plan này phụ thuộc code chỉ có trên `launch-hardening`: `ops/deploy_gas.js` trên `main` chưa có khối `authSmoke` (16 dòng khác, Task 2 trích đúng từng chữ bản `launch-hardening`), và `ops/test_logic.js` trên `main` thiếu 110 dòng (`16f1499`) nên mốc "8 pass" sai.
+  KHÔNG commit thẳng lên `launch-hardening` — cây làm việc của user đang có ~40 file WIP. Làm trong worktree riêng.
+
+- **Con số mốc đo trên `launch-hardening`:** `node --test ops/test_logic.js` → **8 pass, 0 fail**. Đo lại ở nền khác ra số khác thì dừng, đừng sửa con số trong plan cho khớp.
 
 ---
 
