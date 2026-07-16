@@ -102,16 +102,17 @@ async function deployBranch(name, cfg, accessToken, files, reportToken, dryRun) 
 
   // 2b. Đọc version deployment ĐANG trỏ tới, TRƯỚC khi retarget — để còn đường lùi.
   //     Phải lấy ở đây: sau khi retarget thì API trả về chính version mới, mất mốc cũ.
-  let prevVersion = null;
   r = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/deployments/${deploymentId}`, {
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
-  if (r.status === 200) {
-    prevVersion = ((await r.json()).deploymentConfig || {}).versionNumber ?? null;
-    console.log(`  ✓ version đang chạy: #${prevVersion}`);
-  } else {
-    console.log(`  ⚠️  không đọc được version cũ (HTTP ${r.status}) — sẽ KHÔNG rollback được nếu smoke đỏ`);
+  const prevVersion = r.status === 200 ? (((await r.json()).deploymentConfig || {}).versionNumber ?? null) : null;
+  if (prevVersion === null) {
+    // Tại đây CHƯA retarget gì — prod vẫn nguyên vẹn. Hủy ở đây MIỄN PHÍ, tốt hơn
+    // retarget mù rồi kẹt không có đường lùi nếu smoke đỏ (fail-closed, không fail-open).
+    const detail = r.status === 200 ? 'response thiếu versionNumber' : `HTTP ${r.status} ${await r.text()}`;
+    throw new Error(`[${name}] DEPLOY HỦY: không đọc được version đang chạy (${detail}) — CHƯA retarget, prod chưa bị đụng tới. Thử lại sau.`);
   }
+  console.log(`  ✓ version đang chạy: #${prevVersion}`);
 
   // 3. Retarget deployment
   r = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/deployments/${deploymentId}`, {
@@ -123,13 +124,15 @@ async function deployBranch(name, cfg, accessToken, files, reportToken, dryRun) 
   console.log('  ✓ retargeted');
 
   // 4. Smoke test. Retarget đã xảy ra → prod ĐANG chạy version mới. Đỏ = phải lùi ngay.
+  //    Trả cả status/body khi lỗi — đây là lúc rollback tự nó hỏng, người cần chi tiết nhất.
   const retargetTo = async (v) => {
     const rr = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/deployments/${deploymentId}`, {
       method: 'PUT',
       headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ deploymentConfig: { scriptId, versionNumber: v, manifestFileName: 'appsscript', description: `v${v} ${name}` } })
     });
-    return rr.status === 200;
+    if (rr.status === 200) return { ok: true };
+    return { ok: false, status: rr.status, body: await rr.text() };
   };
 
   const runSmoke = async () => {
@@ -153,14 +156,12 @@ async function deployBranch(name, cfg, accessToken, files, reportToken, dryRun) 
   if (!smokeErr) { console.log('  🎉 smoke OK'); return; }
 
   // Smoke đỏ → prod đang hỏng. Lùi về version cũ trước, kể chuyện sau.
+  // prevVersion không thể null ở đây nữa — đã abort sớm ở bước 2b nếu không đọc được.
   console.error(`  ❌ ${smokeErr}`);
-  if (prevVersion === null) {
-    throw new Error(`[${name}] ROLLBACK BẤT KHẢ: ${smokeErr} — không biết version cũ, prod ĐANG HỎNG ở v${versionNumber}. Vào editor lùi tay NGAY.`);
-  }
   console.error(`  ↩︎  đang lùi về v${prevVersion}…`);
-  const backOk = await retargetTo(prevVersion);
-  if (!backOk) {
-    throw new Error(`[${name}] ROLLBACK THẤT BẠI: ${smokeErr} — retarget về v${prevVersion} không xong, prod ĐANG HỎNG ở v${versionNumber}. Vào editor lùi tay NGAY.`);
+  const backResult = await retargetTo(prevVersion);
+  if (!backResult.ok) {
+    throw new Error(`[${name}] ROLLBACK THẤT BẠI: ${smokeErr} — retarget về v${prevVersion} không xong (HTTP ${backResult.status} ${backResult.body}), prod ĐANG HỎNG ở v${versionNumber}. Vào editor lùi tay NGAY.`);
   }
   const afterErr = await runSmoke();
   if (afterErr) {
