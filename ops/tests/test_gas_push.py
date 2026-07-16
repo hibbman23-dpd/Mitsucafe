@@ -261,6 +261,26 @@ class DeploySmokeRollbackTest(unittest.TestCase):
         # Không có gì để PUT khi GET đã lỗi.
         self.assertEqual(content_put_calls(calls), [], 'GET nội dung version cũ lỗi thì không được PUT khôi phục')
 
+    def test_rollback_content_fetch_200_but_empty_files_never_puts(self):
+        """GET content trả HTTP 200 nhưng files rỗng. Nếu chỉ tin status code thì sẽ PUT
+        {files: []} lên HEAD = XOÁ TRẮNG project, rồi vẫn in '✓ HEAD đã khôi phục'.
+        Thành công giả — đúng cái tội cả file này sinh ra để diệt. Phải coi như GET hỏng."""
+        stub, calls = make_urlopen_stub(
+            old_ver=41, new_ver=42,
+            smoke_sequence=[(500, 'boom'), (200, '{"ok":true}')],
+            old_files=[])
+        with patch('urllib.request.urlopen', side_effect=stub):
+            with patch('builtins.print') as mock_print:
+                with self.assertRaises(SystemExit):
+                    gas_push.deploy(SCRIPT_ID, TOKEN)
+                printed = ' '.join(str(c.args[0]) for c in mock_print.call_args_list)
+                self.assertIn('HEAD', printed, 'phải nêu rõ HEAD không khôi phục được')
+                self.assertNotIn('✓ HEAD đã khôi phục', printed,
+                                 'TUYỆT ĐỐI không được tuyên bố khôi phục thành công khi không PUT gì')
+
+        self.assertEqual(content_put_calls(calls), [],
+                         'files rỗng → TUYỆT ĐỐI không PUT lên HEAD (PUT rỗng = xoá trắng project)')
+
 
 class ReportTokenAuthSmokeTest(unittest.TestCase):
     """Parity với getReportToken() trong deploy_gas.js: đọc .claude/.dispatcher-auth.json,

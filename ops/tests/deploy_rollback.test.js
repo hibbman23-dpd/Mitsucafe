@@ -237,3 +237,22 @@ test('rollback: fetch nội dung version cũ THẤT BẠI → không PUT khôi p
     assert.strictEqual(contentPuts.length, 1, 'GET nội dung version cũ lỗi thì không được PUT khôi phục (không có gì để PUT)');
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('GET content version cũ trả 200 nhưng files RỖNG → KHÔNG PUT (PUT rỗng = xoá trắng project)', async () => {
+  const { deployBranch } = require('../deploy_gas.js');
+  const realFetch = globalThis.fetch;
+  try {
+    // HTTP 200 nhưng body rỗng: nếu tin mỗi status code thì sẽ PUT {files: []} lên HEAD
+    // = xoá sạch project, rồi vẫn in "✓ HEAD đã khôi phục". Thành công giả.
+    const calls = stubFetch({ smokeOk: false, prevVersion: 41, newVersion: 42, oldFiles: [] });
+
+    await assert.rejects(
+      () => deployBranch('lamha', CFG, 'TOKEN', [], '', false),
+      err => err.message.includes('ROLLBACK MỘT PHẦN') && err.message.includes('HEAD'),
+      'files rỗng = KHÔNG khôi phục được HEAD → phải báo ROLLBACK MỘT PHẦN, không được báo thành công'
+    );
+
+    const contentPuts = calls.filter(c => c.url.includes('/content') && !c.url.includes('versionNumber') && c.method === 'PUT');
+    assert.strictEqual(contentPuts.length, 1, 'chỉ được có PUT push ban đầu — TUYỆT ĐỐI không PUT files rỗng lên HEAD');
+  } finally { globalThis.fetch = realFetch; }
+});

@@ -192,16 +192,23 @@ async function deployBranch(name, cfg, accessToken, files, reportToken, dryRun) 
     headRestoreErr = `GET content?versionNumber=${prevVersion} failed: HTTP ${contentGet.status} ${await contentGet.text()}`;
   } else {
     const oldFiles = (await contentGet.json()).files;
-    const contentPut = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/content`, {
-      method: 'PUT',
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ files: oldFiles })
-    });
-    if (contentPut.status !== 200) {
-      headRestoreErr = `PUT content (khôi phục v${prevVersion}) failed: HTTP ${contentPut.status} ${await contentPut.text()}`;
+    // HTTP 200 mà files rỗng/thiếu thì KHÔNG khôi phục được. PUT bừa lên HEAD = xoá
+    // trắng project, rồi vẫn in "✓ đã khôi phục" — tuyên bố thành công không kiểm
+    // chứng, đúng cái tội cả file này sinh ra để diệt. Coi như GET hỏng.
+    if (!Array.isArray(oldFiles) || oldFiles.length === 0) {
+      headRestoreErr = `GET content?versionNumber=${prevVersion} trả HTTP 200 nhưng files rỗng/thiếu — KHÔNG PUT gì lên HEAD (PUT rỗng sẽ xoá trắng project)`;
     } else {
-      headRestored = true;
-      console.error(`  ✓ HEAD đã khôi phục về nội dung v${prevVersion}`);
+      const contentPut = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/content`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: oldFiles })
+      });
+      if (contentPut.status !== 200) {
+        headRestoreErr = `PUT content (khôi phục v${prevVersion}) failed: HTTP ${contentPut.status} ${await contentPut.text()}`;
+      } else {
+        headRestored = true;
+        console.error(`  ✓ HEAD đã khôi phục về nội dung v${prevVersion}`);
+      }
     }
   }
   if (headRestoreErr) {

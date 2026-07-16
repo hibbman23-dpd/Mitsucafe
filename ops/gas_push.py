@@ -153,7 +153,13 @@ def get_version_content(script_id, token, version_number):
         headers={'Authorization': 'Bearer ' + token})
     try:
         res = json.load(urllib.request.urlopen(req, timeout=60))
-        return True, res.get('files', [])
+        files = res.get('files') or []
+        # HTTP 200 mà files rỗng thì KHÔNG khôi phục được. PUT bừa lên HEAD = xoá trắng
+        # project, rồi vẫn in "✓ đã khôi phục" — tuyên bố thành công không kiểm chứng,
+        # đúng cái tội cả file này sinh ra để diệt. Coi như GET hỏng.
+        if not files:
+            return False, 'HTTP 200 nhưng files rỗng/thiếu — KHÔNG PUT gì lên HEAD (PUT rỗng sẽ xoá trắng project)'
+        return True, files
     except urllib.error.HTTPError as e:
         return False, 'HTTP %s %s' % (e.code, e.read().decode('utf-8', 'replace')[:400])
 
