@@ -5,7 +5,14 @@ Ra đời 2026-07-02 vì `clasp push` (v3.3.0) chết ở bước refresh token 
 ("Premature close" — bug fetch/undici), còn clasp v2 không đọc được ~/.clasprc.json
 định dạng v3. Script này dùng thẳng Apps Script API với credentials sẵn có của clasp.
 
-Dùng:  python3 ops/gas_push.py            # chỉ push code (an toàn, chưa ảnh hưởng prod)
+Dùng:  python3 ops/gas_push.py            # chỉ push code — GHI ĐÈ HEAD NGAY LẬP TỨC.
+                                          # HEAD là script SỐNG: mọi time-driven trigger
+                                          # (18 cái — cronDailyFinancials, refreshZaloToken,
+                                          # backupSpreadsheet, pullGa4Recent, …) chạy theo
+                                          # HEAD, KHÔNG theo deployment version. Chỉ có
+                                          # /exec (URL công khai, dùng bởi web/KDS/poller)
+                                          # là CHƯA đổi cho tới khi chạy --deploy. KHÔNG
+                                          # "an toàn tuyệt đối" — chỉ /exec là chưa động.
        python3 ops/gas_push.py --deploy   # push + tạo version mới + trỏ deployment
                                           # prod (/exec giữ nguyên URL) — LÀ DEPLOY THẬT,
                                           # tương đương editor → Manage deployments → New version.
@@ -90,14 +97,32 @@ def http_get(url):
         return 0, str(e.reason)
 
 
-def smoke_test(webapp_url):
+def get_report_token():
+    """Đọc token dispatcher, giống getReportToken() trong deploy_gas.js — cho phép
+    smoke_test() chạm CONFIG/Sheets thật qua ?action=orders thay vì chỉ dừng ở
+    ?action=ping (hardcode, xem gas/Code.gs GET_ROUTES['ping']). Không throw nếu
+    thiếu file — auth smoke là optional, caller tự quyết định báo bỏ qua hay không."""
+    auth_path = os.path.join(ROOT, '.claude', '.dispatcher-auth.json')
+    try:
+        return json.load(open(auth_path, encoding='utf-8')).get('report_api_token') or ''
+    except (OSError, ValueError, KeyError):
+        return ''
+
+
+def smoke_test(webapp_url, report_token=''):
     """Gọi ?action=ping kèm cache-buster, đòi HTTP 200 + "ok":true trong body.
+    Nếu có report_token, gọi thêm ?action=orders — ping trả hằng số hardcode nên
+    tự nó không chứng minh CONFIG/Sheets vẫn sống, orders thì có.
     Trả None nếu xanh, chuỗi mô tả lỗi nếu đỏ."""
     cb = random.randint(0, 10**9)
     sep = '&' if '?' in webapp_url else '?'
     status, body = http_get('%s%saction=ping&_cb=%d' % (webapp_url, sep, cb))
     if status != 200 or '"ok":true' not in body:
-        return 'smoke fail: HTTP %s - %s' % (status, body[:120])
+        return 'public smoke fail: HTTP %s - %s' % (status, body[:120])
+    if report_token:
+        status, body = http_get('%s%saction=orders&token=%s&_cb=%d' % (webapp_url, sep, report_token, cb))
+        if status != 200 or '"ok":true' not in body:
+            return 'auth smoke fail (token connectivity check): HTTP %s - %s' % (status, body[:120])
     return None
 
 
@@ -119,7 +144,35 @@ def retarget(script_id, token, deployment_id, version_number):
         return False, e.code, e.read().decode('utf-8', 'replace')[:400]
 
 
-def deploy(script_id, token):
+def get_version_content(script_id, token, version_number):
+    """GET nội dung 1 version cũ — dùng để khôi phục HEAD lúc rollback (HEAD không tự
+    lùi theo deployment retarget, phải PUT /content lại tay). Không die(): rollback
+    cần tự dựng message riêng khi hỏng. Trả (ok, files_hoặc_mô_tả_lỗi)."""
+    req = urllib.request.Request(
+        'https://script.googleapis.com/v1/projects/%s/content?versionNumber=%s' % (script_id, version_number),
+        headers={'Authorization': 'Bearer ' + token})
+    try:
+        res = json.load(urllib.request.urlopen(req, timeout=60))
+        return True, res.get('files', [])
+    except urllib.error.HTTPError as e:
+        return False, 'HTTP %s %s' % (e.code, e.read().decode('utf-8', 'replace')[:400])
+
+
+def put_content(script_id, token, files):
+    """PUT nội dung — dùng lại lúc khôi phục HEAD về version cũ khi rollback.
+    Không die(): rollback cần tự dựng message riêng khi hỏng."""
+    req = urllib.request.Request(
+        'https://script.googleapis.com/v1/projects/%s/content' % script_id,
+        data=json.dumps({'files': files}).encode(), method='PUT',
+        headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'})
+    try:
+        urllib.request.urlopen(req, timeout=60)
+        return True, ''
+    except urllib.error.HTTPError as e:
+        return False, 'HTTP %s %s' % (e.code, e.read().decode('utf-8', 'replace')[:400])
+
+
+def deploy(script_id, token, report_token=''):
     deps = api(script_id, token, '/deployments')
     target = None
     webapp_url = None
@@ -133,10 +186,16 @@ def deploy(script_id, token):
 
     old_ver = target['deploymentConfig'].get('versionNumber')
     if old_ver is None:
-        # Fail-closed: CHƯA tạo version mới, CHƯA retarget gì — hủy ở đây miễn phí,
-        # tốt hơn retarget mù rồi kẹt không có đường lùi nếu smoke đỏ.
-        die('DEPLOY HỦY: deployment prod thiếu versionNumber hiện tại — CHƯA đụng gì tới '
-            'prod. Kiểm tra deployment trong editor rồi thử lại.')
+        # Fail-closed: CHƯA tạo version mới, CHƯA retarget /exec — hủy ở đây miễn phí,
+        # tốt hơn retarget mù rồi kẹt không có đường lùi nếu smoke đỏ. NHƯNG main() đã
+        # PUT /content (ghi đè HEAD) TRƯỚC KHI gọi deploy() — không được nói chung
+        # chung "chưa đụng gì tới prod": /exec thật sự chưa đổi, HEAD thì ĐÃ đổi rồi,
+        # và không có version cũ nào ở đây để khôi phục lại HEAD tự động.
+        die('DEPLOY HỦY: deployment prod thiếu versionNumber hiện tại — /exec CHƯA bị '
+            'retarget (an toàn, vẫn phục vụ bản cũ), nhưng HEAD ĐÃ bị ghi đè bởi bước push '
+            'content ở trên và KHÔNG có version cũ nào để khôi phục HEAD tự động — trigger '
+            'cron sẽ chạy code mới (chưa qua smoke). Vào editor kiểm tra HEAD + deployment '
+            'rồi xử lý tay.')
 
     ver = api(script_id, token, '/versions', 'POST',
               {'description': 'gas_push.py auto-version'})
@@ -151,26 +210,71 @@ def deploy(script_id, token):
         }})
     print('✅ Deployment prod: v%s → v%s (URL /exec giữ nguyên).' % (old_ver, new_ver))
 
-    # Retarget đã xảy ra → prod ĐANG chạy version mới. Đỏ = phải lùi ngay.
-    smoke_err = smoke_test(webapp_url)
+    # Retarget đã xảy ra → /exec ĐANG chạy version mới. Đỏ = phải lùi ngay.
+    smoke_err = smoke_test(webapp_url, report_token)
     if not smoke_err:
-        print('   🎉 smoke OK (?action=ping).')
+        print('   🎉 smoke OK (?action=ping%s).' % (' + ?action=orders' if report_token else ''))
         return
 
+    # Retarget deployment CHỈ lùi /exec — nó KHÔNG đụng tới HEAD, mà HEAD mới là thứ
+    # trigger cron (cronDailyFinancials, refreshZaloToken, backupSpreadsheet,
+    # pullGa4Recent, …) chạy theo. Rollback thật sự cần khôi phục CẢ HAI.
+    #
+    # Thứ tự: khôi phục HEAD TRƯỚC, retarget /exec SAU. Lý do — khôi phục HEAD (GET nội
+    # dung version cũ rồi PUT lại) không phụ thuộc gì vào deployment nên làm trước
+    # không mất gì; và nếu bước khôi phục HEAD thất bại, vẫn còn cơ hội cứu /exec bằng
+    # retarget ở dưới — không để 1 thất bại chặn luôn nỗ lực cứu cái còn lại. Ngược lại
+    # nếu retarget /exec làm trước và chính nó thất bại, code sẽ die() ngay (nhánh
+    # ROLLBACK THẤT BẠI) và không bao giờ chạm bước khôi phục HEAD. Làm HEAD trước cũng
+    # giúp mọi message dưới đây nói chính xác HEAD đã cứu được hay chưa.
     print('❌ %s' % smoke_err)
-    print('   ↩︎  đang lùi về v%s…' % old_ver)
+    print('   ↩︎  đang khôi phục v%s…' % old_ver)
+
+    head_restored = False
+    head_err = None
+    ok_get, content_or_err = get_version_content(script_id, token, old_ver)
+    if not ok_get:
+        head_err = 'GET content?versionNumber=%s fail: %s' % (old_ver, content_or_err)
+    else:
+        ok_put, put_err = put_content(script_id, token, content_or_err)
+        if not ok_put:
+            head_err = 'PUT content (khôi phục v%s) fail: %s' % (old_ver, put_err)
+        else:
+            head_restored = True
+            print('   ✓ HEAD đã khôi phục về nội dung v%s' % old_ver)
+
+    if head_err:
+        print('   ⚠️  KHÔNG khôi phục được HEAD: %s — trigger cron (cronDailyFinancials, '
+              'refreshZaloToken, backupSpreadsheet, pullGa4Recent, …) vẫn chạy code MỚI '
+              '(hỏng) dù /exec có lùi được ở bước dưới hay không. Vào editor sửa tay HEAD '
+              'NGAY.' % head_err)
+
     ok, status, body = retarget(script_id, token, target['deploymentId'], old_ver)
     if not ok:
-        die('ROLLBACK THẤT BẠI: %s — retarget về v%s không xong (HTTP %s %s), prod ĐANG '
-            'HỎNG ở v%s. Vào editor lùi tay NGAY.' % (smoke_err, old_ver, status, body, new_ver))
+        die('ROLLBACK THẤT BẠI: %s — retarget /exec về v%s không xong (HTTP %s %s), /exec '
+            'ĐANG HỎNG ở v%s%s. Vào editor lùi tay NGAY.' % (
+                smoke_err, old_ver, status, body, new_ver,
+                ' (HEAD đã khôi phục nhưng /exec thì chưa)' if head_restored
+                else ' và HEAD CŨNG chưa khôi phục được'))
 
-    after_err = smoke_test(webapp_url)
+    after_err = smoke_test(webapp_url, report_token)
     if after_err:
-        die('ROLLBACK xong nhưng v%s vẫn đỏ: %s — prod HỎNG, cần người.' % (old_ver, after_err))
+        die('ROLLBACK xong nhưng v%s vẫn đỏ: %s — /exec đã lùi nhưng bản thân v%s tự nó '
+            'hỏng, cần người.%s' % (old_ver, after_err, old_ver,
+                '' if head_restored else ' HEAD cũng chưa khôi phục được — xem log phía trên.'))
 
-    print('   ✓ ROLLBACK thành công về v%s. Prod đã sống. Version hỏng: v%s.' % (old_ver, new_ver))
-    die('ROLLBACK: deploy v%s smoke đỏ (%s), đã lùi về v%s. Prod ổn, fix cần người xem.'
-        % (new_ver, smoke_err, old_ver))
+    if head_restored:
+        print('   ✓ ROLLBACK thành công: /exec VÀ HEAD đều đã về v%s. Trigger cron an '
+              'toàn. Version hỏng: v%s.' % (old_ver, new_ver))
+        die('ROLLBACK: deploy v%s smoke đỏ (%s), đã khôi phục CẢ /exec và HEAD về v%s — '
+            'trigger cron cũng an toàn. Fix cần người xem.' % (new_ver, smoke_err, old_ver))
+
+    print('   ⚠️  ROLLBACK MỘT PHẦN: /exec đã về v%s (an toàn cho khách) nhưng HEAD VẪN '
+          'LÀ v%s (hỏng) — trigger cron sẽ CHẠY CODE HỎNG ở lần kế tiếp. Vào editor khôi '
+          'phục HEAD tay NGAY: %s' % (old_ver, new_ver, head_err))
+    die('ROLLBACK MỘT PHẦN: deploy v%s smoke đỏ (%s). /exec đã lùi về v%s nhưng HEAD '
+        'KHÔNG khôi phục được (%s) — trigger cron vẫn chạy code hỏng. Vào editor sửa tay '
+        'HEAD NGAY.' % (new_ver, smoke_err, old_ver, head_err))
 
 
 def main():
@@ -187,9 +291,16 @@ def main():
         res = json.load(urllib.request.urlopen(req, timeout=60))
     except urllib.error.HTTPError as e:
         die('Push fail HTTP %s: %s' % (e.code, e.read()[:400]))
-    print('✅ Đã push %d file lên script %s…' % (len(res.get('files', [])), script_id[:12]))
+    print('✅ Đã push %d file lên script %s… (HEAD đã đổi — trigger cron chạy code mới từ đây)'
+          % (len(res.get('files', [])), script_id[:12]))
     if '--deploy' in sys.argv:
-        deploy(script_id, token)
+        report_token = get_report_token()
+        if report_token:
+            print('   Auth smoke bật: sẽ gọi thêm ?action=orders (chạm CONFIG/Sheets thật).')
+        else:
+            print('   ⚠️  Không thấy .claude/.dispatcher-auth.json — bỏ qua auth smoke, chỉ '
+                  'test ?action=ping (hardcode, không chạm CONFIG/Sheets thật).')
+        deploy(script_id, token, report_token)
     else:
         print('   Chưa deploy — chạy `python3 ops/gas_push.py --deploy` hoặc redeploy trong editor.')
 
