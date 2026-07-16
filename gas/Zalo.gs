@@ -4,6 +4,17 @@
  */
 var ZALO_OAUTH = 'https://oauth.zaloapp.com/v4/oa/access_token';
 
+/**
+ * Dấu vân tay token để log an toàn: độ dài + 4 ký tự cuối.
+ * Đủ để so hai token có khớp nhau không và thấy cái nào rỗng/cụt, mà không đổ
+ * secret vào ERROR_LOG. Sheet ERROR_LOG ai đọc được cũng thấy — đừng cho nó token.
+ */
+function _tokenFingerprint(t) {
+  if (!t) return '(rỗng)';
+  var s = String(t);
+  return 'len=' + s.length + ' …' + s.slice(-4);
+}
+
 /** Gọi refresh, lưu token mới. Có lock tránh 2 tiến trình refresh cùng lúc (mất chuỗi token). */
 function refreshZaloToken() {
   var lock = LockService.getScriptLock();
@@ -49,7 +60,12 @@ function refreshZaloToken() {
     props.setProperty('ZALO_LAST_REFRESH_TS', nowIso);
     
     if (sheetVerificationFailed) {
-      logError('zalo.refresh.verify', new Error('Ghi token Zalo lên CONFIG sheet lỗi hoặc bị trễ. Value: ' + readVerifyToken + ', Expected: ' + body.access_token));
+      // KHÔNG log giá trị token — ERROR_LOG là sheet, ai đọc được sheet là có token
+      // Zalo OA sống. Để chẩn đoán "sheet ghi đúng chưa" chỉ cần biết ĐỘ DÀI và 4 ký
+      // tự cuối, không cần chính token.
+      logError('zalo.refresh.verify', new Error(
+        'Ghi token Zalo lên CONFIG sheet lỗi hoặc bị trễ. Sheet: ' + _tokenFingerprint(readVerifyToken) +
+        ', Mong đợi: ' + _tokenFingerprint(body.access_token)));
       props.setProperty('ZALO_SHEET_DEGRADED', '1');
     } else {
       props.deleteProperty('ZALO_SHEET_DEGRADED');
