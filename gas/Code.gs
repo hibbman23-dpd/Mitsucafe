@@ -735,12 +735,6 @@ function _doGetInternal(e) {
         'GET /?action=mmm_data&from=YYYY-MM-DD&to=YYYY-MM-DD': 'Aggregated weekly marketing and revenue data for MMM (Phase 4)',
       },
     });
-  } catch (err) {
-    logError('doGet', err);
-    if (action && GET_ROUTES[action] && GET_ROUTES[action].renderHtml) {
-      return HtmlService.createHtmlOutput('<h1>500 Internal Error</h1><p>' + err.message + '</p>');
-    }
-    return _jsonResponse({ ok: false, error: String(err) });
   } finally {
     if (lock) {
       lock.releaseLock();
@@ -968,9 +962,18 @@ function setStorePromo(percent, active, duration, msg) {
   * Giúp tránh gãy hệ thống KDS/Web Order khi Google API gặp sự cố gián đoạn dưới 1 giây.
   */
 function doGet(e) {
-  return _executeWithRetry(function () {
-    return _doGetInternal(e);
-  }, 3, 1000);
+  var action = e && e.parameter && e.parameter.action;
+  try {
+    return _executeWithRetry(function () {
+      return _doGetInternal(e);
+    }, 3, 1000);
+  } catch (err) {
+    logError('doGet', err);
+    if (action && GET_ROUTES[action] && GET_ROUTES[action].renderHtml) {
+      return HtmlService.createHtmlOutput('<h1>500 Internal Error</h1><p>' + err.message + '</p>');
+    }
+    return _jsonResponse({ ok: false, error: String(err) });
+  }
 }
 
 /**
