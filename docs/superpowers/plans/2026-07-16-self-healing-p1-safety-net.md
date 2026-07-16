@@ -1,8 +1,29 @@
 # Self-Healing Plan 1 — Lưới an toàn
 
+> ## ⚠️ ĐỔI HƯỚNG GIỮA CHỪNG — 2026-07-16, sau audit Fable
+>
+> Audit toàn chain (spec + plan + code) ra 3 Critical. Chief đã xác minh lại cả ba bằng code:
+>
+> - **C1** — spec §8 cho healer worktree khởi từ `origin/main`, mà `deploy_gas.js` `readGasFiles()` push **toàn bộ** `gas/` (ghi đè trọn gói, không patch). `gas/` giữa `main` và `launch-hardening` lệch 878+/770−. ⇒ fix xanh đầu tiên healer tự deploy sẽ **revert đợt security hardening khỏi prod của quán đang bán hàng**.
+> - **C2** — spec §10.2 sai ở luận điểm trung tâm: nó xác thực *người gọi* `logError()` nhưng không xác thực *tham số*. `gas/Orders.gs:75` echo `it.sku` (chuỗi tuỳ ý từ `doPost` ẩn danh) vào `err.message` → ERROR_LOG → prompt `/fix`, mà `/fix` chạy `--dangerously-skip-permissions`. Injection path thật.
+> - **C3** — 4/11 file GREEN sai chính luật của nó: `RFM.gs` GHI CUSTOMERS (`setValues:123`, `appendRow:315`); `TikTokScrape.gs` cầm `FIRECRAWL_API_KEY` (regex chỉ có `TOKEN|_SECRET`); `GbpPerf.gs` gọi `ScriptApp.getOAuthToken()`; `Marketing.gs` ghi CUSTOMERS gián tiếp qua `extendCustomersSchema()` của RFM.
+> - **Cấu trúc** — gate là **advisory, không phải enforcement**: cả input lẫn việc tôn trọng exit code đều nằm trong session Claude skip-permissions. Model bị inject thì chỉ việc không gọi gate.
+>
+> **Quyết định của user:** bỏ tầng auto-push khỏi v1. Mọi fix đều chờ duyệt Telegram. Giữ ~90% giá trị (chẩn đoán sẵn, test sẵn, diff sẵn, bấm một nút từ điện thoại), loại sạch cả lớp rủi ro — vì không còn đường nào tự deploy.
+>
+> **Hệ quả với plan này:**
+> - **Task 3, 4, 5, 6 HỦY** — không viết dòng nào. Không auto-push thì không cần gate, không cần GREEN_LIST. C3/I1/I2/I3/I4 biến mất *theo thiết kế*, không phải được vá. Worktree chuyển sang Plan 2.
+> - **Task 8 THÊM** — `ops/gas_push.py --deploy` là cửa deploy thứ hai, và là cửa chủ quán thật sự dùng (`clasp push` gãy trên máy này). Nó cũng không smoke, không rollback.
+> - **Phạm vi mới = rollback an toàn cho CẢ HAI cửa deploy.** Hết.
+> - C1 + C2 xử ở bản viết lại spec, không thuộc nhánh này.
+>
+> Task 1/2/2b/8 giữ nguyên giá trị: bug rollback là thật, bản vá là thật, độc lập hoàn toàn với số phận của self-healing.
+>
+> Mọi thứ dưới đây từ §"Task 3" trở đi là **bản nháp đã chết**, giữ lại làm hồ sơ. Đừng thực thi.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Dựng xong lưới an toàn của hệ self-healing — vá bug rollback đang sống trong `deploy_gas.js`, và viết cổng `healer_gate.js` quyết định fix nào được tự push — **trước khi** bất kỳ dòng tự động hoá nào tồn tại.
+**Goal:** Vá lưới an toàn cho **cả hai cửa deploy prod** (`ops/deploy_gas.js` và `ops/gas_push.py --deploy`): đọc version đang chạy trước khi retarget, smoke sau khi retarget, lùi về version cũ khi smoke đỏ, và huỷ deploy khi không có đường lùi.
 
 **Architecture:** Ba mảnh độc lập, không mảnh nào tự chạy. (1) `deploy_gas.js` học cách lưu version cũ trước khi retarget và trỏ ngược lại khi smoke đỏ. (2) `ops/healer_gate.js` = hàm thuần + CLI mỏng, hai cổng AND: nhãn lỗi (`context` → file khai báo phải green) và file diff chạm (⊆ green list). (3) Git worktree riêng cho healer, không bao giờ chạm cây làm việc của user.
 
