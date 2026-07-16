@@ -74,6 +74,7 @@ loadScript('Marketing.gs');
 loadScript('Payment.gs');
 loadScript('Code.gs');
 loadScript('Zalo.gs');
+loadScript('Healer.gs');
 
 // 3. Define Unit Tests
 test('normalizeCustomerId normalizes VN phone numbers correctly', (t) => {
@@ -342,6 +343,75 @@ test('hai token khác nhau ra fingerprint khác nhau — vẫn so sánh được
   const a = global._tokenFingerprint('token_aaaa');
   const b = global._tokenFingerprint('token_bbbb');
   assert.notStrictEqual(a, b, 'fingerprint phải phân biệt được token lệch nhau');
+});
+
+test('enqueueFix: dedup — context đã có fix mở thì bỏ qua', () => {
+  const rows = [
+    global.FIX_QUEUE_COLUMNS,
+    ['FIX-1', 'ERR-1', 'gbp.fetch', 'old err', '', '', 'awaiting_approval', '', '', '', 1, '', '']
+  ];
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: (name) => name === 'FIX_QUEUE' ? {
+        getDataRange: () => ({ getValues: () => rows }),
+        appendRow: () => { throw new Error('không được append khi dedup'); }
+      } : null
+    })
+  };
+  try {
+    const res = global.enqueueFix('gbp.fetch', 'new err', '', {});
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'dedup');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('enqueueFix: attempts >= 2 (trần) → không enqueue mới', () => {
+  const rows = [
+    global.FIX_QUEUE_COLUMNS,
+    ['FIX-1', 'ERR-1', 'gbp.fetch', 'old err', '', '', 'manual', '', '', '', 2, '', '']
+  ];
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: (name) => name === 'FIX_QUEUE' ? {
+        getDataRange: () => ({ getValues: () => rows }),
+        appendRow: () => { throw new Error('không được append khi đã manual'); }
+      } : null
+    })
+  };
+  try {
+    const res = global.enqueueFix('gbp.fetch', 'new err', '', {});
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'attempts_exceeded');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('enqueueFix: context mới, không trùng → tạo fix_id mới', () => {
+  let appended = null;
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: (name) => name === 'FIX_QUEUE' ? {
+        getDataRange: () => ({ getValues: () => [global.FIX_QUEUE_COLUMNS] }),
+        appendRow: (row) => { appended = row; }
+      } : null
+    })
+  };
+  try {
+    const res = global.enqueueFix('meta.get', 'lỗi lạ', 'stack...', { order_id: 'X' });
+    assert.strictEqual(res.ok, true);
+    assert.ok(res.fix_id.indexOf('FIX-') === 0);
+    assert.ok(appended, 'phải appendRow');
+    assert.strictEqual(appended[2], 'meta.get');
+    assert.strictEqual(appended[6], 'pending');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
 });
 
 test('redactSnapshot che SĐT giữ 4 số cuối, xoá tên/địa chỉ, giữ order_id/sku', () => {
