@@ -98,18 +98,44 @@ function updateField(orderId, colName, value) {
  * không cần báo lại cùng nội dung mỗi đêm.
  */
 var TELEGRAM_THROTTLE_MIN = 360; // 6 giờ
-function logError(context, err) {
+
+/**
+ * Che PII trong snapshot trước khi ghi ERROR_LOG. Chạy TRƯỚC khi ghi sheet —
+ * PII không bao giờ chạm ERROR_LOG hay prompt /fix.
+ */
+var SNAPSHOT_PII_FIELDS = ['customer_name', 'delivery_address', 'notes', 'notes_raw', 'address'];
+function redactSnapshot(snapshot) {
+  if (!snapshot) return '';
+  var copy = {};
+  for (var key in snapshot) {
+    if (!snapshot.hasOwnProperty(key)) continue;
+    var val = snapshot[key];
+    if (key === 'customer_id' && typeof val === 'string' && val.length >= 4) {
+      copy[key] = '****' + val.slice(-4);
+    } else if (SNAPSHOT_PII_FIELDS.indexOf(key) !== -1) {
+      copy[key] = '[redacted]';
+    } else {
+      copy[key] = val;
+    }
+  }
+  var out = JSON.stringify(copy);
+  if (out.length > 2000) out = out.slice(0, 2000);
+  return out;
+}
+
+function logError(context, err, snapshot) {
   var msg = String((err && err.message) || err);
   var stack = String((err && err.stack) || '');
+  var snapshotStr = snapshot ? redactSnapshot(snapshot) : '';
   var nowIso = new Date().toISOString();
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('ERROR_LOG');
   if (!sheet) {
     sheet = ss.insertSheet('ERROR_LOG');
-    sheet.appendRow(['timestamp', 'context', 'error', 'stack']);
+    sheet.appendRow(['timestamp', 'context', 'error', 'stack', 'snapshot']);
   }
-  sheet.appendRow([nowIso, context, msg, stack]);
+  sheet.appendRow([nowIso, context, msg, stack, snapshotStr]);
 
   // Throttle Telegram: dùng PropertiesService, key duy nhất theo context
   var shouldSendTelegram = true;

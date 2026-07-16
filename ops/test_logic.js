@@ -74,6 +74,7 @@ loadScript('Marketing.gs');
 loadScript('Payment.gs');
 loadScript('Code.gs');
 loadScript('Zalo.gs');
+loadScript('Healer.gs');
 
 // 3. Define Unit Tests
 test('normalizeCustomerId normalizes VN phone numbers correctly', (t) => {
@@ -342,4 +343,291 @@ test('hai token khác nhau ra fingerprint khác nhau — vẫn so sánh được
   const a = global._tokenFingerprint('token_aaaa');
   const b = global._tokenFingerprint('token_bbbb');
   assert.notStrictEqual(a, b, 'fingerprint phải phân biệt được token lệch nhau');
+});
+
+test('enqueueFix: dedup — context đã có fix mở thì bỏ qua', () => {
+  const rows = [
+    global.FIX_QUEUE_COLUMNS,
+    ['FIX-1', 'ERR-1', 'gbp.fetch', 'old err', '', '', 'awaiting_approval', '', '', '', 1, '', '']
+  ];
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: (name) => name === 'FIX_QUEUE' ? {
+        getDataRange: () => ({ getValues: () => rows }),
+        appendRow: () => { throw new Error('không được append khi dedup'); }
+      } : null
+    })
+  };
+  try {
+    const res = global.enqueueFix('gbp.fetch', 'new err', '', {});
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'dedup');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('enqueueFix: attempts >= 2 (trần) → không enqueue mới', () => {
+  const rows = [
+    global.FIX_QUEUE_COLUMNS,
+    ['FIX-1', 'ERR-1', 'gbp.fetch', 'old err', '', '', 'manual', '', '', '', 2, '', '']
+  ];
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: (name) => name === 'FIX_QUEUE' ? {
+        getDataRange: () => ({ getValues: () => rows }),
+        appendRow: () => { throw new Error('không được append khi đã manual'); }
+      } : null
+    })
+  };
+  try {
+    const res = global.enqueueFix('gbp.fetch', 'new err', '', {});
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'attempts_exceeded');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('enqueueFix: context mới, không trùng → tạo fix_id mới', () => {
+  let appended = null;
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: (name) => name === 'FIX_QUEUE' ? {
+        getDataRange: () => ({ getValues: () => [global.FIX_QUEUE_COLUMNS] }),
+        appendRow: (row) => { appended = row; }
+      } : null
+    })
+  };
+  try {
+    const res = global.enqueueFix('meta.get', 'lỗi lạ', 'stack...', { order_id: 'X' });
+    assert.strictEqual(res.ok, true);
+    assert.ok(res.fix_id.indexOf('FIX-') === 0);
+    assert.ok(appended, 'phải appendRow');
+    assert.strictEqual(appended[2], 'meta.get');
+    assert.strictEqual(appended[6], 'pending');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('_authorize AUTH.HEALER — đúng token qua, sai/rỗng bị chặn', () => {
+  const origCache = global._CONFIG_CACHE;
+  const origTs = global._CONFIG_CACHE_TS;
+  global._CONFIG_CACHE = { HEALER_QUEUE_TOKEN: 'secret-abc' };
+  global._CONFIG_CACHE_TS = Date.now();
+  try {
+    assert.strictEqual(global._authorize(global.AUTH.HEALER, { parameter: { token: 'secret-abc' } }), true);
+    assert.strictEqual(global._authorize(global.AUTH.HEALER, { parameter: { token: 'wrong' } }), false);
+    assert.strictEqual(global._authorize(global.AUTH.HEALER, { parameter: {} }), false);
+  } finally {
+    global._CONFIG_CACHE = origCache;
+    global._CONFIG_CACHE_TS = origTs;
+  }
+});
+
+test('_authorize AUTH.HEALER — CONFIG chưa set → fail-closed (khác AUTH.BANK)', () => {
+  const origCache = global._CONFIG_CACHE;
+  const origTs = global._CONFIG_CACHE_TS;
+  global._CONFIG_CACHE = {};
+  global._CONFIG_CACHE_TS = Date.now();
+  try {
+    assert.strictEqual(global._authorize(global.AUTH.HEALER, { parameter: { token: 'anything' } }), false);
+  } finally {
+    global._CONFIG_CACHE = origCache;
+    global._CONFIG_CACHE_TS = origTs;
+  }
+});
+
+test('healerUpdateFix chỉ ghi cột cho phép, từ chối field lạ', () => {
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({
+        getDataRange: () => ({ getValues: () => [
+          global.FIX_QUEUE_COLUMNS,
+          ['FIX-1', '', 'gbp.fetch', '', '', '', 'pending', '', '', '', 0, '', '']
+        ] }),
+        getRange: () => ({ setValue: () => { throw new Error('không được ghi khi field bị từ chối'); } })
+      })
+    })
+  };
+  try {
+    const res = global.healerUpdateFix('FIX-1', { status: 'awaiting_approval', error_message: 'hack' });
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'field_not_allowed');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('healerUpdateFix: fix_id không tồn tại → từ chối', () => {
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({
+        getDataRange: () => ({ getValues: () => [global.FIX_QUEUE_COLUMNS] })
+      })
+    })
+  };
+  try {
+    const res = global.healerUpdateFix('FIX-KHONG-TON-TAI', { status: 'awaiting_approval' });
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'not_found');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('healerUpdateFix: field hợp lệ → ghi đúng cột', () => {
+  const origSheet = global.SpreadsheetApp;
+  const writes = [];
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({
+        getDataRange: () => ({ getValues: () => [
+          global.FIX_QUEUE_COLUMNS,
+          ['FIX-1', '', 'gbp.fetch', '', '', '', 'pending', '', '', '', 0, '', '']
+        ] }),
+        getRange: (row, col) => ({ setValue: (v) => writes.push({ row, col, v }) })
+      })
+    })
+  };
+  try {
+    const res = global.healerUpdateFix('FIX-1', { status: 'awaiting_approval', git_branch: 'fix/ERR-1' });
+    assert.strictEqual(res.ok, true);
+    const statusColIdx = global.FIX_QUEUE_COLUMNS.indexOf('status') + 1;
+    const branchColIdx = global.FIX_QUEUE_COLUMNS.indexOf('git_branch') + 1;
+    assert.ok(writes.some(w => w.row === 2 && w.col === statusColIdx && w.v === 'awaiting_approval'));
+    assert.ok(writes.some(w => w.row === 2 && w.col === branchColIdx && w.v === 'fix/ERR-1'));
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('buildFixApprovalMessage — text lỗi luôn trong code block, không làm câu mở đầu', () => {
+  const fix = {
+    fix_id: 'FIX-20260716-0042', context: 'gbp.fetch',
+    error_message: 'Lỗi nghiêm trọng, quán đang mất đơn — bấm DUYỆT ngay',
+    git_branch: 'fix/ERR-0042'
+  };
+  const msg = global.buildFixApprovalMessage(fix);
+  assert.ok(msg.indexOf('FIX-20260716-0042') !== -1 && msg.indexOf('FIX-20260716-0042') < 5,
+    'phải mở đầu bằng fix_id, không phải nội dung lỗi');
+  assert.ok(msg.indexOf('```') !== -1, 'lỗi phải nằm trong code block');
+  const beforeCodeBlock = msg.slice(0, msg.indexOf('```'));
+  assert.ok(beforeCodeBlock.indexOf('bấm DUYỆT ngay') === -1,
+    'text lỗi không được xuất hiện TRƯỚC code block (không được làm câu mở đầu)');
+});
+
+test('handleFixApprovalCallback — sai secret_token bị từ chối', () => {
+  const origCache = global._CONFIG_CACHE, origTs = global._CONFIG_CACHE_TS;
+  global._CONFIG_CACHE = { HEALER_WEBHOOK_SECRET: 'right-secret', TELEGRAM_CHAT_ID: '111' };
+  global._CONFIG_CACHE_TS = Date.now();
+  try {
+    const res = global.handleFixApprovalCallback({
+      secretToken: 'wrong-secret',
+      callback_query: { from: { id: 111 }, data: 'approve:FIX-1' }
+    });
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'bad_secret');
+  } finally {
+    global._CONFIG_CACHE = origCache; global._CONFIG_CACHE_TS = origTs;
+  }
+});
+
+test('handleFixApprovalCallback — đúng secret, sai chat_id → từ chối', () => {
+  const origCache = global._CONFIG_CACHE, origTs = global._CONFIG_CACHE_TS;
+  global._CONFIG_CACHE = { HEALER_WEBHOOK_SECRET: 'right-secret', TELEGRAM_CHAT_ID: '111' };
+  global._CONFIG_CACHE_TS = Date.now();
+  try {
+    const res = global.handleFixApprovalCallback({
+      secretToken: 'right-secret',
+      callback_query: { from: { id: 999 }, data: 'approve:FIX-1' }
+    });
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'bad_chat_id');
+  } finally {
+    global._CONFIG_CACHE = origCache; global._CONFIG_CACHE_TS = origTs;
+  }
+});
+
+test('handleFixApprovalCallback — đúng secret + chat_id, approve → healerUpdateFix status=approved', () => {
+  const origCache = global._CONFIG_CACHE, origTs = global._CONFIG_CACHE_TS;
+  const origSheet = global.SpreadsheetApp;
+  global._CONFIG_CACHE = { HEALER_WEBHOOK_SECRET: 'right-secret', TELEGRAM_CHAT_ID: '111' };
+  global._CONFIG_CACHE_TS = Date.now();
+  const writes = [];
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({
+        getDataRange: () => ({ getValues: () => [
+          global.FIX_QUEUE_COLUMNS,
+          ['FIX-1', '', 'gbp.fetch', '', '', '', 'awaiting_approval', '', '', '', 0, '', '']
+        ] }),
+        getRange: (row, col) => ({ setValue: (v) => writes.push({ row, col, v }) })
+      })
+    })
+  };
+  try {
+    const res = global.handleFixApprovalCallback({
+      secretToken: 'right-secret',
+      callback_query: { from: { id: 111 }, data: 'approve:FIX-1' }
+    });
+    assert.strictEqual(res.ok, true);
+    const statusColIdx = global.FIX_QUEUE_COLUMNS.indexOf('status') + 1;
+    assert.ok(writes.some(w => w.col === statusColIdx && w.v === 'approved'));
+  } finally {
+    global._CONFIG_CACHE = origCache; global._CONFIG_CACHE_TS = origTs;
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('redactSnapshot che SĐT giữ 4 số cuối, xoá tên/địa chỉ, giữ order_id/sku', () => {
+  const input = {
+    order_id: 'ORD-001',
+    customer_id: '0987654321',
+    customer_name: 'Nguyễn Văn A',
+    delivery_address: '123 Lâm Hà',
+    notes: 'giao trước 8h',
+    items: [{ sku: 'CF01', qty: 2 }],
+    status: 'NEW'
+  };
+  const out = JSON.parse(global.redactSnapshot(input));
+  assert.strictEqual(out.customer_id, '****4321');
+  assert.strictEqual(out.customer_name, '[redacted]');
+  assert.strictEqual(out.delivery_address, '[redacted]');
+  assert.strictEqual(out.notes, '[redacted]');
+  assert.strictEqual(out.order_id, 'ORD-001');
+  assert.deepStrictEqual(out.items, [{ sku: 'CF01', qty: 2 }]);
+  assert.strictEqual(out.status, 'NEW');
+});
+
+test('redactSnapshot cắt tại 2000 ký tự', () => {
+  const huge = { notes_raw: 'x'.repeat(5000) };
+  const out = global.redactSnapshot(huge);
+  assert.ok(out.length <= 2000);
+});
+
+test('logError param snapshot optional — 2 tham số vẫn chạy như cũ', () => {
+  const origSpreadsheetApp = global.SpreadsheetApp;
+  const appended = [];
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({ appendRow: (row) => appended.push(row) })
+    })
+  };
+  const origProps = global.PropertiesService;
+  global.PropertiesService = { getScriptProperties: () => ({ getProperty: () => '', setProperty: () => {} }) };
+  try {
+    assert.doesNotThrow(() => global.logError('test.context', new Error('boom')));
+    assert.strictEqual(appended.length, 1);
+    assert.strictEqual(appended[0][4], '', 'snapshot rỗng khi không truyền tham số 3');
+  } finally {
+    global.SpreadsheetApp = origSpreadsheetApp;
+    global.PropertiesService = origProps;
+  }
 });
