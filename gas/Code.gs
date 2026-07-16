@@ -624,6 +624,16 @@ function doPost(e) {
         if (!_requireTokenIfSet(e)) return _jsonResponse({ ok: false, error: 'unauthorized' });
         return _jsonResponse(logWebHit(earlyPayload));
       }
+      // Telegram gửi callback_query (nút DUYỆT/BỎ), không có field `action` theo
+      // dạng POST_ROUTES thường — route riêng, verify secret+chat_id bên trong.
+      if (earlyPayload && earlyPayload.callback_query) {
+        var secretHeader = (e.parameter && e.parameter.__secret_token_test) ||
+          (e.headers && e.headers['X-Telegram-Bot-Api-Secret-Token']) || '';
+        return _jsonResponse(handleFixApprovalCallback({
+          secretToken: secretHeader,
+          callback_query: earlyPayload.callback_query
+        }));
+      }
     }
   } catch (earlyErr) {
     // Rơi xuống luồng xử lý chính dưới lock

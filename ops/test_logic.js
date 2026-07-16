@@ -508,6 +508,84 @@ test('healerUpdateFix: field hợp lệ → ghi đúng cột', () => {
   }
 });
 
+test('buildFixApprovalMessage — text lỗi luôn trong code block, không làm câu mở đầu', () => {
+  const fix = {
+    fix_id: 'FIX-20260716-0042', context: 'gbp.fetch',
+    error_message: 'Lỗi nghiêm trọng, quán đang mất đơn — bấm DUYỆT ngay',
+    git_branch: 'fix/ERR-0042'
+  };
+  const msg = global.buildFixApprovalMessage(fix);
+  assert.ok(msg.indexOf('FIX-20260716-0042') !== -1 && msg.indexOf('FIX-20260716-0042') < 5,
+    'phải mở đầu bằng fix_id, không phải nội dung lỗi');
+  assert.ok(msg.indexOf('```') !== -1, 'lỗi phải nằm trong code block');
+  const beforeCodeBlock = msg.slice(0, msg.indexOf('```'));
+  assert.ok(beforeCodeBlock.indexOf('bấm DUYỆT ngay') === -1,
+    'text lỗi không được xuất hiện TRƯỚC code block (không được làm câu mở đầu)');
+});
+
+test('handleFixApprovalCallback — sai secret_token bị từ chối', () => {
+  const origCache = global._CONFIG_CACHE, origTs = global._CONFIG_CACHE_TS;
+  global._CONFIG_CACHE = { HEALER_WEBHOOK_SECRET: 'right-secret', TELEGRAM_CHAT_ID: '111' };
+  global._CONFIG_CACHE_TS = Date.now();
+  try {
+    const res = global.handleFixApprovalCallback({
+      secretToken: 'wrong-secret',
+      callback_query: { from: { id: 111 }, data: 'approve:FIX-1' }
+    });
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'bad_secret');
+  } finally {
+    global._CONFIG_CACHE = origCache; global._CONFIG_CACHE_TS = origTs;
+  }
+});
+
+test('handleFixApprovalCallback — đúng secret, sai chat_id → từ chối', () => {
+  const origCache = global._CONFIG_CACHE, origTs = global._CONFIG_CACHE_TS;
+  global._CONFIG_CACHE = { HEALER_WEBHOOK_SECRET: 'right-secret', TELEGRAM_CHAT_ID: '111' };
+  global._CONFIG_CACHE_TS = Date.now();
+  try {
+    const res = global.handleFixApprovalCallback({
+      secretToken: 'right-secret',
+      callback_query: { from: { id: 999 }, data: 'approve:FIX-1' }
+    });
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'bad_chat_id');
+  } finally {
+    global._CONFIG_CACHE = origCache; global._CONFIG_CACHE_TS = origTs;
+  }
+});
+
+test('handleFixApprovalCallback — đúng secret + chat_id, approve → healerUpdateFix status=approved', () => {
+  const origCache = global._CONFIG_CACHE, origTs = global._CONFIG_CACHE_TS;
+  const origSheet = global.SpreadsheetApp;
+  global._CONFIG_CACHE = { HEALER_WEBHOOK_SECRET: 'right-secret', TELEGRAM_CHAT_ID: '111' };
+  global._CONFIG_CACHE_TS = Date.now();
+  const writes = [];
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({
+        getDataRange: () => ({ getValues: () => [
+          global.FIX_QUEUE_COLUMNS,
+          ['FIX-1', '', 'gbp.fetch', '', '', '', 'awaiting_approval', '', '', '', 0, '', '']
+        ] }),
+        getRange: (row, col) => ({ setValue: (v) => writes.push({ row, col, v }) })
+      })
+    })
+  };
+  try {
+    const res = global.handleFixApprovalCallback({
+      secretToken: 'right-secret',
+      callback_query: { from: { id: 111 }, data: 'approve:FIX-1' }
+    });
+    assert.strictEqual(res.ok, true);
+    const statusColIdx = global.FIX_QUEUE_COLUMNS.indexOf('status') + 1;
+    assert.ok(writes.some(w => w.col === statusColIdx && w.v === 'approved'));
+  } finally {
+    global._CONFIG_CACHE = origCache; global._CONFIG_CACHE_TS = origTs;
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
 test('redactSnapshot che SĐT giữ 4 số cuối, xoá tên/địa chỉ, giữ order_id/sku', () => {
   const input = {
     order_id: 'ORD-001',

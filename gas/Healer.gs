@@ -104,3 +104,47 @@ function healerUpdateFix(fixId, patch) {
   sheet.getRange(rowIdx + 1, updatedAtCol + 1).setValue(new Date().toISOString());
   return { ok: true };
 }
+
+/**
+ * Định dạng tin Telegram duyệt fix. `error_message` do người lạ soạn được (qua
+ * doPost ẩn danh, xem C2 trong spec) — LUÔN đặt sau nhãn cố định, trong code block,
+ * không bao giờ làm câu mở đầu, để không giả được lời hệ thống ("bấm DUYỆT ngay").
+ */
+function buildFixApprovalMessage(fix) {
+  var lines = [];
+  lines.push('🔧 ' + fix.fix_id + ' · context: ' + fix.context);
+  lines.push('Nội dung lỗi (thô, không lọc):');
+  lines.push('```');
+  lines.push(String(fix.error_message || ''));
+  lines.push('```');
+  lines.push('Nhánh: ' + (fix.git_branch || '(chưa có)'));
+  return lines.join('\n');
+}
+
+/**
+ * callback_query từ Telegram webhook. secretToken đã tách sẵn từ header
+ * X-Telegram-Bot-Api-Secret-Token bởi caller (doPost) — hàm này chỉ verify + xử lý.
+ * KHÔNG dùng chung REPORT_API_TOKEN/HEALER_QUEUE_TOKEN — secret riêng.
+ */
+function handleFixApprovalCallback(input) {
+  var expectedSecret = getConfig('HEALER_WEBHOOK_SECRET');
+  if (!expectedSecret || input.secretToken !== expectedSecret) {
+    return { ok: false, reason: 'bad_secret' };
+  }
+  var chatId = String((input.callback_query.from || {}).id || '');
+  var expectedChatId = String(getConfig('TELEGRAM_CHAT_ID') || '');
+  if (!expectedChatId || chatId !== expectedChatId) {
+    return { ok: false, reason: 'bad_chat_id' };
+  }
+  var data = input.callback_query.data || '';
+  var parts = data.split(':');
+  var action = parts[0];
+  var fixId = parts[1];
+  if (action === 'approve') {
+    return healerUpdateFix(fixId, { status: 'approved' });
+  }
+  if (action === 'reject') {
+    return healerUpdateFix(fixId, { status: 'rejected' });
+  }
+  return { ok: false, reason: 'unknown_action' };
+}
