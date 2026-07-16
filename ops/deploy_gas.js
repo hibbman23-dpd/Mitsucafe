@@ -100,6 +100,19 @@ async function deployBranch(name, cfg, accessToken, files, reportToken, dryRun) 
   const versionNumber = (await r.json()).versionNumber;
   console.log(`  ✓ version #${versionNumber}`);
 
+  // 2b. Đọc version deployment ĐANG trỏ tới, TRƯỚC khi retarget — để còn đường lùi.
+  //     Phải lấy ở đây: sau khi retarget thì API trả về chính version mới, mất mốc cũ.
+  let prevVersion = null;
+  r = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/deployments/${deploymentId}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+  if (r.status === 200) {
+    prevVersion = ((await r.json()).deploymentConfig || {}).versionNumber ?? null;
+    console.log(`  ✓ version đang chạy: #${prevVersion}`);
+  } else {
+    console.log(`  ⚠️  không đọc được version cũ (HTTP ${r.status}) — sẽ KHÔNG rollback được nếu smoke đỏ`);
+  }
+
   // 3. Retarget deployment
   r = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/deployments/${deploymentId}`, {
     method: 'PUT',
@@ -109,22 +122,52 @@ async function deployBranch(name, cfg, accessToken, files, reportToken, dryRun) 
   if (r.status !== 200) throw new Error(`[${name}] retarget failed: ${r.status} ${await r.text()}`);
   console.log('  ✓ retargeted');
 
-  // 4. Smoke test
-  const cb = Math.floor(Math.random() * 1e9);
-  const smoke = await fetch(`https://script.google.com/macros/s/${deploymentId}/exec?action=ping&_cb=${cb}`);
-  const body = await smoke.text();
-  if (smoke.status !== 200 || body.indexOf('"ok":true') === -1) {
-    throw new Error(`[${name}] public smoke failed: HTTP ${smoke.status} - ${body.slice(0, 120)}`);
-  }
+  // 4. Smoke test. Retarget đã xảy ra → prod ĐANG chạy version mới. Đỏ = phải lùi ngay.
+  const retargetTo = async (v) => {
+    const rr = await fetch(`https://script.googleapis.com/v1/projects/${scriptId}/deployments/${deploymentId}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deploymentConfig: { scriptId, versionNumber: v, manifestFileName: 'appsscript', description: `v${v} ${name}` } })
+    });
+    return rr.status === 200;
+  };
 
-  if (reportToken) {
-    const authSmoke = await fetch(`https://script.google.com/macros/s/${deploymentId}/exec?action=orders&token=${reportToken}&_cb=${cb}`);
-    const authBody = await authSmoke.text();
-    if (authSmoke.status !== 200 || authBody.indexOf('"ok":true') === -1) {
-      throw new Error(`[${name}] auth smoke failed (token connectivity check): HTTP ${authSmoke.status} - ${authBody.slice(0, 120)}`);
+  const runSmoke = async () => {
+    const cb = Math.floor(Math.random() * 1e9);
+    const smoke = await fetch(`https://script.google.com/macros/s/${deploymentId}/exec?action=ping&_cb=${cb}`);
+    const body = await smoke.text();
+    if (smoke.status !== 200 || body.indexOf('"ok":true') === -1) {
+      return `public smoke failed: HTTP ${smoke.status} - ${body.slice(0, 120)}`;
     }
+    if (reportToken) {
+      const authSmoke = await fetch(`https://script.google.com/macros/s/${deploymentId}/exec?action=orders&token=${reportToken}&_cb=${cb}`);
+      const authBody = await authSmoke.text();
+      if (authSmoke.status !== 200 || authBody.indexOf('"ok":true') === -1) {
+        return `auth smoke failed (token connectivity check): HTTP ${authSmoke.status} - ${authBody.slice(0, 120)}`;
+      }
+    }
+    return null;
+  };
+
+  const smokeErr = await runSmoke();
+  if (!smokeErr) { console.log('  🎉 smoke OK'); return; }
+
+  // Smoke đỏ → prod đang hỏng. Lùi về version cũ trước, kể chuyện sau.
+  console.error(`  ❌ ${smokeErr}`);
+  if (prevVersion === null) {
+    throw new Error(`[${name}] ROLLBACK BẤT KHẢ: ${smokeErr} — không biết version cũ, prod ĐANG HỎNG ở v${versionNumber}. Vào editor lùi tay NGAY.`);
   }
-  console.log('  🎉 smoke OK');
+  console.error(`  ↩︎  đang lùi về v${prevVersion}…`);
+  const backOk = await retargetTo(prevVersion);
+  if (!backOk) {
+    throw new Error(`[${name}] ROLLBACK THẤT BẠI: ${smokeErr} — retarget về v${prevVersion} không xong, prod ĐANG HỎNG ở v${versionNumber}. Vào editor lùi tay NGAY.`);
+  }
+  const afterErr = await runSmoke();
+  if (afterErr) {
+    throw new Error(`[${name}] ROLLBACK xong nhưng v${prevVersion} vẫn đỏ: ${afterErr} — prod HỎNG, cần người.`);
+  }
+  console.error(`  ✓ ROLLBACK thành công về v${prevVersion}. Prod đã sống. Version hỏng: v${versionNumber}.`);
+  throw new Error(`[${name}] ROLLBACK: deploy v${versionNumber} smoke đỏ (${smokeErr}), đã lùi về v${prevVersion}. Prod ổn, fix cần người xem.`);
 }
 
 async function main() {
