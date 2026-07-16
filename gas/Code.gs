@@ -23,6 +23,7 @@ var AUTH = {
   STAFF: 'staff',
   ADMIN: 'admin',
   BANK: 'bank',
+  HEALER: 'healer',
   NONE: 'none'
 };
 
@@ -48,6 +49,14 @@ function _authorize(authClass, e, payload) {
   if (authClass === AUTH.ADMIN) {
     var token = (payload && payload.token) || (e && e.parameter && e.parameter.token) || '';
     return validateSessionToken(token);
+  }
+  if (authClass === AUTH.HEALER) {
+    var hToken = (payload && payload.token) || (e && e.parameter && e.parameter.token) || '';
+    var expected = getConfig('HEALER_QUEUE_TOKEN');
+    // Fail-closed: khác AUTH.BANK, không có back-compat mở — chưa set CONFIG thì
+    // _healer không gọi được gì cả (đúng ý: token này sinh ra chỉ để giới hạn _healer).
+    if (!expected) return false;
+    return String(hToken) === String(expected);
   }
   return false;
 }
@@ -491,6 +500,12 @@ var GET_ROUTES = {
     handler: function(e) {
       return webAppReviewSubmit(e);
     }
+  },
+  'healer_pull': {
+    auth: AUTH.HEALER,
+    handler: function(e) {
+      return healerPullPending();
+    }
   }
 };
 
@@ -589,6 +604,12 @@ var POST_ROUTES = {
     auth: AUTH.BANK,
     handler: function(p) {
       return handleBankNotification(p);
+    }
+  },
+  'healer_update': {
+    auth: AUTH.HEALER,
+    handler: function(p) {
+      return healerUpdateFix(p.fix_id, p.patch || {});
     }
   }
 };

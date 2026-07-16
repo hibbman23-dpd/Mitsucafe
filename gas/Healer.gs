@@ -58,3 +58,49 @@ function enqueueFix(context, errorMessage, stackTrace, snapshot) {
     'pending', '', '', '', 0, nowIso, nowIso]);
   return { ok: true, fix_id: fixId };
 }
+
+var FIX_QUEUE_UPDATABLE_FIELDS = ['status', 'git_branch', 'base_commit_hash', 'deployed_version', 'attempts'];
+
+/** Chỉ trả rows status=pending — dùng bởi _healer qua AUTH.HEALER (token hẹp). */
+function healerPullPending() {
+  var sheet = _getFixQueueSheet();
+  var data = sheet.getDataRange().getValues();
+  var fixes = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (row[6] !== 'pending') continue;
+    var obj = {};
+    for (var c = 0; c < FIX_QUEUE_COLUMNS.length; c++) obj[FIX_QUEUE_COLUMNS[c]] = row[c];
+    fixes.push(obj);
+  }
+  return { ok: true, fixes: fixes };
+}
+
+/**
+ * Ghi patch vào đúng 1 row (theo fix_id). Chỉ nhận field trong
+ * FIX_QUEUE_UPDATABLE_FIELDS — _healer không được ghi cột nào khác (vd snapshot,
+ * error_message) dù có token đúng.
+ */
+function healerUpdateFix(fixId, patch) {
+  for (var key in patch) {
+    if (patch.hasOwnProperty(key) && FIX_QUEUE_UPDATABLE_FIELDS.indexOf(key) === -1) {
+      return { ok: false, reason: 'field_not_allowed' };
+    }
+  }
+  var sheet = _getFixQueueSheet();
+  var data = sheet.getDataRange().getValues();
+  var rowIdx = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === fixId) { rowIdx = i; break; }
+  }
+  if (rowIdx === -1) return { ok: false, reason: 'not_found' };
+
+  for (var field in patch) {
+    if (!patch.hasOwnProperty(field)) continue;
+    var colIdx = FIX_QUEUE_COLUMNS.indexOf(field);
+    sheet.getRange(rowIdx + 1, colIdx + 1).setValue(patch[field]);
+  }
+  var updatedAtCol = FIX_QUEUE_COLUMNS.indexOf('updated_at');
+  sheet.getRange(rowIdx + 1, updatedAtCol + 1).setValue(new Date().toISOString());
+  return { ok: true };
+}

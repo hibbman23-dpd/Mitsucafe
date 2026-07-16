@@ -414,6 +414,100 @@ test('enqueueFix: context mới, không trùng → tạo fix_id mới', () => {
   }
 });
 
+test('_authorize AUTH.HEALER — đúng token qua, sai/rỗng bị chặn', () => {
+  const origCache = global._CONFIG_CACHE;
+  const origTs = global._CONFIG_CACHE_TS;
+  global._CONFIG_CACHE = { HEALER_QUEUE_TOKEN: 'secret-abc' };
+  global._CONFIG_CACHE_TS = Date.now();
+  try {
+    assert.strictEqual(global._authorize(global.AUTH.HEALER, { parameter: { token: 'secret-abc' } }), true);
+    assert.strictEqual(global._authorize(global.AUTH.HEALER, { parameter: { token: 'wrong' } }), false);
+    assert.strictEqual(global._authorize(global.AUTH.HEALER, { parameter: {} }), false);
+  } finally {
+    global._CONFIG_CACHE = origCache;
+    global._CONFIG_CACHE_TS = origTs;
+  }
+});
+
+test('_authorize AUTH.HEALER — CONFIG chưa set → fail-closed (khác AUTH.BANK)', () => {
+  const origCache = global._CONFIG_CACHE;
+  const origTs = global._CONFIG_CACHE_TS;
+  global._CONFIG_CACHE = {};
+  global._CONFIG_CACHE_TS = Date.now();
+  try {
+    assert.strictEqual(global._authorize(global.AUTH.HEALER, { parameter: { token: 'anything' } }), false);
+  } finally {
+    global._CONFIG_CACHE = origCache;
+    global._CONFIG_CACHE_TS = origTs;
+  }
+});
+
+test('healerUpdateFix chỉ ghi cột cho phép, từ chối field lạ', () => {
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({
+        getDataRange: () => ({ getValues: () => [
+          global.FIX_QUEUE_COLUMNS,
+          ['FIX-1', '', 'gbp.fetch', '', '', '', 'pending', '', '', '', 0, '', '']
+        ] }),
+        getRange: () => ({ setValue: () => { throw new Error('không được ghi khi field bị từ chối'); } })
+      })
+    })
+  };
+  try {
+    const res = global.healerUpdateFix('FIX-1', { status: 'awaiting_approval', error_message: 'hack' });
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'field_not_allowed');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('healerUpdateFix: fix_id không tồn tại → từ chối', () => {
+  const origSheet = global.SpreadsheetApp;
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({
+        getDataRange: () => ({ getValues: () => [global.FIX_QUEUE_COLUMNS] })
+      })
+    })
+  };
+  try {
+    const res = global.healerUpdateFix('FIX-KHONG-TON-TAI', { status: 'awaiting_approval' });
+    assert.strictEqual(res.ok, false);
+    assert.strictEqual(res.reason, 'not_found');
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
+test('healerUpdateFix: field hợp lệ → ghi đúng cột', () => {
+  const origSheet = global.SpreadsheetApp;
+  const writes = [];
+  global.SpreadsheetApp = {
+    getActiveSpreadsheet: () => ({
+      getSheetByName: () => ({
+        getDataRange: () => ({ getValues: () => [
+          global.FIX_QUEUE_COLUMNS,
+          ['FIX-1', '', 'gbp.fetch', '', '', '', 'pending', '', '', '', 0, '', '']
+        ] }),
+        getRange: (row, col) => ({ setValue: (v) => writes.push({ row, col, v }) })
+      })
+    })
+  };
+  try {
+    const res = global.healerUpdateFix('FIX-1', { status: 'awaiting_approval', git_branch: 'fix/ERR-1' });
+    assert.strictEqual(res.ok, true);
+    const statusColIdx = global.FIX_QUEUE_COLUMNS.indexOf('status') + 1;
+    const branchColIdx = global.FIX_QUEUE_COLUMNS.indexOf('git_branch') + 1;
+    assert.ok(writes.some(w => w.row === 2 && w.col === statusColIdx && w.v === 'awaiting_approval'));
+    assert.ok(writes.some(w => w.row === 2 && w.col === branchColIdx && w.v === 'fix/ERR-1'));
+  } finally {
+    global.SpreadsheetApp = origSheet;
+  }
+});
+
 test('redactSnapshot che SĐT giữ 4 số cuối, xoá tên/địa chỉ, giữ order_id/sku', () => {
   const input = {
     order_id: 'ORD-001',
