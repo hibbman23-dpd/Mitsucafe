@@ -2768,26 +2768,33 @@ async function checkStampAfterDelivery() {
   } catch (e) { /* im lặng */ }
 }
 
+// Mirror server _computeStampAward — chỉ để hiển thị tạm tính cho khách.
+const STAMP_TIERS = { t1: 66000, t2: 100000, tS: 490000 };
+function previewStampAward(netTotal) {
+  const amt = Number(netTotal) || 0;
+  if (amt >= STAMP_TIERS.tS) return { stampsEarned: 0, specialFreeDrink: true };
+  if (amt >= STAMP_TIERS.t2) return { stampsEarned: 2, specialFreeDrink: false };
+  if (amt >= STAMP_TIERS.t1) return { stampsEarned: 1, specialFreeDrink: false };
+  return { stampsEarned: 0, specialFreeDrink: false };
+}
+
 function getCartDiscount() {
   if (!checkoutFormState.useFreeDrink || !customerLoyalty) return { amount: 0, sku: null };
   const availableRewards = customerLoyalty.free_drinks_earned - customerLoyalty.free_drinks_used;
   if (availableRewards <= 0) return { amount: 0, sku: null };
 
-  // Find the highest priced drink in the cart
-  let highestDrink = null;
+  // Ly free = giá size M (đã sau promo — MENU_DATA.price_m được applyPromoPercent chỉnh sẵn),
+  // bỏ topping, bỏ chênh L, bỏ bánh (BK*). Khớp server _freeDrinkBaseMDiscount từng đồng.
+  let maxBaseM = 0, sku = null;
   cart.forEach(ci => {
-    const sku = (ci.sku || '').toUpperCase();
-    if (sku.indexOf('BK') !== 0) { // Drink items only (no pastry)
-      if (!highestDrink || ci.price > highestDrink.price) {
-        highestDrink = ci;
-      }
-    }
+    const s = (ci.sku || '').toUpperCase();
+    if (s.indexOf('BK') === 0) return;
+    const mi = MENU_DATA.find(m => m.sku === ci.sku);
+    if (!mi) return;
+    const baseM = Number(mi.price_m) || 0;
+    if (baseM > maxBaseM) { maxBaseM = baseM; sku = ci.sku; }
   });
-
-  if (highestDrink) {
-    return { amount: highestDrink.price, sku: highestDrink.sku };
-  }
-  return { amount: 0, sku: null };
+  return { amount: maxBaseM, sku };
 }
 
 const STAMP_STICKERS = [
@@ -2867,6 +2874,18 @@ function renderLoyaltySection() {
       </div>`;
   }
 
+  const cartSubtotal = cart.reduce((s, ci) => s + ci.price * ci.qty, 0);
+  const netTotal = cartSubtotal - getCartDiscount().amount;
+  const pv = previewStampAward(netTotal);
+  const previewLine = pv.specialFreeDrink
+    ? `🎁 Đơn này ≥490k — tặng 1 ly nước miễn phí!`
+    : `Đơn này sẽ tích <b>${pv.stampsEarned}</b> tem`;
+  const ruleHtml = `
+    <div class="loyalty-rule" style="font-size:0.72rem;color:var(--text-dim);margin-top:6px;line-height:1.5;">
+      ${previewLine}<br>
+      Đơn từ 66k tích 1 tem · từ 100k tích 2 tem · từ 490k tặng 1 ly free · đủ 10 tem đổi 1 ly size M.
+    </div>`;
+
   return `
     <div class="loyalty-container">
       <div class="loyalty-header">
@@ -2880,6 +2899,7 @@ function renderLoyaltySection() {
         ${gridHtml}
       </div>
       ${rewardBlock}
+      ${ruleHtml}
     </div>
   `;
 }
