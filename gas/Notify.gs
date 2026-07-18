@@ -111,18 +111,25 @@ function buildZaloStatusMessage(order, status) {
 }
 
 /** Thông báo stamp update — Tier 2 */
-function notifyStampUpdate(customerId, stampsEarned, newCount, totalEver, freeDrinksBalance) {
+function notifyStampUpdate(customerId, stampsEarned, newCount, totalEver, freeDrinksBalance, specialFreeDrink) {
   var remaining = 10 - newCount;
-  var msg = '🐝 [Mitsu Café] Tích điểm thành công!\n' +
-            '• Đơn này tích lũy: ' + stampsEarned + ' tem\n' +
-            '• Số tem hiện tại: ' + newCount + '/10 🎟️\n' +
-            '• Số ly nước thưởng đang có: ' + freeDrinksBalance + ' 🎁\n';
-  if (freeDrinksBalance > 0) {
-    msg += '👉 Hãy chọn "Đổi ly nước miễn phí" trong lần đặt đơn tới nhé!';
+  var msg;
+  if (specialFreeDrink) {
+    msg = '🐝 [Mitsu Café] Cảm ơn đơn hàng lớn!\n' +
+          '🎁 Đơn từ 490k — tặng ngay 1 ly nước miễn phí (dùng lần sau)!\n' +
+          '• Số ly nước thưởng đang có: ' + freeDrinksBalance + ' 🎁';
   } else {
-    msg += '👉 Còn ' + remaining + ' tem nữa để nhận 1 ly nước miễn phí!';
+    msg = '🐝 [Mitsu Café] Tích điểm thành công!\n' +
+          '• Đơn này tích lũy: ' + stampsEarned + ' tem\n' +
+          '• Số tem hiện tại: ' + newCount + '/10 🎟️\n' +
+          '• Số ly nước thưởng đang có: ' + freeDrinksBalance + ' 🎁\n';
+    if (freeDrinksBalance > 0) {
+      msg += '👉 Hãy chọn "Đổi ly nước miễn phí" trong lần đặt đơn tới nhé!';
+    } else {
+      msg += '👉 Còn ' + remaining + ' tem nữa để nhận 1 ly nước miễn phí! (Đơn ≥66k +1 tem · ≥100k +2 tem)';
+    }
   }
-  
+
   // Gửi Zalo OA
   sendZaloNotify(customerId, msg);
 
