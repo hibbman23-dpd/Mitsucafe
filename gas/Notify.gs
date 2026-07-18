@@ -118,6 +118,12 @@ function notifyStampUpdate(customerId, stampsEarned, newCount, totalEver, freeDr
     msg = '🐝 [Mitsu Café] Cảm ơn đơn hàng lớn!\n' +
           '🎁 Đơn từ 490k — tặng ngay 1 ly nước miễn phí (dùng lần sau)!\n' +
           '• Số ly nước thưởng đang có: ' + freeDrinksBalance + ' 🎁';
+  } else if (stampsEarned === 0) {
+    // Chỉ đổi ly free (guard đã chặn trường hợp đơn <66k không dùng ly free) — không in "0 tem".
+    msg = '🐝 [Mitsu Café] Đã dùng 1 ly nước miễn phí ✅\n' +
+          '• Đơn này chưa tích thêm tem (đơn ≥66k mới tích tem).\n' +
+          '• Số tem hiện tại: ' + newCount + '/10 🎟️\n' +
+          '• Số ly nước thưởng còn lại: ' + freeDrinksBalance + ' 🎁';
   } else {
     msg = '🐝 [Mitsu Café] Tích điểm thành công!\n' +
           '• Đơn này tích lũy: ' + stampsEarned + ' tem\n' +
