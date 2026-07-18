@@ -102,15 +102,9 @@ function validateOrderPayload(p) {
 
   var total = subtotal;
   if (useFreeDrink) {
-    // Đổi 1 ly nước (không tính bánh) giá cao nhất trong đơn thành miễn phí — khớp logic client getCartDiscount().
-    var highestDrinkPrice = 0;
-    p.items.forEach(function (it) {
-      var sku = String(it.sku || '').toUpperCase();
-      if (sku.indexOf('BK') !== 0 && it.price > highestDrinkPrice) {
-        highestDrinkPrice = it.price;
-      }
-    });
-    total = Math.max(0, subtotal - highestDrinkPrice);
+    // Đổi 1 ly nước size M cơ bản (sau promo, bỏ topping/L) — khớp client getCartDiscount().
+    var freeDrinkDiscount = _freeDrinkBaseMDiscount(p.items, promoInfo);
+    total = Math.max(0, subtotal - freeDrinkDiscount);
   }
 
   return {
@@ -617,6 +611,23 @@ function _computeStampAward(total) {
   if (amt >= t2) return { stampsEarned: 2, specialFreeDrink: false };
   if (amt >= t1) return { stampsEarned: 1, specialFreeDrink: false };
   return { stampsEarned: 0, specialFreeDrink: false };
+}
+
+/** Giá trị giảm trừ ly đổi thưởng = giá size M (sau promo) đắt nhất trong giỏ, bỏ bánh (BK*). */
+function _freeDrinkBaseMDiscount(items, promoInfo) {
+  var maxBaseM = 0;
+  (items || []).forEach(function (it) {
+    var sku = String(it.sku || '').toUpperCase();
+    if (sku.indexOf('BK') === 0) return; // bỏ bánh
+    var menuItem = getMenuItemBySku(it.sku);
+    if (!menuItem) return;
+    var baseM = Number(menuItem.price_m) || 0;
+    if (promoInfo && promoInfo.active && promoInfo.percent > 0) {
+      baseM = Math.round(baseM * (1 - promoInfo.percent / 100));
+    }
+    if (baseM > maxBaseM) maxBaseM = baseM;
+  });
+  return maxBaseM;
 }
 
 /** Áp tem thưởng vào bản ghi khách. Mutate + trả cust. Rollover 10 tem = 1 ly. */

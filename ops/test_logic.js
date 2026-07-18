@@ -385,3 +385,23 @@ test('_applyStampAward: bậc special cộng thẳng 1 ly, không đụng tem', 
     { stamp_count: cust.stamp_count, stamp_total_ever: cust.stamp_total_ever, free_drinks_earned: cust.free_drinks_earned },
     { stamp_count: 3, stamp_total_ever: 13, free_drinks_earned: 2 });
 });
+
+test('_freeDrinkBaseMDiscount: max giá M, bỏ topping/L, sau promo', () => {
+  const orig = global.getMenuItemBySku;
+  global.getMenuItemBySku = (sku) => ({
+    DR001: { price_m: 30000, price_l: 40000 },
+    DR002: { price_m: 45000, price_l: 55000 },
+    BK001: { price_m: 20000 },
+  }[sku] || null);
+  try {
+    const items = [
+      { sku: 'DR001', qty: 1, modifiers: { size: 'L', toppings: 'trân châu' } },
+      { sku: 'DR002', qty: 1 },
+      { sku: 'BK001', qty: 1 },
+    ];
+    // Không promo: max base-M của DR001/DR002 = 45000 (bỏ bánh BK, bỏ L, bỏ topping)
+    assert.strictEqual(global._freeDrinkBaseMDiscount(items, { active: false, percent: 0 }), 45000);
+    // Promo -10%: 45000 -> round(40500) = 40500
+    assert.strictEqual(global._freeDrinkBaseMDiscount(items, { active: true, percent: 10 }), 40500);
+  } finally { global.getMenuItemBySku = orig; }
+});
