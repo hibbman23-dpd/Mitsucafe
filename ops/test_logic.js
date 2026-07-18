@@ -369,3 +369,19 @@ test('_computeStampAward: đọc ngưỡng từ CONFIG', () => {
     assert.deepStrictEqual(global._computeStampAward(400000), { stampsEarned: 0, specialFreeDrink: true });
   } finally { global.getConfig = orig; }
 });
+
+test('_applyStampAward: cộng tem + rollover 10', () => {
+  const cust = { stamp_count: 8, stamp_total_ever: 8, free_drinks_earned: 0 };
+  global._applyStampAward(cust, { stampsEarned: 2, specialFreeDrink: false });
+  assert.deepStrictEqual(
+    { stamp_count: cust.stamp_count, stamp_total_ever: cust.stamp_total_ever, free_drinks_earned: cust.free_drinks_earned },
+    { stamp_count: 0, stamp_total_ever: 10, free_drinks_earned: 1 });
+});
+
+test('_applyStampAward: bậc special cộng thẳng 1 ly, không đụng tem', () => {
+  const cust = { stamp_count: 3, stamp_total_ever: 13, free_drinks_earned: 1 };
+  global._applyStampAward(cust, { stampsEarned: 0, specialFreeDrink: true });
+  assert.deepStrictEqual(
+    { stamp_count: cust.stamp_count, stamp_total_ever: cust.stamp_total_ever, free_drinks_earned: cust.free_drinks_earned },
+    { stamp_count: 3, stamp_total_ever: 13, free_drinks_earned: 2 });
+});

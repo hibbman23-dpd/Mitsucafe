@@ -619,6 +619,21 @@ function _computeStampAward(total) {
   return { stampsEarned: 0, specialFreeDrink: false };
 }
 
+/** Áp tem thưởng vào bản ghi khách. Mutate + trả cust. Rollover 10 tem = 1 ly. */
+function _applyStampAward(cust, award) {
+  cust.stamp_count += award.stampsEarned;
+  cust.stamp_total_ever += award.stampsEarned;
+  if (cust.stamp_count >= 10) {
+    var newEarned = Math.floor(cust.stamp_count / 10);
+    cust.free_drinks_earned += newEarned;
+    cust.stamp_count = cust.stamp_count % 10;
+  }
+  if (award.specialFreeDrink) {
+    cust.free_drinks_earned += 1;
+  }
+  return cust;
+}
+
 function _creditStampsForOrder(order) {
   var phone = order.customer_id;
   var normPhone = normalizeCustomerId(phone);
@@ -627,19 +642,12 @@ function _creditStampsForOrder(order) {
     return;
   }
 
-  // 1. Đếm số lượng ly nước trong đơn (bỏ qua bánh - SKU bắt đầu bằng BK)
-  var stampsEarned = 0;
-  if (order.items && order.items.length) {
-    order.items.forEach(function (item) {
-      var sku = (item.sku || '').toUpperCase();
-      if (sku.indexOf('BK') !== 0) {
-        stampsEarned += parseInt(item.qty) || 0;
-      }
-    });
-  }
+  // 1. Tem theo giá trị đơn net (thay cho đếm ly)
+  var award = _computeStampAward(order.total);
+  var stampsEarned = award.stampsEarned;
 
-  if (stampsEarned === 0 && !order.metadata.use_free_drink) {
-    Logger.log('No eligible drink items and no free drink usage for order ' + order.order_id);
+  if (stampsEarned === 0 && !order.metadata.use_free_drink && !award.specialFreeDrink) {
+    Logger.log('No stamp award for order ' + order.order_id);
     return;
   }
 
@@ -700,14 +708,7 @@ function _creditStampsForOrder(order) {
     }
   }
 
-  cust.stamp_count += stampsEarned;
-  cust.stamp_total_ever += stampsEarned;
-
-  if (cust.stamp_count >= 10) {
-    var newEarned = Math.floor(cust.stamp_count / 10);
-    cust.free_drinks_earned += newEarned;
-    cust.stamp_count = cust.stamp_count % 10;
-  }
+  _applyStampAward(cust, award);
 
   var rowData = [
     cust.customer_id,
@@ -732,7 +733,7 @@ function _creditStampsForOrder(order) {
   }
 
   try {
-    notifyStampUpdate(normPhone, stampsEarned, cust.stamp_count, cust.stamp_total_ever, cust.free_drinks_earned - cust.free_drinks_used);
+    notifyStampUpdate(normPhone, stampsEarned, cust.stamp_count, cust.stamp_total_ever, cust.free_drinks_earned - cust.free_drinks_used, award.specialFreeDrink);
   } catch (notifErr) {
     logError('loyalty.notify', notifErr);
   }
