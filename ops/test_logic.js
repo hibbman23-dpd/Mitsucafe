@@ -18,6 +18,11 @@ global.SpreadsheetApp = {
             })
           })
         })
+      }),
+      // Header-only rows so getConfig()/_loadConfig() (Utils.gs) don't throw
+      // when a test calls real (un-mocked) getConfig without CONFIG data.
+      getDataRange: () => ({
+        getValues: () => [['key', 'value']]
       })
     })
   })
@@ -342,4 +347,25 @@ test('hai token khác nhau ra fingerprint khác nhau — vẫn so sánh được
   const a = global._tokenFingerprint('token_aaaa');
   const b = global._tokenFingerprint('token_bbbb');
   assert.notStrictEqual(a, b, 'fingerprint phải phân biệt được token lệch nhau');
+});
+
+test('_computeStampAward: bậc tem theo total net', () => {
+  const cases = [
+    [0, 0, false], [65999, 0, false], [66000, 1, false], [75000, 1, false],
+    [99999, 1, false], [100000, 2, false], [150000, 2, false], [489999, 2, false],
+    [490000, 0, true], [500000, 0, true],
+  ];
+  for (const [total, stampsEarned, specialFreeDrink] of cases) {
+    const r = global._computeStampAward(total);
+    assert.deepStrictEqual(r, { stampsEarned, specialFreeDrink }, `total=${total}`);
+  }
+});
+
+test('_computeStampAward: đọc ngưỡng từ CONFIG', () => {
+  const orig = global.getConfig;
+  global.getConfig = (k) => ({ STAMP_THRESHOLD_1: '50000', STAMP_THRESHOLD_2: '90000', STAMP_THRESHOLD_SPECIAL: '400000' }[k] || '');
+  try {
+    assert.deepStrictEqual(global._computeStampAward(50000), { stampsEarned: 1, specialFreeDrink: false });
+    assert.deepStrictEqual(global._computeStampAward(400000), { stampsEarned: 0, specialFreeDrink: true });
+  } finally { global.getConfig = orig; }
 });

@@ -607,6 +607,18 @@ function getCustomerInfo(phone) {
   };
 }
 
+/** Tính tem thưởng theo giá trị đơn net. Trả {stampsEarned, specialFreeDrink}. */
+function _computeStampAward(total) {
+  var t1 = Number(getConfig('STAMP_THRESHOLD_1')) || 66000;
+  var t2 = Number(getConfig('STAMP_THRESHOLD_2')) || 100000;
+  var tS = Number(getConfig('STAMP_THRESHOLD_SPECIAL')) || 490000;
+  var amt = Number(total) || 0;
+  if (amt >= tS) return { stampsEarned: 0, specialFreeDrink: true };
+  if (amt >= t2) return { stampsEarned: 2, specialFreeDrink: false };
+  if (amt >= t1) return { stampsEarned: 1, specialFreeDrink: false };
+  return { stampsEarned: 0, specialFreeDrink: false };
+}
+
 function _creditStampsForOrder(order) {
   var phone = order.customer_id;
   var normPhone = normalizeCustomerId(phone);
