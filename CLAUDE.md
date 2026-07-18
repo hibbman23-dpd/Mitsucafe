@@ -97,7 +97,7 @@ SKU: DR001 (drink) · BK001 (bánh) · RT001 (retail)
 ❌ Points system — đã chuyển sang stamp card
 ❌ Trigger 8am cố định cho promo — dùng 15-phút interval
 ❌ Bật auto-update macOS — gây reboot không báo
-❌ Cộng stamp cho pastry/retail — chỉ beverage
+❌ Tính tem theo số ly / chỉ beverage — nay theo GIÁ TRỊ ĐƠN net gồm mọi món (xem docs/system/loyalty-stamps.md)
 ```
 
 ---
