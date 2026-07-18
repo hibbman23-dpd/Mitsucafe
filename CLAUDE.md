@@ -65,7 +65,7 @@ MAKING     → sendZaloNotify("Đang pha chế ☕")
 READY      → sendZaloNotify("Xong rồi! Mời ra lấy 🔔")
 DELIVERING → sendZaloNotify("Shipper en route 🛵")
 DELIVERED  → printThermalReceipt() · generatePDFInvoice() → sendInvoiceViaZalo()
-             addStamp(customer_id) [beverage only] · notifyStampUpdate()
+             _creditStampsForOrder(order) [tem theo giá trị đơn net, gồm mọi món] · notifyStampUpdate()
 ```
 
 ---
