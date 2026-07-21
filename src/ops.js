@@ -69,6 +69,15 @@ export default {
       headers.delete('content-encoding');
       headers.set('content-type', 'text/html; charset=utf-8');
       res = new Response(body, { status: assetRes.status, statusText: assetRes.statusText, headers });
+    } else if (url.pathname === '/camera.html' || url.pathname === '/camera') {
+      const secret = env.CAMERA_AI_SECRET || '';
+      let body = await assetRes.text();
+      body = body.split('__CAMERA_AI_SECRET__').join(secret);
+      const headers = new Headers(assetRes.headers);
+      headers.delete('content-length');
+      headers.delete('content-encoding');
+      headers.set('content-type', 'text/html; charset=utf-8');
+      res = new Response(body, { status: assetRes.status, statusText: assetRes.statusText, headers });
     } else {
       res = new Response(assetRes.body, assetRes);
     }

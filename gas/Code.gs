@@ -33,10 +33,8 @@ function _authorize(authClass, e, payload) {
   if (authClass === AUTH.BANK) {
     var secret = (payload && payload.secret) || (e && e.parameter && e.parameter.secret) || '';
     var _bws = getConfig('BANK_WEBHOOK_SECRET');
-    // Chưa set CONFIG.BANK_WEBHOOK_SECRET → cho qua (tương thích ngược, khớp hành vi
-    // live trước restructure). Set CONFIG + field "secret" bên MacroDroid để bật
-    // fail-closed — xem SECURITY_DEPLOY.md. TODO: gỡ back-compat sau khi secret set.
-    if (!_bws) return true;
+    // Bắt buộc phải cấu hình BANK_WEBHOOK_SECRET. Nếu chưa set -> Từ chối (fail-closed).
+    if (!_bws) return false;
     return String(secret) === String(_bws);
   }
   if (authClass === AUTH.STAFF) {

@@ -21,6 +21,22 @@ import threading
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from functools import wraps
+
+# Đọc từ biến môi trường hoặc file config local — KHÔNG hardcode.
+# Lấy giá trị thật từ CONFIG sheet (key CAMERA_AI_SECRET) rồi set 1 lần
+# khi khởi động Mac Mini, vd: export CAMERA_AI_SECRET="giá-trị-thật"
+CAMERA_AI_SECRET = os.environ.get("CAMERA_AI_SECRET", "")
+
+def require_secret(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        provided = request.headers.get("X-Camera-Secret") or request.args.get("secret", "")
+        if not CAMERA_AI_SECRET or provided != CAMERA_AI_SECRET:
+            return jsonify({"ok": False, "error": "unauthorized"}), 401
+        return f(*args, **kwargs)
+    return wrapper
+
 
 # =====================================================================
 # CẤU HÌNH HỆ THỐNG
@@ -52,7 +68,7 @@ lock = threading.Lock()
 # KHỞI TẠO FLASK APP
 # =====================================================================
 app = Flask(__name__)
-CORS(app)  # Cho phép gọi API từ trình duyệt POS (localhost/GitHub Pages)
+CORS(app, origins=["https://ops.mitsu.cafe", "http://localhost:5000"])
 
 # =====================================================================
 # KHỞI TẠO CƠ SỞ DỮ LIỆU SQLITE
@@ -232,21 +248,38 @@ def match_person_to_db(face_encoding=None, body_reid_vector=None):
 # TIẾN TRÌNH XỬ LÝ CAMERA CHÍNH
 # =====================================================================
 active_customer_info = {"detected": False}
+ai_enabled = False
 
 def process_cameras():
-    global recent_order_visitors, active_customer_info
+    global recent_order_visitors, active_customer_info, ai_enabled
     
-    print("[AI INFO] Đang khởi động camera...")
-    # Dùng 1 camera chính để test, chia 2 nửa nếu chỉ có 1 webcam
-    cap_order = cv2.VideoCapture(CAM_CONFIG["Cam_Order"]["stream_url"])
-    
-    # Nếu dùng 2 camera thật, uncomment dòng dưới:
-    # cap_pickup = cv2.VideoCapture(CAM_CONFIG["Cam_Nhan_Hang"]["stream_url"])
-    cap_pickup = None 
-    
+    cap_order = None
+    cap_pickup = None
     frame_count = 0
     
     while True:
+        # Nếu AI bị tắt, giải phóng camera và chờ
+        if not ai_enabled:
+            if cap_order is not None or cap_pickup is not None:
+                print("[AI INFO] Đang giải phóng camera và đóng cửa sổ giám sát...")
+                if cap_order is not None:
+                    cap_order.release()
+                    cap_order = None
+                if cap_pickup is not None:
+                    cap_pickup.release()
+                    cap_pickup = None
+                cv2.destroyAllWindows()
+            active_customer_info = {"detected": False}
+            time.sleep(1)
+            continue
+            
+        # Khởi động lại camera nếu bật AI
+        if cap_order is None:
+            print("[AI INFO] Đang khởi động camera...")
+            cap_order = cv2.VideoCapture(CAM_CONFIG["Cam_Order"]["stream_url"])
+            # cap_pickup = cv2.VideoCapture(CAM_CONFIG["Cam_Nhan_Hang"]["stream_url"])
+            cap_pickup = None
+            
         ret_order, frame_order = cap_order.read()
         if not ret_order:
             print("[AI WARNING] Mất kết nối camera. Đang thử lại...")
@@ -394,6 +427,7 @@ def process_cameras():
 # =====================================================================
 
 @app.route('/api/associate_order', methods=['POST'])
+@require_secret
 def api_associate_order():
     """
     POS gọi API này khi hoàn thành một đơn hàng mới.
@@ -477,13 +511,25 @@ def api_associate_order():
     })
 
 @app.route('/api/active_customer', methods=['GET'])
+@require_secret
 def api_active_customer():
-    """
-    POS gọi API này mỗi 3 giây để kiểm tra xem có khách quen đứng trước quầy gọi đồ không.
-    """
-    return jsonify(active_customer_info)
+    global ai_enabled
+    res = active_customer_info.copy()
+    res["ai_enabled"] = ai_enabled
+    return jsonify(res)
+
+@app.route('/api/toggle_ai', methods=['POST'])
+@require_secret
+def api_toggle_ai():
+    global ai_enabled
+    data = request.json or {}
+    enabled = data.get("enabled", True)
+    ai_enabled = enabled
+    print(f"[AI STATUS] Hệ thống AI đã được {'BẬT' if ai_enabled else 'TẮT'}.")
+    return jsonify({"ok": True, "ai_enabled": ai_enabled})
 
 @app.route('/api/recent_customers', methods=['GET'])
+@require_secret
 def api_recent_customers():
     """
     Dashboard gọi API này để hiển thị danh sách khách hàng được lưu gần đây nhất.
@@ -517,7 +563,7 @@ def api_recent_customers():
 # =====================================================================
 def run_flask():
     print("[FLASK INFO] Đang khởi động local HTTP server trên cổng 5000...")
-    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+    app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
     # Chạy Flask Server trong một thread riêng biệt

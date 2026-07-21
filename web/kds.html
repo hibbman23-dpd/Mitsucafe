@@ -437,11 +437,12 @@
 </div>
 
 <script>
-const esc = s => String(s == null ? '' : s).replace(/[<>&"]/g, c => ({
+const esc = s => String(s == null ? '' : s).replace(/[<>&"']/g, c => ({
   '<': '&lt;',
   '>': '&gt;',
   '&': '&amp;',
-  '"': '&quot;'
+  '"': '&quot;',
+  "'": '&#39;'
 }[c]));
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
@@ -466,8 +467,8 @@ const TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
 
 // ─── MENU CONSTANTS ──────────────────────────────────────────────────────────
 const CAT_EMOJI = {
-  phin_coffee:'☕', machine_coffee:'🫗', milk_tea:'🧋',
-  fruit_tea:'🍑', blended:'🧊', kissaten:'🍵', pastry:'🥐',
+  coffee: '☕', hot_drinks: '🍵', latte: '🥛', fruit_tea: '🍑', milk_tea: '🧋', yogurt: '🥣', pastry: '🥐',
+  phin_coffee:'☕', machine_coffee:'🫗', blended:'🧊', kissaten:'🍵'
 };
 const ROLE_BADGE = {
   hero:      { text:'⭐', cls:'role-hero' },

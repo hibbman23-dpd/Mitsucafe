@@ -50,6 +50,32 @@ function initCameraSheets() {
   Logger.log('Camera AI system initialized successfully.');
 }
 
+function _checkLoginRateLimit(username) {
+  var raw = getConfig('LOGIN_ATTEMPTS') || '{}';
+  var attempts = {};
+  try { attempts = JSON.parse(raw); } catch (e) { attempts = {}; }
+  var rec = attempts[username] || { count: 0, lockUntil: 0 };
+  if (rec.lockUntil && Date.now() < rec.lockUntil) {
+    return { blocked: true, retryAfterMs: rec.lockUntil - Date.now(), attempts: attempts, rec: rec };
+  }
+  return { blocked: false, attempts: attempts, rec: rec };
+}
+
+function _recordFailedLogin(username, attempts, rec) {
+  rec.count = (rec.count || 0) + 1;
+  if (rec.count >= 5) {
+    rec.lockUntil = Date.now() + 15 * 60 * 1000; // khóa 15 phút sau 5 lần sai
+    rec.count = 0;
+  }
+  attempts[username] = rec;
+  setConfig('LOGIN_ATTEMPTS', JSON.stringify(attempts));
+}
+
+function _clearLoginAttempts(username, attempts) {
+  delete attempts[username];
+  setConfig('LOGIN_ATTEMPTS', JSON.stringify(attempts));
+}
+
 /**
  * 2. HÀM ĐĂNG NHẬP ADMIN VÀ SINH SESSION TOKEN
  */
@@ -60,6 +86,12 @@ function adminLogin(username, password) {
     }
     initCameraSheets(); // Đảm bảo cấu hình luôn sẵn sàng
     
+    var rl = _checkLoginRateLimit(username);
+    if (rl.blocked) {
+      var mins = Math.ceil(rl.retryAfterMs / 60000);
+      return { ok: false, error: 'Quá nhiều lần đăng nhập sai. Vui lòng thử lại sau ' + mins + ' phút.' };
+    }
+
     var dbUsername = getConfig('ADMIN_USERNAME') || 'admin';
     var dbPasswordHash = getConfig('ADMIN_PASSWORD_HASH');
     var hasSalt = !!getConfig('ADMIN_PASSWORD_SALT');
@@ -75,8 +107,10 @@ function adminLogin(username, password) {
       }
     }
     if (!credOk) {
+      _recordFailedLogin(username, rl.attempts, rl.rec);
       return { ok: false, error: 'Tên đăng nhập hoặc mật khẩu không chính xác' };
     }
+    _clearLoginAttempts(username, rl.attempts);
     
     // Đăng nhập thành công -> Sinh Session Token
     var token = generateRandomString(32);

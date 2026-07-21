@@ -667,6 +667,52 @@
       75% { transform: translate(1px, 1px); }
       100% { transform: translate(0, 0); }
     }
+
+    /* AI Toggle Switch */
+    .ai-switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 24px;
+    }
+    .ai-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .ai-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: var(--transition-smooth);
+      border-radius: 24px;
+      border: 1px solid var(--border-color);
+    }
+    .ai-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--text-muted);
+      transition: var(--transition-smooth);
+      border-radius: 50%;
+    }
+    .ai-switch input:checked + .ai-slider {
+      background-color: hsla(150, 80%, 45%, 0.2);
+      border-color: var(--accent-green);
+    }
+    .ai-switch input:checked + .ai-slider:before {
+      transform: translateX(18px);
+      background-color: var(--accent-green);
+      box-shadow: 0 0 6px var(--accent-green);
+    }
+    .ai-switch input:disabled + .ai-slider {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body class="mitsu">
@@ -793,12 +839,18 @@
     <section class="events-container">
       <!-- 1. Card Nhận Diện Khách Quen (Local AI Agent) -->
       <div class="card" style="display: flex; flex-direction: column; gap: 12px; max-height: 380px;">
-        <div class="card-title" style="margin-bottom: 5px;">
+        <div class="card-title" style="margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <span>NHẬN DIỆN KHÁCH QUEN THỜI GIAN THỰC</span>
-          <span class="status-badge" id="localApiStatus" style="font-size:10px; padding:3px 8px; background-color:hsla(350,85%,55%,0.15); color:var(--accent-red); border-color:hsla(350,85%,55%,0.3);">
-            <span class="status-dot" style="background-color:var(--accent-red); box-shadow: 0 0 6px var(--accent-red);"></span>
-            <span>AI MẤT KẾT NỐI</span>
-          </span>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="status-badge" id="localApiStatus" style="font-size:10px; padding:3px 8px; background-color:hsla(350,85%,55%,0.15); color:var(--accent-red); border-color:hsla(350,85%,55%,0.3);">
+              <span class="status-dot" style="background-color:var(--accent-red); box-shadow: 0 0 6px var(--accent-red);"></span>
+              <span>AI MẤT KẾT NỐI</span>
+            </span>
+            <label class="ai-switch" title="Bật/Tắt hệ thống camera AI">
+              <input type="checkbox" id="btnToggleAI" disabled onclick="toggleLocalAI(this.checked)">
+              <span class="ai-slider"></span>
+            </label>
+          </div>
         </div>
         
         <div id="activeCustomerPanel" style="padding: 15px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center; color: var(--text-muted); font-size: 13px; min-height: 70px; display: flex; align-items: center; justify-content: center; transition: var(--transition-smooth);">
@@ -857,6 +909,18 @@
   </div>
 
   <script>
+    // Token cho Camera AI local. Worker thay '__CAMERA_AI_SECRET__' lúc serve (xem src/ops.js).
+    function _resolveCameraSecret() {
+      const injected = '__CAMERA_AI_SECRET__';
+      if (injected.indexOf('CAMERA_AI_SECRET') === -1) return injected;
+      try {
+        const fromUrl = new URLSearchParams(window.location.search).get('camera_secret');
+        if (fromUrl) { localStorage.setItem('mitsu_camera_secret', fromUrl); return fromUrl; }
+        return localStorage.getItem('mitsu_camera_secret') || '';
+      } catch (e) { return ''; }
+    }
+    window.__CAMERA_AI_SECRET__ = _resolveCameraSecret();
+
     // Điền URL của GAS Web App của bạn vào đây
     const API_URL = 'https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec';
     
@@ -888,42 +952,65 @@
       const apiStatusEl = document.getElementById('localApiStatus');
       const activeCustPanel = document.getElementById('activeCustomerPanel');
       const recentListEl = document.getElementById('recentCustomersList');
+      const toggleEl = document.getElementById('btnToggleAI');
       
       try {
         // Lấy khách hàng đang ở quầy
-        const activeRes = await fetch('http://localhost:5000/api/active_customer');
+        const activeRes = await fetch('http://localhost:5000/api/active_customer', {
+          headers: { 'X-Camera-Secret': window.__CAMERA_AI_SECRET__ }
+        });
         if (!activeRes.ok) throw new Error('Flask error');
         const activeData = await activeRes.json();
         
-        // Cập nhật trạng thái badge thành ONLINE
-        apiStatusEl.style.backgroundColor = 'hsla(150, 80%, 45%, 0.15)';
-        apiStatusEl.style.borderColor = 'hsla(150, 80%, 45%, 0.3)';
-        apiStatusEl.style.color = 'var(--accent-green)';
-        apiStatusEl.querySelector('.status-dot').style.backgroundColor = 'var(--accent-green)';
-        apiStatusEl.querySelector('.status-dot').style.boxShadow = '0 0 8px var(--accent-green)';
-        apiStatusEl.querySelector('span:not(.status-dot)').textContent = 'AI HOẠT ĐỘNG';
+        // Mở khóa và đồng bộ nút gạt
+        toggleEl.disabled = false;
+        toggleEl.checked = activeData.ai_enabled;
         
-        if (activeData.detected) {
-          activeCustPanel.innerHTML = `
-            <div style="display:flex; align-items:center; gap:12px; text-align:left; width:100%;">
-              <span style="font-size:24px; animation: bounce 1s infinite alternate;">🐝</span>
-              <div>
-                <div style="font-weight:700; color:var(--accent-green); font-size:14px;">PHÁT HIỆN: ${activeData.name}</div>
-                <div style="color:var(--text-main); font-size:12px; margin-top:2px;">SĐT/ID: ${activeData.customer_id.startsWith('ANON_') ? 'Khách lẻ vãng lai' : activeData.customer_id}</div>
-                <div style="color:var(--text-muted); font-size:11px; margin-top:2px;">Món nước hay uống: <strong style="color:var(--accent-cyan);">${activeData.favorite_drink}</strong></div>
+        if (activeData.ai_enabled) {
+          // Cập nhật trạng thái badge thành HOẠT ĐỘNG
+          apiStatusEl.style.backgroundColor = 'hsla(150, 80%, 45%, 0.15)';
+          apiStatusEl.style.borderColor = 'hsla(150, 80%, 45%, 0.3)';
+          apiStatusEl.style.color = 'var(--accent-green)';
+          apiStatusEl.querySelector('.status-dot').style.backgroundColor = 'var(--accent-green)';
+          apiStatusEl.querySelector('.status-dot').style.boxShadow = '0 0 8px var(--accent-green)';
+          apiStatusEl.querySelector('span:not(.status-dot)').textContent = 'AI HOẠT ĐỘNG';
+          
+          if (activeData.detected) {
+            activeCustPanel.innerHTML = `
+              <div style="display:flex; align-items:center; gap:12px; text-align:left; width:100%;">
+                <span style="font-size:24px; animation: bounce 1s infinite alternate;">🐝</span>
+                <div>
+                  <div style="font-weight:700; color:var(--accent-green); font-size:14px;">PHÁT HIỆN: ${activeData.name}</div>
+                  <div style="color:var(--text-main); font-size:12px; margin-top:2px;">SĐT/ID: ${activeData.customer_id.startsWith('ANON_') ? 'Khách lẻ vãng lai' : activeData.customer_id}</div>
+                  <div style="color:var(--text-muted); font-size:11px; margin-top:2px;">Món nước hay uống: <strong style="color:var(--accent-cyan);">${activeData.favorite_drink}</strong></div>
+                </div>
               </div>
-            </div>
-          `;
-          activeCustPanel.style.border = '1px solid var(--accent-green)';
-          activeCustPanel.style.backgroundColor = 'hsla(150, 80%, 45%, 0.05)';
+            `;
+            activeCustPanel.style.border = '1px solid var(--accent-green)';
+            activeCustPanel.style.backgroundColor = 'hsla(150, 80%, 45%, 0.05)';
+          } else {
+            activeCustPanel.innerHTML = `Đang tìm kiếm khách hàng tại quầy order...`;
+            activeCustPanel.style.border = '1px dashed var(--border-color)';
+            activeCustPanel.style.backgroundColor = 'rgba(255,255,255,0.01)';
+          }
         } else {
-          activeCustPanel.innerHTML = `Đang tìm kiếm khách hàng tại quầy order...`;
+          // Cập nhật trạng thái badge thành TẠM DỪNG
+          apiStatusEl.style.backgroundColor = 'hsla(38, 90%, 50%, 0.15)';
+          apiStatusEl.style.borderColor = 'hsla(38, 90%, 50%, 0.3)';
+          apiStatusEl.style.color = 'var(--accent-yellow)';
+          apiStatusEl.querySelector('.status-dot').style.backgroundColor = 'var(--accent-yellow)';
+          apiStatusEl.querySelector('.status-dot').style.boxShadow = '0 0 8px var(--accent-yellow)';
+          apiStatusEl.querySelector('span:not(.status-dot)').textContent = 'AI TẠM DỪNG';
+          
+          activeCustPanel.innerHTML = `Hệ thống AI nhận diện đang tạm dừng hoạt động.`;
           activeCustPanel.style.border = '1px dashed var(--border-color)';
           activeCustPanel.style.backgroundColor = 'rgba(255,255,255,0.01)';
         }
         
         // Lấy danh sách khách hàng lưu gần đây
-        const recentRes = await fetch('http://localhost:5000/api/recent_customers');
+        const recentRes = await fetch('http://localhost:5000/api/recent_customers', {
+          headers: { 'X-Camera-Secret': window.__CAMERA_AI_SECRET__ }
+        });
         if (recentRes.ok) {
           const recentData = await recentRes.json();
           if (recentData.ok && recentData.customers.length > 0) {
@@ -944,6 +1031,10 @@
           }
         }
       } catch (err) {
+        // Khóa nút gạt
+        toggleEl.disabled = true;
+        toggleEl.checked = false;
+        
         // Fallback sang trạng thái OFFLINE
         apiStatusEl.style.backgroundColor = 'hsla(350, 85%, 55%, 0.15)';
         apiStatusEl.style.borderColor = 'hsla(350, 85%, 55%, 0.3)';
@@ -962,6 +1053,27 @@
         activeCustPanel.style.backgroundColor = 'hsla(350, 85%, 55%, 0.05)';
         
         recentListEl.innerHTML = `<div style="text-align:center; padding: 10px; color: var(--text-muted); font-size:11px;">Không có dữ liệu từ AI Agent.</div>`;
+      }
+    }
+    
+    // Gửi yêu cầu Bật/Tắt AI lên Local server
+    async function toggleLocalAI(enabled) {
+      try {
+        const res = await fetch('http://localhost:5000/api/toggle_ai', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Camera-Secret': window.__CAMERA_AI_SECRET__
+          },
+          body: JSON.stringify({ enabled: enabled })
+        });
+        if (!res.ok) throw new Error('Toggle error');
+        const data = await res.json();
+        console.log("AI system status updated:", data);
+        pollLocalAI(); // Cập nhật giao diện ngay lập tức
+      } catch (err) {
+        console.error("Failed to toggle AI system:", err);
+        document.getElementById('btnToggleAI').checked = !enabled;
       }
     }
 

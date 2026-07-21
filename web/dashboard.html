@@ -209,7 +209,7 @@ let timer=null, chatTimer=null, dispTimer=null, adminCache=null;
 async function apiPost(d){const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(d)});return r.json();}
 async function apiGet(p){const r=await fetch(GAS_URL+'?'+p);return r.json();}
 const vnd=n=>(Number(n)||0).toLocaleString('vi-VN')+'đ';
-const esc=s=>String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
 const tk=()=>sessionStorage.getItem(TKEY);
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 // Dịch hiển thị trạng thái/thuật ngữ sang tiếng Việt (KHÔNG đổi giá trị gốc trong logic).
