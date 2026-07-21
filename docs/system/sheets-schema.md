@@ -70,4 +70,6 @@ STAMPS_FOR_FREE       | 10
 STORE_NAME            | Mitsu Café     (tên in trên hoá đơn — đổi nếu còn "Kaeru Kàphê")
 REPORT_API_TOKEN      | xxx            (token endpoint KDS/Mac Mini poller — xem SECURITY_DEPLOY.md)
 BANK_WEBHOOK_SECRET   | xxx            (tuỳ chọn — bật fail-closed cho webhook bank_notification; khớp field "secret" của MacroDroid)
+HEALER_QUEUE_TOKEN    | xxx            (self-healing v2 — token hẹp riêng cho user macOS _healer, chỉ gọi được healer_pull/healer_update, fail-closed nếu chưa set)
+HEALER_WEBHOOK_SECRET | xxx            (self-healing v2 — secret_token cho Telegram webhook duyệt/bỏ fix, khác REPORT_API_TOKEN/HEALER_QUEUE_TOKEN)
 ```
