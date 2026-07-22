@@ -161,6 +161,12 @@ class Gateway:
             (idempotency_key,)).fetchone()
         return dict(row) if row else None
 
+    def get_create_payload(self, order_id):
+        row = self._conn.execute(
+            "SELECT payload FROM outbox WHERE op='ingest_order' AND order_id=? LIMIT 1",
+            (order_id,)).fetchone()
+        return json.loads(row["payload"]) if row else None
+
     def unsynced(self):
         rows = [dict(r) for r in self._conn.execute(
             "SELECT * FROM outbox WHERE synced_at IS NULL ORDER BY seq ASC").fetchall()]

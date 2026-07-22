@@ -129,7 +129,7 @@ def _resolve_server_auth_token():
 GATEWAY = Gateway(
     os.getenv("GATEWAY_DB", os.path.join(os.path.dirname(__file__), "outbox.db")),
     os.getenv("GAS_WEBAPP_URL", ""),
-    os.getenv("REPORT_API_TOKEN", "") or _resolve_server_auth_token(),
+    _resolve_server_auth_token(),
 )
 
 @app.get("/kds.html")
@@ -502,23 +502,23 @@ def order_status():
 def order_mark_paid():
     p = request.get_json(force=True, silent=True) or {}
     order_id = p.get("order_id")
+    # Dựng order cho receipt: ưu tiên outbox (đơn local-first có items+total); else dùng p['order'] KDS gửi.
+    recp = GATEWAY.get_create_payload(order_id) or p.get("order")
+    receipt_printed = False
+    if recp and recp.get("items"):
+        try:
+            _print_receipt_bytes(build_receipt(recp)); receipt_printed = True
+        except Exception as exc:
+            log.error("local receipt failed: %s", exc)
     try:
-        d = _gas_post({"action": "mark_paid", "order_id": order_id})
+        d = _gas_post({"action": "mark_paid", "order_id": order_id,
+                       "receipt_printed_local": receipt_printed})
         if d.get("ok"):
-            return jsonify(d), 200      # online OK → GAS lo receipt + stamp + financials
+            return jsonify({**d, "receipt_printed_local": receipt_printed}), 200
     except Exception:
         pass
-    # offline (hoặc GAS not-ok): in receipt local NGAY + đánh dấu để GAS KHÔNG in receipt lần 2 khi sync
-    receipt_printed = False
-    if p.get("order"):
-        try:
-            _print_receipt_bytes(build_receipt(p["order"]))
-            receipt_printed = True
-        except Exception as exc:
-            log.error("offline receipt failed: %s", exc)
     GATEWAY.enqueue("mark_paid", order_id, f"{order_id}:paid",
-                    {"action": "mark_paid", "order_id": order_id,
-                     "receipt_printed_local": receipt_printed})
+                    {"action": "mark_paid", "order_id": order_id, "receipt_printed_local": receipt_printed})
     return jsonify({"ok": True, "queued_offline": True, "receipt_printed_local": receipt_printed}), 200
 
 

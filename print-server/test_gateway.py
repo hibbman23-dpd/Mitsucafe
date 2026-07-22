@@ -94,5 +94,13 @@ class TestGateway(unittest.TestCase):
         self.assertEqual(r["short_code"], "Q01")    # reset theo ngày, xin block mới
         self.assertEqual(fake_reserve.calls, 2)
 
+    def test_get_create_payload_returns_items(self):
+        self.gw.mint_order({"items":[{"name":"CF","qty":1,"price":30000,"modifiers":{}}],
+              "total":30000,"metadata":{"delivery_type":"dine_in"},"idempotency_key":"rp1"})
+        oid = self.gw.get_by_key("rp1")["order_id"]
+        pl = self.gw.get_create_payload(oid)
+        self.assertIsNotNone(pl); self.assertEqual(pl["items"][0]["name"], "CF")
+        self.assertIsNone(self.gw.get_create_payload("ORD-REMOTE-9"))  # đơn không do gateway tạo
+
 if __name__ == "__main__":
     unittest.main()
