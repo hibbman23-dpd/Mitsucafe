@@ -59,12 +59,12 @@ const MITSU_CATEGORIES = [
 const SUBCATEGORY_CATEGORIES = [
   { id: 'all', label: 'Tất cả', emoji: '蜜' },
   { id: 'coffee', label: 'Cà phê', emoji: '☕' },
-  { id: 'hot_drinks', label: 'Đồ uống nóng', emoji: '🫖' },
+  { id: 'hot_drinks', label: 'Đồ uống nóng', emoji: '🍵' },
   { id: 'latte', label: 'Latte', emoji: '🥛' },
   { id: 'fruit_tea', label: 'Các loại trà', emoji: '🍑' },
   { id: 'milk_tea', label: 'Trà sữa', emoji: '🧋' },
   { id: 'yogurt', label: 'Sữa chua', emoji: '🥣' },
-  { id: 'pastry', label: 'Bánh ngọt', emoji: '🥐' }
+  { id: 'coldbrew', label: 'Coldbrew', emoji: '🧊' }
 ];
 
 const BEE_GROUP_EMOJI = {
