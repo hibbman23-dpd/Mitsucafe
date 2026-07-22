@@ -85,7 +85,38 @@ logging.basicConfig(
 )
 log = logging.getLogger("print-server")
 
+import urllib.request
+import ssl
+from gateway import Gateway
+from printlib import build_label_tspl, build_receipt
+
 app = Flask(__name__)
+
+GATEWAY = Gateway(
+    os.getenv("GATEWAY_DB", os.path.join(os.path.dirname(__file__), "outbox.db")),
+    os.getenv("GAS_WEBAPP_URL", ""),
+    os.getenv("REPORT_API_TOKEN", ""),
+)
+
+def _now_iso_server():
+    from datetime import datetime, timezone, timedelta
+    return datetime.now(timezone(timedelta(hours=7))).isoformat()
+
+def _print_label_bytes(data: bytes) -> int:
+    return _label_send(data)["bytes"]
+
+def _print_receipt_bytes(data: bytes) -> int:
+    return _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
+                 RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, data,
+                 usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID,
+                 usb_ep=RECEIPT_USB_EP, cups_printer=RECEIPT_CUPS_PRINTER)
+
+def _gas_post(payload: dict, timeout=8) -> dict:
+    body = json.dumps({**payload, "token": GATEWAY.token}).encode()
+    req = urllib.request.Request(GATEWAY.gas_url, data=body,
+          headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout, context=ssl.create_default_context()) as r:
+        return json.loads(r.read().decode())
 
 
 # ── Send helpers ─────────────────────────────────────────────────────────────
@@ -319,6 +350,88 @@ def print_label():
 def print_compat():
     """Backward-compat → /print/receipt."""
     return print_receipt()
+
+
+# ── Gateway Order Routes ──────────────────────────────────────────────────────
+@app.post("/order")
+def order_create():
+    payload = request.get_json(force=True, silent=True) or {}
+    minted = GATEWAY.mint_order(payload)
+    order_id, short_code = minted["order_id"], minted["short_code"]
+    if minted["deduped"]:
+        return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
+                        "printed": True, "deduped": True}), 200
+
+    order = {
+        "order_id": order_id,
+        "timestamp": payload.get("timestamp") or _now_iso_server(),
+        "table_id": payload.get("table_id", ""),
+        "customer_name": payload.get("customer_name", ""),
+        "customer_id": payload.get("customer_id", ""),
+        "metadata": {"short_code": short_code,
+                     "delivery_type": (payload.get("metadata") or {}).get("delivery_type", "dine_in"),
+                     "notes": (payload.get("metadata") or {}).get("notes", "")},
+        "items": payload.get("items", []),
+    }
+
+    cups = []
+    for it in order["items"]:
+        for _ in range(max(1, int(it.get("qty", 1)))):
+            cups.append(it)
+
+    printed_ok, warning = True, None
+    printed_at = _now_iso_server()
+    for i, item in enumerate(cups, start=1):
+        try:
+            _print_label_bytes(build_label_tspl(order, item, i, len(cups)))
+        except Exception as exc:
+            log.error("label print failed %s: %s", order_id, exc)
+            printed_ok, warning = False, "print_failed"
+
+    ing = dict(payload)
+    ing["gateway_order_id"] = order_id
+    ing["gateway_short_code"] = short_code
+    ing["printed_at"] = printed_at
+    GATEWAY.enqueue("ingest_order", order_id, minted["idempotency_key"], ing,
+                    short_code=short_code, printed_at=printed_at)
+    return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
+                    "printed": printed_ok, "warning": warning}), 200
+
+@app.get("/order")
+def order_lookup():
+    key = request.args.get("key", "")
+    found = GATEWAY.get_by_key(key) if key else None
+    if not found:
+        return jsonify({"ok": True, "found": False}), 200
+    return jsonify({"ok": True, "found": True, **found}), 200
+
+@app.post("/order/status")
+def order_status():
+    p = request.get_json(force=True, silent=True) or {}
+    order_id, status = p.get("order_id"), p.get("status")
+    try:
+        d = _gas_post({"action": "update_status", "order_id": order_id,
+                       "status": status})
+        return jsonify(d), 200
+    except Exception:
+        GATEWAY.enqueue("status", order_id, f"{order_id}:{status}",
+                        {"action": "update_status", "order_id": order_id, "status": status})
+        return jsonify({"ok": True, "queued_offline": True}), 200
+
+@app.post("/order/mark_paid")
+def order_mark_paid():
+    p = request.get_json(force=True, silent=True) or {}
+    order_id = p.get("order_id")
+    try:
+        d = _gas_post({"action": "mark_paid", "order_id": order_id})
+        return jsonify(d), 200
+    except Exception:
+        if p.get("order"):
+            try: _print_receipt_bytes(build_receipt(p["order"]))
+            except Exception as exc: log.error("offline receipt failed: %s", exc)
+        GATEWAY.enqueue("mark_paid", order_id, f"{order_id}:paid",
+                        {"action": "mark_paid", "order_id": order_id})
+        return jsonify({"ok": True, "queued_offline": True}), 200
 
 
 # ── Debug / test endpoints ─────────────────────────────────────────────────────
