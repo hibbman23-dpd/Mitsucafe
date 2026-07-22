@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  launchd plist — auto-start Flask print server khi Mac Mini login.
+  launchd plist — auto-start KDS Gateway & Print Server khi Mac Mini login.
 
   Cài đặt (1 lần):
     cp ~/Projects/lamha-kissaten/print-server/com.lamha.kissaten.printserver.plist \
@@ -12,9 +12,7 @@
     launchctl unload ~/Library/LaunchAgents/com.lamha.kissaten.printserver.plist
     launchctl load   ~/Library/LaunchAgents/com.lamha.kissaten.printserver.plist
 
-  SOP nếu USB lỗi (Access denied):
-    launchctl unload ... → launchctl load ...
-    (Nếu vẫn lỗi: rút USB printer → cắm lại → load lại)
+  Log: tail -f /tmp/print_server.log
 -->
 <plist version="1.0">
 <dict>
@@ -29,15 +27,12 @@
 
     <key>EnvironmentVariables</key>
     <dict>
-        <key>RECEIPT_MODE</key><string>usb</string>
-        <key>RECEIPT_USB_VID</key><string>10473</string>
-        <key>RECEIPT_USB_PID</key><string>649</string>
-        <key>LABEL_MODE</key><string>usb</string>
-        <key>LABEL_USB_VID</key><string>8137</string>
-        <key>LABEL_USB_PID</key><string>8214</string>
+        <key>GAS_WEBAPP_URL</key><string>https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec</string>
+        <key>REPORT_API_TOKEN</key><string>REPLACE_WITH_REPORT_API_TOKEN</string>
+        <key>GATEWAY_DB</key><string>/Users/dpd/Projects/lamha-kissaten/print-server/outbox.db</string>
+        <key>SYNC_INTERVAL</key><string>3</string>
         <key>SERVER_PORT</key><string>5001</string>
         <key>LOG_LEVEL</key><string>INFO</string>
-        <key>DYLD_LIBRARY_PATH</key><string>/opt/homebrew/lib</string>
     </dict>
 
     <key>WorkingDirectory</key>
