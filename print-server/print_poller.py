@@ -91,6 +91,16 @@ def _post_bytes(url: str, data: bytes, timeout=25) -> dict:
         return json.loads(resp.read().decode())
 
 
+def _post_json(url: str, obj: dict, timeout=25) -> dict:
+    body = json.dumps(obj).encode()
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Content-Type": "application/json", "User-Agent": "PrintPoller/1.0"},
+        method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode())
+
+
 # ── Poll loops ───────────────────────────────────────────────────────────────
 def poll_labels_once() -> bool:
     """Poll GAS lấy đơn cần in tem, in từng tem cho từng ly.
@@ -115,48 +125,18 @@ def poll_labels_once() -> bool:
         order_id = order.get("order_id", "?")
         if order.get("label_printed_at"):
             continue  # Đã được đánh dấu in ở Google Sheets
-
-        # Chống in trùng: Nếu Gateway local đã mint/in đơn này tại quán -> chỉ mark GAS, không in trùng
-        if _printed_by_gateway_local(order_id):
-            log.info("Order %s already processed locally by Gateway; marking GAS label_printed_at", order_id)
-            try:
-                mark_url = GAS_WEBAPP_URL + f"?action=mark_labels_printed&order_id={order_id}" + _TQ
-                _get_json(mark_url)
-            except Exception as exc:
-                log.warning("mark_labels_printed failed for local order %s: %s", order_id, exc)
-            continue
-        items    = order.get("items") or []
-
-        cups = []
-        for it in items:
-            qty = max(1, int(it.get("qty", 1)))
-            for _ in range(qty):
-                cups.append(it)
-        total = len(cups)
-
-        if total == 0:
+        items = order.get("items") or []
+        if not items:
             log.warning("Order %s: no items, skip labels", order_id)
             continue
-
-        all_ok = True
         try:
-            labels_data = build_order_labels_tspl(order, cups)
-            resp = _post_bytes(PRINT_SERVER_URL + "/print/label", labels_data)
+            resp = _post_json(PRINT_SERVER_URL + "/enqueue/labels", {"order": order})
             if not resp.get("ok"):
-                raise RuntimeError(f"Print server: {resp}")
-            log.info("Labels printed for %s (%d cup(s), %d bytes)", order_id, total, resp.get("bytes", 0))
+                raise RuntimeError(f"enqueue labels: {resp}")
+            log.info("Labels enqueued for %s (%d new)", order_id, resp.get("enqueued", 0))
             printed_any = True
         except Exception as exc:
-            log.error("Labels failed for %s: %s", order_id, exc)
-            all_ok = False
-
-        if all_ok:
-            try:
-                mark_url = GAS_WEBAPP_URL + f"?action=mark_labels_printed&order_id={order_id}" + _TQ
-                _get_json(mark_url)
-                log.info("Labels marked: %s (%d cup(s))", order_id, total)
-            except Exception as exc:
-                log.warning("mark_labels_printed failed  %s: %s", order_id, exc)
+            log.error("Labels enqueue failed for %s: %s", order_id, exc)
 
     return printed_any
 
@@ -182,30 +162,17 @@ def poll_once() -> bool:
 
     for order in orders:
         order_id = order.get("order_id", "?")
-        # Chống in trùng hoá đơn: Nếu Gateway local đã mint/in đơn này tại quán -> chỉ mark GAS, không in trùng
-        if _printed_by_gateway_local(order_id):
-            log.info("Order %s already processed locally by Gateway; marking GAS printed_at", order_id)
-            try:
-                mark_url = GAS_WEBAPP_URL + f"?action=mark_printed&order_id={order_id}" + _TQ
-                _get_json(mark_url)
-            except Exception as exc:
-                log.warning("mark_printed failed for local order %s: %s", order_id, exc)
-            continue
+        method = ((order.get("payment") or {}).get("method") or "cash")
+        is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
         try:
-            esc = build_receipt(order)
-            resp = _post_bytes(PRINT_SERVER_URL + "/print/receipt", esc)
+            resp = _post_json(PRINT_SERVER_URL + "/enqueue/receipt",
+                              {"order": order, "is_cash": is_cash})
             if not resp.get("ok"):
-                raise RuntimeError(f"Print server error: {resp}")
-            log.info("Printed receipt for %s (%d bytes, mode=%s)",
-                     order_id, resp.get("bytes", 0), RECEIPT_MODE)
+                raise RuntimeError(f"enqueue receipt: {resp}")
+            log.info("Receipt enqueued for %s (%d new)", order_id, resp.get("enqueued", 0))
             printed_any = True
-
-            mark_url = GAS_WEBAPP_URL + f"?action=mark_printed&order_id={order_id}" + _TQ
-            _get_json(mark_url)
-            log.info("Marked printed: %s", order_id)
-
         except Exception as exc:
-            log.error("Failed to print %s: %s", order_id, exc)
+            log.error("Receipt enqueue failed for %s: %s", order_id, exc)
 
     return printed_any
 
