@@ -115,18 +115,16 @@ def poll_labels_once() -> bool:
             continue
 
         all_ok = True
-        for i, item in enumerate(cups, start=1):
-            try:
-                label_data = build_label_tspl(order, item, i, total)
-                resp = _post_bytes(PRINT_SERVER_URL + "/print/label", label_data)
-                if not resp.get("ok"):
-                    raise RuntimeError(f"Print server: {resp}")
-                log.info("Label %d/%d  %s — %s (%d bytes)",
-                         i, total, order_id, item.get("name", "?"), resp.get("bytes", 0))
-                printed_any = True
-            except Exception as exc:
-                log.error("Label %d/%d failed  %s: %s", i, total, order_id, exc)
-                all_ok = False
+        try:
+            labels_data = b"".join(build_label_tspl(order, item, i, total) for i, item in enumerate(cups, start=1))
+            resp = _post_bytes(PRINT_SERVER_URL + "/print/label", labels_data)
+            if not resp.get("ok"):
+                raise RuntimeError(f"Print server: {resp}")
+            log.info("Labels printed for %s (%d cup(s), %d bytes)", order_id, total, resp.get("bytes", 0))
+            printed_any = True
+        except Exception as exc:
+            log.error("Labels failed for %s: %s", order_id, exc)
+            all_ok = False
 
         if all_ok:
             try:
