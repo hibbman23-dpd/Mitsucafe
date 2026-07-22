@@ -478,13 +478,13 @@ def build_receipt_text(order: dict) -> bytes:
 
 
 def build_receipt(order: dict) -> bytes:
-    if RECEIPT_MODE == "text":
-        return build_receipt_text(order)
-    try:
-        return build_receipt_raster(order)
-    except Exception as exc:
-        log.warning("Raster build failed (%s), fallback to text mode", exc)
-        return build_receipt_text(order)
+    fmt = os.getenv("RECEIPT_FORMAT", "text")
+    if fmt == "raster":
+        try:
+            return build_receipt_raster(order)
+        except Exception as exc:
+            log.warning("Raster build failed (%s), fallback to text mode", exc)
+    return build_receipt_text(order)
 
 
 # ── Label builder ─────────────────────────────────────────────────────────────
