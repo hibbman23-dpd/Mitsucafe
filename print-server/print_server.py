@@ -164,8 +164,10 @@ def _print_label_bytes(data: bytes) -> int:
     return _label_send(data)["bytes"]
 
 def _print_receipt_bytes(data: bytes) -> int:
+    drawer_kick = b'\x1b\x70\x00\x19\xfa'
+    full_data = drawer_kick + data
     return _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
-                 RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, data,
+                 RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, full_data,
                  usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID,
                  usb_ep=RECEIPT_USB_EP, cups_printer=RECEIPT_CUPS_PRINTER, drawer=True)
 
@@ -611,7 +613,8 @@ def _label_send(data: bytes) -> dict:
     """Gửi raw bytes tới label printer, trả về dict {ok, bytes}."""
     n = _send(LABEL_MODE, LABEL_PRINTER_IP, LABEL_PRINTER_PORT,
               LABEL_SERIAL_PORT, LABEL_SERIAL_BAUD, data,
-              usb_vid=LABEL_USB_VID, usb_pid=LABEL_USB_PID, usb_ep=LABEL_USB_EP)
+              usb_vid=LABEL_USB_VID, usb_pid=LABEL_USB_PID, usb_ep=LABEL_USB_EP,
+              cups_printer=LABEL_CUPS_PRINTER)
     return {"ok": True, "bytes": n, "tspl": data.decode(errors="replace")}
 
 

@@ -951,6 +951,12 @@ const GAS_BLOCKED_MSG =
   'Ủy quyền của chủ script hết hạn. Chủ quán: đăng nhập tài khoản Google chủ script → mở Apps Script → Run 1 hàm → cấp lại quyền. ' +
   'Hết tái phát: Cloud Console → OAuth consent screen → Publish app ("In production"). Xem docs/system/offline-failover.md.';
 
+const localOverrides = new Map();
+function setLocalOverride(orderId, patch) {
+  const existing = localOverrides.get(orderId) || {};
+  localOverrides.set(orderId, { ...existing, ...patch, timestamp: Date.now() });
+}
+
 async function loadOrders() {
   let res;
   try {
@@ -991,6 +997,22 @@ async function loadOrders() {
     speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
   }
   firstLoad = false;
+
+  data.orders.forEach(o => {
+    const ov = localOverrides.get(o.order_id);
+    if (ov) {
+      if (Date.now() - ov.timestamp < 30000) {
+        if (ov.payment_status) o.payment_status = ov.payment_status;
+        if (ov.status) o.status = ov.status;
+        if ((!ov.payment_status || o.payment_status === ov.payment_status) &&
+            (!ov.status || o.status === ov.status)) {
+          localOverrides.delete(o.order_id);
+        }
+      } else {
+        localOverrides.delete(o.order_id);
+      }
+    }
+  });
 
   const serverIds = new Set(data.orders.map(o => o.order_id));
   const stillPending = allOrders.filter(o => o._optimistic && !serverIds.has(o.order_id));
@@ -1059,10 +1081,12 @@ async function finishOrder(orderId, btn) {
     if (method === 'cash' && o && o.payment_status !== 'PAID') {
       const d = await gwMarkPaid(orderId, o);
       o.payment_status = 'PAID';
+      setLocalOverride(orderId, { payment_status: 'PAID' });
       if (!d.already_paid) speak(`Nhận tiền ${fmtSpeak(o.total)} đồng, đơn ${o.short_code || orderId}`);
     }
     await gwStatus(orderId, 'DELIVERED');
     if (o) o.status = 'DELIVERED';
+    setLocalOverride(orderId, { status: 'DELIVERED' });
     renderOrders();
   } catch (err) {
     btn.disabled = false; btn.textContent = old;
@@ -1073,9 +1097,13 @@ async function setReady(orderId, btn) { await _statusBtn(orderId, 'READY', btn);
 async function setMaking(orderId, btn) { await _statusBtn(orderId, 'MAKING', btn); }
 async function _statusBtn(orderId, status, btn) {
   btn.disabled = true; const old = btn.textContent; btn.textContent = '...';
-  try { await gwStatus(orderId, status); const o = allOrders.find(x => x.order_id === orderId);
-        if (o) o.status = status; renderOrders(); }
-  catch (_) { btn.disabled = false; btn.textContent = old; alert('Lỗi cập nhật — thử lại.'); }
+  try {
+    await gwStatus(orderId, status);
+    const o = allOrders.find(x => x.order_id === orderId);
+    if (o) o.status = status;
+    setLocalOverride(orderId, { status });
+    renderOrders();
+  } catch (_) { btn.disabled = false; btn.textContent = old; alert('Lỗi cập nhật — thử lại.'); }
 }
 
 async function markPaid(orderId, total, shortCode, btn) {
@@ -1084,6 +1112,7 @@ async function markPaid(orderId, total, shortCode, btn) {
     const o = allOrders.find(x => x.order_id === orderId);
     const data = await gwMarkPaid(orderId, o);
     if (o) o.payment_status = 'PAID';
+    setLocalOverride(orderId, { payment_status: 'PAID' });
     renderOrders();
     if (!data.already_paid) speak(`Nhận tiền ${fmtSpeak(total)} đồng, đơn số ${shortCode || orderId}`);
   } catch(err) {
@@ -1105,6 +1134,7 @@ async function updateStatus(orderId, newStatus, btn) {
     const data = await gwStatus(orderId, newStatus);
     const o = allOrders.find(x => x.order_id === orderId);
     if (o) o.status = newStatus;
+    setLocalOverride(orderId, { status: newStatus });
     renderOrders();
   } catch(_) {
     btn.classList.remove('loading'); btn.textContent = oldText;
