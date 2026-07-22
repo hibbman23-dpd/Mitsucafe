@@ -68,3 +68,64 @@ class PrintSpool:
             n = self._insert(key, order_id, "receipt", "receipt", 0, 1, payload)
             self._conn.commit()
         return n
+
+    def claim_next(self, printer):
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM print_spool WHERE printer=? AND status='pending' "
+                "ORDER BY id LIMIT 1", (printer,)).fetchone()
+            if not row:
+                return None
+            now = _now_iso()
+            self._conn.execute(
+                "UPDATE print_spool SET status='printing', claimed_at=?, updated_at=? WHERE id=?",
+                (now, now, row["id"]))
+            self._conn.commit()
+            return dict(self._conn.execute("SELECT * FROM print_spool WHERE id=?", (row["id"],)).fetchone())
+
+    def mark_printed(self, job_id):
+        with self._lock:
+            self._conn.execute("UPDATE print_spool SET status='printed', updated_at=? WHERE id=?",
+                               (_now_iso(), job_id))
+            self._conn.commit()
+
+    def mark_failed(self, job_id, err):
+        with self._lock:
+            self._conn.execute("UPDATE print_spool SET status='failed', last_error=?, updated_at=? WHERE id=?",
+                               (str(err)[:400], _now_iso(), job_id))
+            self._conn.commit()
+
+    def requeue(self, job_id, err):
+        with self._lock:
+            row = self._conn.execute("SELECT attempts, max_attempts FROM print_spool WHERE id=?",
+                                     (job_id,)).fetchone()
+            attempts = (row["attempts"] or 0) + 1
+            now = _now_iso()
+            if attempts >= (row["max_attempts"] or 5):
+                self._conn.execute(
+                    "UPDATE print_spool SET status='failed', attempts=?, last_error=?, updated_at=? WHERE id=?",
+                    (attempts, str(err)[:400], now, job_id))
+            else:
+                self._conn.execute(
+                    "UPDATE print_spool SET status='pending', attempts=?, last_error=?, claimed_at=NULL, updated_at=? WHERE id=?",
+                    (attempts, str(err)[:400], now, job_id))
+            self._conn.commit()
+
+    def recover_orphans(self, printer, older_than_s=30):
+        cutoff = (datetime.now(_VN) - timedelta(seconds=older_than_s)).isoformat()
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE print_spool SET status='pending', claimed_at=NULL, updated_at=? "
+                "WHERE printer=? AND status='printing' AND claimed_at IS NOT NULL AND claimed_at < ?",
+                (_now_iso(), printer, cutoff))
+            self._conn.commit()
+            return cur.rowcount
+
+    def stats(self, printer):
+        rows = self._conn.execute(
+            "SELECT status, COUNT(*) c FROM print_spool WHERE printer=? "
+            "AND status IN ('pending','printing','failed') GROUP BY status", (printer,)).fetchall()
+        out = {"pending": 0, "printing": 0, "failed": 0}
+        for r in rows:
+            out[r["status"]] = r["c"]
+        return out
