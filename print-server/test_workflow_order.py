@@ -33,31 +33,25 @@ def simulate_order_workflow():
         },
         "items": [
             {
-                "name": "Cà Phê Sữa Đá Lâm Hạ",
+                "name": "Cf mitsu",
                 "qty": 2,
-                "price": 35000,
-                "modifiers": {"size": "Lớn", "ice": "Ít đá", "sugar": "50% đường"}
+                "price": 25000,
+                "modifiers": {"size": "M", "ice": "Ít đá", "sugar": "50% đường"}
             },
             {
-                "name": "Trà Đào Cam Sả Mitsu",
+                "name": "Trà mitsu",
                 "qty": 1,
-                "price": 45000,
-                "modifiers": {"size": "Vừa"}
-            },
-            {
-                "name": "Bánh Croissant Bơ Tỏi",
-                "qty": 2,
-                "price": 30000,
-                "modifiers": {}
+                "price": 35000,
+                "modifiers": {"size": "L", "toppings": "Thạch thêm"}
             }
         ],
-        "subtotal": 175000,
-        "discount": 15000,
-        "total": 160000,
+        "subtotal": 85000,
+        "discount": 0,
+        "total": 85000,
         "payment": {
             "method": "cash",
-            "amount_paid": 200000,
-            "change": 40000
+            "amount_paid": 100000,
+            "change": 15000
         }
     }
 
