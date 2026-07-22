@@ -1,6 +1,6 @@
 // menu-data.js — Auto-generated từ seed/menu_items.json
 // Đừng sửa tay. Dùng: python3 web/tools/gen_menu_data.py
-// Cập nhật: 2026-07-22 · 77 món
+// Cập nhật: 2026-07-22 · 73 món
 
 const CATEGORIES = [
   {
@@ -362,7 +362,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR012",
-  "name": "Ca cao",
+  "name": "Ca cao sữa",
   "name_jp": null,
   "subcategory": "phin_coffee",
   "bee_group": "kin",
@@ -635,6 +635,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -665,6 +682,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -694,6 +728,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -723,6 +774,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -752,6 +820,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -781,6 +866,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -810,6 +912,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -839,6 +958,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -868,6 +1004,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -897,6 +1050,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -926,6 +1096,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -955,6 +1142,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -984,6 +1188,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -1013,6 +1234,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -1042,6 +1280,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -1071,6 +1326,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -1101,6 +1373,23 @@ const MENU_DATA = [
       "full",
       "less",
       "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach",
+        "name": "Thạch",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau",
+        "name": "Trân châu",
+        "price": 5000
+      },
+      {
+        "id": "flan",
+        "name": "Bánh flan",
+        "price": 7000
+      }
     ]
   },
   "allergens": [
@@ -2609,75 +2898,5 @@ const MENU_DATA = [
   "allergens": [],
   "available": true,
   "sort_order": 73
-},
-  {
-  "sku": "BK001",
-  "name": "Bánh croissant bơ Pháp",
-  "name_jp": null,
-  "subcategory": "pastry",
-  "bee_group": "kashi",
-  "role": "pairing",
-  "price_m": 28000,
-  "price_l": null,
-  "customizations": {},
-  "allergens": [
-    "milk",
-    "gluten",
-    "egg"
-  ],
-  "available": true,
-  "sort_order": 74
-},
-  {
-  "sku": "BK002",
-  "name": "Tiramisu",
-  "name_jp": null,
-  "subcategory": "pastry",
-  "bee_group": "kashi",
-  "role": "pairing",
-  "price_m": 42000,
-  "price_l": null,
-  "customizations": {},
-  "allergens": [
-    "milk",
-    "gluten",
-    "egg"
-  ],
-  "available": true,
-  "sort_order": 75
-},
-  {
-  "sku": "BK003",
-  "name": "Bánh mì pate Hà Nội",
-  "name_jp": null,
-  "subcategory": "pastry",
-  "bee_group": "kashi",
-  "role": "breakfast",
-  "price_m": 25000,
-  "price_l": null,
-  "customizations": {},
-  "allergens": [
-    "gluten",
-    "egg"
-  ],
-  "available": true,
-  "sort_order": 76
-},
-  {
-  "sku": "BK004",
-  "name": "Wagashi (theo mùa)",
-  "name_jp": "和菓子",
-  "subcategory": "kissaten",
-  "bee_group": "so",
-  "role": "signature",
-  "price_m": 35000,
-  "price_l": null,
-  "customizations": {},
-  "allergens": [
-    "gluten"
-  ],
-  "available": true,
-  "sort_order": 77,
-  "story": "Wagashi — bánh ngọt truyền thống Nhật theo mùa"
 }
 ];

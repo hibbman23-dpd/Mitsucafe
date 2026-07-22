@@ -331,7 +331,7 @@
   },
   {
     "sku": "DR012",
-    "name": "Ca cao",
+    "name": "Ca cao sữa",
     "name_jp": null,
     "category": "beverage",
     "subcategory": "phin_coffee",
@@ -618,6 +618,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -649,6 +666,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -679,6 +713,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -709,6 +760,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -739,6 +807,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -769,6 +854,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -799,6 +901,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -829,6 +948,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -859,6 +995,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -889,6 +1042,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -919,6 +1089,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -949,6 +1136,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -979,6 +1183,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -1009,6 +1230,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -1039,6 +1277,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -1070,6 +1325,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -1101,6 +1373,23 @@
         "full",
         "less",
         "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
       ]
     },
     "available": true,
@@ -2657,7 +2946,7 @@
       "egg"
     ],
     "customizations": {},
-    "available": true,
+    "available": false,
     "sort_order": 74
   },
   {
@@ -2676,7 +2965,7 @@
       "egg"
     ],
     "customizations": {},
-    "available": true,
+    "available": false,
     "sort_order": 75
   },
   {
@@ -2694,7 +2983,7 @@
       "egg"
     ],
     "customizations": {},
-    "available": true,
+    "available": false,
     "sort_order": 76
   },
   {
@@ -2711,7 +3000,7 @@
       "gluten"
     ],
     "customizations": {},
-    "available": true,
+    "available": false,
     "sort_order": 77,
     "story_telling": "Wagashi — bánh ngọt truyền thống Nhật theo mùa"
   }
