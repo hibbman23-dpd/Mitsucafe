@@ -691,6 +691,16 @@ def order_mark_paid():
     order_id = p.get("order_id")
     # Dựng order cho receipt: ưu tiên outbox (đơn local-first có items+total); else dùng p['order'] KDS gửi.
     recp = GATEWAY.get_create_payload(order_id) or p.get("order")
+    if recp:
+        # get_create_payload trả payload đã mint (có gateway_order_id/gateway_short_code, KHÔNG có
+        # order_id/metadata.short_code). enqueue_receipt lấy order_id từ recp để tạo idempotency_key —
+        # thiếu order_id => key ':receipt:0' cho MỌI bill => UNIQUE nuốt hết bill trừ cái đầu. Chuẩn hóa:
+        recp = dict(recp)
+        recp["order_id"] = order_id or recp.get("gateway_order_id") or recp.get("order_id", "")
+        meta = dict(recp.get("metadata") or {})
+        if not meta.get("short_code"):
+            meta["short_code"] = recp.get("gateway_short_code", "")
+        recp["metadata"] = meta
     receipt_printed = False
     if recp and recp.get("items"):
         # Mở két CHỈ khi tiền mặt. VietQR/chuyển khoản không có tiền mặt để bỏ két → không kick.
