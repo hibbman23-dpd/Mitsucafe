@@ -216,7 +216,7 @@ def _draw_bee(draw, cx: int, top: int, s: float = 1.1) -> int:
 
 
 # ── Receipt builder ───────────────────────────────────────────────────────────
-def build_receipt_raster(order: dict) -> bytes:
+def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     from PIL import Image, ImageDraw
 
     W, PAD, CW = _W, _PAD, _CW
@@ -406,13 +406,16 @@ def build_receipt_raster(order: dict) -> bytes:
     ESC = b"\x1b"
     GS  = b"\x1d"
 
-    DRAWER_KICK = (
+    INIT = (
         ESC + b"@"                 # ESC @: Initialize printer
         + ESC + b"2"               # ESC 2: Default line spacing (1/6 inch)
         + ESC + b"t\x00"           # ESC t 0: Character code table PC437
-        + ESC + b"p\x00\x19\xfa"   # Cash drawer 1 kick
-        + ESC + b"p\x01\x19\xfa\n" # Cash drawer 2 kick
     )
+    KICK = (
+        ESC + b"p\x00\x19\xfa"     # Cash drawer 1 kick
+        + ESC + b"p\x01\x19\xfa\n" # Cash drawer 2 kick
+    ) if is_cash else b""
+    DRAWER_KICK = INIT + KICK
 
     CHUNK_H = 96
     bytes_per_row = (W + 7) // 8
@@ -459,7 +462,7 @@ def _viet_cp1258(s: str) -> str:
     return "".join(result)
 
 
-def build_receipt_text(order: dict) -> bytes:
+def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
     ESC = b"\x1b"
     GS  = b"\x1d"
     W   = 32
@@ -473,8 +476,6 @@ def build_receipt_text(order: dict) -> bytes:
     meta = order.get("metadata") or {}
     parts = [
         ESC + b"@",
-        ESC + b"p\x00\x19\xfa",
-        ESC + b"p\x01\x19\xfa",
         ESC + b"t\x20",
         ESC + b"a\x01",
         ESC + b"!\x00",
@@ -540,22 +541,23 @@ def build_receipt_text(order: dict) -> bytes:
     parts.append(ESC + b"a\x00")
     parts.append(enc("=" * W + "\n"))
     parts.append(b"\n\n\n")
-    parts.append(ESC + b"p\x00\x19\xfa")
-    parts.append(ESC + b"p\x01\x19\xfa")
+    if is_cash:
+        parts.append(ESC + b"p\x00\x19\xfa")
+        parts.append(ESC + b"p\x01\x19\xfa")
     parts.append(b"\x10\x14\x01\x00\x05")
     parts.append(b"\n\n")
     parts.append(GS + b"V\x42\x00")
     return b"".join(parts)
 
 
-def build_receipt(order: dict) -> bytes:
+def build_receipt(order: dict, is_cash: bool = False) -> bytes:
     fmt = os.getenv("RECEIPT_FORMAT", os.getenv("RECEIPT_MODE", "raster"))
     if fmt != "text":
         try:
-            return build_receipt_raster(order)
+            return build_receipt_raster(order, is_cash)
         except Exception as exc:
             log.warning("Raster build failed (%s), fallback to text mode", exc)
-    return build_receipt_text(order)
+    return build_receipt_text(order, is_cash)
 
 
 # ── Label builder ─────────────────────────────────────────────────────────────
@@ -818,6 +820,11 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
     return b"".join(cmd)
 
 
+def label_setup_preamble() -> bytes:
+    """Preamble TSPL (SIZE/GAP/SPEED/DENSITY/DIRECTION) gửi 1 LẦN DUY NHẤT ở đầu chuỗi tem."""
+    return b"\r\n\r\nSIZE 50 mm,30 mm\r\nGAP 3 mm,0\r\nSPEED 4\r\nDENSITY 8\r\nDIRECTION 0\r\n"
+
+
 def build_order_labels_tspl(order: dict, cups: list) -> bytes:
     """Xây dựng 1 chuỗi TSPL duy nhất cho tất cả các ly trong đơn.
     SIZE, GAP, SPEED, DENSITY được gửi 1 LẦN DUY NHẤT ở đầu chuỗi kèm preamble flush bytes.
@@ -828,24 +835,4 @@ def build_order_labels_tspl(order: dict, cups: list) -> bytes:
     body = b"".join(build_label_tspl(order, item, i, len(cups), include_header=False)
                     for i, item in enumerate(cups, start=1))
     return header + body
-
-
-def build_order_labels_tspl_batched(order: dict, cups: list, max_cups_per_batch: int = 6) -> list:
-    """Tách danh sách ly trong đơn thành các batch tối đa max_cups_per_batch ly/batch
-    để không bao giờ vượt quá 8KB bộ nhớ USB của máy in tem Xprinter XP-365B.
-    Trả về danh sách các chuỗi bytes TSPL.
-    """
-    if not cups:
-        return []
-    batches = []
-    total_cups = len(cups)
-    for start in range(0, total_cups, max_cups_per_batch):
-        chunk = cups[start:start + max_cups_per_batch]
-        header = b"SIZE 50 mm,30 mm\r\nGAP 3 mm,0\r\nDIRECTION 0\r\n"
-        body = b"".join(
-            build_label_tspl(order, item, start + i, total_cups, include_header=False)
-            for i, item in enumerate(chunk, start=1)
-        )
-        batches.append(header + body)
-    return batches
 
