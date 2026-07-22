@@ -44,6 +44,7 @@ Test debug:
     curl http://localhost:5001/health
 """
 
+import json
 import logging
 import os
 import socket
@@ -131,6 +132,95 @@ GATEWAY = Gateway(
     os.getenv("GAS_WEBAPP_URL", ""),
     _resolve_server_auth_token(),
 )
+
+# ── Durable print spool (Task 9) ───────────────────────────────────────────────
+# Gated behind PRINT_ENGINE — default "legacy" giữ nguyên hành vi cũ hoàn toàn.
+from print_spool import PrintSpool
+from print_worker import PrintWorker
+from transport import build_transport, probe_capabilities
+from printlib import label_setup_preamble  # build_label_tspl/build_receipt đã import ở trên
+
+PRINT_ENGINE = os.getenv("PRINT_ENGINE", "legacy")
+LABEL_TRANSPORT   = os.getenv("LABEL_TRANSPORT", "cups")
+RECEIPT_TRANSPORT = os.getenv("RECEIPT_TRANSPORT", "cups")
+
+SPOOL = PrintSpool(GATEWAY._conn, GATEWAY._lock)
+
+def _cups_from_items(order_items):
+    cups = []
+    for it in order_items:
+        for _ in range(max(1, int(it.get("qty", 1)))):
+            cups.append(it)
+    return cups
+
+def _render_job(job):
+    payload = json.loads(job["payload_json"])
+    if job["kind"] == "receipt":
+        return build_receipt(payload["order"], is_cash=payload.get("is_cash", False))
+    return build_label_tspl(payload["order"], payload["item"],
+                            job["seq_in_order"], job["total_in_order"], include_header=False)
+
+def _gas_mark(order_id, kind):
+    action = "mark_labels_printed" if kind == "label" else "mark_printed"
+    try:
+        d = _gas_post({"action": action, "order_id": order_id})
+        return bool(d.get("ok"))
+    except Exception:
+        return False
+
+def _spool_alert(job, err):
+    log.error("[SPOOL FAILED] %s: %s", job.get("idempotency_key"), err)
+    # Task 11 wires Telegram here.
+
+def _start_workers():
+    if PRINT_ENGINE != "spool":
+        return
+    def _spawn(printer, kind_transport, cfg, pacing_s):
+        transport = build_transport(kind_transport, cfg)
+        caps = probe_capabilities(transport, printer)
+        preamble = label_setup_preamble() if printer == "label" else b""
+        worker = PrintWorker(printer, SPOOL, transport, caps, _render_job,
+                             setup_preamble=preamble, gas_mark=_gas_mark,
+                             alert=_spool_alert, pacing_s=pacing_s)
+        def _loop():
+            while True:
+                worked = False
+                try:
+                    worked = worker.process_one()
+                except Exception as exc:
+                    log.error("worker %s loop error: %s", printer, exc)
+                time.sleep(0.0 if worked else 0.2)
+        threading.Thread(target=_loop, daemon=True, name=f"printworker-{printer}").start()
+        log.info("print worker started: printer=%s transport=%s caps=%s", printer, kind_transport, caps)
+
+    _spawn("label", LABEL_TRANSPORT,
+           {"cups_printer": LABEL_CUPS_PRINTER, "vid": LABEL_USB_VID, "pid": LABEL_USB_PID,
+            "ep_out": LABEL_USB_EP, "ip": LABEL_PRINTER_IP, "port": LABEL_PRINTER_PORT,
+            "serial_port": LABEL_SERIAL_PORT}, pacing_s=0.8)
+    _spawn("receipt", RECEIPT_TRANSPORT,
+           {"cups_printer": RECEIPT_CUPS_PRINTER, "vid": RECEIPT_USB_VID, "pid": RECEIPT_USB_PID,
+            "ep_out": RECEIPT_USB_EP, "ip": RECEIPT_PRINTER_IP, "port": RECEIPT_PRINTER_PORT,
+            "serial_port": RECEIPT_SERIAL_PORT}, pacing_s=1.0)
+
+_start_workers()
+
+
+@app.post("/enqueue/labels")
+def enqueue_labels_route():
+    p = request.get_json(force=True, silent=True) or {}
+    order = p.get("order") or {}
+    cups = p.get("cups") or _cups_from_items(order.get("items", []))
+    n = SPOOL.enqueue_labels(order, cups)
+    return jsonify({"ok": True, "enqueued": n}), 200
+
+@app.post("/enqueue/receipt")
+def enqueue_receipt_route():
+    p = request.get_json(force=True, silent=True) or {}
+    order = p.get("order") or {}
+    is_cash = bool(p.get("is_cash", False))
+    n = SPOOL.enqueue_receipt(order, is_cash)
+    return jsonify({"ok": True, "enqueued": n}), 200
+
 
 @app.get("/kds.html")
 def serve_kds():
@@ -454,6 +544,7 @@ def health():
                 "online": label_ok,
             },
         },
+        "spool": {"label": SPOOL.stats("label"), "receipt": SPOOL.stats("receipt")},
     }), 200
 
 
@@ -532,14 +623,17 @@ def order_create():
     # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
     if cups:
-        def _async_print_labels():
-            try:
-                all_labels = build_order_labels_tspl(order, cups)
-                n = _print_label_bytes(all_labels)
-                log.info("order_create LABELS (%d cups, %d bytes) for %s", len(cups), n, order_id)
-            except Exception as exc:
-                log.error("label print failed %s: %s", order_id, exc)
-        threading.Thread(target=_async_print_labels, daemon=True).start()
+        if PRINT_ENGINE == "spool":
+            SPOOL.enqueue_labels(order, cups)
+        else:
+            def _async_print_labels():
+                try:
+                    all_labels = build_order_labels_tspl(order, cups)
+                    n = _print_label_bytes(all_labels)
+                    log.info("order_create LABELS (%d cups, %d bytes) for %s", len(cups), n, order_id)
+                except Exception as exc:
+                    log.error("label print failed %s: %s", order_id, exc)
+            threading.Thread(target=_async_print_labels, daemon=True).start()
 
     return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
                     "printed": True, "warning": None}), 200
@@ -578,10 +672,13 @@ def order_mark_paid():
         # Mở két CHỈ khi tiền mặt. VietQR/chuyển khoản không có tiền mặt để bỏ két → không kick.
         method = ((recp.get("payment") or {}).get("method")) or p.get("payment_method") or "cash"
         is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
-        try:
-            _print_receipt_bytes(build_receipt(recp), open_drawer=is_cash); receipt_printed = True
-        except Exception as exc:
-            log.error("local receipt failed: %s", exc)
+        if PRINT_ENGINE == "spool":
+            SPOOL.enqueue_receipt(recp, is_cash); receipt_printed = True
+        else:
+            try:
+                _print_receipt_bytes(build_receipt(recp), open_drawer=is_cash); receipt_printed = True
+            except Exception as exc:
+                log.error("local receipt failed: %s", exc)
     try:
         d = _gas_post({"action": "mark_paid", "order_id": order_id,
                        "receipt_printed_local": receipt_printed})
