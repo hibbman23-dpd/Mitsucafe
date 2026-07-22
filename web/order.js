@@ -38,10 +38,10 @@ const ROLE_BADGE = {
 
 // Emoji theo category khi không có image
 const CAT_EMOJI = {
-  phin_coffee:    '☕', machine_coffee: '🫗',
-  milk_tea:       '🧋', fruit_tea:      '🍑',
-  blended:        '🧊', kissaten:       '🍵',
-  pastry:         '🥐',
+  phin_coffee:    '☕', hot_drinks:     '🍵',
+  latte:          '🥛', tea:            '🫖',
+  milk_tea:       '🧋', yogurt:         '🍧',
+  pastry:         '🥐', kissaten:       '🍵',
 };
 
 const MITSU_CATEGORIES = [
@@ -2572,9 +2572,11 @@ document.addEventListener('click', e => {
       break;
     }
 
-    case 'go-checkout':
-      // Kiểm tra xem đã có bánh trong giỏ chưa — nếu có rồi thì vào checkout luôn
-      if (cart.some(c => MENU_DATA.find(m => m.sku === c.sku)?.subcategory === 'pastry')) {
+    case 'go-checkout': {
+      // Bỏ qua upsell nếu quán không còn bán bánh, hoặc giỏ đã có bánh
+      const pastryOffered = MENU_DATA.some(m => m.available && m.subcategory === 'pastry');
+      const pastryInCart  = cart.some(c => MENU_DATA.find(m => m.sku === c.sku)?.subcategory === 'pastry');
+      if (!pastryOffered || pastryInCart) {
         sheet = null;
         enterCheckout();
       } else {
@@ -2582,6 +2584,7 @@ document.addEventListener('click', e => {
       }
       render();
       break;
+    }
 
     case 'toggle-delivery':
       deliveryMode = el.dataset.mode;

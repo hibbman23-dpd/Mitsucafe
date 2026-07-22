@@ -1,718 +1,2990 @@
 [
   {
     "sku": "DR001",
-    "name": "Cà phê đen đá",
-    "name_jp": "ベトナム式ブラックコーヒー",
+    "name": "Cà phê Mitsu",
+    "name_jp": null,
     "category": "beverage",
     "subcategory": "phin_coffee",
-    "role": "leader",
-    "price_m": 22000,
-    "price_l": 27000,
-    "cost_nl": 4500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.33,
-    "base_id": "base_05",
-    "recipe_id": "R001",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "robusta_phin", "amount_g": 25, "cost": 4500 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
+    "bee_group": "kin",
+    "role": "signature",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["pha phin nhỏ giọt 5-7 phút", "đổ vào ly đá"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": [],
-    "customizations": { "sugar": ["0%"], "ice": ["full", "less", "none"] },
-    "prep_time_sec": 360,
     "available": true,
     "sort_order": 1,
-    "story_telling": "Arabica Lâm Hà — hạt từ chính vùng đất quanh quán"
+    "story_telling": "Cà phê signature của Mitsu"
   },
   {
     "sku": "DR002",
-    "name": "Cà phê sữa đá phin",
-    "name_jp": "コンデンスミルク・コーヒー",
+    "name": "Cà phê sữa",
+    "name_jp": null,
     "category": "beverage",
     "subcategory": "phin_coffee",
-    "role": "leader",
-    "price_m": 25000,
-    "price_l": 30000,
-    "cost_nl": 8300,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.44,
-    "base_id": "base_05",
-    "recipe_id": "R002",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "robusta_phin", "amount_g": 25, "cost": 4500 },
-        { "item": "condensed_milk", "amount_ml": 25, "cost": 3750 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
+    "bee_group": "kin",
+    "role": "hero",
+    "price_m": 20000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["rót sữa đặc trước", "ra cốt phin", "khuấy đều", "đổ vào ly đá"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["100%", "70%", "50%", "30%"], "ice": ["full", "less", "none"] },
-    "prep_time_sec": 360,
     "available": true,
     "sort_order": 2
   },
   {
     "sku": "DR003",
-    "name": "Bạc xỉu",
+    "name": "Cà phê đen",
+    "name_jp": null,
     "category": "beverage",
     "subcategory": "phin_coffee",
-    "role": "hero",
-    "price_m": 28000,
-    "price_l": 33000,
-    "cost_nl": 9500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.44,
-    "base_id": "base_05",
-    "recipe_id": "R003",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "robusta_phin", "amount_g": 20, "cost": 3600 },
-        { "item": "condensed_milk", "amount_ml": 30, "cost": 4500 },
-        { "item": "fresh_milk", "amount_ml": 50, "cost": 1500 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 18000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["sữa đặc + sữa tươi", "cốt phin nhẹ", "shake với đá"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["100%", "70%", "50%", "30%"], "ice": ["full", "less", "none"] },
-    "prep_time_sec": 300,
     "available": true,
     "sort_order": 3
   },
   {
     "sku": "DR004",
-    "name": "Cà phê dừa",
+    "name": "Cà phê bơ đậu phộng",
+    "name_jp": null,
     "category": "beverage",
     "subcategory": "phin_coffee",
-    "role": "hero",
-    "price_m": 32000,
-    "price_l": 38000,
-    "cost_nl": 10200,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.40,
-    "base_id": "base_05",
-    "recipe_id": "R004",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "robusta_phin", "amount_g": 18, "cost": 3240 },
-        { "item": "condensed_milk", "amount_ml": 15, "cost": 2250 },
-        { "item": "coconut_cream", "amount_ml": 50, "cost": 3750 },
-        { "item": "ice_blended", "amount_g": 200, "cost": 500 }
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["xay đá + cốt dừa + sữa đặc", "rót cốt phin lên mặt"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["milk", "coconut"],
-    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["blended"] },
-    "prep_time_sec": 240,
     "available": true,
     "sort_order": 4
   },
   {
     "sku": "DR005",
     "name": "Cà phê muối",
+    "name_jp": null,
     "category": "beverage",
     "subcategory": "phin_coffee",
-    "role": "trend",
-    "price_m": 30000,
-    "price_l": 35000,
-    "cost_nl": 10800,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.45,
-    "base_id": "base_05",
-    "recipe_id": "R005",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "robusta_phin", "amount_g": 25, "cost": 4500 },
-        { "item": "condensed_milk", "amount_ml": 20, "cost": 3000 },
-        { "item": "salt_cream", "amount_ml": 60, "cost": 3000 },
-        { "item": "ice", "amount_g": 200, "cost": 300 }
+    "bee_group": "kin",
+    "role": "hero",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["đá + sữa đặc + cốt phin → khuấy", "topping kem muối lên trên"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
-    "prep_time_sec": 360,
     "available": true,
     "sort_order": 5
   },
   {
     "sku": "DR006",
-    "name": "Cà phê kem trứng (Egg Coffee)",
+    "name": "Cà phê caramel muối hồng",
+    "name_jp": null,
     "category": "beverage",
     "subcategory": "phin_coffee",
-    "role": "signature",
-    "price_m": 35000,
-    "price_l": 42000,
-    "cost_nl": 13500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.46,
-    "base_id": "base_05",
-    "recipe_id": "R006",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "robusta_phin_hot", "amount_g": 25, "cost": 4500 },
-        { "item": "egg_yolk", "amount_unit": 1, "cost": 5000 },
-        { "item": "condensed_milk", "amount_ml": 20, "cost": 3000 },
-        { "item": "vanilla", "amount_drop": 2, "cost": 1000 }
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["đánh trứng + sữa đặc + vani bồng 3 phút", "đổ cốt phin nóng từ từ lên kem trứng"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["egg", "milk"],
-    "customizations": { "sugar": ["100%", "70%"], "ice": ["none"], "temp": ["hot"] },
-    "prep_time_sec": 420,
     "available": true,
-    "sort_order": 6,
-    "story_telling": "Egg coffee Hà Nội — đánh tay 3 phút mỗi ly"
+    "sort_order": 6
   },
   {
     "sku": "DR007",
-    "name": "Americano",
+    "name": "Cà phê dalgona",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "machine_coffee",
-    "role": "leader",
-    "price_m": 35000,
-    "price_l": 40000,
-    "cost_nl": 7500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.29,
-    "base_id": "base_04",
-    "recipe_id": "R007",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "espresso_shot_arabica", "amount_ml": 36, "cost": 6300 },
-        { "item": "hot_water", "amount_ml": 150, "cost": 0 }
+    "subcategory": "phin_coffee",
+    "bee_group": "kin",
+    "role": "trend",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["pull double shot 25s", "thêm nước nóng"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": [],
-    "customizations": { "sugar": ["0%", "30%"], "ice": ["full", "less", "none"], "temp": ["hot", "iced"] },
-    "prep_time_sec": 90,
     "available": true,
     "sort_order": 7
   },
   {
     "sku": "DR008",
-    "name": "Latte",
+    "name": "Cà phê chocolate",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "machine_coffee",
-    "role": "hero",
-    "price_m": 42000,
-    "price_l": 48000,
-    "cost_nl": 12000,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.35,
-    "base_id": "base_04",
-    "recipe_id": "R008",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "espresso_shot_arabica", "amount_ml": 36, "cost": 6300 },
-        { "item": "fresh_milk_steamed", "amount_ml": 150, "cost": 4500 },
-        { "item": "sugar_syrup", "amount_ml": 10, "cost": 250 }
+    "subcategory": "phin_coffee",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["pull double shot", "đánh sữa 65°C", "latte art rót đều"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["0%", "30%", "70%"], "ice": ["none", "less"], "temp": ["hot", "iced"] },
-    "prep_time_sec": 180,
     "available": true,
     "sort_order": 8
   },
   {
     "sku": "DR009",
-    "name": "Cappuccino / Caramel Macchiato",
+    "name": "Cà phê kem dẻo Buôn Mê",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "machine_coffee",
-    "role": "hero",
-    "price_m": 45000,
-    "price_l": 52000,
-    "cost_nl": 13000,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.35,
-    "base_id": "base_04",
-    "recipe_id": "R009",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "espresso_shot_arabica", "amount_ml": 36, "cost": 6300 },
-        { "item": "fresh_milk_steamed", "amount_ml": 120, "cost": 3600 },
-        { "item": "caramel_syrup", "amount_ml": 15, "cost": 3000 }
+    "subcategory": "phin_coffee",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["caramel + sữa đánh + espresso", "topping vân caramel"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["50%", "70%", "100%"], "ice": ["none", "less", "full"], "temp": ["hot", "iced"] },
-    "prep_time_sec": 200,
     "available": true,
     "sort_order": 9
   },
   {
     "sku": "DR010",
-    "name": "Trà sữa truyền thống",
+    "name": "Bạc sỉu",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "milk_tea",
+    "subcategory": "phin_coffee",
+    "bee_group": "kin",
     "role": "hero",
-    "price_m": 32000,
-    "price_l": 38000,
-    "cost_nl": 10500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.41,
-    "base_id": "base_01",
-    "recipe_id": "R010",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "black_tea_base", "amount_ml": 80, "cost": 800 },
-        { "item": "non_dairy_creamer", "amount_g": 10, "cost": 800 },
-        { "item": "condensed_milk", "amount_ml": 50, "cost": 7500 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
-      ],
-      "method": ["khuấy đều cốt trà + bột sữa + sữa đặc", "sục nóng 5s", "shake với đá"]
-    },
-    "allergens": ["milk"],
+    "price_m": 20000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
     "customizations": {
-      "sugar": ["100%", "70%", "50%", "30%"],
-      "ice": ["full", "less", "none"],
-      "toppings": [
-        { "id": "pearl", "name": "trân châu trắng", "price": 5000 },
-        { "id": "boba_brown", "name": "trân châu đường đen", "price": 6000 },
-        { "id": "coconut_jelly", "name": "thạch dừa", "price": 5000 },
-        { "id": "lotus_seed", "name": "hạt sen", "price": 8000 }
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
       ]
     },
-    "prep_time_sec": 180,
     "available": true,
     "sort_order": 10
   },
   {
     "sku": "DR011",
-    "name": "Trà sữa Ô Long Lâm Đồng",
-    "name_jp": "ラムドン烏龍ミルクティー",
+    "name": "Phindi hạnh nhân",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "milk_tea",
-    "role": "signature",
-    "price_m": 38000,
-    "price_l": 45000,
-    "cost_nl": 12500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.40,
-    "base_id": "base_02",
-    "recipe_id": "R011",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "oolong_tea_base", "amount_ml": 100, "cost": 1400 },
-        { "item": "non_dairy_creamer", "amount_g": 25, "cost": 2000 },
-        { "item": "condensed_milk", "amount_ml": 25, "cost": 3750 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
-      ],
-      "method": ["khuấy đều", "sục nóng 5s", "shake với đá", "ít sữa đặc để giữ vị trà"]
-    },
-    "allergens": ["milk"],
+    "subcategory": "phin_coffee",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk",
+      "nuts"
+    ],
     "customizations": {
-      "sugar": ["100%", "70%", "50%", "30%"],
-      "ice": ["full", "less", "none"],
-      "toppings": [
-        { "id": "pearl", "name": "trân châu trắng", "price": 5000 },
-        { "id": "boba_brown", "name": "trân châu đường đen", "price": 6000 }
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
       ]
     },
-    "prep_time_sec": 180,
     "available": true,
-    "sort_order": 11,
-    "story_telling": "Ô Long từ vườn trà Bảo Lộc cách quán 80km — Lâm Đồng special edition"
+    "sort_order": 11
   },
   {
     "sku": "DR012",
-    "name": "Trà sữa trân châu đường đen",
+    "name": "Ca cao sữa",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "milk_tea",
-    "role": "hero",
-    "price_m": 38000,
-    "price_l": 45000,
-    "cost_nl": 13800,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.43,
-    "base_id": "base_01",
-    "recipe_id": "R012",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "black_tea_base", "amount_ml": 80, "cost": 800 },
-        { "item": "non_dairy_creamer", "amount_g": 10, "cost": 800 },
-        { "item": "fresh_milk", "amount_ml": 80, "cost": 2400 },
-        { "item": "brown_sugar_pearls", "amount_g": 60, "cost": 1800 },
-        { "item": "brown_sugar_syrup", "amount_ml": 20, "cost": 1500 },
-        { "item": "ice", "amount_g": 200, "cost": 400 }
+    "subcategory": "phin_coffee",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 20000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["lăn đường đen quanh ly", "thả trân châu", "rót trà sữa", "đá lên trên"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
-    "prep_time_sec": 180,
     "available": true,
     "sort_order": 12
   },
   {
     "sku": "DR013",
-    "name": "Trà sữa nhài Chặng 2",
+    "name": "Ca cao muối",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "milk_tea",
-    "role": "hero",
-    "price_m": 35000,
-    "price_l": 40000,
-    "cost_nl": 11000,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.39,
-    "base_id": "base_03",
-    "recipe_id": "R013",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "jasmine_tea_base", "amount_ml": 90, "cost": 900 },
-        { "item": "non_dairy_creamer", "amount_g": 20, "cost": 1600 },
-        { "item": "condensed_milk", "amount_ml": 30, "cost": 4500 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
+    "subcategory": "phin_coffee",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["cân bằng trà-sữa 50/50", "shake với đá"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["100%", "70%", "50%", "30%"], "ice": ["full", "less", "none"] },
-    "prep_time_sec": 180,
     "available": true,
     "sort_order": 13
   },
   {
     "sku": "DR014",
-    "name": "Trà đào cam sả",
+    "name": "Trà gừng mật ong",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "fruit_tea",
-    "role": "hero",
-    "price_m": 32000,
-    "price_l": 38000,
-    "cost_nl": 10800,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.42,
-    "base_id": "base_01",
-    "recipe_id": "R014",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "black_tea_base", "amount_ml": 120, "cost": 1200 },
-        { "item": "peach_sensini", "amount_g": 30, "cost": 2750 },
-        { "item": "peach_syrup", "amount_ml": 20, "cost": 1800 },
-        { "item": "fresh_orange", "amount_g": 30, "cost": 1800 },
-        { "item": "lemongrass", "amount_g": 10, "cost": 200 },
-        { "item": "sugar_syrup", "amount_ml": 20, "cost": 500 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
-      ],
-      "method": ["shake tất cả với đá", "đào và cam để nguyên trang trí"]
-    },
+    "subcategory": "hot_drinks",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 20000,
+    "price_l": null,
     "allergens": [],
-    "customizations": { "sugar": ["100%", "70%", "50%", "30%"], "ice": ["full", "less"] },
-    "prep_time_sec": 180,
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "0%"
+      ],
+      "temp": [
+        "hot"
+      ]
+    },
     "available": true,
     "sort_order": 14
   },
   {
     "sku": "DR015",
-    "name": "Trà sen vàng",
+    "name": "Trà gừng đường nâu",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "fruit_tea",
-    "role": "hero",
-    "price_m": 35000,
-    "price_l": 42000,
-    "cost_nl": 12200,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.43,
-    "base_id": "base_02",
-    "recipe_id": "R015",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "oolong_tea_base", "amount_ml": 150, "cost": 2100 },
-        { "item": "lotus_seed_cooked", "amount_g": 25, "cost": 2500 },
-        { "item": "water_chestnut", "amount_g": 20, "cost": 600 },
-        { "item": "sugar_syrup", "amount_ml": 40, "cost": 1000 },
-        { "item": "milk_foam", "amount_ml": 65, "cost": 4500 },
-        { "item": "ice", "amount_g": 200, "cost": 400 }
+    "subcategory": "hot_drinks",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "0%"
       ],
-      "method": ["đá → hạt sen + củ năng → cốt trà + đường", "milk foam lên trên"]
+      "temp": [
+        "hot"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
-    "prep_time_sec": 240,
     "available": true,
     "sort_order": 15
   },
   {
     "sku": "DR016",
-    "name": "Trà vải / Trà thơm",
+    "name": "Trà thảo mộc",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "fruit_tea",
-    "role": "seasonal",
-    "price_m": 32000,
-    "price_l": 38000,
-    "cost_nl": 10500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.41,
-    "base_id": "base_03",
-    "recipe_id": "R016",
-    "seasonal_months": [5, 6, 7, 8],
-    "recipe_json": {
-      "ingredients": [
-        { "item": "jasmine_tea_base", "amount_ml": 120, "cost": 1200 },
-        { "item": "lychee_syrup_fruit", "amount_g": 40, "cost": 3500 },
-        { "item": "sugar_syrup", "amount_ml": 25, "cost": 625 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
-      ],
-      "method": ["shake với đá"]
-    },
+    "subcategory": "hot_drinks",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
     "allergens": [],
-    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
-    "prep_time_sec": 150,
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "0%"
+      ],
+      "temp": [
+        "hot"
+      ]
+    },
     "available": true,
     "sort_order": 16
   },
   {
     "sku": "DR017",
-    "name": "Trà chanh giã tay",
+    "name": "Hoa hồng táo đỏ",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "fruit_tea",
-    "role": "leader",
-    "price_m": 22000,
-    "price_l": 27000,
-    "cost_nl": 6000,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.40,
-    "base_id": "base_01",
-    "recipe_id": "R017",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "black_tea_base", "amount_ml": 100, "cost": 1000 },
-        { "item": "fresh_lime", "amount_unit": 1, "cost": 1500 },
-        { "item": "lime_leaf", "amount_g": 3, "cost": 300 },
-        { "item": "sugar_syrup", "amount_ml": 30, "cost": 750 },
-        { "item": "ice", "amount_g": 250, "cost": 500 }
-      ],
-      "method": ["giã tay chanh + lá chanh", "shake với cốt trà + đường + đá"]
-    },
+    "subcategory": "hot_drinks",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
     "allergens": [],
-    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["full", "less"] },
-    "prep_time_sec": 180,
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "0%"
+      ],
+      "temp": [
+        "hot"
+      ]
+    },
     "available": true,
     "sort_order": 17
   },
   {
     "sku": "DR018",
-    "name": "Freeze trà xanh đá xay",
+    "name": "Thanh yên bá tước",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "blended",
-    "role": "hero",
-    "price_m": 42000,
-    "price_l": 48000,
-    "cost_nl": 13000,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.37,
-    "recipe_id": "R018",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "matcha_powder", "amount_g": 5, "cost": 6000 },
-        { "item": "fresh_milk", "amount_ml": 120, "cost": 3600 },
-        { "item": "condensed_milk", "amount_ml": 30, "cost": 4500 },
-        { "item": "sugar_syrup", "amount_ml": 20, "cost": 500 },
-        { "item": "ice_blended", "amount_g": 250, "cost": 500 },
-        { "item": "whipping_cream_topping", "amount_ml": 30, "cost": 5400 }
+    "subcategory": "hot_drinks",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "0%"
       ],
-      "method": ["xay tất cả thành sinh tố mịn", "topping whipping + rắc bột matcha"]
+      "temp": [
+        "hot"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["blended"] },
-    "prep_time_sec": 240,
     "available": true,
     "sort_order": 18
   },
   {
     "sku": "DR019",
-    "name": "Cookies & Cream đá xay",
+    "name": "Trà đào cam quế",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "blended",
-    "role": "hero",
-    "price_m": 42000,
-    "price_l": 48000,
-    "cost_nl": 13500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.39,
-    "recipe_id": "R019",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "oreo_cookies", "amount_g": 30, "cost": 4500 },
-        { "item": "fresh_milk", "amount_ml": 150, "cost": 4500 },
-        { "item": "condensed_milk", "amount_ml": 30, "cost": 4500 },
-        { "item": "ice_blended", "amount_g": 250, "cost": 500 }
+    "subcategory": "hot_drinks",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "0%"
       ],
-      "method": ["xay nhuyễn cookies + sữa + đá", "topping whipping + bánh quy"]
+      "temp": [
+        "hot"
+      ]
     },
-    "allergens": ["milk", "gluten"],
-    "customizations": { "sugar": ["100%", "70%"], "ice": ["blended"] },
-    "prep_time_sec": 240,
     "available": true,
     "sort_order": 19
   },
   {
     "sku": "DR020",
-    "name": "Matcha đá xay",
+    "name": "Ca cao quế",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "blended",
-    "role": "signature",
-    "price_m": 45000,
-    "price_l": 52000,
-    "cost_nl": 13500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.36,
-    "recipe_id": "R020",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "matcha_uji_culinary", "amount_g": 6, "cost": 7200 },
-        { "item": "fresh_milk", "amount_ml": 120, "cost": 3600 },
-        { "item": "sugar_syrup", "amount_ml": 25, "cost": 625 },
-        { "item": "ice_blended", "amount_g": 250, "cost": 500 }
+    "subcategory": "hot_drinks",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "0%"
       ],
-      "method": ["đánh matcha với chasen", "xay với sữa + đá", "rắc matcha lên mặt"]
+      "temp": [
+        "hot"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["100%", "70%", "50%"], "ice": ["blended"] },
-    "prep_time_sec": 240,
     "available": true,
     "sort_order": 20
   },
   {
     "sku": "DR021",
-    "name": "Hojicha Latte",
-    "name_jp": "ほうじ茶ラテ",
+    "name": "Matcha batā",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "kissaten",
-    "role": "signature",
-    "price_m": 48000,
-    "price_l": 55000,
-    "cost_nl": 11500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.30,
-    "recipe_id": "R021",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "hojicha_powder", "amount_g": 5, "cost": 3000 },
-        { "item": "hot_water", "amount_ml": 30, "cost": 0 },
-        { "item": "fresh_milk_steamed", "amount_ml": 180, "cost": 5400 },
-        { "item": "sugar_syrup", "amount_ml": 15, "cost": 375 }
+    "subcategory": "hot_drinks",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "0%"
       ],
-      "method": ["hòa hojicha với nước nóng", "đổ sữa đánh bọt 60°C", "rót đều"]
+      "temp": [
+        "hot"
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["0%", "30%", "70%"], "ice": ["none", "iced"], "temp": ["hot", "iced"] },
-    "prep_time_sec": 240,
     "available": true,
-    "sort_order": 21,
-    "story_telling": "Vị trà sao vàng của Kyoto, ngọt khói nhẹ — không đắng như matcha"
+    "sort_order": 21
   },
   {
     "sku": "DR022",
-    "name": "Matcha Latte",
-    "name_jp": "抹茶ラテ",
+    "name": "Matcha Mitsu",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "kissaten",
+    "subcategory": "latte",
+    "bee_group": "so",
     "role": "signature",
-    "price_m": 52000,
-    "price_l": 60000,
-    "cost_nl": 14500,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.33,
-    "recipe_id": "R022",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "matcha_uji_culinary", "amount_g": 5, "cost": 6000 },
-        { "item": "hot_water", "amount_ml": 30, "cost": 0 },
-        { "item": "fresh_milk_steamed", "amount_ml": 180, "cost": 5400 },
-        { "item": "sugar_syrup", "amount_ml": 15, "cost": 375 }
+    "price_m": 40000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["đánh matcha bằng chasen 30s tạo bọt mịn", "đổ sữa đánh bọt 60°C"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
     },
-    "allergens": ["milk"],
-    "customizations": { "sugar": ["0%", "30%", "70%"], "ice": ["none", "iced"], "temp": ["hot", "iced"] },
-    "prep_time_sec": 300,
     "available": true,
     "sort_order": 22,
-    "story_telling": "Uji matcha — vùng trồng matcha cổ truyền Kyoto"
+    "story_telling": "Matcha signature của Mitsu"
   },
   {
     "sku": "DR023",
-    "name": "Yuzu Honey Tea",
-    "name_jp": "柚子蜂蜜茶",
+    "name": "Matcha croissant",
+    "name_jp": null,
     "category": "beverage",
-    "subcategory": "kissaten",
-    "role": "seasonal",
-    "price_m": 45000,
-    "price_l": 52000,
-    "cost_nl": 14000,
-    "cost_packaging": 2700,
-    "cogs_percent": 0.37,
-    "seasonal_months": [5, 6, 7, 8],
-    "recipe_id": "R023",
-    "recipe_json": {
-      "ingredients": [
-        { "item": "yuzu_marmalade", "amount_g": 25, "cost": 8000 },
-        { "item": "honey", "amount_ml": 15, "cost": 2000 },
-        { "item": "hot_water_or_ice", "amount_ml": 200, "cost": 0 }
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 40000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
       ],
-      "method": ["yuzu + mật ong + nước nóng hoặc shake với đá"]
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
     },
-    "allergens": [],
-    "customizations": { "sugar": ["100%", "70%"], "ice": ["full", "less", "none"], "temp": ["hot", "iced"] },
-    "prep_time_sec": 120,
     "available": true,
-    "sort_order": 23,
-    "story_telling": "Yuzu — quả citrus đặc trưng Nhật, vị thanh nhẹ"
+    "sort_order": 23
   },
   {
-    "sku": "BK001",
-    "name": "Bánh croissant bơ Pháp",
-    "category": "pastry",
-    "subcategory": "pastry",
-    "role": "pairing",
+    "sku": "DR024",
+    "name": "Matcha latte",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "hero",
     "price_m": 28000,
-    "cost_nl": 12000,
-    "cost_packaging": 800,
-    "cogs_percent": 0.46,
-    "recipe_id": "R024",
-    "allergens": ["milk", "gluten", "egg"],
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
     "available": true,
     "sort_order": 24
   },
   {
-    "sku": "BK002",
-    "name": "Tiramisu",
-    "category": "pastry",
-    "subcategory": "pastry",
-    "role": "pairing",
-    "price_m": 42000,
-    "cost_nl": 18000,
-    "cost_packaging": 1200,
-    "cogs_percent": 0.46,
-    "recipe_id": "R025",
-    "allergens": ["milk", "gluten", "egg"],
+    "sku": "DR025",
+    "name": "Matcha latte muối",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
     "available": true,
     "sort_order": 25
   },
   {
-    "sku": "BK003",
-    "name": "Bánh mì pate Hà Nội",
-    "category": "pastry",
-    "subcategory": "pastry",
-    "role": "breakfast",
-    "price_m": 25000,
-    "cost_nl": 10000,
-    "cost_packaging": 800,
-    "cogs_percent": 0.43,
-    "recipe_id": "R026",
-    "allergens": ["gluten", "egg"],
+    "sku": "DR026",
+    "name": "Matcha coco",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
     "available": true,
     "sort_order": 26
+  },
+  {
+    "sku": "DR027",
+    "name": "Matcha đậu đỏ",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 30000,
+    "price_l": 35000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 27
+  },
+  {
+    "sku": "DR028",
+    "name": "Matcha caramel muối hồng",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 35000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 28
+  },
+  {
+    "sku": "DR029",
+    "name": "Matcha butterfly coco",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 35000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 29
+  },
+  {
+    "sku": "DR030",
+    "name": "Matcha coldwhish",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "trend",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 30
+  },
+  {
+    "sku": "DR031",
+    "name": "Cloudy matcha",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "trend",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 31
+  },
+  {
+    "sku": "DR032",
+    "name": "Houjicha latte",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 30000,
+    "price_l": 35000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 32
+  },
+  {
+    "sku": "DR033",
+    "name": "Ca cao croissant",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 40000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 33
+  },
+  {
+    "sku": "DR034",
+    "name": "Ca cao latte",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 34
+  },
+  {
+    "sku": "DR035",
+    "name": "Ca cao latte muối",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 35
+  },
+  {
+    "sku": "DR036",
+    "name": "Ca cao bạc hà",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 36
+  },
+  {
+    "sku": "DR037",
+    "name": "Ca cao oreo kem dẻo",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [
+      "milk",
+      "gluten"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 37
+  },
+  {
+    "sku": "DR038",
+    "name": "Ca cao caramel sữa dừa",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "latte",
+    "bee_group": "so",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [
+      "milk",
+      "coconut"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 38
+  },
+  {
+    "sku": "DR039",
+    "name": "Trà Mitsu",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "signature",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 39,
+    "story_telling": "Trà signature của Mitsu"
+  },
+  {
+    "sku": "DR040",
+    "name": "Trà sen vàng",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 40
+  },
+  {
+    "sku": "DR041",
+    "name": "Trà gạo sen sữa",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 41
+  },
+  {
+    "sku": "DR042",
+    "name": "Trà quấn quýt",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 42
+  },
+  {
+    "sku": "DR043",
+    "name": "Trà dưa lưới",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 43
+  },
+  {
+    "sku": "DR044",
+    "name": "Trà cam hoa nhài",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 44
+  },
+  {
+    "sku": "DR045",
+    "name": "Trà vải hoa hồng",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 45
+  },
+  {
+    "sku": "DR046",
+    "name": "Trà ổi hồng",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 46
+  },
+  {
+    "sku": "DR047",
+    "name": "Trà thơm hạt đác",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 47
+  },
+  {
+    "sku": "DR048",
+    "name": "Trà đào",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "tea",
+    "bee_group": "ritsu",
+    "role": "hero",
+    "price_m": 32000,
+    "price_l": 35000,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 48
+  },
+  {
+    "sku": "DR049",
+    "name": "Trà sữa Mitsu",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "signature",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 49,
+    "story_telling": "Trà sữa signature của Mitsu"
+  },
+  {
+    "sku": "DR050",
+    "name": "Trà sữa truyền thống",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "hero",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 50
+  },
+  {
+    "sku": "DR051",
+    "name": "Trà sữa đậu đỏ",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 32000,
+    "price_l": 37000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 51
+  },
+  {
+    "sku": "DR052",
+    "name": "Trà sữa gạo rang",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 52
+  },
+  {
+    "sku": "DR053",
+    "name": "Trà sữa milo",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "trend",
+    "price_m": 32000,
+    "price_l": 37000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 53
+  },
+  {
+    "sku": "DR054",
+    "name": "Trà sữa phô mai mặn",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 54
+  },
+  {
+    "sku": "DR055",
+    "name": "Trà sữa kem tiramisu",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 30000,
+    "price_l": 35000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 55
+  },
+  {
+    "sku": "DR056",
+    "name": "Trà sữa olong",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 56
+  },
+  {
+    "sku": "DR057",
+    "name": "Trà sữa đại hồng bào",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 57
+  },
+  {
+    "sku": "DR058",
+    "name": "Hồng trà shan tuyết",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 58
+  },
+  {
+    "sku": "DR059",
+    "name": "Hồng trà mật hương",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "milk_tea",
+    "bee_group": "kin",
+    "role": "",
+    "price_m": 28000,
+    "price_l": 32000,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 59
+  },
+  {
+    "sku": "DR060",
+    "name": "Sữa chua Mitsu",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "signature",
+    "price_m": 35000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 60,
+    "story_telling": "Sữa chua signature của Mitsu"
+  },
+  {
+    "sku": "DR061",
+    "name": "Sữa chua dâu sấy",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 61
+  },
+  {
+    "sku": "DR062",
+    "name": "Sữa chua việt quất",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 62
+  },
+  {
+    "sku": "DR063",
+    "name": "Sữa chua ca cao",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 63
+  },
+  {
+    "sku": "DR064",
+    "name": "Sữa chua xoài sấy",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 64
+  },
+  {
+    "sku": "DR065",
+    "name": "Sữa chua đào sấy",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 65
+  },
+  {
+    "sku": "DR066",
+    "name": "Sữa chua chanh dây sấy",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 66
+  },
+  {
+    "sku": "DR067",
+    "name": "Sữa chua matcha",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 28000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 67
+  },
+  {
+    "sku": "DR068",
+    "name": "Sữa chua đanh đá",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "milk"
+    ],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach",
+          "name": "Thạch",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau",
+          "name": "Trân châu",
+          "price": 5000
+        },
+        {
+          "id": "flan",
+          "name": "Bánh flan",
+          "price": 7000
+        }
+      ]
+    },
+    "available": true,
+    "sort_order": 68
+  },
+  {
+    "sku": "DR069",
+    "name": "Coldbrew chanh vàng",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
+    },
+    "available": true,
+    "sort_order": 69
+  },
+  {
+    "sku": "DR070",
+    "name": "Coldbrew mơ muối",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
+    },
+    "available": true,
+    "sort_order": 70
+  },
+  {
+    "sku": "DR071",
+    "name": "Coldbrew đào",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
+    },
+    "available": true,
+    "sort_order": 71
+  },
+  {
+    "sku": "DR072",
+    "name": "Coldbrew bưởi hồng",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
+    },
+    "available": true,
+    "sort_order": 72
+  },
+  {
+    "sku": "DR073",
+    "name": "Coldbrew yuzu",
+    "name_jp": null,
+    "category": "beverage",
+    "subcategory": "yogurt",
+    "bee_group": "ritsu",
+    "role": "",
+    "price_m": 30000,
+    "price_l": null,
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "100%",
+        "70%",
+        "50%",
+        "30%",
+        "0%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ]
+    },
+    "available": true,
+    "sort_order": 73
+  },
+  {
+    "sku": "BK001",
+    "name": "Bánh croissant bơ Pháp",
+    "name_jp": null,
+    "category": "pastry",
+    "subcategory": "pastry",
+    "bee_group": "kashi",
+    "role": "pairing",
+    "price_m": 28000,
+    "price_l": null,
+    "allergens": [
+      "milk",
+      "gluten",
+      "egg"
+    ],
+    "customizations": {},
+    "available": false,
+    "sort_order": 74
+  },
+  {
+    "sku": "BK002",
+    "name": "Tiramisu",
+    "name_jp": null,
+    "category": "pastry",
+    "subcategory": "pastry",
+    "bee_group": "kashi",
+    "role": "pairing",
+    "price_m": 42000,
+    "price_l": null,
+    "allergens": [
+      "milk",
+      "gluten",
+      "egg"
+    ],
+    "customizations": {},
+    "available": false,
+    "sort_order": 75
+  },
+  {
+    "sku": "BK003",
+    "name": "Bánh mì pate Hà Nội",
+    "name_jp": null,
+    "category": "pastry",
+    "subcategory": "pastry",
+    "bee_group": "kashi",
+    "role": "breakfast",
+    "price_m": 25000,
+    "price_l": null,
+    "allergens": [
+      "gluten",
+      "egg"
+    ],
+    "customizations": {},
+    "available": false,
+    "sort_order": 76
   },
   {
     "sku": "BK004",
@@ -720,15 +2992,16 @@
     "name_jp": "和菓子",
     "category": "pastry",
     "subcategory": "kissaten",
+    "bee_group": "so",
     "role": "signature",
     "price_m": 35000,
-    "cost_nl": 14000,
-    "cost_packaging": 1200,
-    "cogs_percent": 0.43,
-    "recipe_id": "R027",
-    "allergens": ["gluten"],
-    "available": true,
-    "sort_order": 27,
+    "price_l": null,
+    "allergens": [
+      "gluten"
+    ],
+    "customizations": {},
+    "available": false,
+    "sort_order": 77,
     "story_telling": "Wagashi — bánh ngọt truyền thống Nhật theo mùa"
   }
 ]

@@ -99,7 +99,7 @@ function renderSpotlight(item){
 function renderMenu(menu, categories){
   // up to 3 category columns, ~4 items each, available only
   var cats = categories.slice(0,3);
-  var kanji = {phin_coffee:'珈',machine_coffee:'琲',milk_tea:'茶',fruit_tea:'果',blended:'氷',kissaten:'菓',pastry:'麭'};
+  var kanji = {phin_coffee:'珈',hot_drinks:'湯',latte:'乳',tea:'茶',milk_tea:'茶',yogurt:'酪',kissaten:'菓',pastry:'麭'};
   var cols = cats.map(function(c,i){
     var items = menu.filter(function(m){return m.available && m.subcategory===c.id;}).slice(0,4);
     var rows = items.map(function(m){var bdg=m.role==='hero'?'<span class="mtag hot">Bán chạy</span>':m.role==='signature'?'<span class="mtag sig">Đặc biệt</span>':''; return '<div class="mitem"><span class="nm">'+esc(m.name)+bdg+'</span><span class="ln"></span><span class="pr">'+fmtK(m.price_m)+'</span></div>';}).join('');
