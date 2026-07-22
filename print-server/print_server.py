@@ -50,7 +50,7 @@ import socket
 import threading
 import time
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 # ── Config ────────────────────────────────────────────────────────────────────
 RECEIPT_MODE        = os.getenv("RECEIPT_MODE",        "cups")
@@ -60,11 +60,12 @@ RECEIPT_SERIAL_PORT = os.getenv("RECEIPT_SERIAL_PORT", "/dev/cu.RPP02N")
 RECEIPT_SERIAL_BAUD = int(os.getenv("RECEIPT_SERIAL_BAUD", "9600"))
 RECEIPT_CUPS_PRINTER= os.getenv("RECEIPT_CUPS_PRINTER", "GEZHI_POS_Printer")
 
-LABEL_MODE          = os.getenv("LABEL_MODE",          "tcp")
+LABEL_MODE          = os.getenv("LABEL_MODE",          "cups")
 LABEL_PRINTER_IP    = os.getenv("LABEL_PRINTER_IP",    "192.168.1.51")
 LABEL_PRINTER_PORT  = int(os.getenv("LABEL_PRINTER_PORT",   "9100"))
 LABEL_SERIAL_PORT   = os.getenv("LABEL_SERIAL_PORT",   "/dev/cu.XP365B")
 LABEL_SERIAL_BAUD   = int(os.getenv("LABEL_SERIAL_BAUD",   "9600"))
+LABEL_CUPS_PRINTER  = os.getenv("LABEL_CUPS_PRINTER",  "Xprinter_XP_365B")
 
 SERVER_PORT          = int(os.getenv("SERVER_PORT",          "5001"))
 SOCKET_TIMEOUT       = float(os.getenv("SOCKET_TIMEOUT",      "5"))
@@ -93,11 +94,27 @@ from printlib import build_label_tspl, build_receipt
 
 app = Flask(__name__)
 
-GATEWAY = Gateway(
-    os.getenv("GATEWAY_DB", os.path.join(os.path.dirname(__file__), "outbox.db")),
-    os.getenv("GAS_WEBAPP_URL", ""),
-    os.getenv("REPORT_API_TOKEN", ""),
-)
+WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
+
+@app.get("/web/<path:filename>")
+def serve_web_static(filename):
+    return send_from_directory(WEB_DIR, filename)
+
+@app.get("/kds.html")
+def serve_kds():
+    return send_from_directory(WEB_DIR, "kds.html")
+
+@app.get("/order.html")
+def serve_order():
+    return send_from_directory(WEB_DIR, "order.html")
+
+@app.get("/menu-data.js")
+def serve_menu_data():
+    return send_from_directory(WEB_DIR, "menu-data.js")
+
+@app.get("/mitsu.css")
+def serve_mitsu_css():
+    return send_from_directory(WEB_DIR, "mitsu.css")
 
 def _now_iso_server():
     from datetime import datetime, timezone, timedelta
@@ -265,8 +282,19 @@ def _ping_usb(vid: int, pid: int) -> bool:
         return False
 
 
+def _ping_cups(printer_name: str) -> bool:
+    try:
+        import subprocess
+        res = subprocess.run(["lpstat", "-p", printer_name], capture_output=True, text=True)
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
 def _ping(mode: str, ip: str, port: int, serial_port: str,
-          usb_vid: int = 0, usb_pid: int = 0) -> bool:
+          usb_vid: int = 0, usb_pid: int = 0, cups_printer: str = "") -> bool:
+    if mode == "cups":
+        return _ping_cups(cups_printer)
     if mode == "usb":
         return _ping_usb(usb_vid, usb_pid)
     if mode == "serial":
@@ -278,11 +306,12 @@ def _ping(mode: str, ip: str, port: int, serial_port: str,
 @app.get("/health")
 def health():
     receipt_ok = _ping(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT, RECEIPT_SERIAL_PORT,
-                       usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID)
+                       usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID, cups_printer=RECEIPT_CUPS_PRINTER)
     label_ok   = _ping(LABEL_MODE,   LABEL_PRINTER_IP,   LABEL_PRINTER_PORT,   LABEL_SERIAL_PORT,
-                       usb_vid=LABEL_USB_VID, usb_pid=LABEL_USB_PID)
+                       usb_vid=LABEL_USB_VID, usb_pid=LABEL_USB_PID, cups_printer=LABEL_CUPS_PRINTER)
 
-    def _conn_str(mode, serial_port, ip, port, vid, pid):
+    def _conn_str(mode, serial_port, ip, port, vid, pid, cups_printer):
+        if mode == "cups":   return cups_printer
         if mode == "usb":    return f"usb:{vid:#06x}:{pid:#06x}"
         if mode == "serial": return serial_port
         return f"{ip}:{port}"
@@ -295,7 +324,7 @@ def health():
                 "usage":  "hoa don 58mm",
                 "mode":   RECEIPT_MODE,
                 "conn":   _conn_str(RECEIPT_MODE, RECEIPT_SERIAL_PORT, RECEIPT_PRINTER_IP,
-                                    RECEIPT_PRINTER_PORT, RECEIPT_USB_VID, RECEIPT_USB_PID),
+                                    RECEIPT_PRINTER_PORT, RECEIPT_USB_VID, RECEIPT_USB_PID, RECEIPT_CUPS_PRINTER),
                 "online": receipt_ok,
             },
             "label": {
@@ -303,7 +332,7 @@ def health():
                 "usage":  "tem dan coc 50x30mm",
                 "mode":   LABEL_MODE,
                 "conn":   _conn_str(LABEL_MODE, LABEL_SERIAL_PORT, LABEL_PRINTER_IP,
-                                    LABEL_PRINTER_PORT, LABEL_USB_VID, LABEL_USB_PID),
+                                    LABEL_PRINTER_PORT, LABEL_USB_VID, LABEL_USB_PID, LABEL_CUPS_PRINTER),
                 "online": label_ok,
             },
         },
@@ -338,7 +367,8 @@ def print_label():
     try:
         n = _send(LABEL_MODE, LABEL_PRINTER_IP, LABEL_PRINTER_PORT,
                   LABEL_SERIAL_PORT, LABEL_SERIAL_BAUD, data,
-                  usb_vid=LABEL_USB_VID, usb_pid=LABEL_USB_PID, usb_ep=LABEL_USB_EP)
+                  usb_vid=LABEL_USB_VID, usb_pid=LABEL_USB_PID, usb_ep=LABEL_USB_EP,
+                  cups_printer=LABEL_CUPS_PRINTER)
         log.info("LABEL   %d bytes [%s]", n, LABEL_MODE)
         return jsonify({"ok": True, "printer": "label", "bytes": n}), 200
     except Exception as exc:
