@@ -100,9 +100,10 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 
 @app.after_request
 def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Headers'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    # KDS được phục vụ same-origin trên :5001 (serve_kds) → KHÔNG cần CORS.
+    # Access-Control-Allow-Origin:'*' + token nhúng trong /kds.html = lỗ hổng: web bất kỳ
+    # trong browser nhân viên đọc được response :5001 → trộm REPORT token. Bỏ hẳn CORS *.
+    # Nếu sau này cần mở cho 1 origin cụ thể, whitelist đúng origin đó, KHÔNG dùng '*'.
     return response
 
 @app.route('/order', methods=['OPTIONS'])
@@ -123,6 +124,13 @@ def _resolve_server_auth_token():
         except Exception:
             token = ""
     return token
+
+# ── Gateway singleton (🔴 khôi phục — commit b3299dc xoá nhầm khiến /order NameError) ──
+GATEWAY = Gateway(
+    os.getenv("GATEWAY_DB", os.path.join(os.path.dirname(__file__), "outbox.db")),
+    os.getenv("GAS_WEBAPP_URL", ""),
+    os.getenv("REPORT_API_TOKEN", "") or _resolve_server_auth_token(),
+)
 
 @app.get("/kds.html")
 def serve_kds():
@@ -159,7 +167,7 @@ def _print_receipt_bytes(data: bytes) -> int:
     return _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
                  RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, data,
                  usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID,
-                 usb_ep=RECEIPT_USB_EP, cups_printer=RECEIPT_CUPS_PRINTER)
+                 usb_ep=RECEIPT_USB_EP, cups_printer=RECEIPT_CUPS_PRINTER, drawer=True)
 
 def _gas_post(payload: dict, timeout=8) -> dict:
     body = json.dumps({**payload, "token": GATEWAY.token}).encode()
@@ -272,17 +280,23 @@ def _send_usb(vid: int, pid: int, data: bytes, ep: int = 0x01) -> int:
         return n
 
 
-def _send_cups(printer_name: str, data: bytes) -> int:
+def _send_cups(printer_name: str, data: bytes, drawer: bool = False) -> int:
     import subprocess
-    cmd = ["lpr", "-P", printer_name, "-o", "CashDrawer1Setting=1CashDrawer1BeforePrinting"]
-    proc = subprocess.run(cmd, input=data, capture_output=True, check=True)
+    # -o raw: gửi ESC/POS·TSPL bytes THẲNG tới máy in, KHÔNG qua driver filter
+    # (rastertosnailtspl...) — nếu thiếu 'raw', filter render byte lệnh thành text/treo job.
+    cmd = ["lpr", "-P", printer_name, "-o", "raw"]
+    if drawer:  # két tiền chỉ cho máy in hoá đơn, KHÔNG áp cho máy in tem
+        cmd += ["-o", "CashDrawer1Setting=1CashDrawer1BeforePrinting"]
+    # timeout: CUPS daemon treo không được giữ request /order treo vô hạn.
+    subprocess.run(cmd, input=data, capture_output=True, check=True, timeout=15)
     return len(data)
 
 
 def _send(mode: str, ip: str, port: int, serial_port: str, baud: int, data: bytes,
-          usb_vid: int = 0, usb_pid: int = 0, usb_ep: int = 0x01, cups_printer: str = "") -> int:
+          usb_vid: int = 0, usb_pid: int = 0, usb_ep: int = 0x01, cups_printer: str = "",
+          drawer: bool = False) -> int:
     if mode == "cups":
-        return _send_cups(cups_printer or RECEIPT_CUPS_PRINTER, data)
+        return _send_cups(cups_printer or RECEIPT_CUPS_PRINTER, data, drawer=drawer)
     elif mode == "usb":
         return _send_usb(usb_vid, usb_pid, data, ep=usb_ep)
     elif mode == "serial":
@@ -317,8 +331,14 @@ def _ping_usb(vid: int, pid: int) -> bool:
 def _ping_cups(printer_name: str) -> bool:
     try:
         import subprocess
-        res = subprocess.run(["lpstat", "-p", printer_name], capture_output=True, text=True)
-        return res.returncode == 0
+        res = subprocess.run(["lpstat", "-p", printer_name], capture_output=True, text=True, timeout=5)
+        if res.returncode != 0:
+            return False
+        out = (res.stdout or "").lower()
+        # returncode=0 CẢ khi queue bị disable → phải soi text. 'disabled'(EN)/'tắt'(VN) = offline.
+        if "disabled" in out or "tắt" in out:
+            return False
+        return True
     except Exception:
         return False
 
@@ -381,7 +401,7 @@ def print_receipt():
         n = _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
                   RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, data,
                   usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID, usb_ep=RECEIPT_USB_EP,
-                  cups_printer=RECEIPT_CUPS_PRINTER)
+                  cups_printer=RECEIPT_CUPS_PRINTER, drawer=True)
         log.info("RECEIPT %d bytes [%s]", n, RECEIPT_MODE)
         return jsonify({"ok": True, "printer": "receipt", "bytes": n}), 200
     except Exception as exc:
@@ -442,8 +462,9 @@ def order_create():
         for _ in range(max(1, int(it.get("qty", 1)))):
             cups.append(it)
 
+    # Đơn đã được ghi vào outbox trong GATEWAY.mint_order (atomic, trước khi in).
+    # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
-    printed_at = _now_iso_server()
     for i, item in enumerate(cups, start=1):
         try:
             _print_label_bytes(build_label_tspl(order, item, i, len(cups)))
@@ -451,12 +472,6 @@ def order_create():
             log.error("label print failed %s: %s", order_id, exc)
             printed_ok, warning = False, "print_failed"
 
-    ing = dict(payload)
-    ing["gateway_order_id"] = order_id
-    ing["gateway_short_code"] = short_code
-    ing["printed_at"] = printed_at
-    GATEWAY.enqueue("ingest_order", order_id, minted["idempotency_key"], ing,
-                    short_code=short_code, printed_at=printed_at)
     return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
                     "printed": printed_ok, "warning": warning}), 200
 
@@ -473,13 +488,15 @@ def order_status():
     p = request.get_json(force=True, silent=True) or {}
     order_id, status = p.get("order_id"), p.get("status")
     try:
-        d = _gas_post({"action": "update_status", "order_id": order_id,
-                       "status": status})
-        return jsonify(d), 200
+        d = _gas_post({"action": "update_status", "order_id": order_id, "status": status})
+        if d.get("ok"):
+            return jsonify(d), 200      # online OK
     except Exception:
-        GATEWAY.enqueue("status", order_id, f"{order_id}:{status}",
-                        {"action": "update_status", "order_id": order_id, "status": status})
-        return jsonify({"ok": True, "queued_offline": True}), 200
+        pass
+    # offline HOẶC GAS trả not-ok (vd unknown_action) → queue để syncer đẩy sau
+    GATEWAY.enqueue("status", order_id, f"{order_id}:{status}",
+                    {"action": "update_status", "order_id": order_id, "status": status})
+    return jsonify({"ok": True, "queued_offline": True}), 200
 
 @app.post("/order/mark_paid")
 def order_mark_paid():
@@ -487,14 +504,22 @@ def order_mark_paid():
     order_id = p.get("order_id")
     try:
         d = _gas_post({"action": "mark_paid", "order_id": order_id})
-        return jsonify(d), 200
+        if d.get("ok"):
+            return jsonify(d), 200      # online OK → GAS lo receipt + stamp + financials
     except Exception:
-        if p.get("order"):
-            try: _print_receipt_bytes(build_receipt(p["order"]))
-            except Exception as exc: log.error("offline receipt failed: %s", exc)
-        GATEWAY.enqueue("mark_paid", order_id, f"{order_id}:paid",
-                        {"action": "mark_paid", "order_id": order_id})
-        return jsonify({"ok": True, "queued_offline": True}), 200
+        pass
+    # offline (hoặc GAS not-ok): in receipt local NGAY + đánh dấu để GAS KHÔNG in receipt lần 2 khi sync
+    receipt_printed = False
+    if p.get("order"):
+        try:
+            _print_receipt_bytes(build_receipt(p["order"]))
+            receipt_printed = True
+        except Exception as exc:
+            log.error("offline receipt failed: %s", exc)
+    GATEWAY.enqueue("mark_paid", order_id, f"{order_id}:paid",
+                    {"action": "mark_paid", "order_id": order_id,
+                     "receipt_printed_local": receipt_printed})
+    return jsonify({"ok": True, "queued_offline": True, "receipt_printed_local": receipt_printed}), 200
 
 
 # ── Debug / test endpoints ─────────────────────────────────────────────────────

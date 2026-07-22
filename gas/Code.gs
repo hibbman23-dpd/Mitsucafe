@@ -629,6 +629,33 @@ var POST_ROUTES = {
       try { return ingestPreMintedOrder(p); }
       finally { lock.releaseLock(); }
     }
+  },
+  // POST mirror của update_status/mark_paid (GET vẫn giữ cho tương thích cũ).
+  // Gateway gọi qua POST; thiếu 2 route này thì op offline kẹt outbox vĩnh viễn (mất PAID).
+  'update_status': {
+    auth: AUTH.REPORT,
+    handler: function(p) {
+      if (!p.order_id || !p.status) return { ok: false, error: 'missing params' };
+      var lock = LockService.getScriptLock();
+      lock.waitLock(15000);
+      try {
+        updateOrderStatus(p.order_id, p.status);
+        return { ok: true, order_id: p.order_id, status: p.status };
+      } finally { lock.releaseLock(); }
+    }
+  },
+  'mark_paid': {
+    auth: AUTH.REPORT,
+    handler: function(p) {
+      if (!p.order_id) return { ok: false, error: 'order_id required' };
+      var lock = LockService.getScriptLock();
+      lock.waitLock(15000);
+      try {
+        // receipt_printed_local=true: gateway đã in receipt local (offline) → GAS bỏ in lần 2.
+        var r = markOrderPaid(p.order_id, { skipReceipt: !!p.receipt_printed_local });
+        return { ok: true, order_id: p.order_id, payment_status: r.payment_status, already_paid: r.already_paid };
+      } finally { lock.releaseLock(); }
+    }
   }
 };
 

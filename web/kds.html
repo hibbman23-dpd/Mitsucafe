@@ -499,8 +499,14 @@ const esc = s => String(s == null ? '' : s).replace(/[<>&"']/g, c => ({
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const GAS_URL  = 'https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec';
 const POLL_MS  = 15000;
-const LOCAL_FIRST = true;
-const GATEWAY_URL = 'http://' + (location.hostname || 'localhost').replace(/:.*/, '') + ':5001';
+// Chỉ bật local-first khi KDS phục vụ qua http same-origin với gateway (:5001).
+// Nếu mở qua https (deploy Worker cũ) → fetch http://:5001 bị chặn mixed-content →
+// mỗi đơn hiện dialog fallback. Khi đó tắt local-first, chạy thẳng GAS như cũ.
+const LOCAL_FIRST = (location.protocol === 'http:');
+// KDS được serve từ chính gateway (:5001) → same-origin, không cần dựng host/port tay.
+const GATEWAY_URL = (location.origin && location.origin.startsWith('http'))
+  ? location.origin
+  : 'http://localhost:5001';
 
 function uuid() {
   return (crypto.randomUUID ? crypto.randomUUID()

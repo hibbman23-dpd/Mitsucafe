@@ -281,11 +281,15 @@ function ingestPreMintedOrder(p) {
     var existing = findOrderIdByIdempotencyKey(key);
     if (existing) return { ok: true, order_id: existing, deduped: true };
   }
-  if (p.gateway_order_id && _findOrderRow(p.gateway_order_id)) {
-    return { ok: true, order_id: p.gateway_order_id, deduped: true };
+  // Đã qua dedup theo idempotency_key ở trên. Tới đây mà order_id đã tồn tại nghĩa là
+  // COLLISION hiếm (gateway rand ORD-date-XXXX trùng id GAS mint cho đơn khác). KHÔNG được
+  // dedup (sẽ drop đơn dù tem đã in + tiền đã thu) — cấp order_id mới GAS-side rồi ghi tiếp.
+  var mintedId = p.gateway_order_id;
+  if (mintedId && _findOrderRow(mintedId)) {
+    mintedId = generateOrderId();  // unique (tránh 500 dòng cuối, gồm cả id đang trùng)
   }
   var order = validateOrderPayload(p);
-  order.order_id = p.gateway_order_id || order.order_id;
+  order.order_id = mintedId || order.order_id;
   order.metadata = order.metadata || {};
   order.metadata.short_code = p.gateway_short_code || order.metadata.short_code;
   order.status = 'CONFIRMED';
@@ -469,7 +473,8 @@ function _rowToOrder(row) {
  * cộng tem, tăng doanh thu hay in bill lần thứ hai.
  * @param {string} orderId
  */
-function markOrderPaid(orderId) {
+function markOrderPaid(orderId, opts) {
+  opts = opts || {};
   var row = _findOrderRow(orderId);
   if (!row) throw new Error('Order not found: ' + orderId);
   if (String(row.data[19] || '').toUpperCase() === 'PAID') {
@@ -487,7 +492,13 @@ function markOrderPaid(orderId) {
     logError('markOrderPaid.loyalty', loyErr);
   }
 
-  try { printThermalReceipt(orderId); } catch (e) { logError('markOrderPaid.print', e); }
+  if (opts.skipReceipt) {
+    // Gateway đã in receipt local (offline). Đánh dấu printed_at để poller KHÔNG in lần 2.
+    try { updateField(orderId, 'printed_at', new Date().toISOString()); }
+    catch (e) { logError('markOrderPaid.printedAt', e); }
+  } else {
+    try { printThermalReceipt(orderId); } catch (e) { logError('markOrderPaid.print', e); }
+  }
 
   // Cập nhật số liệu tài chính thời gian thực
   try {

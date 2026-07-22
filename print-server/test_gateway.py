@@ -66,6 +66,26 @@ class TestGateway(unittest.TestCase):
         pend2 = self.gw.unsynced()
         self.assertTrue(any(p["op"] == "mark_paid" for p in pend2))
 
+    def test_mint_records_atomically_get_by_key_before_enqueue(self):
+        # 🟠6: mint ghi outbox NGAY → get_by_key thấy liền, không cần chờ enqueue.
+        r = self.gw.mint_order(payload("atomic"))
+        got = self.gw.get_by_key("atomic")
+        self.assertIsNotNone(got)
+        self.assertEqual(got["order_id"], r["order_id"])
+
+    def test_unique_order_id_no_self_collision(self):
+        ids = set()
+        for i in range(200):
+            ids.add(self.gw.mint_order(payload(f"u{i}"))["order_id"])
+        self.assertEqual(len(ids), 200)   # không trùng order_id trong outbox
+
+    def test_unsynced_remote_status_not_starved(self):
+        # 🟠7: op status cho đơn KHÔNG do gateway tạo (không có ingest row) → phải gửi, không kẹt.
+        self.gw.enqueue("status", "ORD-REMOTE-0001", "r:MAKING",
+                        {"action": "update_status", "order_id": "ORD-REMOTE-0001", "status": "MAKING"})
+        pend = self.gw.unsynced()
+        self.assertTrue(any(p["order_id"] == "ORD-REMOTE-0001" for p in pend))
+
     def test_midnight_rollover_flushes_old_block(self):
         self.gw.mint_order(payload("d1"))          # Q01 ngày 20260722
         self.gw.today = "20260723"                 # sang ngày mới
