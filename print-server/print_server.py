@@ -52,11 +52,12 @@ import time
 from flask import Flask, jsonify, request
 
 # ── Config ────────────────────────────────────────────────────────────────────
-RECEIPT_MODE        = os.getenv("RECEIPT_MODE",        "serial")
+RECEIPT_MODE        = os.getenv("RECEIPT_MODE",        "cups")
 RECEIPT_PRINTER_IP  = os.getenv("RECEIPT_PRINTER_IP",  "192.168.1.50")
 RECEIPT_PRINTER_PORT= int(os.getenv("RECEIPT_PRINTER_PORT", "9100"))
 RECEIPT_SERIAL_PORT = os.getenv("RECEIPT_SERIAL_PORT", "/dev/cu.RPP02N")
 RECEIPT_SERIAL_BAUD = int(os.getenv("RECEIPT_SERIAL_BAUD", "9600"))
+RECEIPT_CUPS_PRINTER= os.getenv("RECEIPT_CUPS_PRINTER", "GEZHI_POS_Printer")
 
 LABEL_MODE          = os.getenv("LABEL_MODE",          "tcp")
 LABEL_PRINTER_IP    = os.getenv("LABEL_PRINTER_IP",    "192.168.1.51")
@@ -190,9 +191,18 @@ def _send_usb(vid: int, pid: int, data: bytes, ep: int = 0x01) -> int:
         return n
 
 
+def _send_cups(printer_name: str, data: bytes) -> int:
+    import subprocess
+    cmd = ["lpr", "-P", printer_name, "-o", "CashDrawer1Setting=1CashDrawer1BeforePrinting"]
+    proc = subprocess.run(cmd, input=data, capture_output=True, check=True)
+    return len(data)
+
+
 def _send(mode: str, ip: str, port: int, serial_port: str, baud: int, data: bytes,
-          usb_vid: int = 0, usb_pid: int = 0, usb_ep: int = 0x01) -> int:
-    if mode == "usb":
+          usb_vid: int = 0, usb_pid: int = 0, usb_ep: int = 0x01, cups_printer: str = "") -> int:
+    if mode == "cups":
+        return _send_cups(cups_printer or RECEIPT_CUPS_PRINTER, data)
+    elif mode == "usb":
         return _send_usb(usb_vid, usb_pid, data, ep=usb_ep)
     elif mode == "serial":
         return _send_serial(serial_port, baud, data)
@@ -277,7 +287,8 @@ def print_receipt():
     try:
         n = _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
                   RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, data,
-                  usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID, usb_ep=RECEIPT_USB_EP)
+                  usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID, usb_ep=RECEIPT_USB_EP,
+                  cups_printer=RECEIPT_CUPS_PRINTER)
         log.info("RECEIPT %d bytes [%s]", n, RECEIPT_MODE)
         return jsonify({"ok": True, "printer": "receipt", "bytes": n}), 200
     except Exception as exc:
@@ -317,6 +328,8 @@ def _build_test_receipt() -> bytes:
     GS  = b'\x1d'
     d = b''
     d += ESC + b'@'             # Init printer
+    d += ESC + b'p\x00\x19\xfa' # Cash drawer kick pin 2
+    d += ESC + b'p\x01\x19\xfa' # Cash drawer kick pin 5
     d += ESC + b'a\x01'        # Center
     d += ESC + b'!\x08'        # Bold
     d += b'--- TEST PRINT ---\r\n'
@@ -337,7 +350,7 @@ def _build_test_label(scenario: str = "dine_in") -> bytes:
     """
     import sys, os
     sys.path.insert(0, os.path.dirname(__file__))
-    from print_poller import build_label_tspl
+    from printlib import build_label_tspl
 
     fake_order = {
         "order_id": "ORD-TEST-0001",
@@ -385,7 +398,8 @@ def test_receipt():
     try:
         n = _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
                   RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, data,
-                  usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID, usb_ep=RECEIPT_USB_EP)
+                  usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID, usb_ep=RECEIPT_USB_EP,
+                  cups_printer=RECEIPT_CUPS_PRINTER)
         return jsonify({"ok": True, "printer": "receipt", "bytes": n, "hex": data.hex()}), 200
     except Exception as exc:
         log.error("TEST RECEIPT error: %s", exc)
@@ -524,7 +538,7 @@ def test_label_bitmap_inverted():
     """
     import sys, os
     sys.path.insert(0, os.path.dirname(__file__))
-    from print_poller import build_label_tspl
+    from printlib import build_label_tspl
 
     fake_order = {
         "order_id": "ORD-TEST-0001",
@@ -876,7 +890,7 @@ def test_label_debug_png():
     """
     import sys, os as _os
     sys.path.insert(0, _os.path.dirname(__file__))
-    from print_poller import build_label_tspl
+    from printlib import build_label_tspl
 
     fake_order = {
         "order_id": "ORD-TEST-0001",
@@ -889,7 +903,7 @@ def test_label_debug_png():
 
     try:
         from PIL import Image, ImageDraw
-        from print_poller import (LABEL_DOTS_WIDTH, LABEL_DOTS_HEIGHT,
+        from printlib import (LABEL_DOTS_WIDTH, LABEL_DOTS_HEIGHT,
                                    _load_font, _SZ_LBL_HDR, _SZ_LBL_ITEM,
                                    _SZ_LBL_MOD, _SZ_LBL_TIME, _loc_label,
                                    _mods_line, _format_time_only)
