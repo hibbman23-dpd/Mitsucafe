@@ -25,3 +25,31 @@ class TestFakeTransport(unittest.TestCase):
         t = Transport()
         self.assertIsNone(t.read_status(0.1))
         self.assertEqual(t.capabilities(), set())
+
+import time
+from transport import probe_capabilities, confirm
+
+class TestProbeConfirm(unittest.TestCase):
+    def test_probe_receipt_with_reply(self):
+        t = FakeTransport(status_replies=[b"\x12"])
+        caps = probe_capabilities(t, "receipt")
+        self.assertIn("dle_eot", caps)
+        self.assertEqual(t.sent[0], b"\x10\x04\x01")   # DLE EOT 1 was sent
+
+    def test_probe_receipt_mute_printer(self):
+        t = FakeTransport(status_replies=[])           # no reply
+        self.assertEqual(probe_capabilities(t, "receipt"), set())
+
+    def test_confirm_pacing_path_returns_true(self):
+        t = FakeTransport()
+        start = time.time()
+        self.assertTrue(confirm(t, set(), "label", pacing_s=0.05))
+        self.assertGreaterEqual(time.time() - start, 0.05)
+
+    def test_confirm_status_path_true_on_reply(self):
+        t = FakeTransport(status_replies=[b"\x00"])
+        self.assertTrue(confirm(t, {"dle_eot"}, "receipt", pacing_s=0.05))
+
+    def test_confirm_status_path_false_on_timeout(self):
+        t = FakeTransport(status_replies=[])           # never replies
+        self.assertFalse(confirm(t, {"dle_eot"}, "receipt", pacing_s=0.05))

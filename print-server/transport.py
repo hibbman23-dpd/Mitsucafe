@@ -1,5 +1,6 @@
 """transport.py — printer transport abstraction (send + optional status back-channel)."""
 import subprocess
+import time
 
 class Transport:
     def open(self): ...
@@ -40,3 +41,26 @@ class FakeTransport(Transport):
         return set(self._caps)
     def close(self):
         self.closed = True
+
+def probe_capabilities(transport, printer_kind):
+    try:
+        if printer_kind == "receipt":
+            transport.send(b"\x10\x04\x01")            # DLE EOT 1
+            return {"dle_eot"} if transport.read_status(0.2) else set()
+        else:  # label / TSPL
+            transport.send(b"\r\n\r\n")
+            return {"tspl_status"} if transport.read_status(0.2) else set()
+    except Exception:
+        return set()
+
+def confirm(transport, caps, printer_kind, pacing_s):
+    if caps & {"dle_eot", "tspl_status"}:
+        deadline = time.time() + max(pacing_s, 2.0)
+        while time.time() < deadline:
+            st = transport.read_status(0.2)
+            if st:
+                return True
+            time.sleep(0.05)
+        return False
+    time.sleep(pacing_s)
+    return True
