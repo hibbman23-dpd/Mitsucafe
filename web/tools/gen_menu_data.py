@@ -15,13 +15,13 @@ SRC    = ROOT / 'seed' / 'menu_items.json'
 TARGET = ROOT / 'web' / 'menu-data.js'
 
 SUBCATEGORY_ORDER = [
-    ('phin_coffee',    'Cà phê phin',    '☕'),
-    ('machine_coffee', 'Espresso',        '🫗'),
-    ('milk_tea',       'Trà sữa',         '🧋'),
-    ('fruit_tea',      'Trà trái cây',    '🍑'),
-    ('blended',        'Đá xay',          '🧊'),
-    ('kissaten',       'Kissaten',         '🍵'),
-    ('pastry',         'Bánh',             '🥐'),
+    ('phin_coffee', 'Cà phê',              '☕'),
+    ('hot_drinks',  'Đồ uống nóng',        '🍵'),
+    ('latte',       'Latte',               '🥛'),
+    ('tea',         'Các loại trà',        '🫖'),
+    ('milk_tea',    'Trà sữa',             '🧋'),
+    ('yogurt',      'Sữa chua & Coldbrew', '🍧'),
+    ('pastry',      'Bánh',                '🥐'),
 ]
 
 def main():
@@ -45,12 +45,14 @@ def main():
             except: c = {}
 
         def get_bee_group(sku, subcat):
+            if item.get('bee_group'):
+                return item['bee_group']
             if subcat == 'pastry':
                 return 'kashi'
-            if subcat == 'machine_coffee' or subcat == 'fruit_tea':
-                return 'ritsu'
-            if subcat in ['blended', 'kissaten'] or sku in ['DR004', 'DR005', 'DR006']:
+            if subcat in ('kissaten', 'latte'):
                 return 'so'
+            if subcat in ('hot_drinks', 'tea', 'yogurt'):
+                return 'ritsu'
             return 'kin'
 
         obj = {

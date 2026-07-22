@@ -38,10 +38,10 @@ const ROLE_BADGE = {
 
 // Emoji theo category khi không có image
 const CAT_EMOJI = {
-  phin_coffee:    '☕', machine_coffee: '🫗',
-  milk_tea:       '🧋', fruit_tea:      '🍑',
-  blended:        '🧊', kissaten:       '🍵',
-  pastry:         '🥐',
+  phin_coffee:    '☕', hot_drinks:     '🍵',
+  latte:          '🥛', tea:            '🫖',
+  milk_tea:       '🧋', yogurt:         '🍧',
+  pastry:         '🥐', kissaten:       '🍵',
 };
 
 const MITSU_CATEGORIES = [
