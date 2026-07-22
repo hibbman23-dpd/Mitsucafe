@@ -101,12 +101,23 @@ class UsbTransport(Transport):
     def send(self, data: bytes) -> int:
         if self._dev is None:
             self.open()
-        total = 0
-        for i in range(0, len(data), self.CHUNK):
-            total += self._dev.write(self.ep_out, data[i:i + self.CHUNK], timeout=10000)
-            if i + self.CHUNK < len(data):
-                time.sleep(self.CHUNK_DELAY)
-        return total
+
+        def _write_all(payload: bytes) -> int:
+            total = 0
+            for i in range(0, len(payload), self.CHUNK):
+                total += self._dev.write(self.ep_out, payload[i:i + self.CHUNK], timeout=10000)
+                if i + self.CHUNK < len(payload):
+                    time.sleep(self.CHUNK_DELAY)
+            return total
+
+        try:
+            return _write_all(data)
+        except Exception as exc:
+            log.warning("USB write failed (%s), clearing handle and retrying...", exc)
+            _usb_handles.pop((self.vid, self.pid), None)
+            self._dev = None
+            self.open()
+            return _write_all(data)
     def read_status(self, timeout: float):
         try:
             arr = self._dev.read(self.ep_in, 64, timeout=int(timeout * 1000))
@@ -121,9 +132,14 @@ class TcpTransport(Transport):
         self.ip, self.port, self.timeout = ip, port, timeout
         self._sock = None
     def open(self):
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.settimeout(self.timeout)
-        self._sock.connect((self.ip, self.port))
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(self.timeout)
+        try:
+            sock.connect((self.ip, self.port))
+        except Exception:
+            sock.close()
+            raise
+        self._sock = sock
     def send(self, data: bytes) -> int:
         if self._sock is None:
             self.open()
