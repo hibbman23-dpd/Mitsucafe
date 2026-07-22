@@ -3,10 +3,34 @@ os.environ["PRINT_ENGINE"] = "spool"
 os.environ["GATEWAY_DB"] = tempfile.mktemp(suffix=".db")
 os.environ.setdefault("GAS_WEBAPP_URL", "http://gas.invalid")
 import print_server
+# Restore immediately after import: unittest's loader imports every named test
+# module (running this file's top-level code, incl. the line above) BEFORE any
+# test's setUp/test method runs — regardless of the order given on the command
+# line. Leaving PRINT_ENGINE="spool" here would leak into test_routes.py's
+# tests (which rely on the "legacy" default) whenever both files load into the
+# same process. Each test below re-sets it for its own duration via setUp.
+os.environ["PRINT_ENGINE"] = "legacy"
+
+from gateway import Gateway
+from print_spool import PrintSpool
 
 class TestEnqueueRoutes(unittest.TestCase):
     def setUp(self):
+        os.environ["PRINT_ENGINE"] = "spool"
+        # print_server.GATEWAY/.SPOOL are module-level singletons bound at whichever
+        # test file happens to trigger print_server's *first* import in this process
+        # (import order, not run order — see note above). If test_routes.py imports
+        # print_server first, GATEWAY/SPOOL end up bound to the real outbox.db.
+        # Rebind to an isolated temp DB here so these tests never touch the real one,
+        # no matter which file the test process loaded first.
+        self._db = tempfile.mktemp(suffix=".db")
+        print_server.GATEWAY = Gateway(self._db, "http://gas.invalid", "tok")
+        print_server.SPOOL = PrintSpool(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
         self.c = print_server.app.test_client()
+    def tearDown(self):
+        os.environ["PRINT_ENGINE"] = "legacy"
+        if os.path.exists(self._db):
+            os.remove(self._db)
     def test_enqueue_labels_route(self):
         order = {"order_id": "ORD-20260723-0100", "timestamp": "2026-07-23T08:00:00+07:00",
                  "metadata": {"short_code": "Q10", "delivery_type": "dine_in", "notes": ""},

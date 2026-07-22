@@ -146,6 +146,9 @@ RECEIPT_TRANSPORT = os.getenv("RECEIPT_TRANSPORT", "cups")
 
 SPOOL = PrintSpool(GATEWAY._conn, GATEWAY._lock)
 
+def _print_engine():
+    return os.getenv("PRINT_ENGINE", "legacy")
+
 def _cups_from_items(order_items):
     cups = []
     for it in order_items:
@@ -623,7 +626,7 @@ def order_create():
     # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
     if cups:
-        if PRINT_ENGINE == "spool":
+        if _print_engine() == "spool":
             SPOOL.enqueue_labels(order, cups)
         else:
             def _async_print_labels():
@@ -672,7 +675,7 @@ def order_mark_paid():
         # Mở két CHỈ khi tiền mặt. VietQR/chuyển khoản không có tiền mặt để bỏ két → không kick.
         method = ((recp.get("payment") or {}).get("method")) or p.get("payment_method") or "cash"
         is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
-        if PRINT_ENGINE == "spool":
+        if _print_engine() == "spool":
             SPOOL.enqueue_receipt(recp, is_cash); receipt_printed = True
         else:
             try:
