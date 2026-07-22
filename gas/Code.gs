@@ -42,7 +42,10 @@ function _authorize(authClass, e, payload) {
     return _requireStaffToken(e || { parameter: { token: payload && payload.token } });
   }
   if (authClass === AUTH.REPORT) {
-    return _requireTokenIfSet(e || { parameter: { token: payload && payload.token } });
+    // Token có thể ở query (GET: e.parameter.token) HOẶC body JSON (POST: payload.token).
+    // Bug cũ: e truthy cho POST → chỉ đọc query → POST-body token bị bỏ → unauthorized.
+    var _rt = (e && e.parameter && e.parameter.token) || (payload && payload.token) || '';
+    return _requireTokenIfSet({ parameter: { token: _rt } });
   }
   if (authClass === AUTH.ADMIN) {
     var token = (payload && payload.token) || (e && e.parameter && e.parameter.token) || '';

@@ -20,6 +20,15 @@ def _now_iso():
 def _letter_for(dtype):
     return "G" if dtype == "delivery" else ("Q" if dtype == "dine_in" else "M")
 
+def _ssl_ctx():
+    # macOS/miniconda Python thiếu CA root → ssl.create_default_context() trần ném
+    # CERTIFICATE_VERIFY_FAILED khi gọi Google. Dùng certifi như print_poller._ssl_ctx.
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS outbox (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +80,7 @@ class Gateway:
                            "token": self.token}).encode()
         req = urllib.request.Request(self.gas_url, data=body,
               headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(req, timeout=8, context=ssl.create_default_context()) as r:
+        with urllib.request.urlopen(req, timeout=8, context=_ssl_ctx()) as r:
             d = json.loads(r.read().decode())
         if not d.get("ok"):
             raise RuntimeError("reserve failed: %s" % d)
@@ -182,7 +191,7 @@ class Gateway:
         body = json.dumps({**payload, "token": self.token}).encode()
         req = urllib.request.Request(self.gas_url, data=body,
               headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(req, timeout=10, context=ssl.create_default_context()) as r:
+        with urllib.request.urlopen(req, timeout=10, context=_ssl_ctx()) as r:
             return json.loads(r.read().decode())
 
     def sync_once(self):

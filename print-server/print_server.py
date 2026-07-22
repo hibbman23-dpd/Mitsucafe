@@ -173,7 +173,7 @@ def _gas_post(payload: dict, timeout=8) -> dict:
     body = json.dumps({**payload, "token": GATEWAY.token}).encode()
     req = urllib.request.Request(GATEWAY.gas_url, data=body,
           headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout, context=ssl.create_default_context()) as r:
+    with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as r:
         return json.loads(r.read().decode())
 
 
