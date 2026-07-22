@@ -4,15 +4,25 @@ print_poller.py — Mac Mini polling GAS cho receipt print jobs.
 Kiến trúc: Mac Mini tự poll GAS mỗi vài giây qua HTTPS (GAS không thể push
 về LAN vì chạy trên Google Cloud).
 
-Flow:
-  1. GET {GAS_URL}?action=pending_print  → danh sách đơn DELIVERED chưa in
-  2. Với mỗi đơn: build ESC/POS receipt → POST localhost:5001/print/receipt
-  3. GET {GAS_URL}?action=mark_printed&order_id=...  → đánh dấu đã in
+Gated behind PRINT_ENGINE (giống print_server.py /order route — Task 9), để
+rollout đảo ngược được bằng 1 flag duy nhất:
+
+  PRINT_ENGINE=legacy (default)
+    1. GET {GAS_URL}?action=pending_print/pending_labels  → đơn chưa in
+    2. Với mỗi đơn: build ESC/POS receipt / TSPL label → POST localhost:5001/print/*
+    3. GET {GAS_URL}?action=mark_printed/mark_labels_printed  → đánh dấu đã in
+    (poller tự render + tự mark GAS, như trước Task 10)
+
+  PRINT_ENGINE=spool
+    1. GET {GAS_URL}?action=pending_print/pending_labels  → đơn chưa in
+    2. POST order JSON (nguyên) tới localhost:5001/enqueue/labels|receipt
+    3. KHÔNG mark GAS ở đây — PrintWorker bên print_server.py in xong mới mark.
 
 ENV vars:
   GAS_WEBAPP_URL      URL GAS Web App (bắt buộc)
   PRINT_SERVER_URL    URL Flask print server (default: http://127.0.0.1:5001)
   POLL_INTERVAL       Giây giữa 2 lần poll (default: 3)
+  PRINT_ENGINE        legacy | spool  (default: legacy)
   RECEIPT_MODE        raster | text  (default: raster)
   RASTER_FONT         Đường dẫn tới file .ttf (default: auto-detect)
   RASTER_DOTS_WIDTH   Dot width của máy in (default: 384)
@@ -43,6 +53,11 @@ REPORT_API_TOKEN  = os.getenv("REPORT_API_TOKEN", "")
 _TQ = ("&token=" + REPORT_API_TOKEN) if REPORT_API_TOKEN else ""
 PRINT_SERVER_URL  = os.getenv("PRINT_SERVER_URL", "http://127.0.0.1:5001")
 POLL_INTERVAL     = float(os.getenv("POLL_INTERVAL", "3"))
+
+
+def _engine():
+    return os.getenv("PRINT_ENGINE", "legacy")
+
 
 _LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
@@ -121,22 +136,72 @@ def poll_labels_once() -> bool:
     log.info("Found %d order(s) for labels", len(orders))
     printed_any = False
 
+    if _engine() == "spool":
+        for order in orders:
+            order_id = order.get("order_id", "?")
+            if order.get("label_printed_at"):
+                continue  # Đã được đánh dấu in ở Google Sheets
+            items = order.get("items") or []
+            if not items:
+                log.warning("Order %s: no items, skip labels", order_id)
+                continue
+            try:
+                resp = _post_json(PRINT_SERVER_URL + "/enqueue/labels", {"order": order})
+                if not resp.get("ok"):
+                    raise RuntimeError(f"enqueue labels: {resp}")
+                log.info("Labels enqueued for %s (%d new)", order_id, resp.get("enqueued", 0))
+                printed_any = True
+            except Exception as exc:
+                log.error("Labels enqueue failed for %s: %s", order_id, exc)
+        return printed_any
+
+    # legacy: tự render + POST /print/label + tự mark GAS
     for order in orders:
         order_id = order.get("order_id", "?")
         if order.get("label_printed_at"):
             continue  # Đã được đánh dấu in ở Google Sheets
-        items = order.get("items") or []
-        if not items:
+
+        # Chống in trùng: Nếu Gateway local đã mint/in đơn này tại quán -> chỉ mark GAS, không in trùng
+        if _printed_by_gateway_local(order_id):
+            log.info("Order %s already processed locally by Gateway; marking GAS label_printed_at", order_id)
+            try:
+                mark_url = GAS_WEBAPP_URL + f"?action=mark_labels_printed&order_id={order_id}" + _TQ
+                _get_json(mark_url)
+            except Exception as exc:
+                log.warning("mark_labels_printed failed for local order %s: %s", order_id, exc)
+            continue
+        items    = order.get("items") or []
+
+        cups = []
+        for it in items:
+            qty = max(1, int(it.get("qty", 1)))
+            for _ in range(qty):
+                cups.append(it)
+        total = len(cups)
+
+        if total == 0:
             log.warning("Order %s: no items, skip labels", order_id)
             continue
+
+        all_ok = True
         try:
-            resp = _post_json(PRINT_SERVER_URL + "/enqueue/labels", {"order": order})
+            labels_data = build_order_labels_tspl(order, cups)
+            resp = _post_bytes(PRINT_SERVER_URL + "/print/label", labels_data)
             if not resp.get("ok"):
-                raise RuntimeError(f"enqueue labels: {resp}")
-            log.info("Labels enqueued for %s (%d new)", order_id, resp.get("enqueued", 0))
+                raise RuntimeError(f"Print server: {resp}")
+            log.info("Labels printed for %s (%d cup(s), %d bytes)", order_id, total, resp.get("bytes", 0))
             printed_any = True
         except Exception as exc:
-            log.error("Labels enqueue failed for %s: %s", order_id, exc)
+            log.error("Labels failed for %s: %s", order_id, exc)
+            all_ok = False
+
+        if all_ok:
+            try:
+                mark_url = GAS_WEBAPP_URL + f"?action=mark_labels_printed&order_id={order_id}" + _TQ
+                _get_json(mark_url)
+                log.info("Labels marked: %s (%d cup(s))", order_id, total)
+            except Exception as exc:
+                log.warning("mark_labels_printed failed  %s: %s", order_id, exc)
 
     return printed_any
 
@@ -160,19 +225,49 @@ def poll_once() -> bool:
     log.info("Found %d order(s) to print", len(orders))
     printed_any = False
 
+    if _engine() == "spool":
+        for order in orders:
+            order_id = order.get("order_id", "?")
+            method = ((order.get("payment") or {}).get("method") or "cash")
+            is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
+            try:
+                resp = _post_json(PRINT_SERVER_URL + "/enqueue/receipt",
+                                  {"order": order, "is_cash": is_cash})
+                if not resp.get("ok"):
+                    raise RuntimeError(f"enqueue receipt: {resp}")
+                log.info("Receipt enqueued for %s (%d new)", order_id, resp.get("enqueued", 0))
+                printed_any = True
+            except Exception as exc:
+                log.error("Receipt enqueue failed for %s: %s", order_id, exc)
+        return printed_any
+
+    # legacy: tự render ESC/POS + POST /print/receipt + tự mark GAS
     for order in orders:
         order_id = order.get("order_id", "?")
-        method = ((order.get("payment") or {}).get("method") or "cash")
-        is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
+        # Chống in trùng hoá đơn: Nếu Gateway local đã mint/in đơn này tại quán -> chỉ mark GAS, không in trùng
+        if _printed_by_gateway_local(order_id):
+            log.info("Order %s already processed locally by Gateway; marking GAS printed_at", order_id)
+            try:
+                mark_url = GAS_WEBAPP_URL + f"?action=mark_printed&order_id={order_id}" + _TQ
+                _get_json(mark_url)
+            except Exception as exc:
+                log.warning("mark_printed failed for local order %s: %s", order_id, exc)
+            continue
         try:
-            resp = _post_json(PRINT_SERVER_URL + "/enqueue/receipt",
-                              {"order": order, "is_cash": is_cash})
+            esc = build_receipt(order)
+            resp = _post_bytes(PRINT_SERVER_URL + "/print/receipt", esc)
             if not resp.get("ok"):
-                raise RuntimeError(f"enqueue receipt: {resp}")
-            log.info("Receipt enqueued for %s (%d new)", order_id, resp.get("enqueued", 0))
+                raise RuntimeError(f"Print server error: {resp}")
+            log.info("Printed receipt for %s (%d bytes, mode=%s)",
+                     order_id, resp.get("bytes", 0), RECEIPT_MODE)
             printed_any = True
+
+            mark_url = GAS_WEBAPP_URL + f"?action=mark_printed&order_id={order_id}" + _TQ
+            _get_json(mark_url)
+            log.info("Marked printed: %s", order_id)
+
         except Exception as exc:
-            log.error("Receipt enqueue failed for %s: %s", order_id, exc)
+            log.error("Failed to print %s: %s", order_id, exc)
 
     return printed_any
 
