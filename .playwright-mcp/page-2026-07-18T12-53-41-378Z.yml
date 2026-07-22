@@ -1,0 +1,154 @@
+- generic [active] [ref=f1e1]:
+  - heading "Ba hướng thiết kế bảng menu vật lý (A-frame) đặt trước quán Mitsu Kissaten, Lâm Hà — theo phong cách junkissa 純喫茶." [level=2] [ref=f1e2]
+  - generic [ref=f1e4]:
+    - paragraph [ref=f1e5]: Mitsu 蜜 · 純喫茶 — bảng menu đứng trước quán
+    - heading [level=1] [ref=f1e6]:
+      - text: Không phải bảng đen phấn trắng.Một tấm biển
+      - emphasis [ref=f1e7]: men
+      - text: kiểu junkissa.
+    - paragraph [ref=f1e8]: Ba hướng dựng bảng menu A-frame đặt vỉa hè 938 Hùng Vương. Cùng một bộ nhận diện (men cream, mật ong, dấu triện đỏ), khác nhau ở ý niệm. Đọc rõ từ 3m, sống được dưới mưa cao nguyên.
+    - generic [ref=f1e10]:
+      - generic [ref=f1e20]:
+        - generic [ref=f1e21]: ◆ Hướng đề xuất · 琺瑯 Men Mật
+        - generic [ref=f1e22]:
+          - generic [ref=f1e23]: 蜜
+          - generic [ref=f1e24]:
+            - generic [ref=f1e25]: Mitsu.
+            - generic [ref=f1e26]: 純喫茶 · Lâm Hà · từ vườn đồi Lâm Đồng
+        - generic [ref=f1e27]:
+          - generic [ref=f1e28]: Hôm nay quán có
+          - generic [ref=f1e29]: 本日のしながき
+        - generic [ref=f1e30]: Cà phê
+        - generic [ref=f1e31]:
+          - generic [ref=f1e32]: Cà phê đen
+          - generic [ref=f1e33]: Robusta Cầu Đất · rang mộc
+          - generic [ref=f1e35]: "25"
+        - generic [ref=f1e36]:
+          - generic [ref=f1e37]: Cà phê sữa đá
+          - generic [ref=f1e38]: phin truyền thống
+          - generic [ref=f1e40]: "29"
+        - generic [ref=f1e41]:
+          - generic [ref=f1e42]: Bạc xỉu
+          - generic [ref=f1e43]: nhiều sữa · nhẹ vị
+          - generic [ref=f1e45]: "35"
+        - generic [ref=f1e46]:
+          - generic [ref=f1e47]: Cà phê signature ◈
+          - generic [ref=f1e48]: bản đặc biệt của quán
+          - generic [ref=f1e50]: "65"
+        - generic [ref=f1e51]: Bánh
+        - generic [ref=f1e52]:
+          - generic [ref=f1e53]: Croissant
+          - generic [ref=f1e54]: bơ Pháp · nướng sáng
+          - generic [ref=f1e56]: "30"
+        - generic [ref=f1e57]:
+          - generic [ref=f1e58]: Bánh táo ◈
+          - generic [ref=f1e59]: táo quế · ủ mật
+          - generic [ref=f1e61]: "15"
+        - generic [ref=f1e62]:
+          - generic [ref=f1e63]: Gom mật ngọt, Gắn yêu thương.
+          - generic "Kin · Ritsu · Sō" [ref=f1e64]:
+            - generic [ref=f1e65]: 勤
+            - generic [ref=f1e66]: 律
+            - generic [ref=f1e67]: 創
+      - generic [ref=f1e68]:
+        - heading "琺瑯 “Men Mật” — bảng men tráng kiểu Showa" [level=3] [ref=f1e69]
+        - paragraph [ref=f1e70]: "Ý niệm: biển men (hōrō) treo trước tiệm cà phê Nhật thời Showa — nhưng nội dung là menu quán. Nền men cream bóng, dải mật ong, số giá màu triện đỏ. Nét ký tên: con triện 蜜 đỏ + 4 đinh tán lục giác (tổ ong) ở góc."
+        - list [ref=f1e71]:
+          - listitem [ref=f1e72]: 蜜 Men tráng chịu mưa nắng cao nguyên — không lem như phấn, không cong như in giấy.
+          - listitem [ref=f1e73]: 蜜 Đúng chất junkissa mà không quán nào ở Lâm Hà đang làm — khác hẳn bảng đen doodle.
+          - listitem [ref=f1e74]: 蜜 Dòng “terroir” dưới mỗi món (Cầu Đất · rang mộc) kể chuyện vùng nguyên liệu, đúng brand.
+          - listitem [ref=f1e75]: 蜜 Giá đọc rõ, số ít món — bảng sạch, không nhồi.
+    - heading "Ba hướng để anh chọn" [level=1] [ref=f1e77]
+    - paragraph [ref=f1e78]: Khác nhau ở ý niệm, không phải đổi màu. Ít nhất một hướng hơi liều.
+    - generic [ref=f1e79]:
+      - generic [ref=f1e80]:
+        - generic [ref=f1e82]:
+          - generic [ref=f1e83]:
+            - generic [ref=f1e84]: 蜜
+            - generic [ref=f1e85]: Mitsu.
+          - generic [ref=f1e86]: 本日のしながき · HÔM NAY
+          - generic [ref=f1e87]:
+            - generic [ref=f1e88]: Cà phê đen
+            - generic [ref=f1e89]: "25"
+          - generic [ref=f1e90]:
+            - generic [ref=f1e91]: Bạc xỉu
+            - generic [ref=f1e92]: "35"
+          - generic [ref=f1e93]:
+            - generic [ref=f1e94]: Signature
+            - generic [ref=f1e95]: "65"
+          - generic [ref=f1e96]:
+            - generic [ref=f1e97]: Croissant
+            - generic [ref=f1e98]: "30"
+        - generic [ref=f1e99]:
+          - generic [ref=f1e100]: 琺瑯Men Mật
+          - generic [ref=f1e101]: Đề xuất
+        - paragraph [ref=f1e102]: Biển men Showa. Chịu thời tiết, cổ điển, khác biệt tức thì. An toàn mà vẫn có cốt.
+      - generic [ref=f1e103]:
+        - generic [ref=f1e105]:
+          - generic [ref=f1e106]:
+            - generic [ref=f1e107]:
+              - generic [ref=f1e108]: Cà phê đen
+              - generic [ref=f1e109]: "25"
+            - generic [ref=f1e110]:
+              - generic [ref=f1e111]: Hôm nay
+              - generic [ref=f1e112]: −10%
+            - generic [ref=f1e113]:
+              - generic [ref=f1e114]: Bạc xỉu
+              - generic [ref=f1e115]: "35"
+            - generic [ref=f1e116]:
+              - generic [ref=f1e117]: Sữa đá
+              - generic [ref=f1e118]: "29"
+            - generic [ref=f1e119]:
+              - generic [ref=f1e120]: Signature
+              - generic [ref=f1e121]: "65"
+            - generic [ref=f1e122]:
+              - generic [ref=f1e123]: Croissant
+              - generic [ref=f1e124]: "30"
+          - generic [ref=f1e125]: 三蜜 · mỗi ô một món · rút–gắn được
+        - generic [ref=f1e126]: 巣Tổ Ong
+        - paragraph [ref=f1e128]: "Menu là tổ ong: mỗi món một ô lục giác nam châm, rút ra gắn vào đổi món/giá theo ngày. Ô mật ong = ưu đãi hôm nay."
+      - generic [ref=f1e129]:
+        - generic [ref=f1e131]:
+          - generic [ref=f1e132]: Sương & Mật
+          - generic [ref=f1e133]: 霧 · しずく — sổ tay của quán
+          - generic [ref=f1e134]:
+            - generic [ref=f1e135]:
+              - text: Cà phê đen
+              - generic [ref=f1e136]: Cầu Đất · rang mộc
+            - generic [ref=f1e137]: "25"
+          - generic [ref=f1e138]:
+            - generic [ref=f1e139]:
+              - text: Bạc xỉu
+              - generic [ref=f1e140]: sữa Mộc Châu
+            - generic [ref=f1e141]: "35"
+          - generic [ref=f1e142]:
+            - generic [ref=f1e143]:
+              - text: Croissant
+              - generic [ref=f1e144]: nướng sáng
+            - generic [ref=f1e145]: "30"
+        - generic [ref=f1e146]: 霧Sổ Sương
+        - paragraph [ref=f1e148]: "Bản editorial tối giản: một cột, chữ Fraunces nghiêng lớn, nền giấy mộc sau kính, nhấn xanh rêu. “Wine-list” cho cà phê — premium mà lặng."
+    - generic [ref=f1e150]:
+      - generic [ref=f1e151]:
+        - generic [ref=f1e152]: Kích thước
+        - generic [ref=f1e153]:
+          - text: A-frame ~60×90cm
+          - generic [ref=f1e154]: mặt biển đọc ở tầm 1,3–1,6m
+      - generic [ref=f1e155]:
+        - generic [ref=f1e156]: Chất liệu
+        - generic [ref=f1e157]:
+          - text: Thép tráng men
+          - generic [ref=f1e158]: hoặc alu phủ UV matte + khung gỗ thông dầu
+      - generic [ref=f1e159]:
+        - generic [ref=f1e160]: Hoàn thiện
+        - generic [ref=f1e161]:
+          - text: Men bóng + triện đỏ
+          - generic [ref=f1e162]: một điểm bóng duy nhất; nền matte quanh
+      - generic [ref=f1e163]:
+        - generic [ref=f1e164]: Đọc xa
+        - generic [ref=f1e165]:
+          - text: Tên món ≥ 22mm
+          - generic [ref=f1e166]: rõ từ 3m — đủ cho người đi bộ & xe chậm
+    - contentinfo [ref=f1e167]:
+      - generic [ref=f1e168]: 蜜 — một giọt mật cần ba con ong.
+      - text: Mitsu Kissaten · 938 Hùng Vương, Đinh Văn, Lâm Hà · concept bảng menu vỉa hè

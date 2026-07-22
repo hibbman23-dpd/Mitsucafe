@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#F2EBDD"/>
+  <g transform="translate(200,188) scale(2.6)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- honeycomb frame -->
+    <polygon points="120,14 211,67 211,181 120,234 29,181 29,67" stroke="#B4382B" stroke-width="9"/>
+    <polygon points="120,28 199,74 199,174 120,220 41,174 41,74" stroke="#C68A3E" stroke-width="2" opacity="0.55"/>
+    <!-- honey cell motif -->
+    <polygon points="120,42 134,50 134,66 120,74 106,66 106,50" stroke="#C68A3E" stroke-width="3"/>
+    <!-- wordmark: mitsu (monoline) -->
+    <g stroke="#B4382B" stroke-width="8">
+      <path d="M50 150 V112 Q50 100 62 100 Q74 100 74 112 V150"/>
+      <path d="M74 112 Q74 100 86 100 Q98 100 98 112 V150"/>
+      <path d="M106 150 V108"/>
+      <path d="M120 88 V143 Q120 150 127 150"/><path d="M109 106 H133"/>
+      <path d="M156 109 Q156 100 146 100 Q136 100 136 110 Q136 119 146 123 Q156 127 156 137 Q156 150 146 150 Q137 150 137 141"/>
+      <path d="M166 100 V139 Q166 150 177 150 Q188 150 188 139 V100"/><path d="M188 100 V150"/>
+    </g>
+    <g fill="#C68A3E">
+      <circle cx="106" cy="95" r="3.4"/>
+      <circle cx="108" cy="210" r="3.2"/><circle cx="120" cy="214" r="3.2"/><circle cx="132" cy="210" r="3.2"/>
+    </g>
+  </g>
+</svg>

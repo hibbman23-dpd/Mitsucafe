@@ -1,0 +1,109 @@
+- main [ref=f3e2]:
+  - complementary [ref=f3e3]:
+    - generic [ref=f3e4]:
+      - generic [ref=f3e5]: 05:36
+      - generic [ref=f3e6]:
+        - generic [ref=f3e7]: Fri 3 Jul
+        - generic [ref=f3e8]: OUT 17.2°
+    - navigation "Rooms" [ref=f3e9]:
+      - button "Living Room lights ♪ 20.8°" [ref=f3e10] [cursor=pointer]:
+        - generic [ref=f3e12]: Living Room
+        - generic [ref=f3e13]:
+          - generic "lights" [ref=f3e14]
+          - generic "music" [ref=f3e15]: ♪
+          - generic [ref=f3e16]: 20.8°
+      - button "Kitchen lights ♪ 21.2°" [ref=f3e17] [cursor=pointer]:
+        - generic [ref=f3e19]: Kitchen
+        - generic [ref=f3e20]:
+          - generic "lights" [ref=f3e21]
+          - generic "music" [ref=f3e22]: ♪
+          - generic [ref=f3e23]: 21.2°
+      - button "Bedroom lights ♪ 19.4°" [ref=f3e24] [cursor=pointer]:
+        - generic [ref=f3e26]: Bedroom
+        - generic [ref=f3e27]:
+          - generic "lights" [ref=f3e28]
+          - generic "music" [ref=f3e29]: ♪
+          - generic [ref=f3e30]: 19.4°
+      - button "Kids’ Room lights ♪ 20.9°" [ref=f3e31] [cursor=pointer]:
+        - generic [ref=f3e33]: Kids’ Room
+        - generic [ref=f3e34]:
+          - generic "lights" [ref=f3e35]
+          - generic "music" [ref=f3e36]: ♪
+          - generic [ref=f3e37]: 20.9°
+      - button "Study lights ♪ 20.2°" [ref=f3e38] [cursor=pointer]:
+        - generic [ref=f3e40]: Study
+        - generic [ref=f3e41]:
+          - generic "lights" [ref=f3e42]
+          - generic "music" [ref=f3e43]: ♪
+          - generic [ref=f3e44]: 20.2°
+    - region "Scenes" [ref=f3e45]:
+      - heading "Scenes — one tap" [level=2] [ref=f3e46]
+      - generic [ref=f3e47]:
+        - button "● Morning" [ref=f3e48] [cursor=pointer]:
+          - generic [ref=f3e49]: ●
+          - text: Morning
+        - button "● Movie" [ref=f3e50] [cursor=pointer]:
+          - generic [ref=f3e51]: ●
+          - text: Movie
+        - button "● Night" [ref=f3e52] [cursor=pointer]:
+          - generic [ref=f3e53]: ●
+          - text: Night
+        - button "○ All off" [ref=f3e54] [cursor=pointer]:
+          - generic [ref=f3e55]: ○
+          - text: All off
+  - generic [ref=f3e56]:
+    - generic [ref=f3e57]:
+      - heading "Living Room" [level=1] [ref=f3e58]
+      - paragraph [ref=f3e59]: 2 lights on · set 21.5° · music on
+    - generic [ref=f3e60]:
+      - region "Temperature" [ref=f3e61]:
+        - generic [ref=f3e62]:
+          - heading "Temperature" [level=2] [ref=f3e63]
+          - generic [ref=f3e64]: heating
+        - generic [ref=f3e65]:
+          - img [ref=f3e66]
+          - generic:
+            - generic: 21.5°
+            - generic: NOW 20.8°
+        - generic [ref=f3e92]:
+          - button "Lower temperature" [ref=f3e93] [cursor=pointer]: −
+          - button "Raise temperature" [ref=f3e94] [cursor=pointer]: +
+      - region "Lights" [ref=f3e95]:
+        - generic [ref=f3e96]:
+          - heading "Lights" [level=2] [ref=f3e97]
+          - generic [ref=f3e98]: 2 of 3 on
+        - list [ref=f3e99]:
+          - listitem [ref=f3e100]:
+            - button "Ceiling" [pressed] [ref=f3e101] [cursor=pointer]:
+              - generic [ref=f3e102]: Ceiling
+          - listitem [ref=f3e105]:
+            - button "Reading lamp" [pressed] [ref=f3e106] [cursor=pointer]:
+              - generic [ref=f3e107]: Reading lamp
+          - listitem [ref=f3e110]:
+            - button "Shelf strip" [ref=f3e111] [cursor=pointer]:
+              - generic [ref=f3e112]: Shelf strip
+        - generic [ref=f3e115]:
+          - text: Brightness
+          - generic [ref=f3e116]:
+            - slider "Brightness" [ref=f3e117] [cursor=pointer]: "70"
+            - generic [ref=f3e118]: 70%
+      - region "Music" [ref=f3e119]:
+        - generic [ref=f3e120]:
+          - heading "Music" [level=2] [ref=f3e121]
+          - generic [ref=f3e122]: playing
+        - generic [ref=f3e123]:
+          - generic [ref=f3e124]: ♪
+          - generic [ref=f3e125]:
+            - generic [ref=f3e126]: Clair de Lune
+            - generic [ref=f3e127]: Claude Debussy
+        - generic [ref=f3e132]:
+          - button "Previous track" [ref=f3e133] [cursor=pointer]:
+            - img [ref=f3e134]
+          - button "Play or pause" [pressed] [ref=f3e136] [cursor=pointer]:
+            - img [ref=f3e137]
+          - button "Next track" [ref=f3e139] [cursor=pointer]:
+            - img [ref=f3e140]
+        - generic [ref=f3e142]:
+          - generic [ref=f3e143]: Volume
+          - slider "Volume" [ref=f3e144] [cursor=pointer]: "35"
+          - generic [ref=f3e145]: 35%

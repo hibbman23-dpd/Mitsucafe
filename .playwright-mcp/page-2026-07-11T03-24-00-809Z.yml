@@ -1,0 +1,24 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: mitsu.
+        - text: (Lâm Hà)
+      - generic [ref=e6]: Đang tải...
+    - button "↺ Làm mới" [ref=e7] [cursor=pointer]
+  - navigation [ref=e8]:
+    - button "📋 Đơn hôm nay" [ref=e9] [cursor=pointer]
+    - button "➕ Gọi món" [ref=e10] [cursor=pointer]
+    - button "⭐ Khuyến mãi" [ref=e11] [cursor=pointer]
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - text: 🔔 Bật thông báo âm thanh khi xác nhận thanh toán
+      - button "Bật loa" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - button "Tất cả" [ref=e16] [cursor=pointer]
+      - button "⚠️ Chờ TT" [ref=e17] [cursor=pointer]
+      - button "Đang làm" [ref=e18] [cursor=pointer]
+      - button "✅ Đã TT" [ref=e19] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]: ☕
+      - text: Đang tải đơn hàng...

@@ -1,0 +1,180 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: mitsu.
+        - text: (Lâm Hà)
+      - generic [ref=e6]: ⚠️ Không tải được đơn
+    - button "↺ Làm mới" [ref=e7] [cursor=pointer]
+  - navigation [ref=e8]:
+    - button "📋 Đơn hôm nay" [ref=e9] [cursor=pointer]
+    - button "➕ Gọi món" [ref=e10] [cursor=pointer]
+    - button "⭐ Khuyến mãi" [ref=e11] [cursor=pointer]
+  - generic [ref=e29]:
+    - generic [ref=e30]:
+      - button "🍶 Tất cả" [ref=e31] [cursor=pointer]
+      - button "☕ Cà phê phin" [ref=e32] [cursor=pointer]
+      - button "🫗 Espresso" [ref=e33] [cursor=pointer]
+      - button "🧋 Trà sữa" [ref=e34] [cursor=pointer]
+      - button "🍑 Trà trái cây" [ref=e35] [cursor=pointer]
+      - button "🧊 Đá xay" [ref=e36] [cursor=pointer]
+      - button "🍵 Kissaten" [ref=e37] [cursor=pointer]
+      - button "🥐 Bánh" [ref=e38] [cursor=pointer]
+    - generic [ref=e39]:
+      - generic [ref=e40] [cursor=pointer]:
+        - generic [ref=e41]: ☕
+        - generic [ref=e42]: Cà phê đen đá
+        - generic [ref=e43]: ベトナム式ブラックコーヒー
+        - generic [ref=e44]: 22.000đ / 27.000đ
+      - generic [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]: ☕
+        - generic [ref=e47]: Cà phê sữa đá phin
+        - generic [ref=e48]: コンデンスミルク・コーヒー
+        - generic [ref=e49]: 25.000đ / 30.000đ
+      - generic [ref=e50] [cursor=pointer]:
+        - generic [ref=e51]: ⭐
+        - generic [ref=e52]: ☕
+        - generic [ref=e53]: Bạc xỉu
+        - generic [ref=e54]: 28.000đ / 33.000đ
+      - generic [ref=e55] [cursor=pointer]:
+        - generic [ref=e56]: ⭐
+        - generic [ref=e57]: ☕
+        - generic [ref=e58]: Cà phê dừa
+        - generic [ref=e59]: 32.000đ / 38.000đ
+      - generic [ref=e60] [cursor=pointer]:
+        - generic [ref=e61]: 🔥
+        - generic [ref=e62]: ☕
+        - generic [ref=e63]: Cà phê muối
+        - generic [ref=e64]: 30.000đ / 35.000đ
+      - generic [ref=e65] [cursor=pointer]:
+        - generic [ref=e66]: ✦
+        - generic [ref=e67]: ☕
+        - generic [ref=e68]: Cà phê kem trứng (Egg Coffee)
+        - generic [ref=e69]: 35.000đ / 42.000đ
+      - generic [ref=e70] [cursor=pointer]:
+        - generic [ref=e71]: 🫗
+        - generic [ref=e72]: Americano
+        - generic [ref=e73]: 35.000đ / 40.000đ
+      - generic [ref=e74] [cursor=pointer]:
+        - generic [ref=e75]: ⭐
+        - generic [ref=e76]: 🫗
+        - generic [ref=e77]: Latte
+        - generic [ref=e78]: 42.000đ / 48.000đ
+      - generic [ref=e79] [cursor=pointer]:
+        - generic [ref=e80]: ⭐
+        - generic [ref=e81]: 🫗
+        - generic [ref=e82]: Cappuccino / Caramel Macchiato
+        - generic [ref=e83]: 45.000đ / 52.000đ
+      - generic [ref=e84] [cursor=pointer]:
+        - generic [ref=e85]: ⭐
+        - generic [ref=e86]: 🧋
+        - generic [ref=e87]: Trà sữa truyền thống
+        - generic [ref=e88]: 32.000đ / 38.000đ
+      - generic [ref=e89] [cursor=pointer]:
+        - generic [ref=e90]: ✦
+        - generic [ref=e91]: 🧋
+        - generic [ref=e92]: Trà sữa Ô Long Lâm Đồng
+        - generic [ref=e93]: ラムドン烏龍ミルクティー
+        - generic [ref=e94]: 38.000đ / 45.000đ
+      - generic [ref=e95] [cursor=pointer]:
+        - generic [ref=e96]: ⭐
+        - generic [ref=e97]: 🧋
+        - generic [ref=e98]: Trà sữa trân châu đường đen
+        - generic [ref=e99]: 38.000đ / 45.000đ
+      - generic [ref=e100] [cursor=pointer]:
+        - generic [ref=e101]: ⭐
+        - generic [ref=e102]: 🧋
+        - generic [ref=e103]: Trà sữa nhài Chặng 2
+        - generic [ref=e104]: 35.000đ / 40.000đ
+      - generic [ref=e105] [cursor=pointer]:
+        - generic [ref=e106]: ⭐
+        - generic [ref=e107]: 🍑
+        - generic [ref=e108]: Trà đào cam sả
+        - generic [ref=e109]: 32.000đ / 38.000đ
+      - generic [ref=e110] [cursor=pointer]:
+        - generic [ref=e111]: ⭐
+        - generic [ref=e112]: 🍑
+        - generic [ref=e113]: Trà sen vàng
+        - generic [ref=e114]: 35.000đ / 42.000đ
+      - generic [ref=e115] [cursor=pointer]:
+        - generic [ref=e116]: 🌿
+        - generic [ref=e117]: 🍑
+        - generic [ref=e118]: Trà vải / Trà thơm
+        - generic [ref=e119]: 32.000đ / 38.000đ
+      - generic [ref=e120] [cursor=pointer]:
+        - generic [ref=e121]: 🍑
+        - generic [ref=e122]: Trà chanh giã tay
+        - generic [ref=e123]: 22.000đ / 27.000đ
+      - generic [ref=e124] [cursor=pointer]:
+        - generic [ref=e125]: ⭐
+        - generic [ref=e126]: 🧊
+        - generic [ref=e127]: Freeze trà xanh đá xay
+        - generic [ref=e128]: 42.000đ / 48.000đ
+      - generic [ref=e129] [cursor=pointer]:
+        - generic [ref=e130]: ⭐
+        - generic [ref=e131]: 🧊
+        - generic [ref=e132]: Cookies & Cream đá xay
+        - generic [ref=e133]: 42.000đ / 48.000đ
+      - generic [ref=e134] [cursor=pointer]:
+        - generic [ref=e135]: ✦
+        - generic [ref=e136]: 🧊
+        - generic [ref=e137]: Matcha đá xay
+        - generic [ref=e138]: 45.000đ / 52.000đ
+      - generic [ref=e139] [cursor=pointer]:
+        - generic [ref=e140]: ✦
+        - generic [ref=e141]: 🍵
+        - generic [ref=e142]: Hojicha Latte
+        - generic [ref=e143]: ほうじ茶ラテ
+        - generic [ref=e144]: 48.000đ / 55.000đ
+      - generic [ref=e145] [cursor=pointer]:
+        - generic [ref=e146]: ✦
+        - generic [ref=e147]: 🍵
+        - generic [ref=e148]: Matcha Latte
+        - generic [ref=e149]: 抹茶ラテ
+        - generic [ref=e150]: 52.000đ / 60.000đ
+      - generic [ref=e151] [cursor=pointer]:
+        - generic [ref=e152]: 🌿
+        - generic [ref=e153]: 🍵
+        - generic [ref=e154]: Yuzu Honey Tea
+        - generic [ref=e155]: 柚子蜂蜜茶
+        - generic [ref=e156]: 45.000đ / 52.000đ
+      - generic [ref=e157] [cursor=pointer]:
+        - generic [ref=e158]: 🥐
+        - generic [ref=e159]: Bánh croissant bơ Pháp
+        - generic [ref=e160]: 28.000đ
+      - generic [ref=e161] [cursor=pointer]:
+        - generic [ref=e162]: 🥐
+        - generic [ref=e163]: Tiramisu
+        - generic [ref=e164]: 42.000đ
+      - generic [ref=e165] [cursor=pointer]:
+        - generic [ref=e166]: 🥐
+        - generic [ref=e167]: Bánh mì pate Hà Nội
+        - generic [ref=e168]: 25.000đ
+      - generic [ref=e169] [cursor=pointer]:
+        - generic [ref=e170]: ✦
+        - generic [ref=e171]: 🍵
+        - generic [ref=e172]: Wagashi (theo mùa)
+        - generic [ref=e173]: 和菓子
+        - generic [ref=e174]: 35.000đ
+  - generic [ref=e176]:
+    - generic [ref=e178]:
+      - generic [ref=e179]: Latte
+      - button "✕" [ref=e180] [cursor=pointer]
+    - generic [ref=e181]:
+      - generic [ref=e182]:
+        - generic [ref=e183]: Kích thước
+        - generic [ref=e184]:
+          - button "M — 42.000đ" [ref=e185] [cursor=pointer]
+          - button "L — 48.000đ" [ref=e186] [cursor=pointer]
+      - generic [ref=e187]:
+        - generic [ref=e188]: Đường
+        - generic [ref=e189]:
+          - button "Không ngọt" [ref=e190] [cursor=pointer]
+          - button "Ít ngọt" [ref=e191] [cursor=pointer]
+          - button "Ngọt" [ref=e192] [cursor=pointer]
+      - generic [ref=e193]:
+        - generic [ref=e194]: Đá
+        - generic [ref=e195]:
+          - button "Không đá" [ref=e196] [cursor=pointer]
+          - button "Ít đá" [ref=e197] [cursor=pointer]
+    - button "Thêm vào giỏ · 42.000đ" [ref=e199] [cursor=pointer]

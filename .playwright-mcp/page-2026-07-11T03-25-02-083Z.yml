@@ -1,0 +1,36 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: mitsu.
+        - text: (Lâm Hà)
+      - generic [ref=e6]: ⚠️ Không tải được đơn
+    - button "↺ Làm mới" [ref=e7] [cursor=pointer]
+  - navigation [ref=e8]:
+    - button "📋 Đơn hôm nay" [ref=e9] [cursor=pointer]
+    - button "➕ Gọi món" [ref=e10] [cursor=pointer]
+    - button "⭐ Khuyến mãi" [active] [ref=e11] [cursor=pointer]
+  - generic [ref=e201]:
+    - heading "⭐ Cấu hình Khuyến mãi toàn quán" [level=2] [ref=e202]:
+      - generic [ref=e203]: ⭐
+      - text: Cấu hình Khuyến mãi toàn quán
+    - generic [ref=e204]:
+      - generic [ref=e205]: "Trạng thái hiện tại:"
+      - generic [ref=e206]: 🔴 ĐANG TẮT
+    - generic [ref=e207]:
+      - generic [ref=e208]:
+        - generic [ref=e209]: Thông điệp hiển thị trên Banner
+        - textbox [ref=e210]: "Ưu đãi đặc biệt: Giảm giá toàn bộ menu!"
+      - generic [ref=e211]:
+        - generic [ref=e212]: Mức giảm
+        - generic [ref=e213]:
+          - generic [ref=e214] [cursor=pointer]: Giảm 5%
+          - generic [ref=e215] [cursor=pointer]: Giảm 10%
+      - generic [ref=e216]:
+        - generic [ref=e217]: Thời lượng áp dụng
+        - generic [ref=e218]:
+          - generic [ref=e219] [cursor=pointer]: 1 Giờ
+          - generic [ref=e220] [cursor=pointer]: 2 Giờ
+          - generic [ref=e221] [cursor=pointer]: 4 Giờ
+          - generic [ref=e222] [cursor=pointer]: Đến hết ngày
+      - button "Kích hoạt KM" [ref=e224] [cursor=pointer]

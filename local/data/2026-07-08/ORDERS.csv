@@ -1,0 +1,4 @@
+order_id,timestamp,location_id,items_json,total,status
+ORD-0001,2026-07-07 08:15:00,LH01,"[{""name"": ""Cà phê đen"", ""qty"": 2, ""price"": 25000}]",50000,DELIVERED
+ORD-0002,2026-07-07 09:20:00,LH01,"[{""name"": ""Bạc xỉu"", ""qty"": 1, ""price"": 35000}, {""name"": ""Bánh Croissant"", ""qty"": 1, ""price"": 30000}]",65000,DELIVERED
+ORD-0003,2026-07-07 15:30:00,LH01,"[{""name"": ""Cà phê sữa đá"", ""qty"": 1, ""price"": 29000}]",29000,DELIVERED

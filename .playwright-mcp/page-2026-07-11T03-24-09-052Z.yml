@@ -1,0 +1,25 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: mitsu.
+        - text: (Lâm Hà)
+      - generic [ref=e6]: ⚠️ Không tải được đơn
+    - button "↺ Làm mới" [ref=e7] [cursor=pointer]
+  - navigation [ref=e8]:
+    - button "📋 Đơn hôm nay" [ref=e9] [cursor=pointer]
+    - button "➕ Gọi món" [ref=e10] [cursor=pointer]
+    - button "⭐ Khuyến mãi" [ref=e11] [cursor=pointer]
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - text: 🔔 Bật thông báo âm thanh khi xác nhận thanh toán
+      - button "Bật loa" [ref=e14] [cursor=pointer]
+    - generic [ref=e15]:
+      - button "Tất cả" [ref=e16] [cursor=pointer]
+      - button "⚠️ Chờ TT" [ref=e17] [cursor=pointer]
+      - button "Đang làm" [ref=e18] [cursor=pointer]
+      - button "✅ Đã TT" [ref=e19] [cursor=pointer]
+    - generic [ref=e23]:
+      - generic [ref=e24]: ⚠️
+      - strong [ref=e25]: Không tải được đơn
+      - text: Thiếu/sai token API — mở KDS qua đúng địa chỉ mitsu-ops (token tự tiêm), hoặc thêm ?token=... vào URL.Tự thử lại sau 15 giây.

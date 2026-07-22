@@ -1,0 +1,168 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - link "SươngEST. 2026" [ref=f1e4] [cursor=pointer]:
+        - /url: "#top"
+        - text: Sương
+        - superscript [ref=f1e5]: EST. 2026
+      - paragraph [ref=f1e6]: 11°58′ B — 108°26′ Đ · 1.500 m
+      - navigation "Điều hướng chính" [ref=f1e7]:
+        - link "Quán" [ref=f1e8] [cursor=pointer]:
+          - /url: "#quan"
+        - link "Menu" [ref=f1e9] [cursor=pointer]:
+          - /url: "#menu"
+        - link "Ghé chơi" [ref=f1e10] [cursor=pointer]:
+          - /url: "#ghe"
+  - main [ref=f1e11]:
+    - region "Sương/suəŋ/" [ref=f1e12]:
+      - paragraph [ref=f1e13]:
+        - generic [ref=f1e14]: ●
+        - text: Trạm quan trắc cà phê — Đà Lạt, Lâm Đồng
+      - heading "Sương/suəŋ/" [level=1] [ref=f1e15]
+      - paragraph [ref=f1e16]:
+        - text: Quán cà phê specialty đặt ở mét thứ 1.500 của cao nguyên — nơi mây đi ngang cửa kính mỗi sáng, và mỗi ly cà phê được
+        - strong [ref=f1e17]: đo đạc như một hiện tượng thời tiết
+        - text: .
+      - generic "Bảng số liệu quan trắc" [ref=f1e18]:
+        - generic [ref=f1e19]:
+          - term [ref=f1e20]: Giờ quan trắc
+          - definition [ref=f1e21]: 23:22
+        - generic [ref=f1e22]:
+          - term [ref=f1e23]: Nhiệt độ
+          - definition [ref=f1e24]: 18°C
+        - generic [ref=f1e25]:
+          - term [ref=f1e26]: Độ ẩm
+          - definition [ref=f1e27]: 92%
+        - generic [ref=f1e28]:
+          - term [ref=f1e29]: Tầm nhìn
+          - definition [ref=f1e30]: 40m
+        - generic [ref=f1e31]:
+          - term [ref=f1e32]: Mật độ sương
+          - definition [ref=f1e33]: Dày
+      - generic [ref=f1e35]:
+        - link "Xem menu ↓" [ref=f1e36] [cursor=pointer]:
+          - /url: "#menu"
+        - link "Chỉ đường ↗" [ref=f1e37] [cursor=pointer]:
+          - /url: https://maps.google.com/?q=42+Khe+Sanh+Da+Lat
+    - region "Cà phê được pha ở nơi mây bay thấp nhất" [ref=f1e38]:
+      - generic [ref=f1e39]:
+        - generic [ref=f1e40]: § 01
+        - generic [ref=f1e41]: Nhật ký trạm
+      - generic [ref=f1e42]:
+        - generic [ref=f1e43]:
+          - heading "Cà phê được pha ở nơi mây bay thấp nhất" [level=2] [ref=f1e44]
+          - paragraph [ref=f1e45]: Sương nằm trên dốc Khe Sanh, quay mặt về một thung lũng thông. Từ 7 đến 9 giờ sáng, sương từ đèo tràn qua vách kính — quán chìm hẳn vào trong mây, và đó là lý do quán tồn tại.
+          - paragraph [ref=f1e46]:
+            - text: Chúng tôi rang
+            - strong [ref=f1e47]: arabica Cầu Đất
+            - text: "hái cách quán 20 km, đo từng thông số chiết xuất như người ta đo thời tiết: nhiệt độ nước, tỉ lệ, thời gian. Không phải để làm màu — vì ở độ cao này, nước sôi ở 95°C và mọi công thức dưới xuôi đều phải đo lại từ đầu."
+        - list [ref=f1e48]:
+          - listitem [ref=f1e49]:
+            - generic [ref=f1e50]: 07:00
+            - generic [ref=f1e51]:
+              - heading "Vách kính săn sương" [level=3] [ref=f1e52]
+              - paragraph [ref=f1e53]: Khung giờ sương dày nhất để chụp ảnh. Đứng ở bậc thang gỗ tầng 2, mây làm phông nền miễn phí.
+          - listitem [ref=f1e54]:
+            - generic [ref=f1e55]: 09:00
+            - generic [ref=f1e56]:
+              - heading "Bàn dài 6 mét" [level=3] [ref=f1e57]
+              - paragraph [ref=f1e58]: Ổ điện từng chỗ ngồi, wifi 300 Mbps, không nhạc lời. Ngồi làm việc cả ngày — không ai đuổi, chỉ có người châm nước.
+          - listitem [ref=f1e59]:
+            - generic [ref=f1e60]: 17:30
+            - generic [ref=f1e61]:
+              - heading "Sân thượng ngang mây" [level=3] [ref=f1e62]
+              - paragraph [ref=f1e63]: Hoàng hôn rơi sau đồi thông đúng giờ này. Mỗi ngày 20 phút, hết là hết.
+    - region "Sáu hiện tượng thời tiết, phục vụ trong ly" [ref=f1e64]:
+      - generic [ref=f1e65]:
+        - generic [ref=f1e66]: § 02
+        - generic [ref=f1e67]: Bảng đo — sáu hiện tượng
+      - heading "Sáu hiện tượng thời tiết, phục vụ trong ly" [level=2] [ref=f1e68]
+      - paragraph [ref=f1e69]: Mỗi món ghi kèm thông số pha — nhiệt độ nước, tỉ lệ, thời gian — như một bản tin khí tượng. Số liệu thật, đo tại quầy mỗi sáng.
+      - list [ref=f1e70]:
+        - listitem [ref=f1e71]:
+          - article [ref=f1e72]:
+            - generic [ref=f1e73]: № 01
+            - heading "Sương SớmSignature" [level=3] [ref=f1e74]
+            - paragraph [ref=f1e75]: Cold brew arabica Cầu Đất ủ 18 giờ, hoa nhài, tonic lạnh. Vị nhài — bergamot — mật ong, trong vắt như không khí 7 giờ sáng.
+            - paragraph [ref=f1e76]: Ủ lạnh 18 h · 8°C · ly cao đá khối
+            - paragraph [ref=f1e77]: 65.000 ₫
+        - listitem [ref=f1e78]:
+          - article [ref=f1e79]:
+            - generic [ref=f1e80]: № 02
+            - heading "Mây Ngang Đèo" [level=3] [ref=f1e81]
+            - paragraph [ref=f1e82]: "Phin sữa kiểu specialty: arabica honey process, sữa đặc nấu chậm với chút muối. Ngọt sâu, đậm, quen mà không cũ."
+            - paragraph [ref=f1e83]: Phin 95°C · 4 phút · nóng hoặc đá
+            - paragraph [ref=f1e84]: 52.000 ₫
+        - listitem [ref=f1e85]:
+          - article [ref=f1e86]:
+            - generic [ref=f1e87]: № 03
+            - heading "Đồi Chè" [level=3] [ref=f1e88]
+            - paragraph [ref=f1e89]: Latte trà xanh Cầu Đất đánh tay, sữa yến mạch, ít ngọt. Vị chát dịu của đồi chè sau mưa, hậu ngọt kéo dài.
+            - paragraph [ref=f1e90]: 80°C · đánh chasen · sữa yến mạch
+            - paragraph [ref=f1e91]: 68.000 ₫
+        - listitem [ref=f1e92]:
+          - article [ref=f1e93]:
+            - generic [ref=f1e94]: № 04
+            - heading "Thông Reo" [level=3] [ref=f1e95]
+            - paragraph [ref=f1e96]: Espresso tonic với siro lá thông non tự nấu, vỏ chanh vàng. Uống lạnh buốt — như đứng giữa rừng thông lúc gió lên.
+            - paragraph [ref=f1e97]: Double shot · đá viên lớn · vỏ chanh tươi
+            - paragraph [ref=f1e98]: 70.000 ₫
+        - listitem [ref=f1e99]:
+          - article [ref=f1e100]:
+            - generic [ref=f1e101]: № 05
+            - heading "Nắng XuyênMùa dâu" [level=3] [ref=f1e102]
+            - paragraph [ref=f1e103]: Pour-over V60, arabica natural. Nốt dâu tây Đà Lạt — hồng trà — caramel. Món dành cho người uống chậm.
+            - paragraph [ref=f1e104]: 92°C · tỉ lệ 1:15 · 2 phút 30
+            - paragraph [ref=f1e105]: 75.000 ₫
+        - listitem [ref=f1e106]:
+          - article [ref=f1e107]:
+            - generic [ref=f1e108]: № 06
+            - heading "Đêm Lạnh" [level=3] [ref=f1e109]
+            - paragraph [ref=f1e110]: Mocha cacao Lâm Đồng 70%, kem tươi xông khói quế. Dành cho 19 giờ trở đi, khi nhiệt độ ngoài kính tụt xuống một chữ số.
+            - paragraph [ref=f1e111]: 65°C · phục vụ nóng · quế Trà My
+            - paragraph [ref=f1e112]: 72.000 ₫
+      - generic [ref=f1e113]:
+        - paragraph [ref=f1e114]: Giá đã gồm phục vụ · bánh ngọt theo ngày, hỏi tại quầy
+        - paragraph [ref=f1e115]: Hạt rang tại quán — bán túi 250 g
+    - region [ref=f1e116]:
+      - generic [ref=f1e117]:
+        - generic [ref=f1e118]: § 03
+        - generic [ref=f1e119]: Tọa độ trạm
+      - generic [ref=f1e120]:
+        - generic [ref=f1e121]:
+          - paragraph [ref=f1e122]: Địa chỉ
+          - paragraph [ref=f1e123]:
+            - link "42 Khe Sanh, Phường 10, TP. Đà Lạt, Lâm Đồng" [ref=f1e124] [cursor=pointer]:
+              - /url: https://maps.google.com/?q=42+Khe+Sanh+Da+Lat
+              - text: 42 Khe Sanh, Phường 10,
+              - text: TP. Đà Lạt, Lâm Đồng
+          - paragraph [ref=f1e125]: Cách chợ Đà Lạt 3 km về phía đèo Mimosa — đi Trại Mát, quán bên tay trái, chỗ mây hay đọng.
+          - generic [ref=f1e126]:
+            - link "Mở Google Maps ↗" [ref=f1e127] [cursor=pointer]:
+              - /url: https://maps.google.com/?q=42+Khe+Sanh+Da+Lat
+            - link "@suong.dalat ↗" [ref=f1e128] [cursor=pointer]:
+              - /url: https://instagram.com/suong.dalat
+        - table "Giờ mở cửa" [ref=f1e129]:
+          - row "Thứ 2 — Thứ 6 07:00 — 22:30" [ref=f1e130]:
+            - generic [ref=f1e131]: Thứ 2 — Thứ 6
+            - generic [ref=f1e132]: 07:00 — 22:30
+          - row "Thứ 7 — Chủ nhật 06:30 — 23:00" [ref=f1e133]:
+            - generic [ref=f1e134]: Thứ 7 — Chủ nhật
+            - generic [ref=f1e135]: 06:30 — 23:00
+          - row "Giờ sương đẹp nhất 07:00 — 09:00" [ref=f1e136]:
+            - generic [ref=f1e137]: Giờ sương đẹp nhất
+            - emphasis [ref=f1e139]: 07:00 — 09:00
+          - row "Hoàng hôn sân thượng ≈ 17:30" [ref=f1e140]:
+            - generic [ref=f1e141]: Hoàng hôn sân thượng
+            - emphasis [ref=f1e143]: ≈ 17:30
+          - row "Đặt chỗ nhóm 5+ 0263 · 382 · 1500" [ref=f1e144]:
+            - generic [ref=f1e145]: Đặt chỗ nhóm 5+
+            - generic [ref=f1e146]: 0263 · 382 · 1500
+  - contentinfo [ref=f1e147]:
+    - generic [ref=f1e148]:
+      - link "SươngEST. 2026" [ref=f1e149] [cursor=pointer]:
+        - /url: "#top"
+        - text: Sương
+        - superscript [ref=f1e150]: EST. 2026
+      - paragraph [ref=f1e151]: “Lên Đà Lạt, nhớ ghé chỗ có mây đi ngang cửa kính.”
+      - paragraph [ref=f1e152]: 11°58′ B — 108°26′ Đ · 1.500 m · © 2026 Sương
