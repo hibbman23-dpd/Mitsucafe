@@ -22,6 +22,18 @@ class TestDrawerGate(unittest.TestCase):
         self.assertEqual(data.count(ESC_KICK_1), 0)
         self.assertEqual(data.count(ESC_KICK_2), 0)
 
+    def test_text_cash_receipt_has_exactly_one_kick_before_cut(self):
+        data = printlib.build_receipt_text(_order(), is_cash=True)
+        cut = data.index(b"\x1dV\x42\x00")            # GS V B 0
+        self.assertEqual(data.count(ESC_KICK_1), 1)   # exactly one kick, not two
+        self.assertEqual(data.count(ESC_KICK_2), 1)
+        self.assertLess(data.index(ESC_KICK_1), cut)  # kick precedes cut
+
+    def test_text_non_cash_receipt_has_no_kick(self):
+        data = printlib.build_receipt_text(_order(method="vietqr"), is_cash=False)
+        self.assertEqual(data.count(ESC_KICK_1), 0)
+        self.assertEqual(data.count(ESC_KICK_2), 0)
+
     def test_label_setup_preamble_bytes(self):
         self.assertEqual(printlib.label_setup_preamble(),
                          b"\r\n\r\nSIZE 50 mm,30 mm\r\nGAP 3 mm,0\r\nSPEED 4\r\nDENSITY 8\r\nDIRECTION 0\r\n")
