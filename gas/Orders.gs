@@ -296,8 +296,8 @@ function ingestPreMintedOrder(p) {
   var row = _findOrderRow(order.order_id);
   if (row) {
     var sheet = _ordersSheet();
-    sheet.getRange(row.rowIndex, 14).setValue(order.confirmed_at);
-    sheet.getRange(row.rowIndex, 23).setValue(order.label_printed_at);
+    sheet.getRange(row.rowIndex, 14).setValue(order.confirmed_at);       // col 14 = confirmed_at
+    sheet.getRange(row.rowIndex, 21).setValue(order.label_printed_at);   // col 21 = label_printed_at (poller skip); printed_at (col 23) phải để TRỐNG cho receipt in lúc DELIVERED
   }
   try { sendTelegramAlert(buildTelegramOrderSummary(order)); }
   catch (tgErr) { logError('ingest.telegram', tgErr); }

@@ -27,7 +27,10 @@ test('ingest append 1 dòng với id/short_code từ gateway, status CONFIRMED, 
   const row = ctx._rows[0];
   assert.strictEqual(row[0], 'ORD-20260722-4242');   // order_id
   assert.strictEqual(row[12], 'CONFIRMED');          // status
-  assert.notStrictEqual(row[22], '');                // label_printed_at (col 23 idx22) đã set
+  // label_printed_at = col U = row[20]: PHẢI set (để poller không in tem lần 2).
+  assert.notStrictEqual(row[20], '', 'label_printed_at (row[20]) phải set');
+  // printed_at = col W = row[22]: PHẢI trống (receipt in lúc DELIVERED, không được set sớm).
+  assert.strictEqual(row[22], '', 'printed_at (row[22]) phải để trống');
 });
 
 test('ingest lần 2 cùng idempotency_key → deduped, KHÔNG append thêm, KHÔNG ghi đè', () => {
