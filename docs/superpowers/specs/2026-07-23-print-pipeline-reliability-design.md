@@ -74,7 +74,11 @@ Flask (`print_server.py`) remains the single process that owns the physical prin
 
 **One spool job = one physical output:** one label (one cup) or one receipt. A 10-cup order enqueues 10 label jobs. This makes "missing cup" structurally impossible to lose silently and makes replay surgical (reprint only the specific cup that failed).
 
-Cash-drawer kick is **not** a separate job. It rides on the receipt job: after the receipt confirms `printed` and only when the order is cash, the worker sends the drawer kick as a trailing raw pulse (keeps the existing `_kick_cash_drawer` behavior, gated on payment method).
+Cash-drawer kick is **not** a separate job and is **not** a trailing pulse. On thermal POS-58L clones the drawer relay only fires if the kick (`ESC p 0 25 250`) reaches the printer **before** the paper cut (`GS V B 0`) and eject — a kick sent after the cut can be ignored. So the kick is **embedded in the receipt byte stream, in the header before the raster and cut**, exactly where `build_receipt_raster`/`build_receipt_text` already place it (`printlib.py:409`, `:543`). The change: gate that embedded kick on an `is_cash` flag carried in `payload_json`, and **remove the separate `_kick_cash_drawer` raw job** (`print_server.py:170`).
+
+> **Latent bug this fixes (verified in current code):** the embedded kick at `printlib.py:409` / `:543` fires **unconditionally**, so a VietQR/bank-transfer order currently still kicks the drawer, while a cash order kicks **twice** (embedded + the separate `_kick_cash_drawer` job). Gating the embedded kick on `is_cash` and dropping the separate job resolves both.
+
+**Preserve the receipt raster chunking (do not regress).** `build_receipt_raster` slices the bitmap into `CHUNK_H = 96` px bands and appends `\n` after each `GS v 0` band (`printlib.py:417`–`433`). This paced feed is what lets the POS-58L's ~16KB RAM drain continuously on long receipts without overflow. The worker renders receipts through the same builder unchanged; the chunking stays.
 
 ---
 
@@ -133,6 +137,8 @@ class Transport(Protocol):
 
 Selected per printer via env: `LABEL_TRANSPORT` / `RECEIPT_TRANSPORT` ∈ `{usb,tcp,serial,cups}`. Existing per-printer env (`*_USB_VID/PID/EP`, `*_PRINTER_IP/PORT`, `*_SERIAL_PORT`) is reused. The persistent-USB-handle logic already in `print_server.py` (`_get_or_open_usb`, module-level handle cache to survive macOS IOKit reclaim) moves into `UsbTransport`.
 
+**macOS USB kernel-driver claim (`UsbTransport` must handle):** on macOS the system printer driver (`com.apple.vec.usblp` / `IOUSBHostInterface`) auto-claims USB printers, so opening the endpoint raises `Resource busy` / `Access denied`. `UsbTransport.open()` must `dev.is_kernel_driver_active(0)` → `dev.detach_kernel_driver(0)` before `set_configuration()` (the current `_get_or_open_usb` already does this — carry it over verbatim). If detach fails (no permission, kext holds the interface), `UsbTransport.open()` raises, and the worker **falls back to `CupsTransport`** for that printer rather than dying. `CupsTransport` therefore stays the always-available default so the system prints even where direct USB access is denied.
+
 ### 5.1 Capability probe (once per printer at worker start)
 
 This is the "option-3 adaptive maximum": attempt real status, degrade cleanly, never block.
@@ -158,6 +164,12 @@ After `transport.send(data)`, confirm the physical print using the best availabl
 
 Pacing delay for label jobs derives from label size/speed (~0.5s/label baseline, already used). For receipts, from raster height. A confirm timeout counts as a failed attempt (job returns to `pending` with backoff), NOT a success — so a stuck printer never silently loses the job.
 
+### 6.1 TSPL label pacing — hardware specifics (XP-365B)
+
+- **Gap-sensing cool-down:** after printing a label the XP-365B feeds ~3 mm and runs its optical gap sensor for ~0.8 s. A new label sent during this window drops. So when `tspl_status` is absent (the likely case on this clone), the label pacing floor is **`+0.8 s` fixed after every label** (on top of the size-based estimate), giving the sensor time to return fully idle before the next feed.
+- **Buffer flush prefix:** each per-label transmission is prefixed with `\r\n\r\n` to flush any partial bytes in the firmware line buffer before `CLS`.
+- **Send printer setup ONCE per worker session, not per label.** `SIZE / GAP / DENSITY / SPEED / DIRECTION` are printer-persistent settings. Commit `ef7bca3` established that resending them on every label causes firmware buffer resets, so the worker sends this setup preamble **once when it opens/reconnects the label transport**, and each label job then emits only `CLS … PRINT 1,1` (i.e. `build_label_tspl(..., include_header=False)`). Re-send the preamble only after a transport reconnect (which could follow a printer power-cycle that cleared the settings). This keeps labels independent per job while honoring `ef7bca3`.
+
 ---
 
 ## 7. Worker loop (one thread per printer)
@@ -173,13 +185,13 @@ worker(printer):
                                                  #   ORDER BY id LIMIT 1) RETURNING *
     if not job: sleep(idle_backoff); continue    # idle_backoff grows 0.2s→2s while empty
     try:
-       data = render(job)                        # printlib, from payload_json
+       ensure_label_setup(printer, transport)    # §6.1 send SIZE/GAP/... once per session
+       data = render(job)                        # printlib; receipt kick embedded before cut, gated is_cash
        if printer_cold(printer):                 # idle > COLD_SECONDS since last send
           transport.send(ESC_INIT); sleep(0.3)   # wake — fixes garbled first order
-       transport.send(data)
+       transport.send(data)                      # drawer kick already inside `data` for cash receipts
        confirm(job, transport, caps)             # §6 ladder; raises on timeout
        mark_printed(job)
-       if job.kind == 'receipt' and job.is_cash: transport.send(DRAWER_KICK)
        gas_mark(job)                             # §8; on failure leave gas_marked=0
     except Exception as e:
        job.attempts += 1
@@ -233,6 +245,7 @@ Rollback at any step = set `PRINT_ENGINE=legacy` and restart the launchd `prints
   - Idempotency: duplicate enqueue of same key is a no-op.
   - `render(job)` from `payload_json` reproduces byte-for-byte what the current builders produce (regression pin).
   - Orphan recovery: a stale `printing` row is reclaimed.
+  - Drawer gate: cash receipt bytes contain exactly one kick before the cut; VietQR/bank-transfer receipt bytes contain zero kicks.
 - **`FakeTransport`:** records `send()` calls, scripts `read_status` replies, and can simulate a drop after N labels. Assert the worker replays and prints **only** the missing cups, never a duplicate of a confirmed one.
 - **Hardware (real printers, after §9.3):**
   1. Stress: 5 back-to-back `/order` — all 5 print, correct counts.
@@ -257,7 +270,7 @@ Rollback at any step = set `PRINT_ENGINE=legacy` and restart the launchd `prints
 |---|---|
 | `print-server/transport.py` | **new** — Transport protocol + Usb/Tcp/Serial/Cups impls, capability probe |
 | `print-server/print_spool.py` | **new** — schema, enqueue_labels/enqueue_receipt, claim_next, mark_*, worker loop, reconciler |
-| `print-server/printlib.py` | remove dead `build_order_labels_tspl_batched`; expose a single-unit render helper used by the worker; keep builders |
+| `print-server/printlib.py` | remove dead `build_order_labels_tspl_batched`; expose a single-unit render helper used by the worker; gate the embedded receipt drawer-kick on an `is_cash` arg (default off) so non-cash never kicks; add a `label_setup_preamble()` helper (SIZE/GAP/DENSITY/SPEED/DIRECTION) for once-per-session send; keep `CHUNK_H=96`+`\n` raster chunking and all builders otherwise unchanged |
 | `print-server/print_server.py` | `/order` + `/mark_paid` enqueue; add `/enqueue/labels` `/enqueue/receipt`; start worker threads; `PRINT_ENGINE` flag; `/health` spool stats; USB handle logic → transport.py |
 | `print-server/print_poller.py` | POST order JSON to `/enqueue/*`; drop local-dedup + GAS-mark-on-enqueue |
 | `print-server/gateway.py` | (optional) share the sqlite connection/lock with the spool, or spool opens its own |
