@@ -464,10 +464,11 @@ def order_create():
     # Đơn đã được ghi vào outbox trong GATEWAY.mint_order (atomic, trước khi in).
     # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
-    for i, item in enumerate(cups, start=1):
+    if cups:
         try:
-            n = _print_label_bytes(build_label_tspl(order, item, i, len(cups)))
-            log.info("order_create LABEL %d/%d %s: %d bytes", i, len(cups), order_id, n)
+            all_labels = b"".join(build_label_tspl(order, item, i, len(cups)) for i, item in enumerate(cups, start=1))
+            n = _print_label_bytes(all_labels)
+            log.info("order_create LABELS (%d cups, %d bytes) for %s", len(cups), n, order_id)
         except Exception as exc:
             log.error("label print failed %s: %s", order_id, exc)
             printed_ok, warning = False, "print_failed"

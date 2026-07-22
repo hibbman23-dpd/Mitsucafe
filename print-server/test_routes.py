@@ -22,7 +22,7 @@ class TestRoutes(unittest.TestCase):
         d = r.get_json()
         self.assertTrue(d["ok"]); self.assertTrue(d["printed"])
         self.assertEqual(d["short_code"], "Q01")
-        self.assertEqual(len(self._printed), 2)
+        self.assertEqual(len(self._printed), 1)
 
     def test_get_order_by_key(self):
         body = {"items":[{"name":"X","qty":1,"modifiers":{}}],

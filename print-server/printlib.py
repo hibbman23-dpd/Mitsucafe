@@ -380,6 +380,12 @@ def build_receipt_raster(order: dict) -> bytes:
     )
 
 
+def _viet_ascii(s: str) -> str:
+    s = s.replace('đ', 'd').replace('Đ', 'D')
+    nfd = unicodedata.normalize('NFD', s)
+    return ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+
+
 def _viet_cp1258(s: str) -> str:
     result = []
     for ch in s:
@@ -405,7 +411,7 @@ def build_receipt_text(order: dict) -> bytes:
     W   = 32
 
     def enc(s):
-        return _viet_cp1258(s).encode("cp1258", errors="replace")
+        return _viet_ascii(s).encode("ascii", errors="replace")
 
     def rjust(s, w):
         return s.rjust(w) if len(s) < w else s
