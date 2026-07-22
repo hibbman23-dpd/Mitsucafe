@@ -124,9 +124,10 @@ class PrintSpool:
             return cur.rowcount
 
     def order_kind_all_printed(self, order_id, kind):
-        rows = self._conn.execute(
-            "SELECT status, COUNT(*) c FROM print_spool WHERE order_id=? AND kind=? GROUP BY status",
-            (order_id, kind)).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT status, COUNT(*) c FROM print_spool WHERE order_id=? AND kind=? GROUP BY status",
+                (order_id, kind)).fetchall()
         by = {r["status"]: r["c"] for r in rows}
         if not by:
             return False
@@ -143,13 +144,15 @@ class PrintSpool:
             self._conn.commit()
 
     def pending_gas_marks(self):
-        rows = self._conn.execute(
-            "SELECT DISTINCT order_id, kind FROM print_spool "
-            "WHERE status='printed' AND gas_marked=0 ORDER BY order_id, kind").fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT DISTINCT order_id, kind FROM print_spool "
+                "WHERE status='printed' AND gas_marked=0 ORDER BY order_id, kind").fetchall()
+            candidates = [(r["order_id"], r["kind"]) for r in rows]
         out = []
-        for r in rows:
-            if self.order_kind_all_printed(r["order_id"], r["kind"]):
-                out.append({"order_id": r["order_id"], "kind": r["kind"]})
+        for order_id, kind in candidates:
+            if self.order_kind_all_printed(order_id, kind):
+                out.append({"order_id": order_id, "kind": kind})
         return out
 
     def stats(self, printer):

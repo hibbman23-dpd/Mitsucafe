@@ -122,3 +122,12 @@ class TestGasMark(SpoolBase):
         self.assertEqual(pend, [{"order_id": "ORD-20260723-0001", "kind": "label"}])
         self.spool.set_gas_marked("ORD-20260723-0001", "label")
         self.assertEqual(self.spool.pending_gas_marks(), [])
+
+    def test_pending_gas_marks_locked_path_returns_single_pair_no_deadlock(self):
+        # Exercises the lock-protected SELECT in pending_gas_marks() followed by its
+        # own call into order_kind_all_printed() (which re-acquires the same
+        # threading.Lock). If either method held the lock recursively this call
+        # would hang forever instead of returning.
+        self._print_all(1)
+        pend = self.spool.pending_gas_marks()
+        self.assertEqual(pend, [{"order_id": "ORD-20260723-0001", "kind": "label"}])
