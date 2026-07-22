@@ -100,6 +100,12 @@ Re-run scenarios 1, 2, 5. Check the worker log line for `caps=` — if the XP-36
 status query, `tspl_status` appears and confirm is real; otherwise it falls back to the 0.8s
 gap-sensor pacing (both are acceptable — labels must still all print).
 
+> ⚠️ Back-channel confirm needs on-device tuning (finding I2). `confirm()` re-sends the status
+> query each poll and currently treats ANY status byte as "printed done". Real ESC/POS `DLE EOT`
+> and TSPL status bytes carry idle/paper/error bits — if a status-capable printer double-prints or
+> stalls under USB, the fix is to interpret those bits (idle+paper-ok) instead of "any byte". If in
+> doubt, leave `*_TRANSPORT=cups` (pacing-only, no back-channel) — it is the validated default.
+
 > Known caveat (spec §6.1 / carry from Task 8): the label setup preamble (SIZE/GAP/DENSITY/SPEED/
 > DIRECTION) is sent once per worker session. If the printer is power-cycled WHILE the server keeps
 > running, the worker will not re-send the preamble and labels may print at the wrong size until the
