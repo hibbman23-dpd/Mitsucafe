@@ -284,12 +284,9 @@ def _send_usb(vid: int, pid: int, data: bytes, ep: int = 0x01) -> int:
 
 def _send_cups(printer_name: str, data: bytes, drawer: bool = False) -> int:
     import subprocess
-    # -o raw: gửi ESC/POS·TSPL bytes THẲNG tới máy in, KHÔNG qua driver filter
-    # (rastertosnailtspl...) — nếu thiếu 'raw', filter render byte lệnh thành text/treo job.
+    # -o raw: gửi ESC/POS·TSPL bytes THẲNG tới máy in, KHÔNG qua driver filter.
+    # Cú pháp ESC/POS trong data đã bao gồm lệnh mở két ESC p 0 25 250.
     cmd = ["lpr", "-P", printer_name, "-o", "raw"]
-    if drawer:  # két tiền chỉ cho máy in hoá đơn, KHÔNG áp cho máy in tem
-        cmd += ["-o", "CashDrawer1Setting=1CashDrawer1BeforePrinting"]
-    # timeout: CUPS daemon treo không được giữ request /order treo vô hạn.
     subprocess.run(cmd, input=data, capture_output=True, check=True, timeout=15)
     return len(data)
 
