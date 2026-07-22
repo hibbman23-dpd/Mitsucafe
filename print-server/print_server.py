@@ -96,13 +96,45 @@ app = Flask(__name__)
 
 WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
 
-@app.get("/web/<path:filename>")
-def serve_web_static(filename):
-    return send_from_directory(WEB_DIR, filename)
+from flask import Flask, jsonify, request, send_from_directory, Response
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    return response
+
+@app.route('/order', methods=['OPTIONS'])
+@app.route('/print/label', methods=['OPTIONS'])
+@app.route('/print/receipt', methods=['OPTIONS'])
+def handle_options():
+    return '', 204
+
+def _resolve_server_auth_token():
+    token = os.getenv("REPORT_API_TOKEN", "")
+    if not token or token == "REPLACE_WITH_REPORT_API_TOKEN":
+        try:
+            auth_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".claude", ".dispatcher-auth.json"))
+            if os.path.exists(auth_file):
+                import json
+                with open(auth_file, encoding="utf-8") as af:
+                    token = json.load(af).get("report_api_token", "")
+        except Exception:
+            token = ""
+    return token
 
 @app.get("/kds.html")
 def serve_kds():
-    return send_from_directory(WEB_DIR, "kds.html")
+    file_path = os.path.join(WEB_DIR, "kds.html")
+    if not os.path.exists(file_path):
+        return jsonify({"ok": False, "error": "kds.html not found"}), 404
+    with open(file_path, encoding="utf-8") as f:
+        html = f.read()
+    token = _resolve_server_auth_token()
+    if token:
+        html = html.replace("__REPORT_API_TOKEN__", token)
+    return Response(html, mimetype="text/html")
 
 @app.get("/order.html")
 def serve_order():
