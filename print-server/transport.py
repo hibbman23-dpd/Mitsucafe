@@ -1,6 +1,13 @@
 """transport.py — printer transport abstraction (send + optional status back-channel)."""
+import logging
+import os
+import socket
 import subprocess
 import time
+
+log = logging.getLogger("transport")
+
+_usb_handles = {}   # (vid,pid) -> pyusb device, module-level to survive GC/IOKit reclaim
 
 class Transport:
     def open(self): ...
@@ -64,3 +71,110 @@ def confirm(transport, caps, printer_kind, pacing_s):
         return False
     time.sleep(pacing_s)
     return True
+
+class UsbTransport(Transport):
+    CHUNK = 512
+    CHUNK_DELAY = 0.02
+    def __init__(self, vid, pid, ep_out, ep_in=0x81):
+        self.vid, self.pid, self.ep_out, self.ep_in = vid, pid, ep_out, ep_in
+        self._dev = None
+    def open(self):
+        os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
+        import usb.core
+        dev = _usb_handles.get((self.vid, self.pid))
+        if dev is not None:
+            try:
+                dev.is_kernel_driver_active(0); self._dev = dev; return
+            except Exception:
+                _usb_handles.pop((self.vid, self.pid), None)
+        dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
+        if dev is None:
+            raise RuntimeError(f"USB printer {self.vid:#06x}:{self.pid:#06x} not found")
+        try:
+            if dev.is_kernel_driver_active(0):
+                dev.detach_kernel_driver(0)
+        except Exception:
+            pass
+        dev.set_configuration()
+        _usb_handles[(self.vid, self.pid)] = dev
+        self._dev = dev
+    def send(self, data: bytes) -> int:
+        if self._dev is None:
+            self.open()
+        total = 0
+        for i in range(0, len(data), self.CHUNK):
+            total += self._dev.write(self.ep_out, data[i:i + self.CHUNK], timeout=10000)
+            if i + self.CHUNK < len(data):
+                time.sleep(self.CHUNK_DELAY)
+        return total
+    def read_status(self, timeout: float):
+        try:
+            arr = self._dev.read(self.ep_in, 64, timeout=int(timeout * 1000))
+            return bytes(arr) if len(arr) else None
+        except Exception:
+            return None
+    def close(self):
+        self._dev = None   # keep module-level handle; just drop local ref
+
+class TcpTransport(Transport):
+    def __init__(self, ip, port=9100, timeout=5):
+        self.ip, self.port, self.timeout = ip, port, timeout
+        self._sock = None
+    def open(self):
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.settimeout(self.timeout)
+        self._sock.connect((self.ip, self.port))
+    def send(self, data: bytes) -> int:
+        if self._sock is None:
+            self.open()
+        self._sock.sendall(data)
+        return len(data)
+    def read_status(self, timeout: float):
+        try:
+            self._sock.settimeout(timeout)
+            b = self._sock.recv(64)
+            return b or None
+        except Exception:
+            return None
+    def close(self):
+        if self._sock:
+            try: self._sock.close()
+            except Exception: pass
+            self._sock = None
+
+class SerialTransport(Transport):
+    def __init__(self, port, baud=9600):
+        self.port, self.baud = port, baud
+        self._s = None
+    def open(self):
+        import serial
+        self._s = serial.Serial(self.port, self.baud, timeout=10)
+        time.sleep(1.0)
+    def send(self, data: bytes) -> int:
+        if self._s is None:
+            self.open()
+        n = self._s.write(data); self._s.flush(); time.sleep(0.5)
+        return n
+    def close(self):
+        if self._s:
+            try: self._s.close()
+            except Exception: pass
+            self._s = None
+
+def build_transport(kind, cfg):
+    try:
+        if kind == "cups":
+            return CupsTransport(cfg["cups_printer"])
+        if kind == "usb":
+            t = UsbTransport(cfg["vid"], cfg["pid"], cfg["ep_out"], cfg.get("ep_in", 0x81))
+        elif kind == "tcp":
+            t = TcpTransport(cfg["ip"], cfg.get("port", 9100))
+        elif kind == "serial":
+            t = SerialTransport(cfg["serial_port"], cfg.get("baud", 9600))
+        else:
+            return CupsTransport(cfg["cups_printer"])
+        t.open()
+        return t
+    except Exception as exc:
+        log.warning("transport %s open failed (%s) → CupsTransport fallback", kind, exc)
+        return CupsTransport(cfg["cups_printer"])
