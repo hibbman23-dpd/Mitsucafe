@@ -609,6 +609,26 @@ var POST_ROUTES = {
     handler: function(p) {
       return healerUpdateFix(p.fix_id, p.patch || {});
     }
+  },
+  'reserve_codes': {
+    auth: AUTH.REPORT,
+    handler: function(p) {
+      var lock = LockService.getScriptLock();
+      lock.waitLock(15000);
+      try {
+        var blk = reserveShortCodes(p.type || 'dine_in', p.n || 20);
+        return { ok: true, letter: blk.letter, date: blk.date, from: blk.from, to: blk.to };
+      } finally { lock.releaseLock(); }
+    }
+  },
+  'ingest_order': {
+    auth: AUTH.REPORT,
+    handler: function(p) {
+      var lock = LockService.getScriptLock();
+      lock.waitLock(20000);
+      try { return ingestPreMintedOrder(p); }
+      finally { lock.releaseLock(); }
+    }
   }
 };
 

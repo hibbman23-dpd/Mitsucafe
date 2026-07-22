@@ -20,7 +20,7 @@ var VALID_STATUS = ['NEW', 'CONFIRMED', 'MAKING', 'READY', 'DELIVERING', 'DELIVE
 
 var VALID_TRANSITIONS = {
   'NEW':        ['CONFIRMED', 'MAKING', 'CANCELLED'],
-  'CONFIRMED':  ['MAKING', 'CANCELLED'],
+  'CONFIRMED':  ['MAKING', 'DELIVERED', 'CANCELLED'],
   'MAKING':     ['READY', 'CANCELLED'],
   'READY':      ['DELIVERED', 'DELIVERING'],
   'DELIVERING': ['DELIVERED'],
@@ -260,6 +260,48 @@ function buildShortCode(deliveryType) {
   var letter = _letterFor(deliveryType);
   var seq = _nextShortCodeSeq(letter);
   return letter + (seq < 10 ? '0' + seq : String(seq));
+}
+
+function reserveShortCodes(deliveryType, n) {
+  n = Math.max(1, parseInt(n, 10) || 1);
+  var letter = _letterFor(deliveryType);
+  var dateStr = _currentDateStr();
+  var props = PropertiesService.getScriptProperties();
+  var key = _shortCodeWmKey(dateStr, letter);
+  var cur = props.getProperty(key);
+  var wm = (cur === null) ? _seedWatermarkFromMax(dateStr, letter) : parseInt(cur, 10);
+  var from = wm + 1, to = wm + n;
+  props.setProperty(key, String(to));
+  return { letter: letter, date: dateStr, from: from, to: to };
+}
+
+function ingestPreMintedOrder(p) {
+  var key = p.idempotency_key || (p.metadata && p.metadata.idempotency_key) || '';
+  if (key) {
+    var existing = findOrderIdByIdempotencyKey(key);
+    if (existing) return { ok: true, order_id: existing, deduped: true };
+  }
+  if (p.gateway_order_id && _findOrderRow(p.gateway_order_id)) {
+    return { ok: true, order_id: p.gateway_order_id, deduped: true };
+  }
+  var order = validateOrderPayload(p);
+  order.order_id = p.gateway_order_id || order.order_id;
+  order.metadata = order.metadata || {};
+  order.metadata.short_code = p.gateway_short_code || order.metadata.short_code;
+  order.status = 'CONFIRMED';
+  order.confirmed_at = new Date().toISOString();
+  order.label_printed_at = p.printed_at || new Date().toISOString();
+  order.idempotency_key = key;
+  appendOrderToSheet(order);
+  var row = _findOrderRow(order.order_id);
+  if (row) {
+    var sheet = _ordersSheet();
+    sheet.getRange(row.rowIndex, 14).setValue(order.confirmed_at);
+    sheet.getRange(row.rowIndex, 23).setValue(order.label_printed_at);
+  }
+  try { sendTelegramAlert(buildTelegramOrderSummary(order)); }
+  catch (tgErr) { logError('ingest.telegram', tgErr); }
+  return { ok: true, order_id: order.order_id, short_code: order.metadata.short_code, deduped: false };
 }
 
 function generateEventId() {

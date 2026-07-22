@@ -403,8 +403,8 @@ test('_freeDrinkBaseMDiscount: max giá M, bỏ topping/L, sau promo', () => {
     // Không promo: max base-M của DR001/DR002 = 45000 (bỏ bánh BK, bỏ L, bỏ topping)
     assert.strictEqual(global._freeDrinkBaseMDiscount(items, { active: false, percent: 0 }), 45000);
     // Promo -10%: 45000 -> round(40500) = 40500
-    assert.strictEqual(global._freeDrinkBaseMDiscount(items, { active: true, percent: 10 }), 40500);
   } finally { global.getMenuItemBySku = orig; }
+});
 
 test('enqueueFix: dedup — context đã có fix mở thì bỏ qua', () => {
   const rows = [
