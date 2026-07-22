@@ -172,8 +172,20 @@ def _gas_mark(order_id, kind):
         return False
 
 def _spool_alert(job, err):
-    log.error("[SPOOL FAILED] %s: %s", job.get("idempotency_key"), err)
-    # Task 11 wires Telegram here.
+    text = f"⚠️ In hỏng: {job.get('idempotency_key')} — {str(err)[:200]}"
+    log.error("[SPOOL FAILED] %s", text)
+    try:
+        _gas_post({"action": "notify_admin", "text": text})
+    except Exception:
+        pass
+
+def _reconcile_gas_marks_once():
+    n = 0
+    for pm in SPOOL.pending_gas_marks():
+        if _gas_mark(pm["order_id"], pm["kind"]):
+            SPOOL.set_gas_marked(pm["order_id"], pm["kind"])
+            n += 1
+    return n
 
 def _start_workers():
     if PRINT_ENGINE != "spool":
@@ -204,6 +216,15 @@ def _start_workers():
            {"cups_printer": RECEIPT_CUPS_PRINTER, "vid": RECEIPT_USB_VID, "pid": RECEIPT_USB_PID,
             "ep_out": RECEIPT_USB_EP, "ip": RECEIPT_PRINTER_IP, "port": RECEIPT_PRINTER_PORT,
             "serial_port": RECEIPT_SERIAL_PORT}, pacing_s=1.0)
+
+    def _reconcile_loop():
+        while True:
+            try:
+                _reconcile_gas_marks_once()
+            except Exception as exc:
+                log.error("gas reconcile error: %s", exc)
+            time.sleep(15)
+    threading.Thread(target=_reconcile_loop, daemon=True, name="gas-reconciler").start()
 
 _start_workers()
 
