@@ -25,3 +25,12 @@ test('letter đúng theo delivery_type', () => {
   assert.ok(ctx.buildShortCode('delivery').startsWith('G'));
   assert.ok(ctx.buildShortCode('take_away').startsWith('M'));
 });
+
+test('reserveShortCodes cấp dải liên tục và đẩy watermark; mint thường tiếp sau dải', () => {
+  const ctx = loadGas(['Orders.gs'], { ordersRows: [], props: {} });
+  const blk = ctx.reserveShortCodes('dine_in', 20);   // giữ Q01..Q20
+  assert.deepStrictEqual([blk.letter, blk.from, blk.to], ['Q', 1, 20]);
+  // Đơn GAS-origin kế phải là Q21 (không đụng dải box)
+  assert.strictEqual(ctx.buildShortCode('dine_in'), 'Q21');
+});
+

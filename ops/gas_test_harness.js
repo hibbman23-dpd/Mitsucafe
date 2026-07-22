@@ -25,6 +25,13 @@ function loadGas(files, opts) {
 
   const sandbox = {
     console,
+    CacheService: {
+      getScriptCache: () => ({
+        get: () => null,
+        put: () => {},
+        removeAll: () => {},
+      }),
+    },
     PropertiesService: {
       getScriptProperties: () => ({
         getProperty: (k) => (k in props ? String(props[k]) : null),
@@ -59,6 +66,10 @@ function loadGas(files, opts) {
             nRows = nRows || 1;
             nCols = nCols || 1;
             return {
+              getValue: () => {
+                const rIdx = row - 2;
+                return (rIdx >= 0 && rIdx < rows.length) ? rows[rIdx][col - 1] : '';
+              },
               getValues: () => {
                 const out = [];
                 for (let i = 0; i < nRows; i++) {

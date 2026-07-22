@@ -1163,8 +1163,24 @@ def test_label_bitmap_1row():
         return jsonify({"ok": False, "error": str(exc)}), 502
 
 
+def _syncer_loop():
+    import time
+    interval = float(os.getenv("SYNC_INTERVAL", "3"))
+    while True:
+        try:
+            done = GATEWAY.sync_once()
+        except Exception as exc:
+            log.error("syncer error: %s", exc)
+            done = 0
+        time.sleep(interval if done else min(30, interval * 2))
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    if os.getenv("GATEWAY_SYNC", "1") == "1":
+        threading.Thread(target=_syncer_loop, daemon=True).start()
+        log.info("gateway syncer thread started")
+
     log.info(
         "Print server :%d  |  receipt=%s[%s]  label=%s[%s]",
         SERVER_PORT,
