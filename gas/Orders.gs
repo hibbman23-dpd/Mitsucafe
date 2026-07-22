@@ -220,21 +220,45 @@ function generateOrderId() {
  * Server tự cấp (gọi trong doPost đã giữ lock → số chạy không trùng).
  * Số chạy = số đơn ORD-<hôm nay> đã có + 1. order_id vẫn là khoá gốc.
  */
-function buildShortCode(deliveryType) {
-  var letter = deliveryType === 'delivery' ? 'G' : (deliveryType === 'dine_in' ? 'Q' : 'M');
+function _letterFor(deliveryType) {
+  return deliveryType === 'delivery' ? 'G' : (deliveryType === 'dine_in' ? 'Q' : 'M');
+}
+function _currentDateStr() {
+  return Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
+}
+function _shortCodeWmKey(dateStr, letter) { return 'sc_wm_' + dateStr + '_' + letter; }
+
+function _seedWatermarkFromMax(dateStr, letter) {
   var sheet = _ordersSheet();
   var lastRow = sheet.getLastRow();
-  var seq = 1;
-  if (lastRow >= 2) {
-    var dateStr = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd');
-    var prefix = 'ORD-' + dateStr + '-';
-    var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    var count = 0;
-    for (var i = 0; i < ids.length; i++) {
-      if (String(ids[i][0]).indexOf(prefix) === 0) count++;
-    }
-    seq = count + 1;
+  if (lastRow < 2) return 0;
+  var ids  = sheet.getRange(2, 1, lastRow - 1, 1).getValues();          // col A order_id
+  var codes = sheet.getRange(2, 27, lastRow - 1, 1).getValues();        // col AA short_code (idx 26 → col 27)
+  var prefix = 'ORD-' + dateStr + '-';
+  var max = 0;
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).indexOf(prefix) !== 0) continue;
+    var code = String(codes[i][0] || '');
+    var m = code.match(new RegExp('^' + letter + '(\\d+)$'));
+    if (m) { var n = parseInt(m[1], 10); if (n > max) max = n; }
   }
+  return max;
+}
+
+function _nextShortCodeSeq(letter) {
+  var dateStr = _currentDateStr();
+  var props = PropertiesService.getScriptProperties();
+  var key = _shortCodeWmKey(dateStr, letter);
+  var cur = props.getProperty(key);
+  var wm = (cur === null) ? _seedWatermarkFromMax(dateStr, letter) : parseInt(cur, 10);
+  wm = wm + 1;
+  props.setProperty(key, String(wm));
+  return wm;
+}
+
+function buildShortCode(deliveryType) {
+  var letter = _letterFor(deliveryType);
+  var seq = _nextShortCodeSeq(letter);
   return letter + (seq < 10 ? '0' + seq : String(seq));
 }
 
