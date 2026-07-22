@@ -138,6 +138,8 @@ class PrintSpool:
             return False
         if by.get("pending", 0) or by.get("printing", 0):
             return False
+        if by.get("failed", 0):
+            return False
         return by.get("printed", 0) > 0
 
     def set_gas_marked(self, order_id, kind):

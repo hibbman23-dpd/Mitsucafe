@@ -53,3 +53,11 @@ class TestProbeConfirm(unittest.TestCase):
     def test_confirm_status_path_false_on_timeout(self):
         t = FakeTransport(status_replies=[])           # never replies
         self.assertFalse(confirm(t, {"dle_eot"}, "receipt", pacing_s=0.05))
+
+    def test_confirm_resends_query_each_poll(self):
+        # I2 regression: confirm() must re-send the status query on every poll,
+        # not just rely on the initial probe's solicited reply.
+        t = FakeTransport(status_replies=[None, None, b"\x01"])
+        self.assertTrue(confirm(t, {"dle_eot"}, "receipt", pacing_s=0.05))
+        sent_query_count = sum(1 for s in t.sent if s == b"\x10\x04\x01")
+        self.assertGreaterEqual(sent_query_count, 2)

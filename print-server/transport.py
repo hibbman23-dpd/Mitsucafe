@@ -22,7 +22,27 @@ class Transport:
 class CupsTransport(Transport):
     def __init__(self, printer_name: str):
         self.printer_name = printer_name
+    def _wait_queue_empty(self, max_wait=15.0):
+        import time as _t
+        start = _t.time()
+        while _t.time() - start < max_wait:
+            res = subprocess.run(["lpstat", "-o", self.printer_name], capture_output=True, text=True)
+            if not res.stdout.strip():
+                return True
+            _t.sleep(0.3)
+        return False
     def send(self, data: bytes) -> int:
+        # Đợi hàng đợi CUPS rảnh để tránh xung đột cổng USB giữa các đơn
+        self._wait_queue_empty()
+        # Tự động gỡ kẹt queue nếu CUPS từng bị pause/stalled (best-effort)
+        try:
+            subprocess.run(["cupsenable", self.printer_name], capture_output=True, timeout=3)
+        except Exception:
+            pass
+        try:
+            subprocess.run(["cupsaccept", self.printer_name], capture_output=True, timeout=3)
+        except Exception:
+            pass
         subprocess.run(["lpr", "-P", self.printer_name, "-o", "raw"],
                        input=data, capture_output=True, check=True, timeout=20)
         return len(data)
@@ -62,8 +82,15 @@ def probe_capabilities(transport, printer_kind):
 
 def confirm(transport, caps, printer_kind, pacing_s):
     if caps & {"dle_eot", "tspl_status"}:
+        query = b"\x10\x04\x01" if printer_kind == "receipt" else b"\x1b!?"
         deadline = time.time() + max(pacing_s, 2.0)
         while time.time() < deadline:
+            try:
+                transport.send(query)
+            except Exception:
+                pass
+            # NOTE: treats any status byte as "done"; real idle/paper-bit interpretation
+            # is tuned on-device (Task 12).
             st = transport.read_status(0.2)
             if st:
                 return True

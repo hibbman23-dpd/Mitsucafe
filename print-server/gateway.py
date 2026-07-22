@@ -111,7 +111,7 @@ class Gateway:
         key = payload.get("idempotency_key") or (payload.get("metadata") or {}).get("idempotency_key") or ""
         with self._lock:
             if key:
-                ex = self.get_by_key(key)
+                ex = self._get_by_key_locked(key)
                 if ex:
                     return {"order_id": ex["order_id"], "short_code": ex["short_code"],
                             "idempotency_key": key, "deduped": True}
@@ -155,16 +155,22 @@ class Gateway:
                 (op, order_id, idempotency_key, json.dumps(payload), short_code, printed_at))
             self._conn.commit()
 
-    def get_by_key(self, idempotency_key):
+    def _get_by_key_locked(self, idempotency_key):
+        """Assumes self._lock is already held by the caller (e.g. mint_order)."""
         row = self._conn.execute(
             "SELECT order_id, short_code FROM outbox WHERE op='ingest_order' AND idempotency_key=?",
             (idempotency_key,)).fetchone()
         return dict(row) if row else None
 
+    def get_by_key(self, idempotency_key):
+        with self._lock:
+            return self._get_by_key_locked(idempotency_key)
+
     def get_create_payload(self, order_id):
-        row = self._conn.execute(
-            "SELECT payload FROM outbox WHERE op='ingest_order' AND order_id=? LIMIT 1",
-            (order_id,)).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT payload FROM outbox WHERE op='ingest_order' AND order_id=? LIMIT 1",
+                (order_id,)).fetchone()
         return json.loads(row["payload"]) if row else None
 
     def unsynced(self):

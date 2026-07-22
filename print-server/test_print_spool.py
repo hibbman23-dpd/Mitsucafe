@@ -131,3 +131,16 @@ class TestGasMark(SpoolBase):
         self._print_all(1)
         pend = self.spool.pending_gas_marks()
         self.assertEqual(pend, [{"order_id": "ORD-20260723-0001", "kind": "label"}])
+
+    def test_failed_cup_blocks_all_printed(self):
+        # I1 regression: a permanently-failed cup must never let the order be
+        # marked all-printed — GAS must not be told label_printed_at for an
+        # order that is missing a cup.
+        cups = [{"name": "X", "qty": 1, "modifiers": {}} for _ in range(2)]
+        self.spool.enqueue_labels(_order(), cups)
+        j1 = self.spool.claim_next("label")
+        self.spool.mark_printed(j1["id"])
+        j2 = self.spool.claim_next("label")
+        self.spool.mark_failed(j2["id"], "boom")
+        self.assertFalse(self.spool.order_kind_all_printed("ORD-20260723-0001", "label"))
+        self.assertEqual(self.spool.pending_gas_marks(), [])
