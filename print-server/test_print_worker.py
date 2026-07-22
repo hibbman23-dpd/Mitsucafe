@@ -72,3 +72,51 @@ class TestWorker(WorkerBase):
         w.process_one()
         self.assertEqual(alerts, ["ORD-20260723-0001:label:1"])
         self.assertEqual(self.conn.execute("SELECT status FROM print_spool").fetchone()["status"], "failed")
+
+    def test_gas_mark_raises_keeps_printed_no_duplicate(self):
+        def _boom(oid, kind):
+            raise RuntimeError("gas down")
+        self.spool.enqueue_labels(_order(), [{"name": "X", "qty": 1, "modifiers": {}}])
+        t = FakeTransport()
+        w = self._worker(t, gas_mark=_boom)
+        w.process_one()
+        self.assertEqual(len(t.sent), 1)
+        self.assertEqual(
+            self.conn.execute("SELECT status FROM print_spool").fetchone()["status"], "printed")
+        # a fresh worker over the same spool must find nothing left to print (no duplicate)
+        t2 = FakeTransport()
+        w2 = self._worker(t2, gas_mark=_boom)
+        while w2.process_one():
+            pass
+        self.assertEqual(len(t2.sent), 0)
+
+    def test_confirm_false_requeues_not_printed(self):
+        self.spool.enqueue_labels(_order(), [{"name": "X", "qty": 1, "modifiers": {}}])
+        t = FakeTransport(status_replies=[])   # never replies -> confirm times out False
+        w = PrintWorker("label", self.spool, t, {"dle_eot"},
+                        render=lambda job: b"RENDER:" + job["idempotency_key"].encode(),
+                        pacing_s=0.01)
+        w.process_one()
+        row = self.conn.execute("SELECT status, attempts FROM print_spool").fetchone()
+        self.assertEqual(row["status"], "pending")
+        self.assertEqual(row["attempts"], 1)
+
+    def test_receipt_cold_wake_sends_esc_init(self):
+        self.spool.enqueue_receipt(_order(), is_cash=False)
+        t = FakeTransport()
+        w = PrintWorker("receipt", self.spool, t, set(), render=lambda job: b"RCPT", pacing_s=0.01)
+        w.process_one()
+        self.assertEqual(t.sent[0], b"\x1b@")
+        self.assertIn(b"RCPT", t.sent)
+
+    def test_label_setup_preamble_sent_once(self):
+        cups = [{"name": "X", "qty": 1, "modifiers": {}} for _ in range(2)]
+        self.spool.enqueue_labels(_order(), cups)
+        t = FakeTransport()
+        w = PrintWorker("label", self.spool, t, set(),
+                        render=lambda job: b"RENDER:" + job["idempotency_key"].encode(),
+                        setup_preamble=b"PREAMBLE", pacing_s=0.01)
+        w.process_one()
+        w.process_one()
+        self.assertEqual(t.sent.count(b"PREAMBLE"), 1)
+        self.assertEqual(t.sent[0], b"PREAMBLE")

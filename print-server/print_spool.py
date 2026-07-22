@@ -89,6 +89,11 @@ class PrintSpool:
                                (_now_iso(), job_id))
             self._conn.commit()
 
+    def get_status(self, job_id):
+        with self._lock:
+            row = self._conn.execute("SELECT status FROM print_spool WHERE id=?", (job_id,)).fetchone()
+            return row["status"] if row else None
+
     def mark_failed(self, job_id, err):
         with self._lock:
             self._conn.execute("UPDATE print_spool SET status='failed', last_error=?, updated_at=? WHERE id=?",

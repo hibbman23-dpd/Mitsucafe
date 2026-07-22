@@ -1,7 +1,10 @@
 # print-server/print_worker.py
 """print_worker.py — one sequential worker per printer draining the spool."""
+import logging
 import time
 from transport import confirm
+
+log = logging.getLogger("print-worker")
 
 class PrintWorker:
     def __init__(self, printer, spool, transport, caps, render, *, setup_preamble=b"",
@@ -38,13 +41,16 @@ class PrintWorker:
             if not confirm(self.transport, self.caps, self.printer, self.pacing_s):
                 raise RuntimeError("confirm timeout")
             self.spool.mark_printed(job["id"])
+        except Exception as exc:
+            self.spool.requeue(job["id"], exc)
+            if self.spool.get_status(job["id"]) == "failed" and self.alert:
+                self.alert(job, exc)
+            return True
+        # gas-mark is best-effort and must NEVER revert a printed job (reconciler retries it)
+        try:
             if self.gas_mark and self.spool.order_kind_all_printed(job["order_id"], job["kind"]):
                 if self.gas_mark(job["order_id"], job["kind"]):
                     self.spool.set_gas_marked(job["order_id"], job["kind"])
         except Exception as exc:
-            self.spool.requeue(job["id"], exc)
-            row = self.spool._conn.execute(
-                "SELECT status FROM print_spool WHERE id=?", (job["id"],)).fetchone()
-            if row and row["status"] == "failed" and self.alert:
-                self.alert(job, exc)
+            log.warning("gas-mark failed for %s (%s); reconciler will retry", job["idempotency_key"], exc)
         return True
