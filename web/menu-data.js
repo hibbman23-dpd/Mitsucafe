@@ -43,7 +43,7 @@ const CATEGORIES = [
 const MENU_DATA = [
   {
   "sku": "DR001",
-  "name": "Cf mitsu",
+  "name": "CF MITSU",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -71,7 +71,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR002",
-  "name": "Cf sữa",
+  "name": "CF SỮA",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -99,7 +99,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR003",
-  "name": "Cf đen",
+  "name": "CF ĐEN",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -123,7 +123,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR004",
-  "name": "Cf bơ đậu phộng",
+  "name": "CF BƠ ĐẬU PHỘNG",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -151,7 +151,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR005",
-  "name": "Cf muối",
+  "name": "CF MUỐI",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -179,7 +179,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR006",
-  "name": "Cf caramel muối hồng",
+  "name": "CF CARAMEL MUỐI HỒNG",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -207,7 +207,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR007",
-  "name": "Cf dalgona",
+  "name": "CF DALGONA",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -235,7 +235,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR008",
-  "name": "Cf chocolate",
+  "name": "CF CHOCOLATE",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -263,7 +263,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR009",
-  "name": "Cf kem dẻo buôn mê",
+  "name": "CF KEM DẺO BUÔN MÊ",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -291,7 +291,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR010",
-  "name": "Bạc sỉu",
+  "name": "BẠC SỈU",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -319,7 +319,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR011",
-  "name": "Phindi hạnh nhân",
+  "name": "PHINDI HẠNH NHÂN",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -347,7 +347,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR012",
-  "name": "Ca cao sữa",
+  "name": "CA CAO SỮA",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -375,7 +375,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR013",
-  "name": "Ca cao muối",
+  "name": "CA CAO MUỐI",
   "name_jp": null,
   "subcategory": "coffee",
   "bee_group": "kin",
@@ -403,7 +403,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR020",
-  "name": "Trà gừng mật ong",
+  "name": "TRÀ GỪNG MẬT ONG",
   "name_jp": null,
   "subcategory": "hot_drinks",
   "bee_group": "kin",
@@ -445,7 +445,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR021",
-  "name": "Trà gừng đường nâu",
+  "name": "TRÀ GỪNG ĐƯỜNG NÂU",
   "name_jp": null,
   "subcategory": "hot_drinks",
   "bee_group": "kin",
@@ -487,7 +487,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR022",
-  "name": "Trà thảo mộc",
+  "name": "TRÀ THẢO MỘC",
   "name_jp": null,
   "subcategory": "hot_drinks",
   "bee_group": "kin",
@@ -529,7 +529,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR023",
-  "name": "Hoa hồng táo đỏ",
+  "name": "HOA HỒNG TÁO ĐỎ",
   "name_jp": null,
   "subcategory": "hot_drinks",
   "bee_group": "kin",
@@ -571,7 +571,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR024",
-  "name": "Thanh yên bá tước",
+  "name": "THANH YÊN BÁ TƯỚC",
   "name_jp": null,
   "subcategory": "hot_drinks",
   "bee_group": "kin",
@@ -613,7 +613,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR025",
-  "name": "Trà đào cam quế",
+  "name": "TRÀ ĐÀO CAM QUẾ",
   "name_jp": null,
   "subcategory": "hot_drinks",
   "bee_group": "kin",
@@ -655,7 +655,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR026",
-  "name": "Ca cao quế",
+  "name": "CA CAO QUẾ",
   "name_jp": null,
   "subcategory": "hot_drinks",
   "bee_group": "kin",
@@ -697,7 +697,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR027",
-  "name": "Matcha batā",
+  "name": "MATCHA BATĀ",
   "name_jp": null,
   "subcategory": "hot_drinks",
   "bee_group": "kin",
@@ -739,7 +739,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR030",
-  "name": "Matcha mitsu",
+  "name": "MATCHA MITSU",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -783,7 +783,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR031",
-  "name": "Matcha croissant",
+  "name": "MATCHA CROISSANT",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -827,7 +827,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR032",
-  "name": "Matcha latte",
+  "name": "MATCHA LATTE",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -871,7 +871,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR033",
-  "name": "Matcha latte muối",
+  "name": "MATCHA LATTE MUỐI",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -915,7 +915,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR034",
-  "name": "Matcha coco",
+  "name": "MATCHA COCO",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -959,7 +959,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR035",
-  "name": "Matcha đậu đỏ",
+  "name": "MATCHA ĐẬU ĐỎ",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1003,7 +1003,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR036",
-  "name": "Matcha caramel muối hồng",
+  "name": "MATCHA CARAMEL MUỐI HỒNG",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1047,7 +1047,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR037",
-  "name": "Matcha butterfly coco",
+  "name": "MATCHA BUTTERFLY COCO",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1091,7 +1091,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR038",
-  "name": "Matcha coldwhish",
+  "name": "MATCHA COLDWHISH",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1135,7 +1135,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR039",
-  "name": "Cloudy matcha",
+  "name": "CLOUDY MATCHA",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1179,7 +1179,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR040",
-  "name": "Houjicha latte",
+  "name": "HOUJICHA LATTE",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1223,7 +1223,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR041",
-  "name": "Ca cao croissant",
+  "name": "CA CAO CROISSANT",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1267,7 +1267,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR042",
-  "name": "Ca cao latte",
+  "name": "CA CAO LATTE",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1311,7 +1311,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR043",
-  "name": "Ca cao latte muối",
+  "name": "CA CAO LATTE MUỐI",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1355,7 +1355,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR044",
-  "name": "Ca cao bạc hà",
+  "name": "CA CAO BẠC HÀ",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1399,7 +1399,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR045",
-  "name": "Ca cao oreo kem dẻo",
+  "name": "CA CAO OREO KEM DẺO",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1443,7 +1443,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR046",
-  "name": "Ca cao caramel sữa dừa",
+  "name": "CA CAO CARAMEL SỮA DỪA",
   "name_jp": null,
   "subcategory": "latte",
   "bee_group": "so",
@@ -1487,7 +1487,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR050",
-  "name": "Trà mitsu",
+  "name": "TRÀ MITSU",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1531,7 +1531,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR051",
-  "name": "Trà sen vàng",
+  "name": "TRÀ SEN VÀNG",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1575,7 +1575,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR052",
-  "name": "Trà gạo sen sữa",
+  "name": "TRÀ GẠO SEN SỮA",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1619,7 +1619,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR053",
-  "name": "Trà quấn quýt",
+  "name": "TRÀ QUẤN QUÝT",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1663,7 +1663,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR054",
-  "name": "Trà dưa lưới",
+  "name": "TRÀ DƯA LƯỚI",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1707,7 +1707,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR055",
-  "name": "Trà cam hoa nhài",
+  "name": "TRÀ CAM HOA NHÀI",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1751,7 +1751,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR056",
-  "name": "Trà vải hoa hồng",
+  "name": "TRÀ VẢI HOA HỒNG",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1795,7 +1795,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR057",
-  "name": "Trà ổi hồng",
+  "name": "TRÀ ỔI HỒNG",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1839,7 +1839,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR058",
-  "name": "Trà thơm hạt đác",
+  "name": "TRÀ THƠM HẠT ĐÁC",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1883,7 +1883,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR059",
-  "name": "Trà đào",
+  "name": "TRÀ ĐÀO",
   "name_jp": null,
   "subcategory": "fruit_tea",
   "bee_group": "ritsu",
@@ -1927,7 +1927,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR060",
-  "name": "Trà sữa mitsu",
+  "name": "TRÀ SỮA MITSU",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -1971,7 +1971,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR061",
-  "name": "Trà sữa truyền thống",
+  "name": "TRÀ SỮA TRUYỀN THỐNG",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2015,7 +2015,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR062",
-  "name": "Trà sữa đậu đỏ",
+  "name": "TRÀ SỮA ĐẬU ĐỎ",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2059,7 +2059,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR063",
-  "name": "Trà sữa gạo rang",
+  "name": "TRÀ SỮA GẠO RANG",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2103,7 +2103,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR064",
-  "name": "Trà sữa milo",
+  "name": "TRÀ SỮA MILO",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2147,7 +2147,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR065",
-  "name": "Trà sữa phomai mặn",
+  "name": "TRÀ SỮA PHOMAI MẶN",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2191,7 +2191,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR066",
-  "name": "Trà sữa kem tiramisu",
+  "name": "TRÀ SỮA KEM TIRAMISU",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2235,7 +2235,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR067",
-  "name": "Trà sữa olong",
+  "name": "TRÀ SỮA OLONG",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2279,7 +2279,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR068",
-  "name": "Trà sữa đại hồng bào",
+  "name": "TRÀ SỮA ĐẠI HỒNG BÀO",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2323,7 +2323,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR069",
-  "name": "Hồng trà shan tuyết",
+  "name": "HỒNG TRÀ SHAN TUYẾT",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2367,7 +2367,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR070",
-  "name": "Hồng trà mật hương",
+  "name": "HỒNG TRÀ MẬT HƯƠNG",
   "name_jp": null,
   "subcategory": "milk_tea",
   "bee_group": "ritsu",
@@ -2411,7 +2411,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR080",
-  "name": "Sữa chua mitsu",
+  "name": "SỮA CHUA MITSU",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2455,7 +2455,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR081",
-  "name": "Sữa chua dâu sấy",
+  "name": "SỮA CHUA DÂU SẤY",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2499,7 +2499,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR082",
-  "name": "Sữa chua việt quất",
+  "name": "SỮA CHUA VIỆT QUẤT",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2543,7 +2543,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR083",
-  "name": "Sữa chua ca cao",
+  "name": "SỮA CHUA CA CAO",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2587,7 +2587,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR084",
-  "name": "Sữa chua xoài sấy",
+  "name": "SỮA CHUA XOÀI SẤY",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2631,7 +2631,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR085",
-  "name": "Sữa chua đào sấy",
+  "name": "SỮA CHUA ĐÀO SẤY",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2675,7 +2675,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR086",
-  "name": "Sữa chua chanh dây sấy",
+  "name": "SỮA CHUA CHANH DÂY SẤY",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2719,7 +2719,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR087",
-  "name": "Sữa chua matcha",
+  "name": "SỮA CHUA MATCHA",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2763,7 +2763,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR088",
-  "name": "Sữa chua đanh đá",
+  "name": "SỮA CHUA ĐANH ĐÁ",
   "name_jp": null,
   "subcategory": "yogurt",
   "bee_group": "kin",
@@ -2807,7 +2807,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR090",
-  "name": "Coldbrew chanh vàng",
+  "name": "COLDBREW CHANH VÀNG",
   "name_jp": null,
   "subcategory": "coldbrew",
   "bee_group": "so",
@@ -2835,7 +2835,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR091",
-  "name": "Coldbrew mơ muội",
+  "name": "COLDBREW MƠ MUỘI",
   "name_jp": null,
   "subcategory": "coldbrew",
   "bee_group": "so",
@@ -2863,7 +2863,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR092",
-  "name": "Coldbrew đào",
+  "name": "COLDBREW ĐÀO",
   "name_jp": null,
   "subcategory": "coldbrew",
   "bee_group": "so",
@@ -2891,7 +2891,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR093",
-  "name": "Coldbrew bưởi hồng",
+  "name": "COLDBREW BƯỞI HỒNG",
   "name_jp": null,
   "subcategory": "coldbrew",
   "bee_group": "so",
@@ -2919,7 +2919,7 @@ const MENU_DATA = [
 },
   {
   "sku": "DR094",
-  "name": "Coldbrew yuzu",
+  "name": "COLDBREW YUZU",
   "name_jp": null,
   "subcategory": "coldbrew",
   "bee_group": "so",

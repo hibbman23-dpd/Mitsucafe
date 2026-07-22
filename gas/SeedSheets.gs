@@ -190,7 +190,7 @@ function seedInsightConfigKeys() {
 var MENU_JSON = [
   {
     "sku": "DR001",
-    "name": "Cf mitsu",
+    "name": "CF MITSU",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "signature",
@@ -224,7 +224,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR002",
-    "name": "Cf sữa",
+    "name": "CF SỮA",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "leader",
@@ -258,7 +258,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR003",
-    "name": "Cf đen",
+    "name": "CF ĐEN",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "leader",
@@ -288,7 +288,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR004",
-    "name": "Cf bơ đậu phộng",
+    "name": "CF BƠ ĐẬU PHỘNG",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "trend",
@@ -322,7 +322,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR005",
-    "name": "Cf muối",
+    "name": "CF MUỐI",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "trend",
@@ -356,7 +356,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR006",
-    "name": "Cf caramel muối hồng",
+    "name": "CF CARAMEL MUỐI HỒNG",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "signature",
@@ -390,7 +390,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR007",
-    "name": "Cf dalgona",
+    "name": "CF DALGONA",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "trend",
@@ -424,7 +424,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR008",
-    "name": "Cf chocolate",
+    "name": "CF CHOCOLATE",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "standard",
@@ -458,7 +458,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR009",
-    "name": "Cf kem dẻo buôn mê",
+    "name": "CF KEM DẺO BUÔN MÊ",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "signature",
@@ -492,7 +492,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR010",
-    "name": "Bạc sỉu",
+    "name": "BẠC SỈU",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "hero",
@@ -526,7 +526,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR011",
-    "name": "Phindi hạnh nhân",
+    "name": "PHINDI HẠNH NHÂN",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "signature",
@@ -560,7 +560,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR012",
-    "name": "Ca cao sữa",
+    "name": "CA CAO SỮA",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "standard",
@@ -594,7 +594,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR013",
-    "name": "Ca cao muối",
+    "name": "CA CAO MUỐI",
     "category": "beverage",
     "subcategory": "coffee",
     "role": "trend",
@@ -628,7 +628,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR020",
-    "name": "Trà gừng mật ong",
+    "name": "TRÀ GỪNG MẬT ONG",
     "category": "beverage",
     "subcategory": "hot_drinks",
     "role": "standard",
@@ -676,7 +676,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR021",
-    "name": "Trà gừng đường nâu",
+    "name": "TRÀ GỪNG ĐƯỜNG NÂU",
     "category": "beverage",
     "subcategory": "hot_drinks",
     "role": "standard",
@@ -724,7 +724,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR022",
-    "name": "Trà thảo mộc",
+    "name": "TRÀ THẢO MỘC",
     "category": "beverage",
     "subcategory": "hot_drinks",
     "role": "signature",
@@ -772,7 +772,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR023",
-    "name": "Hoa hồng táo đỏ",
+    "name": "HOA HỒNG TÁO ĐỎ",
     "category": "beverage",
     "subcategory": "hot_drinks",
     "role": "signature",
@@ -820,7 +820,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR024",
-    "name": "Thanh yên bá tước",
+    "name": "THANH YÊN BÁ TƯỚC",
     "category": "beverage",
     "subcategory": "hot_drinks",
     "role": "signature",
@@ -868,7 +868,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR025",
-    "name": "Trà đào cam quế",
+    "name": "TRÀ ĐÀO CAM QUẾ",
     "category": "beverage",
     "subcategory": "hot_drinks",
     "role": "trend",
@@ -916,7 +916,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR026",
-    "name": "Ca cao quế",
+    "name": "CA CAO QUẾ",
     "category": "beverage",
     "subcategory": "hot_drinks",
     "role": "standard",
@@ -964,7 +964,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR027",
-    "name": "Matcha batā",
+    "name": "MATCHA BATĀ",
     "category": "beverage",
     "subcategory": "hot_drinks",
     "role": "signature",
@@ -1012,7 +1012,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR030",
-    "name": "Matcha mitsu",
+    "name": "MATCHA MITSU",
     "category": "beverage",
     "subcategory": "latte",
     "role": "signature",
@@ -1062,7 +1062,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR031",
-    "name": "Matcha croissant",
+    "name": "MATCHA CROISSANT",
     "category": "beverage",
     "subcategory": "latte",
     "role": "signature",
@@ -1112,7 +1112,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR032",
-    "name": "Matcha latte",
+    "name": "MATCHA LATTE",
     "category": "beverage",
     "subcategory": "latte",
     "role": "hero",
@@ -1162,7 +1162,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR033",
-    "name": "Matcha latte muối",
+    "name": "MATCHA LATTE MUỐI",
     "category": "beverage",
     "subcategory": "latte",
     "role": "trend",
@@ -1212,7 +1212,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR034",
-    "name": "Matcha coco",
+    "name": "MATCHA COCO",
     "category": "beverage",
     "subcategory": "latte",
     "role": "standard",
@@ -1262,7 +1262,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR035",
-    "name": "Matcha đậu đỏ",
+    "name": "MATCHA ĐẬU ĐỎ",
     "category": "beverage",
     "subcategory": "latte",
     "role": "standard",
@@ -1312,7 +1312,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR036",
-    "name": "Matcha caramel muối hồng",
+    "name": "MATCHA CARAMEL MUỐI HỒNG",
     "category": "beverage",
     "subcategory": "latte",
     "role": "signature",
@@ -1362,7 +1362,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR037",
-    "name": "Matcha butterfly coco",
+    "name": "MATCHA BUTTERFLY COCO",
     "category": "beverage",
     "subcategory": "latte",
     "role": "trend",
@@ -1412,7 +1412,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR038",
-    "name": "Matcha coldwhish",
+    "name": "MATCHA COLDWHISH",
     "category": "beverage",
     "subcategory": "latte",
     "role": "standard",
@@ -1462,7 +1462,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR039",
-    "name": "Cloudy matcha",
+    "name": "CLOUDY MATCHA",
     "category": "beverage",
     "subcategory": "latte",
     "role": "trend",
@@ -1512,7 +1512,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR040",
-    "name": "Houjicha latte",
+    "name": "HOUJICHA LATTE",
     "category": "beverage",
     "subcategory": "latte",
     "role": "hero",
@@ -1562,7 +1562,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR041",
-    "name": "Ca cao croissant",
+    "name": "CA CAO CROISSANT",
     "category": "beverage",
     "subcategory": "latte",
     "role": "signature",
@@ -1612,7 +1612,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR042",
-    "name": "Ca cao latte",
+    "name": "CA CAO LATTE",
     "category": "beverage",
     "subcategory": "latte",
     "role": "standard",
@@ -1662,7 +1662,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR043",
-    "name": "Ca cao latte muối",
+    "name": "CA CAO LATTE MUỐI",
     "category": "beverage",
     "subcategory": "latte",
     "role": "trend",
@@ -1712,7 +1712,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR044",
-    "name": "Ca cao bạc hà",
+    "name": "CA CAO BẠC HÀ",
     "category": "beverage",
     "subcategory": "latte",
     "role": "standard",
@@ -1762,7 +1762,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR045",
-    "name": "Ca cao oreo kem dẻo",
+    "name": "CA CAO OREO KEM DẺO",
     "category": "beverage",
     "subcategory": "latte",
     "role": "trend",
@@ -1812,7 +1812,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR046",
-    "name": "Ca cao caramel sữa dừa",
+    "name": "CA CAO CARAMEL SỮA DỪA",
     "category": "beverage",
     "subcategory": "latte",
     "role": "trend",
@@ -1862,7 +1862,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR050",
-    "name": "Trà mitsu",
+    "name": "TRÀ MITSU",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "signature",
@@ -1912,7 +1912,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR051",
-    "name": "Trà sen vàng",
+    "name": "TRÀ SEN VÀNG",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "hero",
@@ -1962,7 +1962,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR052",
-    "name": "Trà gạo sen sữa",
+    "name": "TRÀ GẠO SEN SỮA",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "signature",
@@ -2012,7 +2012,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR053",
-    "name": "Trà quấn quýt",
+    "name": "TRÀ QUẤN QUÝT",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "trend",
@@ -2062,7 +2062,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR054",
-    "name": "Trà dưa lưới",
+    "name": "TRÀ DƯA LƯỚI",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "standard",
@@ -2112,7 +2112,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR055",
-    "name": "Trà cam hoa nhài",
+    "name": "TRÀ CAM HOA NHÀI",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "standard",
@@ -2162,7 +2162,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR056",
-    "name": "Trà vải hoa hồng",
+    "name": "TRÀ VẢI HOA HỒNG",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "standard",
@@ -2212,7 +2212,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR057",
-    "name": "Trà ổi hồng",
+    "name": "TRÀ ỔI HỒNG",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "standard",
@@ -2262,7 +2262,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR058",
-    "name": "Trà thơm hạt đác",
+    "name": "TRÀ THƠM HẠT ĐÁC",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "trend",
@@ -2312,7 +2312,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR059",
-    "name": "Trà đào",
+    "name": "TRÀ ĐÀO",
     "category": "beverage",
     "subcategory": "fruit_tea",
     "role": "hero",
@@ -2362,7 +2362,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR060",
-    "name": "Trà sữa mitsu",
+    "name": "TRÀ SỮA MITSU",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "signature",
@@ -2412,7 +2412,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR061",
-    "name": "Trà sữa truyền thống",
+    "name": "TRÀ SỮA TRUYỀN THỐNG",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "leader",
@@ -2462,7 +2462,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR062",
-    "name": "Trà sữa đậu đỏ",
+    "name": "TRÀ SỮA ĐẬU ĐỎ",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "standard",
@@ -2512,7 +2512,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR063",
-    "name": "Trà sữa gạo rang",
+    "name": "TRÀ SỮA GẠO RANG",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "signature",
@@ -2562,7 +2562,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR064",
-    "name": "Trà sữa milo",
+    "name": "TRÀ SỮA MILO",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "standard",
@@ -2612,7 +2612,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR065",
-    "name": "Trà sữa phomai mặn",
+    "name": "TRÀ SỮA PHOMAI MẶN",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "trend",
@@ -2662,7 +2662,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR066",
-    "name": "Trà sữa kem tiramisu",
+    "name": "TRÀ SỮA KEM TIRAMISU",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "signature",
@@ -2712,7 +2712,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR067",
-    "name": "Trà sữa olong",
+    "name": "TRÀ SỮA OLONG",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "hero",
@@ -2762,7 +2762,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR068",
-    "name": "Trà sữa đại hồng bào",
+    "name": "TRÀ SỮA ĐẠI HỒNG BÀO",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "signature",
@@ -2812,7 +2812,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR069",
-    "name": "Hồng trà shan tuyết",
+    "name": "HỒNG TRÀ SHAN TUYẾT",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "signature",
@@ -2862,7 +2862,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR070",
-    "name": "Hồng trà mật hương",
+    "name": "HỒNG TRÀ MẬT HƯƠNG",
     "category": "beverage",
     "subcategory": "milk_tea",
     "role": "signature",
@@ -2912,7 +2912,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR080",
-    "name": "Sữa chua mitsu",
+    "name": "SỮA CHUA MITSU",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "signature",
@@ -2962,7 +2962,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR081",
-    "name": "Sữa chua dâu sấy",
+    "name": "SỮA CHUA DÂU SẤY",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "standard",
@@ -3012,7 +3012,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR082",
-    "name": "Sữa chua việt quất",
+    "name": "SỮA CHUA VIỆT QUẤT",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "standard",
@@ -3062,7 +3062,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR083",
-    "name": "Sữa chua ca cao",
+    "name": "SỮA CHUA CA CAO",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "standard",
@@ -3112,7 +3112,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR084",
-    "name": "Sữa chua xoài sấy",
+    "name": "SỮA CHUA XOÀI SẤY",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "standard",
@@ -3162,7 +3162,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR085",
-    "name": "Sữa chua đào sấy",
+    "name": "SỮA CHUA ĐÀO SẤY",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "standard",
@@ -3212,7 +3212,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR086",
-    "name": "Sữa chua chanh dây sấy",
+    "name": "SỮA CHUA CHANH DÂY SẤY",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "standard",
@@ -3262,7 +3262,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR087",
-    "name": "Sữa chua matcha",
+    "name": "SỮA CHUA MATCHA",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "standard",
@@ -3312,7 +3312,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR088",
-    "name": "Sữa chua đanh đá",
+    "name": "SỮA CHUA ĐANH ĐÁ",
     "category": "beverage",
     "subcategory": "yogurt",
     "role": "standard",
@@ -3362,7 +3362,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR090",
-    "name": "Coldbrew chanh vàng",
+    "name": "COLDBREW CHANH VÀNG",
     "category": "beverage",
     "subcategory": "coldbrew",
     "role": "hero",
@@ -3396,7 +3396,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR091",
-    "name": "Coldbrew mơ muội",
+    "name": "COLDBREW MƠ MUỘI",
     "category": "beverage",
     "subcategory": "coldbrew",
     "role": "signature",
@@ -3430,7 +3430,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR092",
-    "name": "Coldbrew đào",
+    "name": "COLDBREW ĐÀO",
     "category": "beverage",
     "subcategory": "coldbrew",
     "role": "standard",
@@ -3464,7 +3464,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR093",
-    "name": "Coldbrew bưởi hồng",
+    "name": "COLDBREW BƯỞI HỒNG",
     "category": "beverage",
     "subcategory": "coldbrew",
     "role": "standard",
@@ -3498,7 +3498,7 @@ var MENU_JSON = [
   },
   {
     "sku": "DR094",
-    "name": "Coldbrew yuzu",
+    "name": "COLDBREW YUZU",
     "category": "beverage",
     "subcategory": "coldbrew",
     "role": "trend",
@@ -3532,7 +3532,7 @@ var MENU_JSON = [
   },
   {
     "sku": "BK001",
-    "name": "Bánh croissant bơ Pháp",
+    "name": "BÁNH CROISSANT BƠ PHÁP",
     "category": "pastry",
     "subcategory": "pastry",
     "role": "pairing",
@@ -3555,7 +3555,7 @@ var MENU_JSON = [
   },
   {
     "sku": "BK002",
-    "name": "Tiramisu",
+    "name": "TIRAMISU",
     "category": "pastry",
     "subcategory": "pastry",
     "role": "pairing",
@@ -3579,7 +3579,7 @@ var MENU_JSON = [
   },
   {
     "sku": "BK003",
-    "name": "Bánh mì pate Hà Nội",
+    "name": "BÁNH MÌ PATE HÀ NỘI",
     "category": "pastry",
     "subcategory": "pastry",
     "role": "breakfast",
