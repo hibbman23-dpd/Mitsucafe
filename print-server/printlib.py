@@ -698,6 +698,6 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> 
     cmd += [
         b"BAR 0,202,400,2\r\n",
         T(160, 208, time_str, font="3"),
-        b"PRINT 1\r\n",
+        b"PRINT 1,1\r\n",
     ]
     return b"".join(cmd)

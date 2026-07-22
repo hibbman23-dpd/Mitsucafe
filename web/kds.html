@@ -546,17 +546,38 @@ async function submitOrder(payload) {
   return { order_id: d.order_id, short_code: d.short_code };
 }
 
+function formatItemsSummary(items) {
+  if (!items || !items.length) return '';
+  return items.map(it => {
+    let name = it.name || it.sku || 'Món';
+    const qty = it.qty || 1;
+    const mods = it.modifiers || {};
+    const modParts = [];
+    if (mods.size) modParts.push(mods.size);
+    if (mods.ice) modParts.push(mods.ice);
+    if (mods.sugar) modParts.push(mods.sugar);
+    const modStr = modParts.length ? ` (${modParts.join(', ')})` : '';
+    return `${name}${modStr} × ${qty}`;
+  }).join(' · ');
+}
+
 function optimisticInsert(payload, minted) {
+  const shortCode = minted.short_code || (payload.metadata||{}).short_code || '';
+  const dt = (payload.metadata||{}).delivery_type || 'dine_in';
   const o = {
     order_id: minted.order_id,
+    short_code: shortCode,
+    delivery_type: dt,
     status: 'CONFIRMED',
     payment_status: 'PENDING',
     total: payload.total || 0,
     items: payload.items || [],
+    items_summary: formatItemsSummary(payload.items),
     table_id: payload.table_id || '',
     customer_name: payload.customer_name || '',
-    metadata: { short_code: minted.short_code,
-                delivery_type: (payload.metadata||{}).delivery_type || 'dine_in',
+    notes: (payload.metadata||{}).notes || '',
+    metadata: { short_code: shortCode,
+                delivery_type: dt,
                 notes: (payload.metadata||{}).notes || '' },
     timestamp: new Date().toISOString(),
     _optimistic: true,
@@ -884,6 +905,9 @@ function renderOrders() {
     return;
   }
   list.innerHTML = filtered.map(o => {
+    if (!o.short_code && o.metadata && o.metadata.short_code) o.short_code = o.metadata.short_code;
+    if (!o.delivery_type && o.metadata && o.metadata.delivery_type) o.delivery_type = o.metadata.delivery_type;
+    if (!o.items_summary && o.items && o.items.length) o.items_summary = formatItemsSummary(o.items);
     const isPaid    = o.payment_status === 'PAID';
     const payBadge  = isPaid
       ? '<span class="pay-badge paid">✅ Đã TT</span>'
