@@ -1,5 +1,5 @@
 # print-server/test_print_spool.py
-import os, json, sqlite3, tempfile, threading, time, unittest
+import os, json, sqlite3, tempfile, threading, unittest
 from print_spool import PrintSpool
 
 def _order(oid="ORD-20260723-0001", stype="dine_in"):
@@ -86,6 +86,12 @@ class TestStateMachine(SpoolBase):
         recovered = self.spool.recover_orphans("label", older_than_s=30)
         self.assertEqual(recovered, 1)
         self.assertEqual(self.conn.execute("SELECT status FROM print_spool WHERE id=?", (job["id"],)).fetchone()["status"], "pending")
+
+    def test_requeue_missing_row_is_noop(self):
+        before = self.conn.execute("SELECT COUNT(*) FROM print_spool").fetchone()[0]
+        self.spool.requeue(999999, "x")  # unknown job_id must not raise
+        after = self.conn.execute("SELECT COUNT(*) FROM print_spool").fetchone()[0]
+        self.assertEqual(before, after)
 
     def test_stats(self):
         self.spool.enqueue_labels(_order(), [{"name":"X","qty":1,"modifiers":{}},

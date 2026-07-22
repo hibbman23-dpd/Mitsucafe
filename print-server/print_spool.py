@@ -99,6 +99,8 @@ class PrintSpool:
         with self._lock:
             row = self._conn.execute("SELECT attempts, max_attempts FROM print_spool WHERE id=?",
                                      (job_id,)).fetchone()
+            if row is None:
+                return
             attempts = (row["attempts"] or 0) + 1
             now = _now_iso()
             if attempts >= (row["max_attempts"] or 5):
@@ -122,9 +124,10 @@ class PrintSpool:
             return cur.rowcount
 
     def stats(self, printer):
-        rows = self._conn.execute(
-            "SELECT status, COUNT(*) c FROM print_spool WHERE printer=? "
-            "AND status IN ('pending','printing','failed') GROUP BY status", (printer,)).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT status, COUNT(*) c FROM print_spool WHERE printer=? "
+                "AND status IN ('pending','printing','failed') GROUP BY status", (printer,)).fetchall()
         out = {"pending": 0, "printing": 0, "failed": 0}
         for r in rows:
             out[r["status"]] = r["c"]
