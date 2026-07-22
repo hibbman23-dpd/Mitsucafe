@@ -99,3 +99,26 @@ class TestStateMachine(SpoolBase):
         self.spool.claim_next("label")
         s = self.spool.stats("label")
         self.assertEqual(s, {"pending": 1, "printing": 1, "failed": 0})
+
+class TestGasMark(SpoolBase):
+    def _print_all(self, cups_n):
+        cups = [{"name": "X", "qty": 1, "modifiers": {}} for _ in range(cups_n)]
+        self.spool.enqueue_labels(_order(), cups)
+        for _ in range(cups_n):
+            job = self.spool.claim_next("label")
+            self.spool.mark_printed(job["id"])
+
+    def test_all_printed_true_only_when_no_pending_or_printing(self):
+        cups = [{"name": "X", "qty": 1, "modifiers": {}} for _ in range(2)]
+        self.spool.enqueue_labels(_order(), cups)
+        j1 = self.spool.claim_next("label"); self.spool.mark_printed(j1["id"])
+        self.assertFalse(self.spool.order_kind_all_printed("ORD-20260723-0001", "label"))  # 1 still pending
+        j2 = self.spool.claim_next("label"); self.spool.mark_printed(j2["id"])
+        self.assertTrue(self.spool.order_kind_all_printed("ORD-20260723-0001", "label"))
+
+    def test_pending_gas_marks_then_set(self):
+        self._print_all(2)
+        pend = self.spool.pending_gas_marks()
+        self.assertEqual(pend, [{"order_id": "ORD-20260723-0001", "kind": "label"}])
+        self.spool.set_gas_marked("ORD-20260723-0001", "label")
+        self.assertEqual(self.spool.pending_gas_marks(), [])

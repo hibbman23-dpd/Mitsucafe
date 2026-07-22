@@ -123,6 +123,35 @@ class PrintSpool:
             self._conn.commit()
             return cur.rowcount
 
+    def order_kind_all_printed(self, order_id, kind):
+        rows = self._conn.execute(
+            "SELECT status, COUNT(*) c FROM print_spool WHERE order_id=? AND kind=? GROUP BY status",
+            (order_id, kind)).fetchall()
+        by = {r["status"]: r["c"] for r in rows}
+        if not by:
+            return False
+        if by.get("pending", 0) or by.get("printing", 0):
+            return False
+        return by.get("printed", 0) > 0
+
+    def set_gas_marked(self, order_id, kind):
+        with self._lock:
+            self._conn.execute(
+                "UPDATE print_spool SET gas_marked=1, updated_at=? "
+                "WHERE order_id=? AND kind=? AND status='printed'",
+                (_now_iso(), order_id, kind))
+            self._conn.commit()
+
+    def pending_gas_marks(self):
+        rows = self._conn.execute(
+            "SELECT DISTINCT order_id, kind FROM print_spool "
+            "WHERE status='printed' AND gas_marked=0 ORDER BY order_id, kind").fetchall()
+        out = []
+        for r in rows:
+            if self.order_kind_all_printed(r["order_id"], r["kind"]):
+                out.append({"order_id": r["order_id"], "kind": r["kind"]})
+        return out
+
     def stats(self, printer):
         with self._lock:
             rows = self._conn.execute(
