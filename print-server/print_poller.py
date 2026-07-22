@@ -21,6 +21,7 @@ ENV vars:
 import json
 import logging
 import os
+import sqlite3
 import ssl
 import time
 import urllib.error
@@ -60,20 +61,33 @@ def _ssl_ctx():
         return ssl.create_default_context()
 
 
+def _printed_by_gateway_local(order_id: str) -> bool:
+    try:
+        db_path = os.getenv("GATEWAY_DB", "/Users/dpd/Projects/lamha-kissaten/print-server/outbox.db")
+        if not os.path.exists(db_path):
+            return False
+        with sqlite3.connect(db_path, timeout=3) as conn:
+            c = conn.cursor()
+            c.execute("SELECT 1 FROM outbox WHERE order_id = ? LIMIT 1", (order_id,))
+            return c.fetchone() is not None
+    except Exception as exc:
+        log.warning("_printed_by_gateway_local check error for %s: %s", order_id, exc)
+        return False
+
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
-def _get_json(url: str) -> dict:
+def _get_json(url: str, timeout=25) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": "PrintPoller/1.0"})
-    with urllib.request.urlopen(req, timeout=10, context=_ssl_ctx()) as resp:
+    with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as resp:
         return json.loads(resp.read().decode())
 
 
-def _post_bytes(url: str, data: bytes) -> dict:
+def _post_bytes(url: str, data: bytes, timeout=25) -> dict:
     req = urllib.request.Request(
         url, data=data,
         headers={"Content-Type": "application/octet-stream", "User-Agent": "PrintPoller/1.0"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())
 
 
@@ -98,10 +112,19 @@ def poll_labels_once() -> bool:
     printed_any = False
 
     for order in orders:
-        if order.get("label_printed_at"):
-            continue  # gateway đã in local, đừng in đôi
-
         order_id = order.get("order_id", "?")
+        if order.get("label_printed_at"):
+            continue  # Đã được đánh dấu in ở Google Sheets
+
+        # Chống in trùng: Nếu Gateway local đã mint/in đơn này tại quán -> chỉ mark GAS, không in trùng
+        if _printed_by_gateway_local(order_id):
+            log.info("Order %s already processed locally by Gateway; marking GAS label_printed_at", order_id)
+            try:
+                mark_url = GAS_WEBAPP_URL + f"?action=mark_labels_printed&order_id={order_id}" + _TQ
+                _get_json(mark_url)
+            except Exception as exc:
+                log.warning("mark_labels_printed failed for local order %s: %s", order_id, exc)
+            continue
         items    = order.get("items") or []
 
         cups = []
@@ -159,6 +182,15 @@ def poll_once() -> bool:
 
     for order in orders:
         order_id = order.get("order_id", "?")
+        # Chống in trùng hoá đơn: Nếu Gateway local đã mint/in đơn này tại quán -> chỉ mark GAS, không in trùng
+        if _printed_by_gateway_local(order_id):
+            log.info("Order %s already processed locally by Gateway; marking GAS printed_at", order_id)
+            try:
+                mark_url = GAS_WEBAPP_URL + f"?action=mark_printed&order_id={order_id}" + _TQ
+                _get_json(mark_url)
+            except Exception as exc:
+                log.warning("mark_printed failed for local order %s: %s", order_id, exc)
+            continue
         try:
             esc = build_receipt(order)
             resp = _post_bytes(PRINT_SERVER_URL + "/print/receipt", esc)

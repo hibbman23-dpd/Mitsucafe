@@ -108,6 +108,35 @@ def _mods_line(modifiers: dict) -> str:
     return " / ".join(parts)
 
 
+def _wrap_text_to_lines(text: str, max_chars: int) -> list:
+    """Tách văn bản thành các dòng không quá max_chars ký tự mà không cắt xén chữ."""
+    if not text:
+        return []
+    words = str(text).split()
+    lines = []
+    curr = ""
+    for word in words:
+        while len(word) > max_chars:
+            part = word[:max_chars]
+            word = word[max_chars:]
+            if curr:
+                lines.append(curr)
+                curr = ""
+            lines.append(part)
+        if not word:
+            continue
+        if not curr:
+            curr = word
+        elif len(curr) + 1 + len(word) <= max_chars:
+            curr += " " + word
+        else:
+            lines.append(curr)
+            curr = word
+    if curr:
+        lines.append(curr)
+    return lines
+
+
 def _loc_label(order: dict) -> str:
     dt = (order.get("metadata") or {}).get("delivery_type", "")
     if dt == "delivery":
@@ -120,18 +149,12 @@ def _loc_label(order: dict) -> str:
 
 
 def _img_to_raster_bytes(img) -> bytes:
-    """Chuyển PIL Image → packed bit rows cho ESC/POS GS v 0."""
-    img_gray = img.convert("L")
-    w, h = img_gray.size
-    bytes_per_row = (w + 7) // 8
-    pixels = img_gray.tobytes()
-    result = bytearray(bytes_per_row * h)
-    for y in range(h):
-        row_start = y * w
-        for x in range(w):
-            if pixels[row_start + x] < 128:
-                result[y * bytes_per_row + x // 8] |= (0x80 >> (x % 8))
-    return bytes(result)
+    """Chuyển PIL Image → packed bit rows cho ESC/POS GS v 0.
+    ESC/POS: bit 1 = điểm đen nhiệt (đốt nhiệt), bit 0 = giấy trắng.
+    PIL convert('1'): 0 = đen, 255 = trắng. Do đó CẦN ĐẢO BIT (b ^ 0xFF).
+    """
+    raw = img.convert("1", dither=False).tobytes()
+    return bytes(b ^ 0xFF for b in raw)
 
 
 # ── Logo asset ────────────────────────────────────────────────────────────────
@@ -292,36 +315,62 @@ def build_receipt_raster(order: dict) -> bytes:
         max_name_w = CW - right_w - 6
 
         words = name.split()
-        line1, line2 = "", ""
+        name_lines = []
+        curr = ""
         for word in words:
-            test_l1 = (line1 + " " + word).strip()
-            if tw(test_l1, f_item) <= max_name_w:
-                line1 = test_l1
+            test = (curr + " " + word).strip()
+            if tw(test, f_item) <= max_name_w:
+                curr = test
             else:
-                line2 = (line2 + " " + word).strip()
-
-        if not line1:
-            line1 = name
+                if curr:
+                    name_lines.append(curr)
+                curr = word
+        if curr:
+            name_lines.append(curr)
+        if not name_lines:
+            name_lines = [name]
 
         name_x  = PAD
         price_x = W - PAD - right_w
-        cmds.append(("text", name_x,  y, line1,      f_item))
-        cmds.append(("text", price_x, y, right_str,  f_item))
+        cmds.append(("text", name_x,  y, name_lines[0], f_item))
+        cmds.append(("text", price_x, y, right_str,     f_item))
         y += lh(f_item)
 
-        if line2:
-            cmds.append(("text", name_x, y, line2, f_item))
+        for extra_l in name_lines[1:]:
+            cmds.append(("text", name_x, y, extra_l, f_item))
             y += lh(f_item)
 
         mods = _mods_line(
             {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}
         )
         if mods:
-            add_text(mods, f_small, indent=12)
+            mod_words = mods.split()
+            mod_lines, curr_m = [], ""
+            for mw in mod_words:
+                test_m = (curr_m + " " + mw).strip()
+                if tw(test_m, f_small) <= CW - 24:
+                    curr_m = test_m
+                else:
+                    if curr_m: mod_lines.append(curr_m)
+                    curr_m = mw
+            if curr_m: mod_lines.append(curr_m)
+            for ml in (mod_lines or [mods]):
+                add_text(ml, f_small, indent=12)
 
     notes = meta.get("notes", "")
     if notes:
-        add_text(f"Ghi chú: {notes}", f_small, indent=0)
+        note_words = f"Ghi chú: {notes}".split()
+        note_lines, curr_n = [], ""
+        for nw_word in note_words:
+            test_n = (curr_n + " " + nw_word).strip()
+            if tw(test_n, f_small) <= CW - 12:
+                curr_n = test_n
+            else:
+                if curr_n: note_lines.append(curr_n)
+                curr_n = nw_word
+        if curr_n: note_lines.append(curr_n)
+        for nl in (note_lines or [f"Ghi chú: {notes}"]):
+            add_text(nl, f_small, indent=0)
 
     add_hline(thick=1, gap_before=3, gap_after=3)
 
@@ -357,27 +406,32 @@ def build_receipt_raster(order: dict) -> bytes:
     ESC = b"\x1b"
     GS  = b"\x1d"
 
-    raster_data  = _img_to_raster_bytes(img)
-    bytes_per_row = (W + 7) // 8
-    num_rows      = height
+    DRAWER_KICK = (
+        ESC + b"@"                 # ESC @: Initialize printer
+        + ESC + b"2"               # ESC 2: Default line spacing (1/6 inch)
+        + ESC + b"t\x00"           # ESC t 0: Character code table PC437
+        + ESC + b"p\x00\x19\xfa"   # Cash drawer 1 kick
+        + ESC + b"p\x01\x19\xfa\n" # Cash drawer 2 kick
+    )
 
+    CHUNK_H = 96
+    bytes_per_row = (W + 7) // 8
     xL = bytes_per_row & 0xFF
     xH = (bytes_per_row >> 8) & 0xFF
-    yL = num_rows & 0xFF
-    yH = (num_rows >> 8) & 0xFF
 
-    return (
-        ESC + b"@"
-        + GS + b"v0\x00"
-        + bytes([xL, xH, yL, yH])
-        + raster_data
-        + b"\n\n\n"
-        + ESC + b"p\x00\x19\xfa"
-        + ESC + b"p\x01\x19\xfa"
-        + b"\x10\x14\x01\x00\x05"
-        + b"\n\n"
-        + GS + b"V\x42\x00"
-    )
+    parts = [DRAWER_KICK]
+    for y_offset in range(0, height, CHUNK_H):
+        chunk_h = min(CHUNK_H, height - y_offset)
+        slice_img = img.crop((0, y_offset, W, y_offset + chunk_h))
+        slice_bytes = _img_to_raster_bytes(slice_img)
+
+        yL = chunk_h & 0xFF
+        yH = (chunk_h >> 8) & 0xFF
+
+        parts.append(GS + b"v0\x00" + bytes([xL, xH, yL, yH]) + slice_bytes + b"\n")
+
+    parts.append(b"\n\n\n\n" + GS + b"V\x42\x00")
+    return b"".join(parts)
 
 
 def _viet_ascii(s: str) -> str:
@@ -425,10 +479,10 @@ def build_receipt_text(order: dict) -> bytes:
         ESC + b"a\x01",
         ESC + b"!\x00",
         enc(">(|||)<\n"),
-        ESC + b"!\x38",
-        enc("Mitsu Café\n"),
-        ESC + b"!\x00",
-        enc("Lâm Hà, Lâm Đồng\n"),
+        GS + b"!\x11",
+        enc("Mitsu Cafe\n"),
+        GS + b"!\x00",
+        enc("Lam Ha, Lam Dong\n"),
         ESC + b"a\x00",
         enc("=" * W + "\n"),
     ]
@@ -452,16 +506,27 @@ def build_receipt_text(order: dict) -> bytes:
         if size:
             name += f" ({size})"
         right = f"x{it.get('qty',1)}  {_format_amount(it.get('price',0))}"
-        max_n = W - len(right) - 1
-        name = name[:max_n]
-        line  = name + " " * max(1, W - len(name) - len(right)) + right
-        parts.append(enc(line + "\n"))
+        max_n = max(8, W - len(right) - 1)
+        name_lines = _wrap_text_to_lines(name, max_n)
+        if not name_lines:
+            name_lines = [name]
+
+        first_line = name_lines[0] + " " * max(1, W - len(name_lines[0]) - len(right)) + right
+        parts.append(enc(first_line + "\n"))
+        for extra_l in name_lines[1:]:
+            parts.append(enc("  " + extra_l + "\n"))
+
         mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"})
         if mods:
-            parts.append(enc(("  " + mods)[:W] + "\n"))
+            mod_lines = _wrap_text_to_lines(mods, W - 4)
+            for ml in mod_lines:
+                parts.append(enc("  " + ml + "\n"))
+
     notes = meta.get("notes", "")
     if notes:
-        parts.append(enc(("  Ghi chú: " + notes)[:W] + "\n"))
+        note_lines = _wrap_text_to_lines("Ghi chú: " + notes, W - 2)
+        for nl in note_lines:
+            parts.append(enc("  " + nl + "\n"))
     parts.append(enc("-" * W + "\n"))
     parts.append(ESC + b"!\x08")
     parts.append(enc(rjust("Tổng: " + _format_amount(order.get("total", 0)) + "đ", W) + "\n"))
@@ -484,8 +549,8 @@ def build_receipt_text(order: dict) -> bytes:
 
 
 def build_receipt(order: dict) -> bytes:
-    fmt = os.getenv("RECEIPT_FORMAT", "text")
-    if fmt == "raster":
+    fmt = os.getenv("RECEIPT_FORMAT", os.getenv("RECEIPT_MODE", "raster"))
+    if fmt != "text":
         try:
             return build_receipt_raster(order)
         except Exception as exc:
@@ -551,33 +616,48 @@ def build_label_raster(order: dict, item: dict, cup_num: int, total_cups: int) -
 
     add_hline(thick=2)
 
+    def wrap_font_lines(text_str, font, max_px):
+        words = str(text_str).split()
+        lines = []
+        curr = ""
+        for word in words:
+            test = (curr + " " + word).strip()
+            if tw(test, font) <= max_px:
+                curr = test
+            else:
+                if curr:
+                    lines.append(curr)
+                curr = word
+        if curr:
+            lines.append(curr)
+        return lines or [text_str]
+
     name = item.get("name", "?")
     size = (item.get("modifiers") or {}).get("size", "")
     if size:
         name += f" ({size})"
     max_w = W - 2 * PAD
-    while len(name) > 2 and tw(name, f_item) > max_w:
-        name = name[:-1]
-    nw = tw(name, f_item)
-    cmds.append(("text", max(PAD, (W - nw) // 2), y, name, f_item))
-    y += lh(f_item)
+    name_lines = wrap_font_lines(name, f_item, max_w)
+    for nl in name_lines:
+        nw = tw(nl, f_item)
+        cmds.append(("text", max(PAD, (W - nw) // 2), y, nl, f_item))
+        y += lh(f_item)
 
     mods = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"})
     if mods:
-        while len(mods) > 2 and tw(mods, f_mod) > max_w:
-            mods = mods[:-1]
-        mw = tw(mods, f_mod)
-        cmds.append(("text", max(PAD, (W - mw) // 2), y, mods, f_mod))
-        y += lh(f_mod)
+        mods_lines = wrap_font_lines(mods, f_mod, max_w)
+        for ml in mods_lines:
+            mw = tw(ml, f_mod)
+            cmds.append(("text", max(PAD, (W - mw) // 2), y, ml, f_mod))
+            y += lh(f_mod)
 
     notes = meta.get("notes", "")
     if notes:
-        note_str = "GC: " + notes
-        while len(note_str) > 4 and tw(note_str, f_mod) > max_w:
-            note_str = note_str[:-1]
-        nw2 = tw(note_str, f_mod)
-        cmds.append(("text", max(PAD, (W - nw2) // 2), y, note_str, f_mod))
-        y += lh(f_mod)
+        note_lines = wrap_font_lines("GC: " + notes, f_mod, max_w)
+        for nl in note_lines:
+            nw2 = tw(nl, f_mod)
+            cmds.append(("text", max(PAD, (W - nw2) // 2), y, nl, f_mod))
+            y += lh(f_mod)
 
     add_hline(thick=1)
     time_str = _format_time_only(str(order.get("timestamp", "")))
@@ -657,49 +737,74 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
     ]
 
     middle_items = []
-    
+
     name_stripped = _strip_viet(name)
-    if len(name_stripped) > 23:
-        name = name[:23]
-        name_stripped = name_stripped[:23]
-        
-    if len(name_stripped) <= 15:
-        middle_items.append((name, "4", 1, 2, 64))
+    if len(name_stripped) <= 14:
+        middle_items.append((name, "4", 1, 2, 42))
+    elif len(name_stripped) <= 22:
+        middle_items.append((name, "3", 1, 2, 34))
     else:
-        middle_items.append((name, "3", 1, 2, 48))
-        
+        name_lines = _wrap_text_to_lines(name, 22)
+        font_choice = "3"
+        line_h = 28
+        if len(name_lines) > 2 or any(len(_strip_viet(l)) > 22 for l in name_lines):
+            name_lines = _wrap_text_to_lines(name, 30)
+            font_choice = "2"
+            line_h = 20
+        for nl in name_lines:
+            middle_items.append((nl, font_choice, 1, 1 if font_choice == "2" else 2, line_h))
+
     if mods:
-        if len(mods) > 23:
-            mods = mods[:23]
-        middle_items.append((mods, "3", 1, 1, 24))
-        
+        mods_lines = _wrap_text_to_lines(mods, 22)
+        if len(mods_lines) > 2 or any(len(_strip_viet(l)) > 22 for l in mods_lines):
+            mods_lines = _wrap_text_to_lines(mods, 30)
+            for ml in mods_lines:
+                middle_items.append((ml, "2", 1, 1, 18))
+        else:
+            for ml in mods_lines:
+                middle_items.append((ml, "3", 1, 1, 22))
+
     cust_name = str(order.get("customer_name") or "").strip()
     cust_id = str(order.get("customer_id") or "").strip()
-    if cust_id == "0000000000":
+    if cust_id in ("0000000000", "0000"):
         cust_id = ""
-        
-    cust_parts = []
-    if cust_name:
-        cust_parts.append(cust_name)
-    if cust_id:
-        cust_parts.append(cust_id)
-        
+
+    cust_parts = [p for p in (cust_name, cust_id) if p]
     if cust_parts:
         cust_str = " - ".join(cust_parts)
-        if len(cust_str) > 23:
-            cust_str = cust_str[:23]
-        middle_items.append((cust_str, "3", 1, 1, 24))
-        
+        cust_lines = _wrap_text_to_lines(cust_str, 22)
+        for cl in cust_lines:
+            middle_items.append((cl, "3", 1, 1, 20))
+
     if notes:
         note_str = f"GC: {notes}"
-        if len(note_str) > 23:
-            note_str = note_str[:23]
-        middle_items.append((note_str, "3", 1, 1, 24))
-        
+        note_lines = _wrap_text_to_lines(note_str, 22)
+        if len(note_lines) > 2 or any(len(_strip_viet(l)) > 22 for l in note_lines):
+            note_lines = _wrap_text_to_lines(note_str, 30)
+            for nl in note_lines:
+                middle_items.append((nl, "2", 1, 1, 18))
+        else:
+            for nl in note_lines:
+                middle_items.append((nl, "3", 1, 1, 20))
+
     total_height = sum(item[4] for item in middle_items)
-    remaining = 162 - total_height
-    gap = max(2, remaining // (len(middle_items) + 1))
-    
+    if total_height > 155:
+        scaled_items = []
+        for text_str, font, sx, sy, h in middle_items:
+            if font == "4":
+                scaled_items.append((text_str, "3", 1, 2, 32))
+            elif font == "3" and sy == 2:
+                scaled_items.append((text_str, "3", 1, 1, 22))
+            elif font == "3" and sy == 1:
+                scaled_items.append((text_str, "2", 1, 1, 18))
+            else:
+                scaled_items.append((text_str, font, sx, sy, max(14, h - 4)))
+        middle_items = scaled_items
+        total_height = sum(item[4] for item in middle_items)
+
+    remaining = max(0, 160 - total_height)
+    gap = max(1, remaining // (len(middle_items) + 1))
+
     y_ptr = 40 + gap
     for text_str, font, sx, sy, h in middle_items:
         cmd.append(T(10, y_ptr, text_str, font=font, sx=sx, sy=sy))
@@ -715,12 +820,32 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
 
 def build_order_labels_tspl(order: dict, cups: list) -> bytes:
     """Xây dựng 1 chuỗi TSPL duy nhất cho tất cả các ly trong đơn.
-    SIZE và GAP được gửi 1 LẦN DUY NHẤT ở đầu chuỗi, tránh việc máy in tem
-    XP-365B bị reset buffer giữa chừng.
+    SIZE, GAP, SPEED, DENSITY được gửi 1 LẦN DUY NHẤT ở đầu chuỗi kèm preamble flush bytes.
     """
     if not cups:
         return b""
-    header = b"SIZE 50 mm,30 mm\r\nGAP 3 mm,0\r\nDIRECTION 0\r\n"
+    header = b"\r\n\r\nSIZE 50 mm,30 mm\r\nGAP 3 mm,0\r\nSPEED 4\r\nDENSITY 8\r\nDIRECTION 0\r\n"
     body = b"".join(build_label_tspl(order, item, i, len(cups), include_header=False)
                     for i, item in enumerate(cups, start=1))
     return header + body
+
+
+def build_order_labels_tspl_batched(order: dict, cups: list, max_cups_per_batch: int = 6) -> list:
+    """Tách danh sách ly trong đơn thành các batch tối đa max_cups_per_batch ly/batch
+    để không bao giờ vượt quá 8KB bộ nhớ USB của máy in tem Xprinter XP-365B.
+    Trả về danh sách các chuỗi bytes TSPL.
+    """
+    if not cups:
+        return []
+    batches = []
+    total_cups = len(cups)
+    for start in range(0, total_cups, max_cups_per_batch):
+        chunk = cups[start:start + max_cups_per_batch]
+        header = b"SIZE 50 mm,30 mm\r\nGAP 3 mm,0\r\nDIRECTION 0\r\n"
+        body = b"".join(
+            build_label_tspl(order, item, start + i, total_cups, include_header=False)
+            for i, item in enumerate(chunk, start=1)
+        )
+        batches.append(header + body)
+    return batches
+

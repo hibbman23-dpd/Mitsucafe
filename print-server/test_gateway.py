@@ -102,5 +102,11 @@ class TestGateway(unittest.TestCase):
         self.assertIsNotNone(pl); self.assertEqual(pl["items"][0]["name"], "CF")
         self.assertIsNone(self.gw.get_create_payload("ORD-REMOTE-9"))  # đơn không do gateway tạo
 
+    def test_poison_pill_error_stops_retries(self):
+        seq = self.gw.enqueue("status", "ORD-1", "k:1", {"order_id": "ORD-1", "status": "DELIVERED"})
+        self.gw.mark_error(seq, "Invalid transition: NEW → DELIVERED")
+        pend = self.gw.unsynced()
+        self.assertFalse(any(p["seq"] == seq for p in pend))
+
 if __name__ == "__main__":
     unittest.main()

@@ -186,9 +186,15 @@ class Gateway:
             self._conn.commit()
 
     def mark_error(self, seq, err):
+        err_str = str(err)
         with self._lock:
-            self._conn.execute(
-                "UPDATE outbox SET attempts=attempts+1, last_error=? WHERE seq=?", (str(err)[:400], seq))
+            if "Invalid transition" in err_str or "Order not found" in err_str or "unknown_action" in err_str:
+                self._conn.execute(
+                    "UPDATE outbox SET attempts=attempts+1, last_error=?, synced_at=? WHERE seq=?",
+                    (err_str[:400], "FAILED: " + err_str[:380], seq))
+            else:
+                self._conn.execute(
+                    "UPDATE outbox SET attempts=attempts+1, last_error=? WHERE seq=?", (err_str[:400], seq))
             self._conn.commit()
 
     def _post_to_gas(self, payload):

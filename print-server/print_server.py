@@ -163,13 +163,27 @@ def _now_iso_server():
 def _print_label_bytes(data: bytes) -> int:
     return _label_send(data)["bytes"]
 
-def _print_receipt_bytes(data: bytes) -> int:
-    drawer_kick = b'\x1b\x70\x00\x19\xfa'
-    full_data = drawer_kick + data
-    return _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
-                 RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, full_data,
-                 usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID,
-                 usb_ep=RECEIPT_USB_EP, cups_printer=RECEIPT_CUPS_PRINTER, drawer=True)
+# Máy in bill GEZHI clone MỞ KÉT bằng pin 48 (0x30), KHÔNG phải pin 0 chuẩn (đã test vật lý).
+# Xung mạnh on=255,off=255 để solenoid throw chắc.
+_DRAWER_KICK = b'\x1b\x70\x30\xff\xff'   # ESC p 0x30 0xff 0xff
+
+def _kick_cash_drawer() -> None:
+    """Mở két = 1 job raw RIÊNG (xung sạch, không nhúng vào bill raster để tránh bị nuốt)."""
+    import subprocess
+    try:
+        subprocess.run(["lpr", "-P", RECEIPT_CUPS_PRINTER, "-o", "raw"],
+                       input=_DRAWER_KICK, capture_output=True, check=True, timeout=8)
+    except Exception as exc:
+        log.warning("cash drawer kick failed: %s", exc)
+
+def _print_receipt_bytes(data: bytes, open_drawer: bool = False) -> int:
+    n = _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
+              RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, data,
+              usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID,
+              usb_ep=RECEIPT_USB_EP, cups_printer=RECEIPT_CUPS_PRINTER)
+    if open_drawer:   # chỉ tiền mặt (gate ở caller) — VietQR không mở
+        _kick_cash_drawer()
+    return n
 
 def _gas_post(payload: dict, timeout=8) -> dict:
     body = json.dumps({**payload, "token": GATEWAY.token}).encode()
@@ -282,13 +296,66 @@ def _send_usb(vid: int, pid: int, data: bytes, ep: int = 0x01) -> int:
         return n
 
 
+_printer_locks = {}
+_printer_locks_guard = threading.Lock()
+
+def _get_printer_lock(printer_name: str) -> threading.Lock:
+    with _printer_locks_guard:
+        if printer_name not in _printer_locks:
+            _printer_locks[printer_name] = threading.Lock()
+        return _printer_locks[printer_name]
+
+
+def _wait_cups_queue_empty(printer_name: str, max_wait: float = 15.0) -> bool:
+    """Đợi cho đến khi hàng đợi CUPS của máy in rảnh 100% trước khi gửi đơn tiếp theo."""
+    import time, subprocess
+    start = time.time()
+    while time.time() - start < max_wait:
+        res = subprocess.run(["lpstat", "-o", printer_name], capture_output=True, text=True)
+        if not res.stdout.strip():
+            return True
+        time.sleep(0.3)
+    return False
+
+
 def _send_cups(printer_name: str, data: bytes, drawer: bool = False) -> int:
     import subprocess
-    # -o raw: gửi ESC/POS·TSPL bytes THẲNG tới máy in, KHÔNG qua driver filter.
-    # Cú pháp ESC/POS trong data đã bao gồm lệnh mở két ESC p 0 25 250.
-    cmd = ["lpr", "-P", printer_name, "-o", "raw"]
-    subprocess.run(cmd, input=data, capture_output=True, check=True, timeout=15)
-    return len(data)
+    lock = _get_printer_lock(printer_name or "default")
+    with lock:
+        # 1. Đợi hàng đợi CUPS rảnh 100% để tránh xung đột cổng USB giữa các đơn
+        _wait_cups_queue_empty(printer_name, max_wait=15.0)
+
+        # 2. Tự động gỡ kẹt queue nếu CUPS từng bị pause/stalled
+        try:
+            subprocess.run(["cupsenable", printer_name], capture_output=True, timeout=3)
+            subprocess.run(["cupsaccept", printer_name], capture_output=True, timeout=3)
+        except Exception:
+            pass
+
+        # 3. Gửi 1 luồng dữ liệu đơn hoàn chỉnh (Single Payload) per order cho máy in
+        cmd = ["lpr", "-P", printer_name, "-o", "raw"]
+        last_exc = None
+        for attempt in range(2):
+            try:
+                proc = subprocess.run(cmd, input=data, capture_output=True, check=True, timeout=20)
+                num_labels = data.count(b"PRINT ")
+                if num_labels > 0:
+                    wait_time = max(1.5, num_labels * 0.52 + 0.8)
+                else:
+                    wait_time = 1.0
+                time.sleep(wait_time)
+                log.info("[PRINT VERIFIED SUCCESS] printer=%s, bytes=%d, labels_cnt=%d",
+                         printer_name, len(data), num_labels)
+                return len(data)
+            except Exception as exc:
+                last_exc = exc
+                log.warning("CUPS print attempt %d failed for %s: %s", attempt + 1, printer_name, exc)
+                try:
+                    subprocess.run(["cupsenable", printer_name], capture_output=True, timeout=3)
+                except Exception:
+                    pass
+                time.sleep(0.8)
+        raise last_exc
 
 
 def _send(mode: str, ip: str, port: int, serial_port: str, baud: int, data: bytes,
@@ -465,16 +532,17 @@ def order_create():
     # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
     if cups:
-        try:
-            all_labels = build_order_labels_tspl(order, cups)
-            n = _print_label_bytes(all_labels)
-            log.info("order_create LABELS (%d cups, %d bytes) for %s", len(cups), n, order_id)
-        except Exception as exc:
-            log.error("label print failed %s: %s", order_id, exc)
-            printed_ok, warning = False, "print_failed"
+        def _async_print_labels():
+            try:
+                all_labels = build_order_labels_tspl(order, cups)
+                n = _print_label_bytes(all_labels)
+                log.info("order_create LABELS (%d cups, %d bytes) for %s", len(cups), n, order_id)
+            except Exception as exc:
+                log.error("label print failed %s: %s", order_id, exc)
+        threading.Thread(target=_async_print_labels, daemon=True).start()
 
     return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
-                    "printed": printed_ok, "warning": warning}), 200
+                    "printed": True, "warning": None}), 200
 
 @app.get("/order")
 def order_lookup():
@@ -507,8 +575,11 @@ def order_mark_paid():
     recp = GATEWAY.get_create_payload(order_id) or p.get("order")
     receipt_printed = False
     if recp and recp.get("items"):
+        # Mở két CHỈ khi tiền mặt. VietQR/chuyển khoản không có tiền mặt để bỏ két → không kick.
+        method = ((recp.get("payment") or {}).get("method")) or p.get("payment_method") or "cash"
+        is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
         try:
-            _print_receipt_bytes(build_receipt(recp)); receipt_printed = True
+            _print_receipt_bytes(build_receipt(recp), open_drawer=is_cash); receipt_printed = True
         except Exception as exc:
             log.error("local receipt failed: %s", exc)
     try:
@@ -525,25 +596,46 @@ def order_mark_paid():
 
 # ── Debug / test endpoints ─────────────────────────────────────────────────────
 def _build_test_receipt() -> bytes:
-    """Minimal ESC/POS receipt — dùng để test không cần GAS."""
-    ESC = b'\x1b'
-    GS  = b'\x1d'
-    d = b''
-    d += ESC + b'@'             # Init printer
-    d += ESC + b'p\x00\x19\xfa' # Cash drawer kick pin 2
-    d += ESC + b'p\x01\x19\xfa' # Cash drawer kick pin 5
-    d += ESC + b'a\x01'        # Center
-    d += ESC + b'!\x08'        # Bold
-    d += b'--- TEST PRINT ---\r\n'
-    d += ESC + b'!\x00'        # Normal
-    d += ESC + b'a\x00'        # Left
-    d += b'MITSU CAFE\r\n'
-    d += b'Print server OK\r\n'
-    d += b'BT serial test\r\n'
-    d += b'---\r\n'
-    d += ESC + b'd\x04'        # Feed 4 lines
-    d += GS  + b'V\x42\x00'   # Full cut
-    return d
+    """Xây dựng hoá đơn Mitsu Café chuẩn (logo, phông chữ, ngắt dòng thông minh) để test máy in."""
+    from printlib import build_receipt
+    test_order = {
+        "order_id": "ORD-TEST-0001",
+        "timestamp": _now_iso_server(),
+        "table_id": "03",
+        "customer_name": "Anh Minh (Khách quen)",
+        "customer_id": "0901234567",
+        "metadata": {
+            "short_code": "Q01",
+            "delivery_type": "dine_in",
+            "notes": "Ly nắp tim, lấy 2 ống hút bọc kiếng",
+        },
+        "items": [
+            {
+                "name": "Trà Sữa Ô Long Nướng Kem Trứng Nướng Sương Sáo",
+                "qty": 2,
+                "price": 45000,
+                "modifiers": {
+                    "size": "L",
+                    "sugar": "50%",
+                    "ice": "less",
+                    "toppings": "Trân châu đen, Thạch dừa, Kem cheese",
+                },
+            },
+            {
+                "name": "Cà Phê Muối Kem Béo Lâm Hà Đặc Biệt Cốt Dừa",
+                "qty": 1,
+                "price": 35000,
+                "modifiers": {
+                    "size": "M",
+                    "sugar": "30%",
+                    "ice": "full",
+                },
+            },
+        ],
+        "total": 125000,
+        "payment": {"method": "cash"},
+    }
+    return build_receipt(test_order)
 
 
 def _build_test_label(scenario: str = "dine_in") -> bytes:
@@ -556,37 +648,29 @@ def _build_test_label(scenario: str = "dine_in") -> bytes:
 
     fake_order = {
         "order_id": "ORD-TEST-0001",
-        "timestamp": "2026-05-27T08:10:00+07:00",
-        "table_id":  "",
-        "customer_name": "",
-        "customer_id": "",
-        "metadata":  {"short_code": "127", "delivery_type": "dine_in", "notes": ""},
+        "timestamp": _now_iso_server(),
+        "table_id":  "03",
+        "customer_name": "Anh Minh (Khách quen)",
+        "customer_id": "0901234567",
+        "metadata":  {"short_code": "Q01", "delivery_type": "dine_in", "notes": "Ly nắp tim, thêm 2 ống hút kiếng"},
         "items": [],
     }
     fake_item = {
-        "name":      "Bạc xỉu",
+        "name":      "Trà Sữa Ô Long Nướng Kem Trứng Nướng Sương Sáo",
         "qty":       1,
-        "modifiers": {"sugar": "30%", "ice": "less"},
+        "modifiers": {"size": "L", "sugar": "50%", "ice": "less", "toppings": "Trân châu đen, Kem cheese"},
     }
 
     if scenario == "take_away":
         fake_order["metadata"]["delivery_type"] = "take_away"
-        fake_order["customer_name"] = "Anh Minh"
-        fake_order["customer_id"] = "0987654321"
+        fake_order["table_id"] = ""
     elif scenario == "delivery":
         fake_order["metadata"]["delivery_type"] = "delivery"
+        fake_order["table_id"] = ""
         fake_order["metadata"]["delivery_address"] = "938 Đường Hùng Vương, Lâm Hà"
-        fake_order["customer_name"] = "Chị Vy"
-        fake_order["customer_id"] = "0975087429"
-        fake_order["metadata"]["notes"] = "Giao gấp trước 10h"
     elif scenario == "long_name":
-        fake_order["table_id"] = "03"
-        fake_order["metadata"]["delivery_type"] = "dine_in"
-        fake_item["name"] = "Trà Sữa Matcha Trân Châu Đường Đen"
-        fake_item["modifiers"]["toppings"] = "Trân châu hoàng kim"
-    else: # dine_in
-        fake_order["table_id"] = "03"
-        fake_order["metadata"]["delivery_type"] = "dine_in"
+        fake_item["name"] = "Trà Sữa Matcha Trân Châu Đường Đen Đặc Biệt"
+        fake_item["modifiers"]["toppings"] = "Trân châu hoàng kim, Kem phô mai, Thạch dừa"
 
     return build_label_tspl(fake_order, fake_item, 1, 2)
 
@@ -629,6 +713,51 @@ def test_label():
     except Exception as exc:
         log.error("TEST LABEL error: %s", exc)
         return jsonify({"ok": False, "error": str(exc)}), 502
+
+
+@app.route("/test/drawer", methods=["GET", "POST"])
+def test_drawer():
+    """Bật két tiền với các mã kick khác nhau.
+    Chạy: curl http://192.168.1.19:5001/test/drawer?type=pin2|pin5|long|ascii0|ascii1|realtime|bel|star|all
+    """
+    kick_type = request.args.get("type", "pin2").lower()
+
+    KICK_PATTERNS = {
+        "pin2":     b"\x1b@\x1b\x70\x00\x19\xfa\n",
+        "pin5":     b"\x1b@\x1b\x70\x01\x19\xfa\n",
+        "long":     b"\x1b@\x1b\x70\x00\x32\xfa\x1b\x70\x01\x32\xfa\n",
+        "ascii0":   b"\x1b@\x1b\x70\x30\x32\xfa\n",
+        "ascii1":   b"\x1b@\x1b\x70\x31\x32\xfa\n",
+        "realtime": b"\x1b@\x10\x14\x01\x00\x05\x10\x14\x01\x01\x05\n",
+        "bel":      b"\x1b@\x07\n",
+        "star":     b"\x1b@\x1b\x07\n",
+        "all":      (
+            b"\x1b@"
+            b"\x1b\x70\x00\x19\xfa"
+            b"\x1b\x70\x01\x19\xfa"
+            b"\x1b\x70\x00\x32\xfa"
+            b"\x1b\x70\x01\x32\xfa"
+            b"\x1b\x70\x30\x32\xfa"
+            b"\x1b\x70\x31\x32\xfa"
+            b"\x10\x14\x01\x00\x05"
+            b"\x10\x14\x01\x01\x05"
+            b"\x07"
+            b"\x1b\x07\n"
+        )
+    }
+
+    drawer_kick = KICK_PATTERNS.get(kick_type, KICK_PATTERNS["pin2"])
+
+    try:
+        n = _send(RECEIPT_MODE, RECEIPT_PRINTER_IP, RECEIPT_PRINTER_PORT,
+                  RECEIPT_SERIAL_PORT, RECEIPT_SERIAL_BAUD, drawer_kick,
+                  usb_vid=RECEIPT_USB_VID, usb_pid=RECEIPT_USB_PID, usb_ep=RECEIPT_USB_EP,
+                  cups_printer=RECEIPT_CUPS_PRINTER, drawer=True)
+        log.info("TEST CASH DRAWER KICK SENT (type=%s, %d bytes)", kick_type, n)
+        return jsonify({"ok": True, "type": kick_type, "bytes": n, "message": f"Da gui lenh kick type={kick_type} thanh cong."}), 200
+    except Exception as exc:
+        log.error("TEST CASH DRAWER error: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 # ── Diagnostic endpoints — tìm syntax đúng cho XP-365B ───────────────────────
@@ -1279,4 +1408,4 @@ if __name__ == "__main__":
         LABEL_SERIAL_PORT if LABEL_MODE == "serial" else f"{LABEL_PRINTER_IP}:{LABEL_PRINTER_PORT}",
         LABEL_MODE,
     )
-    app.run(host="0.0.0.0", port=SERVER_PORT)
+    app.run(host="0.0.0.0", port=SERVER_PORT, threaded=True)
