@@ -448,6 +448,69 @@ const esc = s => String(s == null ? '' : s).replace(/[<>&"']/g, c => ({
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const GAS_URL  = 'https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec';
 const POLL_MS  = 15000;
+const LOCAL_FIRST = true;
+const GATEWAY_URL = 'http://' + (location.hostname || 'localhost').replace(/:.*/, '') + ':5001';
+
+function uuid() {
+  return (crypto.randomUUID ? crypto.randomUUID()
+    : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+}
+
+async function submitOrder(payload) {
+  payload.metadata = payload.metadata || {};
+  if (!payload.metadata.idempotency_key) payload.metadata.idempotency_key = uuid();
+  const key = payload.metadata.idempotency_key;
+
+  if (LOCAL_FIRST) {
+    try {
+      const res = await fetch(`${GATEWAY_URL}/order`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+      });
+      const d = await res.json();
+      if (d.ok) return { order_id: d.order_id, short_code: d.short_code, warning: d.warning };
+      throw new Error(d.error || 'gateway_not_ok');
+    } catch (err) {
+      try {
+        const c = await fetch(`${GATEWAY_URL}/order?key=${encodeURIComponent(key)}`,
+                              { cache: 'no-store' });
+        const cd = await c.json();
+        if (cd.found) return { order_id: cd.order_id, short_code: cd.short_code };
+      } catch (_) {}
+      if (!confirm('Máy in tem LAN/Gateway không phản hồi. Bạn có muốn chuyển sang gửi trực tiếp lên Google Sheets không? (Có thể in tem chậm hơn)')) {
+        throw new Error('user_cancelled_fallback');
+      }
+    }
+  }
+
+  const res = await fetch(GAS_URL, { method: 'POST', body: JSON.stringify(payload) });
+  const d = await res.json();
+  if (!d.ok) throw new Error(d.error || 'gas_error');
+  return { order_id: d.order_id, short_code: d.short_code };
+}
+
+function optimisticInsert(payload, minted) {
+  const o = {
+    order_id: minted.order_id,
+    status: 'CONFIRMED',
+    payment_status: 'PENDING',
+    total: payload.total || 0,
+    items: payload.items || [],
+    table_id: payload.table_id || '',
+    customer_name: payload.customer_name || '',
+    metadata: { short_code: minted.short_code,
+                delivery_type: (payload.metadata||{}).delivery_type || 'dine_in',
+                notes: (payload.metadata||{}).notes || '' },
+    timestamp: new Date().toISOString(),
+    _optimistic: true,
+  };
+  if (!allOrders.find(x => x.order_id === o.order_id)) {
+    allOrders.unshift(o);
+    seenOrderIds.add(o.order_id);
+  }
+  renderOrders();
+}
+
 // Token cho các endpoint cần xác thực. Worker thay '__REPORT_API_TOKEN__' lúc serve (xem src/index.js).
 // Chưa thay → GAS từ chối (fail-closed, không lộ data).
 // KHÔNG hardcode token vào source (vi phạm guardrail CLAUDE.md + lộ secret khi push repo).
@@ -879,7 +942,9 @@ async function loadOrders() {
   }
   firstLoad = false;
 
-  allOrders = data.orders;
+  const serverIds = new Set(data.orders.map(o => o.order_id));
+  const stillPending = allOrders.filter(o => o._optimistic && !serverIds.has(o.order_id));
+  allOrders = [...stillPending, ...data.orders];
   renderOrders();
   const now = new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   document.getElementById('refresh-time').textContent = 'Cập nhật: ' + now;
@@ -887,6 +952,22 @@ async function loadOrders() {
 
 async function markPaid(orderId, total, shortCode, btn) {
   btn.classList.add('loading'); btn.disabled = true; btn.textContent = 'Đang lưu...';
+  if (LOCAL_FIRST) {
+    try {
+      const o = allOrders.find(x => x.order_id === orderId);
+      const res = await fetch(`${GATEWAY_URL}/order/mark_paid`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ order_id: orderId, order: o }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        if (o) o.payment_status = 'PAID';
+        renderOrders();
+        if (!data.already_paid) speak(`Nhận tiền ${fmtSpeak(total)} đồng, đơn số ${shortCode || orderId}`);
+        return;
+      }
+    } catch (_) {}
+  }
   try {
     const res  = await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}`);
     const data = await res.json(); // GAS trả HTML (bị chặn) → throw → không được báo "đã thanh toán" láo
@@ -910,6 +991,21 @@ async function updateStatus(orderId, newStatus, btn) {
   btn.classList.add('loading');
   const oldText = btn.textContent;
   btn.textContent = 'Đang lưu...';
+  if (LOCAL_FIRST) {
+    try {
+      const res = await fetch(`${GATEWAY_URL}/order/status`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ order_id: orderId, status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const o = allOrders.find(x => x.order_id === orderId);
+        if (o) o.status = newStatus;
+        renderOrders();
+        return;
+      }
+    } catch (_) {}
+  }
   try {
     const res = await fetch(`${GAS_URL}?action=update_status&order_id=${encodeURIComponent(orderId)}&status=${newStatus}${TQ}`);
     const data = await res.json();
@@ -1271,19 +1367,15 @@ async function submitStaffOrder() {
   const { payload, shortCode, total, tableId, selectedTable: submittedTable } = pendingStaffSubmit;
 
   try {
-    // CORS thường (giống order.js) — PHẢI đọc được response để biết đơn vào sổ thật.
-    // no-cors cũ = mù kết quả → GAS chết vẫn hiện "Đơn đã gửi!" (mất đơn im lặng).
-    const res  = await fetch(GAS_URL, { method:'POST', body: JSON.stringify(payload) });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'server_error');
+    const minted = await submitOrder(payload);
+    optimisticInsert(payload, minted);
+
     pendingStaffSubmit = null;
     btn.disabled = false; btn.textContent = 'Đặt đơn';
     document.getElementById('order-form').classList.add('hidden');
     document.getElementById('submit-success').classList.remove('hidden');
-    // short_code hiển thị = mã SERVER cấp (server ghi đè mã client) — trước đây hiện mã local sai.
     document.getElementById('submit-success-msg').textContent =
-      `Mã đơn: ${data.short_code || shortCode}${tableId ? '  ·  Bàn ' + submittedTable : ''}  ·  ${fmt(total)}`;
-    loadOrders();
+      `Mã đơn: ${minted.short_code || shortCode}${tableId ? '  ·  Bàn ' + submittedTable : ''}  ·  ${fmt(total)}`;
   } catch(err) {
     btn.disabled = false;
     btn.textContent = 'Đặt đơn';
