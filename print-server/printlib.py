@@ -640,7 +640,6 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> 
         b"SIZE 50 mm,30 mm\r\n",
         b"GAP 3 mm,0\r\n",
         b"DIRECTION 0\r\n",
-        b"CODEPAGE UTF-8\r\n",
         b"CLS\r\n",
         T(10,  10, left_str, font="3"),
         T(300, 10, right_str, font="3"),
