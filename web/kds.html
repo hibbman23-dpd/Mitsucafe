@@ -1007,29 +1007,34 @@ async function loadOrders() {
   document.getElementById('refresh-time').textContent = 'Cập nhật: ' + now;
 }
 
-async function markPaid(orderId, total, shortCode, btn) {
-  btn.classList.add('loading'); btn.disabled = true; btn.textContent = 'Đang lưu...';
+async function gwStatus(orderId, status) {
   if (LOCAL_FIRST) {
     try {
-      const o = allOrders.find(x => x.order_id === orderId);
-      const res = await fetch(`${GATEWAY_URL}/order/mark_paid`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ order_id: orderId, order: o }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        if (o) o.payment_status = 'PAID';
-        renderOrders();
-        if (!data.already_paid) speak(`Nhận tiền ${fmtSpeak(total)} đồng, đơn số ${shortCode || orderId}`);
-        return;
-      }
+      const r = await fetch(`${GATEWAY_URL}/order/status`, { method:'POST',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({ order_id: orderId, status }) });
+      const d = await r.json(); if (d.ok) return d;
     } catch (_) {}
   }
+  const r = await fetch(`${GAS_URL}?action=update_status&order_id=${encodeURIComponent(orderId)}&status=${status}${TQ}`);
+  const d = await r.json(); if (!d.ok) throw new Error(d.error || 'status_failed'); return d;
+}
+async function gwMarkPaid(orderId, order) {
+  if (LOCAL_FIRST) {
+    try {
+      const r = await fetch(`${GATEWAY_URL}/order/mark_paid`, { method:'POST',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({ order_id: orderId, order }) });
+      const d = await r.json(); if (d.ok) return d;
+    } catch (_) {}
+  }
+  const r = await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}`);
+  const d = await r.json(); if (!d.ok) throw new Error(d.error || 'pay_failed'); return d;
+}
+
+async function markPaid(orderId, total, shortCode, btn) {
+  btn.classList.add('loading'); btn.disabled = true; btn.textContent = 'Đang lưu...';
   try {
-    const res  = await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}`);
-    const data = await res.json(); // GAS trả HTML (bị chặn) → throw → không được báo "đã thanh toán" láo
-    if (!data.ok) throw new Error(data.error || 'server_error');
     const o = allOrders.find(x => x.order_id === orderId);
+    const data = await gwMarkPaid(orderId, o);
     if (o) o.payment_status = 'PAID';
     renderOrders();
     if (!data.already_paid) speak(`Nhận tiền ${fmtSpeak(total)} đồng, đơn số ${shortCode || orderId}`);
@@ -1048,31 +1053,11 @@ async function updateStatus(orderId, newStatus, btn) {
   btn.classList.add('loading');
   const oldText = btn.textContent;
   btn.textContent = 'Đang lưu...';
-  if (LOCAL_FIRST) {
-    try {
-      const res = await fetch(`${GATEWAY_URL}/order/status`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ order_id: orderId, status: newStatus }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const o = allOrders.find(x => x.order_id === orderId);
-        if (o) o.status = newStatus;
-        renderOrders();
-        return;
-      }
-    } catch (_) {}
-  }
   try {
-    const res = await fetch(`${GAS_URL}?action=update_status&order_id=${encodeURIComponent(orderId)}&status=${newStatus}${TQ}`);
-    const data = await res.json();
-    if (data.ok) {
-      const o = allOrders.find(x => x.order_id === orderId);
-      if (o) o.status = newStatus;
-      renderOrders();
-    } else {
-      throw new Error(data.error || 'Failed to update');
-    }
+    const data = await gwStatus(orderId, newStatus);
+    const o = allOrders.find(x => x.order_id === orderId);
+    if (o) o.status = newStatus;
+    renderOrders();
   } catch(_) {
     btn.classList.remove('loading'); btn.textContent = oldText;
     alert('Lỗi cập nhật trạng thái — thử lại.');
