@@ -618,7 +618,7 @@ def build_label_raster(order: dict, item: dict, cup_num: int, total_cups: int) -
     )
 
 
-def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> bytes:
+def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, include_header: bool = True) -> bytes:
     def T(px, py, text_str, font="4", sx=1, sy=1):
         s = _strip_viet(text_str)
         return f'TEXT {px},{py},"{font}",0,{sx},{sy},"{s}"\r\n'.encode("ascii")
@@ -642,10 +642,14 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> 
     left_str  = f"{short_code}  {loc}"
     right_str = f"[{cup_num}/{total_cups}]"
 
-    cmd = [
-        b"SIZE 50 mm,30 mm\r\n",
-        b"GAP 3 mm,0\r\n",
-        b"DIRECTION 0\r\n",
+    cmd = []
+    if include_header:
+        cmd += [
+            b"SIZE 50 mm,30 mm\r\n",
+            b"GAP 3 mm,0\r\n",
+            b"DIRECTION 0\r\n",
+        ]
+    cmd += [
         b"CLS\r\n",
         T(10,  10, left_str, font="3"),
         T(300, 10, right_str, font="3"),
@@ -707,3 +711,16 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int) -> 
         b"PRINT 1,1\r\n",
     ]
     return b"".join(cmd)
+
+
+def build_order_labels_tspl(order: dict, cups: list) -> bytes:
+    """Xây dựng 1 chuỗi TSPL duy nhất cho tất cả các ly trong đơn.
+    SIZE và GAP được gửi 1 LẦN DUY NHẤT ở đầu chuỗi, tránh việc máy in tem
+    XP-365B bị reset buffer giữa chừng.
+    """
+    if not cups:
+        return b""
+    header = b"SIZE 50 mm,30 mm\r\nGAP 3 mm,0\r\nDIRECTION 0\r\n"
+    body = b"".join(build_label_tspl(order, item, i, len(cups), include_header=False)
+                    for i, item in enumerate(cups, start=1))
+    return header + body

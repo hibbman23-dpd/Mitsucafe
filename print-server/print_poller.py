@@ -32,6 +32,7 @@ from printlib import (
     RASTER_DOTS_WIDTH,
     RECEIPT_MODE,
     build_label_tspl,
+    build_order_labels_tspl,
     build_receipt,
 )
 
@@ -116,7 +117,7 @@ def poll_labels_once() -> bool:
 
         all_ok = True
         try:
-            labels_data = b"".join(build_label_tspl(order, item, i, total) for i, item in enumerate(cups, start=1))
+            labels_data = build_order_labels_tspl(order, cups)
             resp = _post_bytes(PRINT_SERVER_URL + "/print/label", labels_data)
             if not resp.get("ok"):
                 raise RuntimeError(f"Print server: {resp}")

@@ -90,7 +90,7 @@ log = logging.getLogger("print-server")
 import urllib.request
 import ssl
 from gateway import Gateway
-from printlib import build_label_tspl, build_receipt
+from printlib import build_label_tspl, build_order_labels_tspl, build_receipt
 
 app = Flask(__name__)
 
@@ -466,7 +466,7 @@ def order_create():
     printed_ok, warning = True, None
     if cups:
         try:
-            all_labels = b"".join(build_label_tspl(order, item, i, len(cups)) for i, item in enumerate(cups, start=1))
+            all_labels = build_order_labels_tspl(order, cups)
             n = _print_label_bytes(all_labels)
             log.info("order_create LABELS (%d cups, %d bytes) for %s", len(cups), n, order_id)
         except Exception as exc:
