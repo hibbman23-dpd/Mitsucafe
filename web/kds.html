@@ -894,23 +894,16 @@ function renderOrders() {
     const isOverdue = isActive && ageMin !== null && ageMin >= OVERDUE_MIN;
     const ageChip   = (isActive && ageMin !== null)
       ? `<span class="age-chip${isOverdue?' overdue':''}">⏱ ${ageMin}′</span>` : '';
-    let statusAction = '';
-    if (['NEW', 'CONFIRMED'].includes(o.status)) {
-      statusAction = `<button class="btn-mark-paid" style="background:var(--accent);color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}', 'MAKING', this)">🍵 Bắt đầu pha</button>`;
-    } else if (o.status === 'MAKING') {
-      statusAction = `<button class="btn-mark-paid" style="background:#4CAF50;color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}', 'READY', this)">✅ Pha xong</button>`;
-    } else if (o.status === 'READY') {
-      statusAction = `<button class="btn-mark-paid" style="background:#2196F3;color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}', 'DELIVERED', this)">🚀 Đã giao</button>`;
-    }
-
-    const payAction = (isPaid || o.status === 'CANCELLED') ? '' : `
-        <button class="btn-mark-paid" style="flex:1;" onclick="markPaid('${esc(o.order_id)}',${o.total},'${esc(o.short_code)}',this)">
-          💳 Đã thanh toán
-        </button>`;
-
-    const footer = (statusAction || payAction) ? `
+    const isPaid2 = o.payment_status === 'PAID';
+    const acts = actionButtons(o);
+    // Nút thanh toán riêng CHỈ khi chưa PAID và KHÔNG phải [Xong]-cash-flow (dine_in/pickup đã gộp vào Xong).
+    const dt2 = o.delivery_type || 'dine_in';
+    const needsSeparatePay = (dt2 === 'delivery') && !isPaid2 && o.status !== 'CANCELLED';
+    const payAction = needsSeparatePay ? `
+        <button class="btn-mark-paid" style="flex:1;" onclick="markPaid('${esc(o.order_id)}',${o.total},'${esc(o.short_code)}',this)">💳 Đã thanh toán</button>` : '';
+    const footer = (acts || payAction) ? `
       <div class="card-footer" style="display:flex; gap:8px; flex-wrap:wrap;">
-        ${statusAction}
+        ${acts}
         ${payAction}
       </div>` : '';
     const cleanNotes = o.notes ? esc(o.notes.replace('[🎁 ĐỔI LY MIỄN PHÍ] ', '')) : '';
@@ -1028,6 +1021,61 @@ async function gwMarkPaid(orderId, order) {
   }
   const r = await fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(orderId)}${TQ}`);
   const d = await r.json(); if (!d.ok) throw new Error(d.error || 'pay_failed'); return d;
+}
+
+// Nút cũ từng-bước — CHỈ cho delivery (đơn remote), giữ nguyên hành vi.
+function legacyStepButtons(o) {
+  if (['NEW','CONFIRMED'].includes(o.status))
+    return `<button class="btn-mark-paid" style="background:var(--accent);color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}','MAKING',this)">🍵 Bắt đầu pha</button>`;
+  if (o.status === 'MAKING')
+    return `<button class="btn-mark-paid" style="background:#4CAF50;color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}','READY',this)">✅ Pha xong</button>`;
+  if (o.status === 'READY')
+    return `<button class="btn-mark-paid" style="background:#2196F3;color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}','DELIVERING',this)">🛵 Giao đi</button>`;
+  if (o.status === 'DELIVERING')
+    return `<button class="btn-mark-paid" style="background:#2196F3;color:#fff;flex:1;" onclick="updateStatus('${esc(o.order_id)}','DELIVERED',this)">🚀 Đã giao</button>`;
+  return '';
+}
+// Nút hành động Phase 5 theo delivery_type.
+function actionButtons(o) {
+  if (o.status === 'DELIVERED' || o.status === 'CANCELLED') return '';
+  const dt = o.delivery_type || 'dine_in';
+  if (dt === 'delivery') return legacyStepButtons(o);
+  const xong = `<button class="btn-mark-paid" style="background:#4CAF50;color:#fff;flex:2;" onclick="finishOrder('${esc(o.order_id)}',this)">✅ Xong</button>`;
+  const pha = (['NEW','CONFIRMED'].includes(o.status))
+    ? `<button class="btn-sm" title="Đang pha" style="flex:0 0 auto;padding:8px 12px;opacity:.7;" onclick="setMaking('${esc(o.order_id)}',this)">🍵</button>` : '';
+  if (dt === 'pickup' || dt === 'take_away') {
+    const ready = (o.status !== 'READY')
+      ? `<button class="btn-mark-paid" style="background:#2196F3;color:#fff;flex:1;" onclick="setReady('${esc(o.order_id)}',this)">🔔 Sẵn sàng</button>` : '';
+    return ready + xong + pha;
+  }
+  return xong + pha;   // dine_in
+}
+// [Xong]: cash → thu tiền (receipt local) + DELIVERED; vietqr → DELIVERED (tiền chờ webhook).
+async function finishOrder(orderId, btn) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  btn.disabled = true; const old = btn.textContent; btn.textContent = 'Đang lưu...';
+  const method = (o && o.payment_method) || (o && o.payment && o.payment.method) || 'cash';
+  try {
+    if (method === 'cash' && o && o.payment_status !== 'PAID') {
+      const d = await gwMarkPaid(orderId, o);
+      o.payment_status = 'PAID';
+      if (!d.already_paid) speak(`Nhận tiền ${fmtSpeak(o.total)} đồng, đơn ${o.short_code || orderId}`);
+    }
+    await gwStatus(orderId, 'DELIVERED');
+    if (o) o.status = 'DELIVERED';
+    renderOrders();
+  } catch (err) {
+    btn.disabled = false; btn.textContent = old;
+    alert('CHƯA đóng đơn được (' + ((err && err.message) || 'mất kết nối') + ') — bấm lại.');
+  }
+}
+async function setReady(orderId, btn) { await _statusBtn(orderId, 'READY', btn); }
+async function setMaking(orderId, btn) { await _statusBtn(orderId, 'MAKING', btn); }
+async function _statusBtn(orderId, status, btn) {
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '...';
+  try { await gwStatus(orderId, status); const o = allOrders.find(x => x.order_id === orderId);
+        if (o) o.status = status; renderOrders(); }
+  catch (_) { btn.disabled = false; btn.textContent = old; alert('Lỗi cập nhật — thử lại.'); }
 }
 
 async function markPaid(orderId, total, shortCode, btn) {
