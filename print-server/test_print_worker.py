@@ -27,30 +27,41 @@ class TestWorker(WorkerBase):
         cups = [{"name": "X", "qty": 1, "modifiers": {}} for _ in range(3)]
         self.spool.enqueue_labels(_order(), cups)
         t = FakeTransport()
-        w = self._worker(t)
+        w = self._worker(t, setup_preamble=b"PREAMBLE")
         while w.process_one():
             pass
-        self.assertEqual(len(t.sent), 1)
+        self.assertEqual(len(t.sent), 4)   # preamble + 3 labels
         statuses = [r["status"] for r in self.conn.execute("SELECT status FROM print_spool").fetchall()]
         self.assertEqual(statuses, ["printed", "printed", "printed"])
 
     def test_drop_then_replay_prints_only_missing(self):
         cups = [{"name": "X", "qty": 1, "modifiers": {}} for _ in range(3)]
         self.spool.enqueue_labels(_order(), cups)
-        t1 = FakeTransport(drop_after=0)   # send raises
-        w1 = self._worker(t1)
-        try:
-            w1.process_one()
-        except Exception:
-            pass
-        # All 3 back to pending since batch failed
-        pending = self.conn.execute("SELECT COUNT(*) FROM print_spool WHERE status='pending'").fetchone()[0]
-        self.assertEqual(pending, 3)
+        # drop_after=2: preamble send #0 ok, label:1 send #1 ok, label:2 send #2 raises.
+        t1 = FakeTransport(drop_after=2)
+        w1 = self._worker(t1, setup_preamble=b"PREAMBLE")
+        w1.process_one()
+
+        rows = {r["idempotency_key"]: (r["status"], r["attempts"])
+                for r in self.conn.execute("SELECT idempotency_key, status, attempts FROM print_spool").fetchall()}
+        # label:1 already physically printed — must stay 'printed', never requeued.
+        self.assertEqual(rows["ORD-20260723-0001:label:1"][0], "printed")
+        # label:2 and label:3 were NOT sent (or failed) — back to pending, attempts bumped.
+        self.assertEqual(rows["ORD-20260723-0001:label:2"], ("pending", 1))
+        self.assertEqual(rows["ORD-20260723-0001:label:3"], ("pending", 1))
+
         t2 = FakeTransport()
-        w2 = self._worker(t2)
+        w2 = self._worker(t2, setup_preamble=b"PREAMBLE")
         while w2.process_one():
             pass
-        self.assertEqual(len(t2.sent), 1)
+        # Replay must send label:2 then label:3 data — and NEVER label:1 again.
+        label_sends = [d for d in t2.sent if d != b"PREAMBLE"]
+        self.assertEqual(label_sends, [
+            b"RENDER:ORD-20260723-0001:label:2",
+            b"RENDER:ORD-20260723-0001:label:3",
+        ])
+        statuses = [r["status"] for r in self.conn.execute("SELECT status FROM print_spool").fetchall()]
+        self.assertEqual(statuses, ["printed", "printed", "printed"])
 
     def test_gas_mark_called_only_after_all_printed(self):
         calls = []
@@ -89,9 +100,11 @@ class TestWorker(WorkerBase):
         self.assertEqual(len(t2.sent), 0)
 
     def test_confirm_false_requeues_not_printed(self):
-        self.spool.enqueue_labels(_order(), [{"name": "X", "qty": 1, "modifiers": {}}])
+        # Labels no longer confirm() (pacing via time.sleep instead) — this now covers
+        # the receipt path, which still supports the DLE EOT back-channel confirm.
+        self.spool.enqueue_receipt(_order(), is_cash=False)
         t = FakeTransport(status_replies=[])   # never replies -> confirm times out False
-        w = PrintWorker("label", self.spool, t, {"dle_eot"},
+        w = PrintWorker("receipt", self.spool, t, {"dle_eot"},
                         render=lambda job: b"RENDER:" + job["idempotency_key"].encode(),
                         pacing_s=0.01)
         w.process_one()
