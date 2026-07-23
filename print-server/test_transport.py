@@ -61,3 +61,56 @@ class TestProbeConfirm(unittest.TestCase):
         self.assertTrue(confirm(t, {"dle_eot"}, "receipt", pacing_s=0.05))
         sent_query_count = sum(1 for s in t.sent if s == b"\x10\x04\x01")
         self.assertGreaterEqual(sent_query_count, 2)
+
+
+class TestCupsVerifiedSubmit(unittest.TestCase):
+    """CupsTransport phải phát hiện job bị CUPS abort (backend USB stall) thay vì tin lpr exit 0."""
+    def _make(self, tmp_log_lines):
+        import tempfile, os as _os
+        from transport import CupsTransport
+        t = CupsTransport("TESTP")
+        self._log = tempfile.mktemp(suffix=".log")
+        with open(self._log, "w") as f:
+            f.write("\n".join(tmp_log_lines) + "\n")
+        t.error_log_path = self._log
+        self.addCleanup(lambda: _os.path.exists(self._log) and _os.remove(self._log))
+        return t
+
+    def _patch_subprocess(self, transport_mod, job_id="TESTP-42"):
+        calls = []
+        class R:
+            def __init__(self, out=b""):
+                self.stdout = out; self.returncode = 0
+        def fake_run(cmd, **kw):
+            calls.append(cmd)
+            if cmd[0] == "lp":
+                return R(f"request id is {job_id} (1 file(s))".encode())
+            if cmd[0] == "lpstat":
+                return R(b"")          # queue trống ngay
+            return R()
+        self._orig_run = transport_mod.subprocess.run
+        transport_mod.subprocess.run = fake_run
+        self.addCleanup(lambda: setattr(transport_mod.subprocess, "run", self._orig_run))
+        return calls
+
+    def test_clean_job_returns_bytes(self):
+        import transport as tm
+        t = self._make(["I [x] normal line"])
+        self._patch_subprocess(tm)
+        self.assertEqual(t.send(b"DATA"), 4)
+
+    def test_aborted_job_raises(self):
+        import transport as tm
+        t = self._make([
+            "D [23/Jul/2026] [Job 42] Got USB pipe stalled during write",
+            "E [23/Jul/2026] [Job 42] Job aborted due to backend errors; please consult...",
+        ])
+        self._patch_subprocess(tm, job_id="TESTP-42")
+        with self.assertRaises(RuntimeError):
+            t.send(b"DATA")
+
+    def test_other_jobs_abort_does_not_affect_this_job(self):
+        import transport as tm
+        t = self._make(["E [x] [Job 41] Job aborted due to backend errors"])
+        self._patch_subprocess(tm, job_id="TESTP-42")
+        self.assertEqual(t.send(b"DATA"), 4)   # job 41 abort, job 42 sạch

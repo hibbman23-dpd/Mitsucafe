@@ -19,33 +19,72 @@ class Transport:
         return set()
     def close(self): ...
 
+_cups_locks = {}
+
 class CupsTransport(Transport):
     def __init__(self, printer_name: str):
         self.printer_name = printer_name
-    def _wait_queue_empty(self, max_wait=15.0):
+        import threading
+        if printer_name not in _cups_locks:
+            _cups_locks[printer_name] = threading.Lock()
+        self._lock = _cups_locks[printer_name]
+
+    def _wait_queue_empty(self, max_wait=60.0):
         import time as _t
         start = _t.time()
         while _t.time() - start < max_wait:
+            try:
+                subprocess.run(["cupsenable", self.printer_name], capture_output=True, timeout=2)
+                subprocess.run(["cupsaccept", self.printer_name], capture_output=True, timeout=2)
+            except Exception:
+                pass
             res = subprocess.run(["lpstat", "-o", self.printer_name], capture_output=True, text=True)
             if not res.stdout.strip():
                 return True
-            _t.sleep(0.3)
+            _t.sleep(0.4)
+        log.warning("CUPS queue %s still has jobs after %.1fs max_wait", self.printer_name, max_wait)
         return False
+
+    # CUPS ghi 'Job aborted due to backend errors' vào error_log khi usb backend stall
+    # (máy in clone không trả back-channel EP 0x81). lpr/lp exit 0 CHỈ nghĩa là "đã vào
+    # spool CUPS" — job vẫn có thể bị hủy sau đó. Phải soi error_log per-job, nếu abort
+    # thì raise để PrintWorker requeue (chống phantom-printed: DB 'printed' mà giấy không ra).
+    error_log_path = "/var/log/cups/error_log"
+
+    def _job_aborted(self, job_num: str) -> bool:
+        try:
+            with open(self.error_log_path, "rb") as f:
+                f.seek(max(0, os.path.getsize(self.error_log_path) - 262144))  # 256KB cuối
+                tail = f.read().decode(errors="replace")
+        except Exception:
+            return False   # không đọc được log (máy khác/quyền) → best-effort như cũ
+        needle = f"[Job {job_num}]"
+        for line in tail.splitlines():
+            if needle in line and ("Job aborted" in line or "Backend returned status 1" in line):
+                return True
+        return False
+
     def send(self, data: bytes) -> int:
-        # Đợi hàng đợi CUPS rảnh để tránh xung đột cổng USB giữa các đơn
-        self._wait_queue_empty()
-        # Tự động gỡ kẹt queue nếu CUPS từng bị pause/stalled (best-effort)
-        try:
-            subprocess.run(["cupsenable", self.printer_name], capture_output=True, timeout=3)
-        except Exception:
-            pass
-        try:
-            subprocess.run(["cupsaccept", self.printer_name], capture_output=True, timeout=3)
-        except Exception:
-            pass
-        subprocess.run(["lpr", "-P", self.printer_name, "-o", "raw"],
-                       input=data, capture_output=True, check=True, timeout=20)
-        return len(data)
+        with self._lock:
+            # 1. Chờ hàng đợi CUPS sạch trước khi phát lệnh
+            self._wait_queue_empty()
+            # 2. Submit qua `lp` để lấy job-id ("request id is PRINTER-123 (1 file(s))")
+            res = subprocess.run(["lp", "-d", self.printer_name, "-o", "raw"],
+                                 input=data, capture_output=True, check=True, timeout=30)
+            out = (res.stdout or b"").decode(errors="replace")
+            job_num = ""
+            for tok in out.split():
+                if tok.startswith(self.printer_name + "-"):
+                    job_num = tok.rsplit("-", 1)[-1]
+                    break
+            # 3. Đợi job rời hàng đợi (in xong HOẶC bị abort — cả 2 đều làm queue trống)
+            self._wait_queue_empty()
+            time.sleep(0.5)
+            # 4. Verify: job có bị CUPS abort không → raise để worker requeue
+            if job_num and self._job_aborted(job_num):
+                raise RuntimeError(
+                    f"CUPS aborted job {self.printer_name}-{job_num} (usb backend stall) — not printed")
+            return len(data)
 
 class FakeTransport(Transport):
     def __init__(self, status_replies=None, drop_after=None):
@@ -70,6 +109,8 @@ class FakeTransport(Transport):
         self.closed = True
 
 def probe_capabilities(transport, printer_kind):
+    if isinstance(transport, CupsTransport):
+        return set()
     try:
         if printer_kind == "receipt":
             transport.send(b"\x10\x04\x01")            # DLE EOT 1
