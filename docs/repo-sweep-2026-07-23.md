@@ -11,8 +11,11 @@ Task đánh dấu **[SONNET]** = giao model thấp làm theo spec; **[USER]** = 
 - **A2 ✅ FIXED** `7c01e33` — sku lạ→UNKNOWN+log (bỏ DR001 im lặng), giữ SKU ngừng bán; 18/18.
 - **A3 ✅ FIXED** `a4ec784` — surgical replay khôi phục (mark từng ly, fail chỉ requeue chưa in); 88/88 full suite.
 - **A5 ✅ FIXED** `2116d7c` — test chặn DLE DC4 pulse mọi path.
-- **A4 / C1-C4 ⏳ CHƯA** (enhancement, không phải bug — làm sau nếu muốn). **C5 [USER]**.
-- ⚠️ Fix nằm trên disk; prod process (start 09:03) chạy code CŨ tới khi restart. Print-server: `bootout`+`bootstrap`. GAS (A1): `gas_push.py`.
+- **A4 ✅ FIXED** `87f0882` — retention purge 7 ngày (print_spool printed + outbox synced; KHÔNG đụng pending/failed/unsynced); 97/97.
+- **A5 ✅** `2116d7c`. **C3 ✅ + C4 ✅** `2b1460d` — doc USB-direct + guard fix_outbox_stuck (dry-run default, refuse-when-live).
+- **C1 ⏸️ HOÃN** — live service giữ USB độc quyền, không capture được byte DLE EOT thật; confirm "any byte" đang chạy tốt; parse bit mù = rủi ro in trùng. Cách làm sau ghi trong HARDWARE_VALIDATION.md.
+- **C5 [USER]** — 3 đơn 2026-07-22 failed-terminal, quyết bỏ/backfill.
+- ✅ **ĐÃ APPLY LIVE**: print-server restart (A2/A3/A4 chạy, purge 0/0, đơn test 3 tem printed + synced OK); GAS deploy v119→v120 smoke OK (A1 live /exec). Đơn test ORD-20260723-3691 cần xóa khỏi Sheets (đã ghi cleanup doc).
 
 ---
 

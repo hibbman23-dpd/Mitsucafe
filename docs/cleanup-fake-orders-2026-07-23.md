@@ -82,3 +82,4 @@ ORD-20260723-2076  TEST-FABLE-XOA (đã xóa local, còn trên Sheets)
 
 ## Phòng tái diễn
 Stress test sau này PHẢI chặn syncer: dùng DB tạm (như smoke_spool.py) hoặc GAS_WEBAPP_URL trỏ endpoint giả — KHÔNG chạy real_workflow_stress_test.py thẳng vào server prod đang bật syncer.
+ORD-20260723-3691 (XOA-FIX-TEST, 3x DR001=30k, no phone) — CAN XOA KHOI ORDERS SHEET
