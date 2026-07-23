@@ -41,6 +41,15 @@ class TestDrawerGate(unittest.TestCase):
     def test_batched_helper_removed(self):
         self.assertFalse(hasattr(printlib, "build_order_labels_tspl_batched"))
 
+    def test_no_realtime_dle_dc4_drawer_pulse_any_path(self):
+        # DLE DC4 (\x10\x14) = realtime drawer kick that fired UNCONDITIONALLY on the text
+        # path, so VietQR still popped the drawer. Must be absent regardless of is_cash /
+        # raster-vs-text. (ESC p is the only kick, gated by is_cash — covered by tests above.)
+        for is_cash in (True, False):
+            for fn in ("build_receipt_text", "build_receipt_raster"):
+                data = getattr(printlib, fn)(_order(), is_cash=is_cash)
+                self.assertNotIn(b"\x10\x14", data, f"{fn} is_cash={is_cash} still has DLE DC4 pulse")
+
 
 if __name__ == "__main__":
     unittest.main()
