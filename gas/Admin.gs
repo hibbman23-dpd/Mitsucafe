@@ -20,7 +20,58 @@
 // Field cần ép kiểu số / boolean khi ghi
 var _ADMIN_NUMERIC = ['price_m','price_l','cost_nl','cost_packaging','cogs_percent','promo_price',
   'current_stock','min_stock','cost_per_unit','hourly_rate','sort_order','prep_time_sec',
-  'discount_value','total_orders','total_spent','stamp_count'];
+  'discount_value','total_orders','total_spent','stamp_count','stamp_total_ever','free_drinks_earned','free_drinks_used'];
+
+function cleanupFakeOrders20260723() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. ORDERS Sheet Cleanup: Delete all ORD-20260723-* rows
+  var ordersSheet = ss.getSheetByName('ORDERS');
+  var deletedOrdersCount = 0;
+  if (ordersSheet && ordersSheet.getLastRow() > 1) {
+    var data = ordersSheet.getDataRange().getValues();
+    var headers = data[0];
+    var orderIdIdx = headers.indexOf('order_id');
+    if (orderIdIdx !== -1) {
+      for (var i = data.length - 1; i >= 1; i--) {
+        var oid = String(data[i][orderIdIdx] || '');
+        if (oid.indexOf('ORD-20260723-') === 0) {
+          ordersSheet.deleteRow(i + 1);
+          deletedOrdersCount++;
+        }
+      }
+    }
+  }
+
+  // 2. CUSTOMERS Loyalty Reset for the 5 fake test customer IDs
+  var targetFakeCids = ['901234567', '909090909', '912345678', '944556677', '988776655', '0901234567', '0909090909', '0912345678', '0944556677', '0988776655'];
+  var updatedCustomersCount = 0;
+  var debugLog = [];
+  targetFakeCids.forEach(function(cid) {
+    var fields = {
+      stamp_count: 0,
+      stamp_total_ever: 0,
+      free_drinks_earned: 0,
+      free_drinks_used: 0,
+      total_orders: 0,
+      total_spent: 0
+    };
+    var r1 = _adminUpdateRowByKey('CUSTOMERS', 'customer_id', cid, fields);
+    var r2 = _adminUpdateRowByKey('CUSTOMERS', 'phone', cid, fields);
+    if ((r1 && r1.ok) || (r2 && r2.ok)) {
+      updatedCustomersCount++;
+      debugLog.push('Reset ' + cid);
+    }
+  });
+
+  return {
+    ok: true,
+    deleted_orders_count: deletedOrdersCount,
+    updated_customers_count: updatedCustomersCount,
+    debug_log: debugLog,
+    message: 'Dọn dẹp hoàn tất ' + deletedOrdersCount + ' đơn hàng test ảo và reset loyalty ' + updatedCustomersCount + ' khách giả trên Google Sheets.'
+  };
+}
 var _ADMIN_BOOL = ['available','on_promo','currently_running','is_active','active','zalo_sent',
   'telegram_sent','slides_updated'];
 
