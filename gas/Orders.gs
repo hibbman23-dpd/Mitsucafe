@@ -19,12 +19,12 @@ var ORDERS_HEADERS = [
 var VALID_STATUS = ['NEW', 'CONFIRMED', 'MAKING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
 
 var VALID_TRANSITIONS = {
-  'NEW':        ['CONFIRMED', 'MAKING', 'CANCELLED'],
-  'CONFIRMED':  ['MAKING', 'DELIVERED', 'CANCELLED'],
-  'MAKING':     ['READY', 'CANCELLED'],
-  'READY':      ['DELIVERED', 'DELIVERING'],
-  'DELIVERING': ['DELIVERED'],
-  'DELIVERED':  [],
+  'NEW':        ['CONFIRMED', 'MAKING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'],
+  'CONFIRMED':  ['MAKING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'],
+  'MAKING':     ['READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'],
+  'READY':      ['DELIVERING', 'DELIVERED', 'CANCELLED'],
+  'DELIVERING': ['DELIVERED', 'CANCELLED'],
+  'DELIVERED':  ['CANCELLED'],
   'CANCELLED':  [],
 };
 
@@ -358,6 +358,7 @@ function updateOrderStatus(orderId, newStatus, opts) {
 }
 
 function isValidTransition(from, to) {
+  if (from === to) return true;
   if (!VALID_TRANSITIONS[from]) return false;
   return VALID_TRANSITIONS[from].indexOf(to) !== -1;
 }

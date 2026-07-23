@@ -417,7 +417,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     ) if is_cash else b""
     DRAWER_KICK = INIT + KICK
 
-    CHUNK_H = 96
+    CHUNK_H = 48
     bytes_per_row = (W + 7) // 8
     xL = bytes_per_row & 0xFF
     xH = (bytes_per_row >> 8) & 0xFF
@@ -476,7 +476,7 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
     meta = order.get("metadata") or {}
     parts = [
         ESC + b"@",
-        ESC + b"t\x20",
+        ESC + b"t\x00",
         ESC + b"a\x01",
         ESC + b"!\x00",
         enc(">(|||)<\n"),
@@ -544,7 +544,6 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
     if is_cash:
         parts.append(ESC + b"p\x00\x19\xfa")
         parts.append(ESC + b"p\x01\x19\xfa")
-    parts.append(b"\x10\x14\x01\x00\x05")
     parts.append(b"\n\n")
     parts.append(GS + b"V\x42\x00")
     return b"".join(parts)

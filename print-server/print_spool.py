@@ -83,6 +83,27 @@ class PrintSpool:
             self._conn.commit()
             return dict(self._conn.execute("SELECT * FROM print_spool WHERE id=?", (row["id"],)).fetchone())
 
+    def claim_next_batch(self, printer, max_jobs=20):
+        with self._lock:
+            first = self._conn.execute(
+                "SELECT * FROM print_spool WHERE printer=? AND status='pending' "
+                "ORDER BY id LIMIT 1", (printer,)).fetchone()
+            if not first:
+                return []
+            order_id = first["order_id"]
+            kind = first["kind"]
+            rows = self._conn.execute(
+                "SELECT * FROM print_spool WHERE printer=? AND order_id=? AND kind=? AND status='pending' "
+                "ORDER BY seq_in_order ASC LIMIT ?", (printer, order_id, kind, max_jobs)).fetchall()
+            now = _now_iso()
+            ids = [r["id"] for r in rows]
+            placeholders = ",".join(["?"] * len(ids))
+            self._conn.execute(
+                f"UPDATE print_spool SET status='printing', claimed_at=?, updated_at=? WHERE id IN ({placeholders})",
+                [now, now] + ids)
+            self._conn.commit()
+            return [dict(r) for r in rows]
+
     def mark_printed(self, job_id):
         with self._lock:
             self._conn.execute("UPDATE print_spool SET status='printed', updated_at=? WHERE id=?",

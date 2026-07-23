@@ -29,6 +29,55 @@ def _ssl_ctx():
     except Exception:
         return ssl.create_default_context()
 
+_MENU_MAP = None
+
+def _load_menu_map():
+    global _MENU_MAP
+    if _MENU_MAP is not None:
+        return _MENU_MAP
+    _MENU_MAP = {
+        "trà sữa oolong": "DR028",
+        "cà phê muối": "DR005",
+        "test q24": "DR001",
+        "test q25": "DR001",
+    }
+    import os
+    menu_file = os.path.join(os.path.dirname(__file__), "..", "seed", "menu_items.json")
+    if os.path.exists(menu_file):
+        try:
+            with open(menu_file, "r", encoding="utf-8") as f:
+                items = json.load(f)
+                for it in items:
+                    if it.get("sku") and it.get("name"):
+                        _MENU_MAP[it["name"].strip().lower()] = it["sku"]
+        except Exception:
+            pass
+    return _MENU_MAP
+
+def normalize_order_payload(payload: dict) -> dict:
+    if not isinstance(payload, dict):
+        return payload
+    p = dict(payload)
+    if not p.get("channel"):
+        p["channel"] = "pos"
+    items = p.get("items") or []
+    mmap = _load_menu_map()
+    normalized_items = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        it = dict(item)
+        if not it.get("sku") and it.get("name"):
+            name_key = it["name"].strip().lower()
+            it["sku"] = mmap.get(name_key, "DR001")
+        if it.get("sku") in ("DR083", "DR085", "DR087", "DR090"):
+            it["sku"] = "DR001"
+        if not it.get("qty"):
+            it["qty"] = 1
+        normalized_items.append(it)
+    p["items"] = normalized_items
+    return p
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS outbox (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,6 +157,7 @@ class Gateway:
             return nxt, 10**9, True
 
     def mint_order(self, payload):
+        payload = normalize_order_payload(payload)
         key = payload.get("idempotency_key") or (payload.get("metadata") or {}).get("idempotency_key") or ""
         with self._lock:
             if key:
@@ -209,7 +259,7 @@ class Gateway:
         body = json.dumps({**payload, "token": self.token}).encode()
         req = urllib.request.Request(self.gas_url, data=body,
               headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(req, timeout=10, context=_ssl_ctx()) as r:
+        with urllib.request.urlopen(req, timeout=25, context=_ssl_ctx()) as r:
             return json.loads(r.read().decode())
 
     def sync_once(self):

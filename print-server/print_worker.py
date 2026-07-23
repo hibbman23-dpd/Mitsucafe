@@ -25,32 +25,42 @@ class PrintWorker:
 
     def process_one(self):
         self.spool.recover_orphans(self.printer, self.orphan_s)
-        job = self.spool.claim_next(self.printer)
-        if job is None:
+        jobs = self.spool.claim_next_batch(self.printer, max_jobs=30)
+        if not jobs:
             return False
         try:
-            if self.printer == "label" and self.setup_preamble and not self._setup_done:
-                self.transport.send(self.setup_preamble)
-                self._setup_done = True
-            if self.printer == "receipt" and (time.time() - self._last_send) > self.cold_seconds:
-                self.transport.send(b"\x1b@")   # ESC @ wake
-                time.sleep(0.3)
-            data = self.render(job)
-            self.transport.send(data)
+            if self.printer == "label":
+                tspl_payload = (self.setup_preamble or b"") + b"".join(self.render(j) for j in jobs)
+                self.transport.send(tspl_payload)
+            else:
+                for j in jobs:
+                    data = self.render(j)
+                    self.transport.send(data)
             self._last_send = time.time()
-            if not confirm(self.transport, self.caps, self.printer, self.pacing_s):
+            total_items = len(jobs)
+            if self.printer == "label":
+                pacing = max(1.5, total_items * 0.60 + 0.5)
+            else:
+                pacing = max(1.5, self.pacing_s)
+            if not confirm(self.transport, self.caps, self.printer, pacing):
                 raise RuntimeError("confirm timeout")
-            self.spool.mark_printed(job["id"])
+            for j in jobs:
+                self.spool.mark_printed(j["id"])
         except Exception as exc:
-            self.spool.requeue(job["id"], exc)
-            if self.spool.get_status(job["id"]) == "failed" and self.alert:
-                self.alert(job, exc)
+            for j in jobs:
+                self.spool.requeue(j["id"], exc)
+                if self.spool.get_status(j["id"]) == "failed" and self.alert:
+                    self.alert(j, exc)
             return True
-        # gas-mark is best-effort and must NEVER revert a printed job (reconciler retries it)
-        try:
-            if self.gas_mark and self.spool.order_kind_all_printed(job["order_id"], job["kind"]):
-                if self.gas_mark(job["order_id"], job["kind"]):
-                    self.spool.set_gas_marked(job["order_id"], job["kind"])
-        except Exception as exc:
-            log.warning("gas-mark failed for %s (%s); reconciler will retry", job["idempotency_key"], exc)
+
+        processed_orders = set()
+        for j in jobs:
+            try:
+                key = (j["order_id"], j["kind"])
+                if key not in processed_orders and self.gas_mark and self.spool.order_kind_all_printed(j["order_id"], j["kind"]):
+                    processed_orders.add(key)
+                    if self.gas_mark(j["order_id"], j["kind"]):
+                        self.spool.set_gas_marked(j["order_id"], j["kind"])
+            except Exception as exc:
+                log.warning("gas-mark failed for %s (%s); reconciler will retry", j["idempotency_key"], exc)
         return True

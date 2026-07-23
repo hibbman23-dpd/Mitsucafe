@@ -10,8 +10,9 @@ with open(SEED_FILE, encoding="utf-8") as f:
 json_str = json.dumps(items, ensure_ascii=False, indent=2)
 
 gs_content = SEED_SHEETS_GS.read_text(encoding="utf-8")
+
 start_marker = "var MENU_JSON = ["
-end_marker = "];\n\nfunction seedMenuFromJson()"
+end_marker = "function seedMenuFromJson()"
 
 start_idx = gs_content.find(start_marker)
 end_idx = gs_content.find(end_marker)
@@ -21,10 +22,10 @@ if start_idx != -1 and end_idx != -1:
         gs_content[:start_idx]
         + "var MENU_JSON = "
         + json_str
-        + ";\n\n"
-        + gs_content[end_idx + 3:]
+        + ";\n\n\n"
+        + gs_content[end_idx:]
     )
     SEED_SHEETS_GS.write_text(new_gs, encoding="utf-8")
     print("✅ Successfully updated gas/SeedSheets.gs")
 else:
-    print("❌ Marker not found in SeedSheets.gs")
+    print("❌ Markers not found in SeedSheets.gs")
