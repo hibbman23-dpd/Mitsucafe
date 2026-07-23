@@ -139,6 +139,16 @@ class PrintSpool:
                     (attempts, str(err)[:400], now, job_id))
             self._conn.commit()
 
+    def requeue_offline(self, job_id, err):
+        """Máy in offline (rớt USB / chưa mở / thay cuộn tem) — sự cố VẬT LÝ, không phải
+        in hỏng. KHÔNG tăng attempts, KHÔNG BAO GIỜ fail: giữ 'pending' + nhả claim để
+        worker thử lại (có backoff) tới khi máy in về. Đơn không bao giờ mất do thay tem."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE print_spool SET status='pending', claimed_at=NULL, last_error=?, updated_at=? WHERE id=?",
+                (str(err)[:400], _now_iso(), job_id))
+            self._conn.commit()
+
     def recover_orphans(self, printer, older_than_s=30):
         cutoff = (datetime.now(_VN) - timedelta(seconds=older_than_s)).isoformat()
         with self._lock:

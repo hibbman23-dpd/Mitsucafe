@@ -406,8 +406,14 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     ESC = b"\x1b"
     GS  = b"\x1d"
 
+    # Cold-start garble fix: POS-58L ngủ giữa các đơn; byte đầu tiên gửi tới thường bị
+    # nuốt lúc máy in thức dậy → ESC @ hỏng một phần → in ra ký tự rác ở đầu bill. Chèn
+    # padding NUL (0x00 = no-op trong ESC/POS, không in ra) để máy in nuốt padding thay
+    # vì nuốt lệnh init thật. Số NUL chỉnh qua RECEIPT_WAKE_NULS (mặc định 64).
+    WAKE = b"\x00" * int(os.getenv("RECEIPT_WAKE_NULS", "64"))
     INIT = (
-        ESC + b"@"                 # ESC @: Initialize printer
+        WAKE
+        + ESC + b"@"               # ESC @: Initialize printer
         + ESC + b"2"               # ESC 2: Default line spacing (1/6 inch)
         + ESC + b"t\x00"           # ESC t 0: Character code table PC437
     )

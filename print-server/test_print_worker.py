@@ -4,6 +4,21 @@ from print_spool import PrintSpool
 from transport import FakeTransport
 from print_worker import PrintWorker
 
+class _OfflineTransport(FakeTransport):
+    """Raise a chosen error message on send. fail_times=None → always fail;
+    else fail the first N sends, then behave like FakeTransport (succeed)."""
+    def __init__(self, msg, fail_times=None):
+        super().__init__()
+        self._msg = msg
+        self._fail_times = fail_times
+        self._n = 0
+    def send(self, data):
+        if self._fail_times is None or self._n < self._fail_times:
+            self._n += 1
+            raise RuntimeError(self._msg)
+        return super().send(data)
+
+
 def _order(oid="ORD-20260723-0001"):
     return {"order_id": oid, "timestamp": "2026-07-23T08:00:00+07:00", "table_id": "03",
             "metadata": {"short_code": "Q01", "delivery_type": "dine_in", "notes": ""}, "items": []}
@@ -118,6 +133,40 @@ class TestWorker(WorkerBase):
         w = PrintWorker("receipt", self.spool, t, set(), render=lambda job: b"\x1b@RCPT", pacing_s=0.01)
         w.process_one()
         self.assertIn(b"RCPT", t.sent[0])
+
+    def test_offline_error_never_burns_attempts(self):
+        # Máy in rớt USB khi thay cuộn tem (No such device / not found) là sự cố VẬT LÝ,
+        # KHÔNG được tính vào max_attempts → đơn không bao giờ failed-terminal vì thay tem.
+        self.spool.enqueue_labels(_order(), [{"name": "X", "qty": 1, "modifiers": {}}])
+        t = _OfflineTransport("USB printer 0x1fc9:0x2016 not found")
+        w = self._worker(t, setup_preamble=b"", offline_backoff_base=0.0)
+        for _ in range(12):
+            w.process_one()
+        row = self.conn.execute("SELECT status, attempts FROM print_spool").fetchone()
+        self.assertEqual(row["status"], "pending")
+        self.assertEqual(row["attempts"], 0)
+
+    def test_offline_then_recovers_prints_with_zero_attempts(self):
+        self.spool.enqueue_labels(_order(), [{"name": "X", "qty": 1, "modifiers": {}}])
+        t = _OfflineTransport("[Errno 19] No such device", fail_times=4)
+        w = self._worker(t, setup_preamble=b"", offline_backoff_base=0.0)
+        for _ in range(12):
+            w.process_one()
+        row = self.conn.execute("SELECT status, attempts FROM print_spool").fetchone()
+        self.assertEqual(row["status"], "printed")
+        self.assertEqual(row["attempts"], 0)
+
+    def test_real_print_error_still_counts_and_fails(self):
+        # Lỗi in THẬT (không phải offline) vẫn đếm attempts và fail-terminal như cũ.
+        self.spool.enqueue_labels(_order(), [{"name": "X", "qty": 1, "modifiers": {}}])
+        self.conn.execute("UPDATE print_spool SET max_attempts=2"); self.conn.commit()
+        t = _OfflineTransport("garbled data rejected by printer")  # thông điệp KHÔNG offline
+        w = self._worker(t, setup_preamble=b"", offline_backoff_base=0.0)
+        for _ in range(5):
+            w.process_one()
+        row = self.conn.execute("SELECT status, attempts FROM print_spool").fetchone()
+        self.assertEqual(row["status"], "failed")
+        self.assertEqual(row["attempts"], 2)
 
     def test_label_setup_preamble_sent_once(self):
         cups = [{"name": "X", "qty": 1, "modifiers": {}} for _ in range(2)]

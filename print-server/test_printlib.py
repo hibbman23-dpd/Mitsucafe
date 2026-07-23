@@ -31,5 +31,16 @@ class TestPrintlib(unittest.TestCase):
         self.assertIsInstance(out, bytes)
         self.assertGreater(len(out), 0)
 
+    def test_receipt_raster_wake_padding_precedes_init(self):
+        # Cold-start garble fix: máy in nhiệt ngủ giữa các đơn nuốt mất byte đầu.
+        # Phải có padding NUL (no-op trong ESC/POS) dẫn đầu để hấp thụ byte mất,
+        # ESC @ init thật nằm NGAY SAU padding.
+        from printlib import build_receipt_raster
+        out = build_receipt_raster(ORDER, is_cash=False)
+        self.assertTrue(out.startswith(b"\x00"), "phải dẫn đầu bằng NUL wake-padding")
+        nul_len = len(out) - len(out.lstrip(b"\x00"))
+        self.assertGreaterEqual(nul_len, 16, "cần đủ NUL để hấp thụ cold-start")
+        self.assertEqual(out[nul_len:nul_len + 2], b"\x1b@", "ESC @ ngay sau padding")
+
 if __name__ == "__main__":
     unittest.main()
