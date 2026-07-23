@@ -1,6 +1,15 @@
 # Print Pipeline — Hardware Validation (on Mac Mini)
 
-Task 12 of the reliable-print-pipeline plan. The code (Tasks 1–11) is done and unit-tested
+> **STATUS 2026-07-23: SHIPPED & LIVE.** The engine is running in production as
+> `PRINT_ENGINE=spool` with **direct USB transport on BOTH printers** (CUPS is bypassed —
+> it was the root cause of dropped orders: the macOS usb backend aborts jobs after `lpr`
+> exit 0 when the clone won't answer the EP 0x81 back-channel). Plist env now:
+> `LABEL_TRANSPORT=usb` VID 8137/PID 8214/EP 2, `RECEIPT_TRANSPORT=usb` VID 10473/PID 649/EP 1;
+> receipt GEZHI answers `DLE EOT` → `caps={'dle_eot'}`. `CupsTransport` remains as a fallback
+> only (now with verified-submit: scans CUPS error_log for per-job abort). The `cups`-transport
+> steps below are kept for reference / rollback; the current deployed transport is `usb`.
+
+Task 12 of the reliable-print-pipeline plan. The code is done and unit-tested
 without hardware. This checklist is run ON THE MAC MINI with the real printers, to validate
 the spool engine end-to-end and then flip `PRINT_ENGINE=spool` in production.
 
