@@ -269,6 +269,18 @@ class Gateway:
         with urllib.request.urlopen(req, timeout=25, context=_ssl_ctx()) as r:
             return json.loads(r.read().decode())
 
+    def purge_synced(self, days=7):
+        """Xoá row outbox đã sync GAS thành công, cũ hơn `days` ngày. KHÔNG BAO GIỜ đụng
+        synced_at IS NULL (chưa lên GAS) hay 'FAILED%' (lỗi vĩnh viễn, giữ để audit).
+        Trả số row đã xoá."""
+        cutoff = (datetime.now(_VN) - timedelta(days=days)).isoformat()
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM outbox WHERE synced_at IS NOT NULL AND synced_at NOT LIKE 'FAILED%' "
+                "AND synced_at < ?", (cutoff,))
+            self._conn.commit()
+            return cur.rowcount
+
     def sync_once(self):
         n = 0
         for op in self.unsynced():

@@ -183,6 +183,16 @@ class PrintSpool:
                 out.append({"order_id": order_id, "kind": kind})
         return out
 
+    def purge_old(self, days=7):
+        """Xoá row 'printed' cũ hơn `days` ngày. KHÔNG BAO GIỜ đụng pending/printing/failed
+        (đơn đang sống hoặc cần chú ý). Trả số row đã xoá."""
+        cutoff = (datetime.now(_VN) - timedelta(days=days)).isoformat()
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM print_spool WHERE status='printed' AND updated_at < ?", (cutoff,))
+            self._conn.commit()
+            return cur.rowcount
+
     def stats(self, printer):
         with self._lock:
             rows = self._conn.execute(

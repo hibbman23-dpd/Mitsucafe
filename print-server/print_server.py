@@ -218,11 +218,27 @@ def _start_workers():
             "serial_port": RECEIPT_SERIAL_PORT}, pacing_s=1.0)
 
     def _reconcile_loop():
+        last_purge = 0.0  # 0 → chạy purge ngay lần đầu, sau đó ~mỗi 24h
         while True:
             try:
                 _reconcile_gas_marks_once()
             except Exception as exc:
                 log.error("gas reconcile error: %s", exc)
+            now = time.time()
+            if now - last_purge >= 86400:
+                last_purge = now
+                try:
+                    spool_n = SPOOL.purge_old(7)
+                    outbox_n = GATEWAY.purge_synced(7)
+                    log.info("retention purge: print_spool=%d row(s), outbox=%d row(s) deleted",
+                             spool_n, outbox_n)
+                    if spool_n > 5000 or outbox_n > 5000:
+                        log.warning(
+                            "retention purge deleted a large number of rows (spool=%d outbox=%d) — "
+                            "consider running VACUUM on outbox.db manually during low-traffic window "
+                            "(not done automatically: VACUUM locks the DB)", spool_n, outbox_n)
+                except Exception as exc:
+                    log.error("retention purge error: %s", exc)
             time.sleep(15)
     threading.Thread(target=_reconcile_loop, daemon=True, name="gas-reconciler").start()
 
