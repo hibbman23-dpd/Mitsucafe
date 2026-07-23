@@ -153,3 +153,16 @@ sqlite3 /Users/dpd/Projects/lamha-kissaten/print-server/outbox.db \
 - Rollout: `print-server/HARDWARE_VALIDATION.md`.
 - Engine commits: `88ce298`..`4781939` (spool/worker/transport/wire/poller + review fixes). Bug receipt-drop fix: `8c39ff4`. Smoke: `4781939`.
 - Chưa merge vào `main` (nhánh `launch-hardening` gồm cả loyalty/self-healing/security — chủ repo tự quản merge).
+
+---
+
+## 9. ADDENDUM 2026-07-23 sáng — root cause stress-test CONFIRMED + đã fix (Fable)
+
+**Antigravity đúng.** Verify trực tiếp trên Mac Mini: `/var/log/cups/error_log` có `Job aborted due to backend errors` + `USB pipe stalled` — CUPS usb backend (Apple) đọc back-channel EP 0x81, clone không trả lời → stall → CUPS **tự hủy job SAU khi lpr exit 0** → spool mark `printed` ảo (đơn 3&4 mất). `usb-unidir=true` không ăn trên backend Apple.
+
+**Fix đã ship (live trên prod):**
+1. **Chuyển cả 2 máy sang `UsbTransport` trực tiếp (PyUSB)** — test claim/ghi thành công trên macOS, bỏ hẳn CUPS khỏi đường in. Plist: `LABEL_TRANSPORT=usb` (VID 8137/PID 8214/EP 2 = 0x1fc9:0x2016), `RECEIPT_TRANSPORT=usb` (VID 10473/PID 649/EP 1 = 0x28e9:0x0289). Poller cũng flip `PRINT_ENGINE=spool` (bắt buộc atomic: worker giữ claim USB độc quyền — mọi đường `lpr` legacy sẽ fail nếu còn chạy).
+2. **Máy bill GEZHI trả lời `DLE EOT` qua USB trực tiếp** → worker receipt chạy confirm back-channel THẬT (`caps={'dle_eot'}`); label pacing. Ký tự rác đầu bill kỳ vọng hết (không còn CUPS mở/đóng cổng).
+3. **CupsTransport (fallback) vá verified-submit** (commit `4db115f`): submit qua `lp` lấy job-id, đợi queue trống, soi error_log per-job — job abort → raise → worker requeue. Hết phantom-printed cả trên fallback. 81 test xanh.
+
+**Sự cố vận hành phát hiện khi quét:** stress test chạy thẳng vào prod với syncer bật → **64 đơn ảo ngày 23/07 đã sync lên ORDERS sheet như đơn thật (kèm mark_paid = doanh thu + tem loyalty ảo cho 5 customer_id giả)**. Danh sách + việc cần làm: `docs/cleanup-fake-orders-2026-07-23.md`. Nhiệm vụ stress test §5 sau này: bọc DB tạm / GAS giả, KHÔNG bắn thẳng prod.
