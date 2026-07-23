@@ -6,6 +6,16 @@ Task đánh dấu **[SONNET]** = giao model thấp làm theo spec; **[USER]** = 
 
 ---
 
+## TRẠNG THÁI FIX (cập nhật cuối phiên)
+- **A1 ✅ FIXED** `d833e84` — same-status noop + bỏ DELIVERED→CANCELLED; 6/6 node test (gồm test no-op thật). ⚠️ CHỜ USER push GAS.
+- **A2 ✅ FIXED** `7c01e33` — sku lạ→UNKNOWN+log (bỏ DR001 im lặng), giữ SKU ngừng bán; 18/18.
+- **A3 ✅ FIXED** `a4ec784` — surgical replay khôi phục (mark từng ly, fail chỉ requeue chưa in); 88/88 full suite.
+- **A5 ✅ FIXED** `2116d7c` — test chặn DLE DC4 pulse mọi path.
+- **A4 / C1-C4 ⏳ CHƯA** (enhancement, không phải bug — làm sau nếu muốn). **C5 [USER]**.
+- ⚠️ Fix nằm trên disk; prod process (start 09:03) chạy code CŨ tới khi restart. Print-server: `bootout`+`bootstrap`. GAS (A1): `gas_push.py`.
+
+---
+
 ## A. LỖI PHẢI SỬA (xếp theo độ nặng)
 
 ### A1. 🔴 Orders.gs: transition nới lỏng quá tay → side effect bắn lặp [SONNET, cần review kỹ]
