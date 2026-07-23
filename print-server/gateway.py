@@ -1,5 +1,6 @@
 """gateway.py — KDS local-first order intake: mint id/code, outbox, hi-lo blocks, sync state."""
 import json
+import logging
 import random
 import sqlite3
 import ssl
@@ -7,6 +8,8 @@ import threading
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
+
+log = logging.getLogger("gateway")
 
 BLOCK_SIZE = 20
 _VN = timezone(timedelta(hours=7))
@@ -38,8 +41,6 @@ def _load_menu_map():
     _MENU_MAP = {
         "trà sữa oolong": "DR028",
         "cà phê muối": "DR005",
-        "test q24": "DR001",
-        "test q25": "DR001",
     }
     import os
     menu_file = os.path.join(os.path.dirname(__file__), "..", "seed", "menu_items.json")
@@ -69,9 +70,15 @@ def normalize_order_payload(payload: dict) -> dict:
         it = dict(item)
         if not it.get("sku") and it.get("name"):
             name_key = it["name"].strip().lower()
-            it["sku"] = mmap.get(name_key, "DR001")
-        if it.get("sku") in ("DR083", "DR085", "DR087", "DR090"):
-            it["sku"] = "DR001"
+            resolved = mmap.get(name_key)
+            if resolved:
+                it["sku"] = resolved
+            else:
+                it["sku"] = "UNKNOWN"
+                log.warning(
+                    "unresolved sku for item name=%r order_id=%s idempotency_key=%s — booked as UNKNOWN, not silently mapped to a real SKU",
+                    it.get("name"), p.get("order_id") or p.get("gateway_order_id"),
+                    p.get("idempotency_key") or (p.get("metadata") or {}).get("idempotency_key"))
         if not it.get("qty"):
             it["qty"] = 1
         normalized_items.append(it)
