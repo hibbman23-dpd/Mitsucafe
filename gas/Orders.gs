@@ -24,7 +24,7 @@ var VALID_TRANSITIONS = {
   'MAKING':     ['READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'],
   'READY':      ['DELIVERING', 'DELIVERED', 'CANCELLED'],
   'DELIVERING': ['DELIVERED', 'CANCELLED'],
-  'DELIVERED':  ['CANCELLED'],
+  'DELIVERED':  [], // đơn đã DELIVERED = đã thu tiền + đã cộng tem — không cho cancel qua path này (không có refund flow)
   'CANCELLED':  [],
 };
 
@@ -340,6 +340,14 @@ function updateOrderStatus(orderId, newStatus, opts) {
   if (!row) throw new Error('Order not found: ' + orderId);
 
   var currentStatus = row.data[12]; // status column index
+
+  // Same-status update = no-op. KDS double-tap / offline-queue replay gửi lại cùng
+  // trạng thái không được ghi lại timestamp và KHÔNG được chạy lại side effects
+  // (sendZaloNotify spam khách, printThermalReceipt in bill trùng).
+  if (String(newStatus) === String(currentStatus)) {
+    return { ok: true, order_id: orderId, status: newStatus, noop: true };
+  }
+
   if (!isValidTransition(currentStatus, newStatus)) {
     throw new Error('Invalid transition: ' + currentStatus + ' → ' + newStatus);
   }
