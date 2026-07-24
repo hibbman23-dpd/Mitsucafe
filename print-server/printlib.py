@@ -45,14 +45,14 @@ _W   = RASTER_DOTS_WIDTH
 _PAD = 8
 _CW  = _W - 2 * _PAD
 
-_SZ_HEADER  = 28
-_SZ_TITLE   = 32
+_SZ_HEADER  = 30
+_SZ_TITLE   = 38
 _SZ_LOGO    = 22
 _SZ_ADDR    = 14
-_SZ_NORMAL  = 18
-_SZ_SMALL   = 16
-_SZ_TOTAL   = 24
-_SZ_ITEM    = 24
+_SZ_NORMAL  = 22
+_SZ_SMALL   = 22
+_SZ_TOTAL   = 26
+_SZ_ITEM    = 32
 
 _SZ_LBL_HDR  = 18
 _SZ_LBL_ITEM = 30
@@ -280,9 +280,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         cmds.append(("logo", x, y, logo))
         y += logo.height
 
-    add_logo(300)
-    add_gap(2)
-    add_text("Mitsu Café",       f_header, "center")
+    add_text("=== PHIẾU PHA CHẾ ===", f_header, "center")
 
     copy_num = order.get("copy_num", 0)
     if copy_num == 1:
@@ -292,8 +290,6 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
 
     if order.get("is_reprint"):
         add_text("*** BẢN IN LẠI ***", f_norm, "center")
-    add_gap(1)
-    add_text("Lâm Hà, Lâm Đồng", f_addr,  "center")
     add_hline(thick=2, gap_before=4, gap_after=4)
 
     meta        = order.get("metadata") or {}
@@ -302,9 +298,9 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     table_label = _loc_label(order)
     order_line  = "  /  ".join(filter(None, [short_code, table_label]))
 
-    add_text(ts, f_norm)
     if order_line:
         add_text(order_line, f_title, "center")
+    add_text(f"Thời gian: {ts}", f_norm, "center")
 
     customer_name = order.get("customer_name", "")
     customer_id   = str(order.get("customer_id", ""))
@@ -313,17 +309,17 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     elif customer_id and customer_id not in ("0000000000", ""):
         add_text(customer_id, f_norm)
 
-    add_hline(thick=1, gap_before=3, gap_after=3)
+    add_hline(thick=2, gap_before=4, gap_after=4)
 
-    for it in (order.get("items") or []):
-        name = it.get("name", "?")
+    for idx, it in enumerate(order.get("items") or [], start=1):
+        name = f"{idx}. " + it.get("name", "?")
         size = (it.get("modifiers") or {}).get("size", "")
         if size:
             name += f" ({size})"
         qty   = it.get("qty", 1)
         price = it.get("price", 0)
 
-        right_str = f"x{qty}  {_format_amount(price)}"
+        right_str = f"x{qty}"
         right_w   = tw(right_str, f_item)
         max_name_w = CW - right_w - 6
 
@@ -357,18 +353,18 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
             {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}
         )
         if mods:
-            mod_words = mods.split()
+            mod_words = f"👉 {mods}".split()
             mod_lines, curr_m = [], ""
             for mw in mod_words:
                 test_m = (curr_m + " " + mw).strip()
-                if tw(test_m, f_small) <= CW - 24:
+                if tw(test_m, f_small) <= CW - 16:
                     curr_m = test_m
                 else:
                     if curr_m: mod_lines.append(curr_m)
                     curr_m = mw
             if curr_m: mod_lines.append(curr_m)
-            for ml in (mod_lines or [mods]):
-                add_text(ml, f_small, indent=12)
+            for ml in (mod_lines or [f"👉 {mods}"]):
+                add_text(ml, f_small, indent=8)
 
     notes = meta.get("notes", "")
     if notes:
@@ -497,18 +493,15 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
         ESC + b"@",
         ESC + b"t\x00",
         ESC + b"a\x01",
-        ESC + b"!\x00",
-        enc(">(|||)<\n"),
         GS + b"!\x11",
-        enc("Mitsu Cafe\n"),
+        enc("=== PHIEU PHA CHE ===\n"),
         GS + b"!\x00",
         (enc("*** LIEN 1: KHACH HANG ***\n") if order.get("copy_num") == 1 else (enc("*** LIEN 2: DOI SOAT QUAY ***\n") if order.get("copy_num") == 2 else b"")),
-        enc("Lam Ha, Lam Dong\n"),
         ESC + b"a\x00",
         enc("=" * W + "\n"),
     ]
     ts = _format_timestamp(str(order.get("timestamp", "")))
-    parts.append(enc("  " + ts + "\n"))
+    parts.append(enc("Thoi gian: " + ts + "\n"))
     short_code  = ("#" + str(meta.get("short_code", ""))) if meta.get("short_code") else ""
     table_label = _loc_label(order)
     order_line  = "  /  ".join(filter(None, [short_code, table_label]))
@@ -523,12 +516,12 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
     elif customer_id and customer_id not in ("0000000000", ""):
         parts.append(enc("  " + customer_id + "\n"))
     parts.append(enc("-" * W + "\n"))
-    for it in (order.get("items") or []):
-        name = it.get("name", "?")
+    for idx, it in enumerate(order.get("items") or [], start=1):
+        name = f"{idx}. " + it.get("name", "?")
         size = (it.get("modifiers") or {}).get("size", "")
         if size:
             name += f" ({size})"
-        right = f"x{it.get('qty',1)}  {_format_amount(it.get('price',0))}"
+        right = f"x{it.get('qty',1)}"
         max_n = max(8, W - len(right) - 1)
         name_lines = _wrap_text_to_lines(name, max_n)
         if not name_lines:
@@ -543,7 +536,7 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
 
         mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"})
         if mods:
-            mod_lines = _wrap_text_to_lines(mods, W - 4)
+            mod_lines = _wrap_text_to_lines("-> " + mods, W - 4)
             for ml in mod_lines:
                 parts.append(enc("  " + ml + "\n"))
 
