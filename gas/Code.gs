@@ -243,6 +243,13 @@ var GET_ROUTES = {
       return splitBill(parentOrderId, indexes, pin);
     }
   },
+  'delete_test_orders': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var orderIds = e.parameter.order_ids || '';
+      return deleteTestOrders(orderIds);
+    }
+  },
   'pending_print': {
     auth: AUTH.REPORT,
     handler: function(e) {

@@ -1099,3 +1099,33 @@ function _logAudit(action, details) {
     logError('logAudit', e);
   }
 }
+
+function deleteTestOrders(orderIdsInput) {
+  var idsToDelete = Array.isArray(orderIdsInput)
+    ? orderIdsInput
+    : (typeof orderIdsInput === 'string' ? orderIdsInput.split(',') : []);
+
+  idsToDelete = idsToDelete.map(function(id) { return String(id).trim(); }).filter(Boolean);
+  if (!idsToDelete.length) return { ok: false, error: 'No order IDs specified' };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('ORDERS');
+  if (!sheet || sheet.getLastRow() <= 1) return { ok: true, deleted_count: 0 };
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var idIdx = headers.indexOf('order_id');
+  if (idIdx === -1) return { ok: false, error: 'order_id column not found' };
+
+  var deletedCount = 0;
+  for (var i = data.length - 1; i >= 1; i--) {
+    var oid = String(data[i][idIdx] || '').trim();
+    if (idsToDelete.indexOf(oid) !== -1) {
+      sheet.deleteRow(i + 1);
+      deletedCount++;
+    }
+  }
+
+  _logAudit('delete_test_orders', 'Deleted ' + deletedCount + ' test orders: ' + idsToDelete.join(','));
+  return { ok: true, deleted_count: deletedCount };
+}
