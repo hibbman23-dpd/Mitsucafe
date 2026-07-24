@@ -64,6 +64,13 @@ function validateOrderPayload(p) {
   // it.price/it.promo_price/p.total từ client (DevTools sửa payload = mua giá 1đ).
   var promoInfo = _getPromoInfoInternal();
   var subtotal = 0;
+
+  var allMenuItems = getAllMenu();
+  var menuMap = {};
+  allMenuItems.forEach(function(m) {
+    if (m.sku) menuMap[String(m.sku).trim().toUpperCase()] = m;
+  });
+
   p.items.forEach(function (it) {
     if (!it.sku || !it.qty) {
       throw new Error('item must have sku, qty');
@@ -71,28 +78,32 @@ function validateOrderPayload(p) {
     var qty = parseInt(it.qty, 10);
     if (!(qty > 0)) throw new Error('item qty must be a positive number');
 
-    var menuItem = getMenuItemBySku(it.sku);
-    if (!menuItem) throw new Error('Món không tồn tại hoặc đã ngừng bán: ' + it.sku);
-
+    var menuItem = it.sku ? menuMap[String(it.sku).trim().toUpperCase()] : null;
     var mods = it.modifiers || {};
-    var unit = (mods.size === 'L' && menuItem.price_l) ? Number(menuItem.price_l) : Number(menuItem.price_m);
+    var unit = 0;
 
-    // Promo toàn quán (PROMO_PERCENT) áp lên giá size TRƯỚC khi cộng topping —
-    // phải khớp từng đồng với client (applyPromoPercent làm tròn price_m/price_l,
-    // topping cộng nguyên giá sau), vì bank_notification gạch nợ khớp theo số tiền.
-    if (promoInfo.active && promoInfo.percent > 0) {
-      unit = Math.round(unit * (1 - promoInfo.percent / 100));
-    }
+    if (menuItem) {
+      unit = (mods.size === 'L' && menuItem.price_l) ? Number(menuItem.price_l) : Number(menuItem.price_m);
 
-    // Topping: client chỉ gửi tên (chuỗi "a, b"), giá luôn tra lại theo customizations_json của SKU.
-    if (mods.toppings) {
-      var toppingNames = String(mods.toppings).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-      var customizations = menuItem.customizations_json ? _safeJsonParse(menuItem.customizations_json) : null;
-      var validToppings = (customizations && customizations.toppings) || [];
-      toppingNames.forEach(function (name) {
-        var match = validToppings.filter(function (t) { return t.name === name; })[0];
-        if (match) unit += Number(match.price) || 0;
-      });
+      // Promo toàn quán (PROMO_PERCENT) áp lên giá size TRƯỚC khi cộng topping
+      if (promoInfo.active && promoInfo.percent > 0) {
+        unit = Math.round(unit * (1 - promoInfo.percent / 100));
+      }
+
+      // Topping: client chỉ gửi tên (chuỗi "a, b"), giá luôn tra lại theo customizations_json của SKU.
+      if (mods.toppings) {
+        var toppingNames = String(mods.toppings).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        var customizations = menuItem.customizations_json ? _safeJsonParse(menuItem.customizations_json) : null;
+        var validToppings = (customizations && customizations.toppings) || [];
+        toppingNames.forEach(function (name) {
+          var match = validToppings.filter(function (t) { return t.name === name; })[0];
+          if (match) unit += Number(match.price) || 0;
+        });
+      }
+    } else {
+      // Fallback: Nếu SKU không có trong MENU sheet (hoặc là SKU mới chưa sync), dùng giá client gửi
+      unit = Number(it.price) || 0;
+      _logAudit('UNRESOLVED_SKU_FALLBACK', 'Món ' + it.sku + ' (' + (it.name || '') + ') không có trong MENU tab. Dùng giá fallback: ' + unit);
     }
 
     it.qty = qty;
@@ -276,6 +287,11 @@ function reserveShortCodes(deliveryType, n) {
 }
 
 function ingestPreMintedOrder(p) {
+  p = p || {};
+  if (!p.customer_id) p.customer_id = '0000000000';
+  if (!p.channel) p.channel = 'staff';
+  if (!p.items || !Array.isArray(p.items)) p.items = [];
+
   var key = p.idempotency_key || (p.metadata && p.metadata.idempotency_key) || '';
   if (key) {
     var existing = findOrderIdByIdempotencyKey(key);

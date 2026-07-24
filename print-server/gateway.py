@@ -231,17 +231,18 @@ class Gateway:
         return json.loads(row["payload"]) if row else None
 
     def unsynced(self):
-        rows = [dict(r) for r in self._conn.execute(
-            "SELECT * FROM outbox WHERE synced_at IS NULL ORDER BY seq ASC").fetchall()]
-        # Chặn status/mark_paid CHỈ khi order đó có 1 create (ingest_order) CHƯA sync trong outbox.
-        # Đơn remote/QR (không có create row ở đây) → không bị chặn, gửi bình thường (🟠7 starvation).
-        pending_creates = set(r["order_id"] for r in rows if r["op"] == "ingest_order")
-        out = []
-        for r in rows:
-            if r["op"] != "ingest_order" and r["order_id"] in pending_creates:
-                continue  # chờ create của chính order này lên GAS trước
-            out.append(r)
-        return out
+        with self._lock:
+            rows = [dict(r) for r in self._conn.execute(
+                "SELECT * FROM outbox WHERE synced_at IS NULL ORDER BY seq ASC").fetchall()]
+            # Chặn status/mark_paid CHỈ khi order đó có 1 create (ingest_order) CHƯA sync trong outbox.
+            # Đơn remote/QR (không có create row ở đây) → không bị chặn, gửi bình thường (🟠7 starvation).
+            pending_creates = set(r["order_id"] for r in rows if r["op"] == "ingest_order")
+            out = []
+            for r in rows:
+                if r["op"] != "ingest_order" and r["order_id"] in pending_creates:
+                    continue  # chờ create của chính order này lên GAS trước
+                out.append(r)
+            return out
 
     def mark_synced(self, seq):
         with self._lock:
@@ -251,13 +252,25 @@ class Gateway:
     def mark_error(self, seq, err):
         err_str = str(err)
         with self._lock:
-            if "Invalid transition" in err_str or "Order not found" in err_str or "unknown_action" in err_str:
+            # Lấy số lần thử hiện tại
+            row = self._conn.execute("SELECT attempts FROM outbox WHERE seq=?", (seq,)).fetchone()
+            attempts = (row["attempts"] + 1) if row else 1
+
+            is_fatal = ("Invalid transition" in err_str or
+                        "Order not found" in err_str or
+                        "unknown_action" in err_str or
+                        "required" in err_str or
+                        "validation" in err_str or
+                        attempts >= 20)
+
+            if is_fatal:
                 self._conn.execute(
-                    "UPDATE outbox SET attempts=attempts+1, last_error=?, synced_at=? WHERE seq=?",
-                    (err_str[:400], "FAILED: " + err_str[:380], seq))
+                    "UPDATE outbox SET attempts=?, last_error=?, synced_at=? WHERE seq=?",
+                    (attempts, err_str[:400], "FAILED: " + err_str[:380], seq))
             else:
                 self._conn.execute(
-                    "UPDATE outbox SET attempts=attempts+1, last_error=? WHERE seq=?", (err_str[:400], seq))
+                    "UPDATE outbox SET attempts=?, last_error=? WHERE seq=?",
+                    (attempts, err_str[:400], seq))
             self._conn.commit()
 
     def _post_to_gas(self, payload):
@@ -285,8 +298,9 @@ class Gateway:
         n = 0
         for op in self.unsynced():
             payload = json.loads(op["payload"])
-            payload["action"] = {"ingest_order": "ingest_order", "status": "update_status",
-                                 "mark_paid": "mark_paid"}[op["op"]]
+            if "action" not in payload:
+                payload["action"] = {"ingest_order": "ingest_order", "status": "update_status",
+                                     "mark_paid": "mark_paid"}[op["op"]]
             try:
                 d = self._post_to_gas(payload)
                 if d.get("ok"):

@@ -2,7 +2,7 @@
  * Menu.gs — Đọc menu từ Sheets MENU tab, áp/khôi phục giá promo.
  */
 
-function getActiveMenu() {
+function getAllMenu() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MENU');
   if (!sheet) throw new Error('MENU sheet missing');
   var data = sheet.getDataRange().getValues();
@@ -14,15 +14,23 @@ function getActiveMenu() {
     var row = data[i];
     var item = {};
     for (var j = 0; j < headers.length; j++) item[headers[j]] = row[j];
-    if (item.available) items.push(item);
+    items.push(item);
   }
   return items;
 }
 
+function getActiveMenu() {
+  var menu = getAllMenu();
+  return menu.filter(function(item) { return Boolean(item.available); });
+}
+
 function getMenuItemBySku(sku) {
-  var menu = getActiveMenu();
+  if (!sku) return null;
+  var menu = getAllMenu();
+  var skuUpper = String(sku).trim().toUpperCase();
   for (var i = 0; i < menu.length; i++) {
-    if (menu[i].sku === sku) return menu[i];
+    if (!menu[i].sku) continue;
+    if (String(menu[i].sku).trim().toUpperCase() === skuUpper) return menu[i];
   }
   return null;
 }

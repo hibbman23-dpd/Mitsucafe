@@ -700,15 +700,22 @@ def order_lookup():
 def order_status():
     p = request.get_json(force=True, silent=True) or {}
     order_id, status = p.get("order_id"), p.get("status")
+    is_batch = bool(order_id and "," in order_id)
+    action = "batch_update_status" if is_batch else "update_status"
+    payload = {"action": action, "status": status}
+    if is_batch:
+        payload["order_ids"] = order_id
+    else:
+        payload["order_id"] = order_id
+
     try:
-        d = _gas_post({"action": "update_status", "order_id": order_id, "status": status})
+        d = _gas_post(payload)
         if d.get("ok"):
             return jsonify(d), 200      # online OK
     except Exception:
         pass
     # offline HOẶC GAS trả not-ok (vd unknown_action) → queue để syncer đẩy sau
-    GATEWAY.enqueue("status", order_id, f"{order_id}:{status}",
-                    {"action": "update_status", "order_id": order_id, "status": status})
+    GATEWAY.enqueue("status", order_id, f"{order_id}:{status}", payload)
     return jsonify({"ok": True, "queued_offline": True}), 200
 
 @app.post("/order/mark_paid")
