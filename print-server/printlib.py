@@ -46,12 +46,13 @@ _PAD = 8
 _CW  = _W - 2 * _PAD
 
 _SZ_HEADER  = 28
+_SZ_TITLE   = 32
 _SZ_LOGO    = 22
 _SZ_ADDR    = 14
 _SZ_NORMAL  = 18
-_SZ_SMALL   = 14
-_SZ_TOTAL   = 22
-_SZ_ITEM    = 18
+_SZ_SMALL   = 16
+_SZ_TOTAL   = 24
+_SZ_ITEM    = 24
 
 _SZ_LBL_HDR  = 18
 _SZ_LBL_ITEM = 30
@@ -223,6 +224,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
 
     W, PAD, CW = _W, _PAD, _CW
 
+    f_title  = _load_font(_SZ_TITLE)
     f_header = _load_font(_SZ_HEADER)
     f_addr   = _load_font(_SZ_ADDR)
     f_norm   = _load_font(_SZ_NORMAL)
@@ -302,7 +304,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
 
     add_text(ts, f_norm)
     if order_line:
-        add_text(order_line, f_norm)
+        add_text(order_line, f_title, "center")
 
     customer_name = order.get("customer_name", "")
     customer_id   = str(order.get("customer_id", ""))
@@ -511,7 +513,9 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
     table_label = _loc_label(order)
     order_line  = "  /  ".join(filter(None, [short_code, table_label]))
     if order_line:
+        parts.append(GS + b"!\x11")
         parts.append(enc("  " + order_line + "\n"))
+        parts.append(GS + b"!\x00")
     customer_name = order.get("customer_name", "")
     customer_id   = str(order.get("customer_id", ""))
     if customer_name:
@@ -531,9 +535,11 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
             name_lines = [name]
 
         first_line = name_lines[0] + " " * max(1, W - len(name_lines[0]) - len(right)) + right
+        parts.append(ESC + b"!\x20")
         parts.append(enc(first_line + "\n"))
         for extra_l in name_lines[1:]:
             parts.append(enc("  " + extra_l + "\n"))
+        parts.append(ESC + b"!\x00")
 
         mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"})
         if mods:
