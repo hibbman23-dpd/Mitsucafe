@@ -268,7 +268,8 @@ def enqueue_receipt_route():
     p = request.get_json(force=True, silent=True) or {}
     order = p.get("order") or {}
     is_cash = bool(p.get("is_cash", False))
-    n = SPOOL.enqueue_receipt(order, is_cash)
+    copies = int(p.get("copies", 1))
+    n = SPOOL.enqueue_receipt(order, is_cash, copies=copies)
     return jsonify({"ok": True, "enqueued": n}), 200
 
 

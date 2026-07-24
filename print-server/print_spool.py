@@ -71,14 +71,26 @@ class PrintSpool:
             self._conn.commit()
         return n
 
-    def enqueue_receipt(self, order, is_cash):
+    def enqueue_receipt(self, order, is_cash, copies=1):
         order_id = order.get("order_id", "")
+        inserted = 0
         with self._lock:
-            key = f"{order_id}:receipt:0"
-            payload = {"order": order, "is_cash": bool(is_cash)}
-            n = self._insert(key, order_id, "receipt", "receipt", 0, 1, payload)
+            if copies <= 1:
+                key = f"{order_id}:receipt:0"
+                order_copy = dict(order)
+                if "copy_num" not in order_copy:
+                    order_copy["copy_num"] = 1
+                payload = {"order": order_copy, "is_cash": bool(is_cash)}
+                inserted += self._insert(key, order_id, "receipt", "receipt", 0, 1, payload)
+            else:
+                for copy_num in range(1, copies + 1):
+                    key = f"{order_id}:receipt:{copy_num}"
+                    order_copy = dict(order)
+                    order_copy["copy_num"] = copy_num
+                    payload = {"order": order_copy, "is_cash": bool(is_cash)}
+                    inserted += self._insert(key, order_id, "receipt", "receipt", copy_num, copies, payload)
             self._conn.commit()
-        return n
+        return inserted
 
     def claim_next(self, printer):
         with self._lock:

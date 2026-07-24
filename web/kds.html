@@ -400,7 +400,8 @@
     <button class="filter-pill"        onclick="setFilter('pending',this)">⚠️ Chờ TT</button>
     <button class="filter-pill"        onclick="setFilter('active',this)">Đang làm</button>
     <button class="filter-pill"        onclick="setFilter('paid',this)">✅ Đã TT</button>
-    <button class="filter-pill" id="btn-toggle-sound" onclick="toggleSound()" style="margin-left:auto;">🔇 Đã tắt tiếng</button>
+    <button class="filter-pill" id="btn-toggle-label-print" onclick="toggleLabelPrint()" style="margin-left:auto;">🏷️ Tem: BẬT</button>
+    <button class="filter-pill" id="btn-toggle-sound" onclick="toggleSound()">🔇 Đã tắt tiếng</button>
   </div>
   <div class="orders-list" id="orders-list">
     <div class="empty-state"><div class="icon">☕</div>Đang tải đơn hàng...</div>
@@ -775,6 +776,23 @@ function enableTTS() {
 }
 
 let soundMuted = localStorage.getItem('kds_sound_muted') !== '0'; // Mặc định TẮT TIẾNG theo yêu cầu
+let labelPrintMuted = localStorage.getItem('kds_label_print_muted') === '1';
+
+function toggleLabelPrint() {
+  labelPrintMuted = !labelPrintMuted;
+  try { localStorage.setItem('kds_label_print_muted', labelPrintMuted ? '1' : '0'); } catch(e){}
+  updateLabelPrintBtn();
+}
+
+function updateLabelPrintBtn() {
+  const btn = document.getElementById('btn-toggle-label-print');
+  if (btn) {
+    btn.innerHTML = labelPrintMuted ? '🏷️ In tem: TẠM TẮT' : '🏷️ In tem: BẬT';
+    btn.style.background = labelPrintMuted ? 'rgba(255,87,34,0.18)' : 'rgba(46,196,182,0.18)';
+    btn.style.borderColor = labelPrintMuted ? '#ff5722' : '#2ec4b6';
+    btn.style.color = labelPrintMuted ? '#ffab91' : '#80cbc4';
+  }
+}
 
 function toggleSound() {
   soundMuted = !soundMuted;
@@ -2177,26 +2195,28 @@ async function executeSwapOrderItem() {
       return;
     }
 
-    try {
-      await fetch(LOCAL_GW + '/enqueue/single_label', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_id: pendingSwap.orderId,
-          item: pendingSwap.newItem,
-          cup_num: 1,
-          total_cups: 1,
-          short_code: pendingSwap.order.short_code,
-          delivery_type: pendingSwap.order.delivery_type,
-          table_id: pendingSwap.order.table_id
-        })
-      });
-    } catch(err) {
-      console.warn('In tem ly mới thất bại via gateway:', err);
+    if (!labelPrintMuted) {
+      try {
+        await fetch(LOCAL_GW + '/enqueue/single_label', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: pendingSwap.orderId,
+            item: pendingSwap.newItem,
+            cup_num: 1,
+            total_cups: 1,
+            short_code: pendingSwap.order.short_code,
+            delivery_type: pendingSwap.order.delivery_type,
+            table_id: pendingSwap.order.table_id
+          })
+        });
+      } catch(err) {
+        console.warn('In tem ly mới thất bại via gateway:', err);
+      }
     }
 
     closeSwapOverlay();
-    alert('✅ Đổi món thành công! Đã gửi lệnh in tem ly mới.');
+    alert('✅ Đổi món thành công!' + (!labelPrintMuted ? ' Đã gửi lệnh in tem ly mới.' : ' (In tem ly đang TẠM TẮT)'));
     await loadOrders();
   } catch(err) {
     alert('Lỗi kết nối: ' + err.message);
@@ -2408,6 +2428,7 @@ function startKDS() {
   if (window.__kdsStarted) return; window.__kdsStarted = true;
   if (!window.speechSynthesis || soundMuted) document.getElementById('tts-banner').classList.add('hidden');
   updateSoundBtn();
+  updateLabelPrintBtn();
   renderTableGrid();
   loadPromoStatus();
   loadOrders();

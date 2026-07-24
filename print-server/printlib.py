@@ -281,6 +281,13 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     add_logo(300)
     add_gap(2)
     add_text("Mitsu Café",       f_header, "center")
+
+    copy_num = order.get("copy_num", 0)
+    if copy_num == 1:
+        add_text("*** LIÊN 1: KHÁCH HÀNG ***", f_norm, "center")
+    elif copy_num == 2:
+        add_text("*** LIÊN 2: ĐỐI SOÁT QUẦY ***", f_norm, "center")
+
     if order.get("is_reprint"):
         add_text("*** BẢN IN LẠI ***", f_norm, "center")
     add_gap(1)
@@ -493,6 +500,7 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
         GS + b"!\x11",
         enc("Mitsu Cafe\n"),
         GS + b"!\x00",
+        (enc("*** LIEN 1: KHACH HANG ***\n") if order.get("copy_num") == 1 else (enc("*** LIEN 2: DOI SOAT QUAY ***\n") if order.get("copy_num") == 2 else b"")),
         enc("Lam Ha, Lam Dong\n"),
         ESC + b"a\x00",
         enc("=" * W + "\n"),
