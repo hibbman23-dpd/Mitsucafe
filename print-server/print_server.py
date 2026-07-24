@@ -101,10 +101,10 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 
 @app.after_request
 def add_cors_headers(response):
-    # KDS được phục vụ same-origin trên :5001 (serve_kds) → KHÔNG cần CORS.
-    # Access-Control-Allow-Origin:'*' + token nhúng trong /kds.html = lỗ hổng: web bất kỳ
-    # trong browser nhân viên đọc được response :5001 → trộm REPORT token. Bỏ hẳn CORS *.
-    # Nếu sau này cần mở cho 1 origin cụ thể, whitelist đúng origin đó, KHÔNG dùng '*'.
+    origin = request.headers.get("Origin") or "*"
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
     return response
 
 @app.route('/order', methods=['OPTIONS'])
