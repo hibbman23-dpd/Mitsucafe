@@ -2626,7 +2626,7 @@ function startKDS() {
   updateLabelPrintBtn();
   renderTableGrid();
   loadPromoStatus();
-  loadOrders().then(() => injectMockTestOrders());
+  loadOrders();
   setInterval(loadOrders, POLL_MS);
 }
 
