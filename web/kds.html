@@ -898,6 +898,151 @@ function applyFilter(orders) {
   return orders;
 }
 
+function renderTableSummaryBar() {
+  const tableMap = new Map();
+  allOrders.forEach(o => {
+    if (o.status === 'CANCELLED') return;
+    const isUnpaidOrActive = o.payment_status !== 'PAID' || ['NEW','CONFIRMED','MAKING','READY','DELIVERING'].includes(o.status);
+    if (!isUnpaidOrActive) return;
+    const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
+    if (dt !== 'dine_in' || !o.table_id) return;
+    const tid = String(o.table_id).trim();
+    if (!tableMap.has(tid)) tableMap.set(tid, []);
+    tableMap.get(tid).push(o);
+  });
+
+  if (!tableMap.size) return '';
+
+  let html = `<div class="table-summary-bar" style="grid-column: 1 / -1; background: rgba(245,240,232,0.05); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px;">
+    <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 8px; color: var(--gold); display: flex; align-items: center; justify-content: space-between;">
+      <span>🪑 Thanh toán & In Hóa Đơn Gộp Theo Bàn</span>
+      <span style="font-size: 0.72rem; color: var(--muted); font-weight: normal;">Bấm để in 1 bill tổng + đóng tất cả đơn của bàn đó</span>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">`;
+
+  tableMap.forEach((orders, tid) => {
+    const tableNum = tid.replace(/^(table_|ban|bàn)\s*/i, '');
+    const totalSum = orders.reduce((acc, x) => acc + (Number(x.total) || 0), 0);
+    const count = orders.length;
+    html += `<button class="btn-mark-paid" style="background: var(--teal); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;" onclick="finishTableGroup('${esc(tid)}', this)">
+      🧾 Thanh toán Bàn ${esc(tableNum)} (${count} đơn · ${fmt(totalSum)})
+    </button>`;
+  });
+
+  html += `</div></div>`;
+  return html;
+}
+
+async function finishTableGroup(tableId, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Đang xử lý...'; }
+  try {
+    const targetOrders = allOrders.filter(o => {
+      if (o.status === 'CANCELLED') return false;
+      const isUnpaidOrActive = o.payment_status !== 'PAID' || ['NEW','CONFIRMED','MAKING','READY','DELIVERING'].includes(o.status);
+      const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
+      return isUnpaidOrActive && dt === 'dine_in' && String(o.table_id).trim() === String(tableId).trim();
+    });
+
+    if (!targetOrders.length) {
+      alert('Không tìm thấy đơn cần thanh toán cho bàn này.');
+      return;
+    }
+
+    const itemsMap = new Map();
+    let totalSum = 0;
+    const shortCodes = [];
+    const orderIds = [];
+
+    targetOrders.forEach(o => {
+      orderIds.push(o.order_id);
+      if (o.short_code) shortCodes.push(o.short_code);
+      totalSum += Number(o.total) || 0;
+
+      let itemsList = [];
+      if (Array.isArray(o.items)) itemsList = o.items;
+      else if (typeof o.items_json === 'string') {
+        try { itemsList = JSON.parse(o.items_json); } catch(_) {}
+      }
+
+      itemsList.forEach(it => {
+        const name = it.name || 'Món';
+        const mods = it.modifiers || {};
+        const modKey = JSON.stringify(mods);
+        const key = name + '||' + modKey;
+        const price = Number(it.price) || 0;
+        const qty = Number(it.qty) || 1;
+
+        if (itemsMap.has(key)) {
+          const existing = itemsMap.get(key);
+          existing.qty += qty;
+        } else {
+          itemsMap.set(key, { name: name, price: price, qty: qty, modifiers: mods });
+        }
+      });
+    });
+
+    const combinedItems = Array.from(itemsMap.values());
+    const tableNum = String(tableId).replace(/^(table_|ban|bàn)\s*/i, '');
+    const shortCodeStr = 'BÀN ' + tableNum;
+
+    const groupedOrder = {
+      order_id: 'GRP-' + tableNum + '-' + Date.now(),
+      table_id: tableId,
+      timestamp: new Date().toISOString(),
+      customer_name: 'Khách Bàn ' + tableNum,
+      customer_id: targetOrders[0]?.customer_id || '',
+      total: totalSum,
+      payment: { method: 'cash' },
+      items: combinedItems,
+      metadata: {
+        short_code: shortCodeStr,
+        delivery_type: 'dine_in',
+        notes: 'Hóa đơn tổng gộp ' + targetOrders.length + ' đơn (' + shortCodes.join(', ') + ')'
+      }
+    };
+
+    // 1. Gửi lệnh in 1 bill tổng qua Local Gateway / Spool
+    try {
+      await fetch(`${GATEWAY_URL}/enqueue/receipt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: groupedOrder, is_cash: true })
+      });
+    } catch (printErr) {
+      console.warn('In bill gộp gateway thất bại, tiếp tục cập nhật trạng thái:', printErr);
+    }
+
+    // 2. Cập nhật trạng thái tất cả đơn của bàn đó thành DELIVERED & PAID
+    const idsStr = orderIds.join(',');
+    targetOrders.forEach(o => {
+      o.status = 'DELIVERED';
+      o.payment_status = 'PAID';
+      setLocalOverride(o.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
+    });
+
+    try {
+      await fetch(`${GATEWAY_URL}/order/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: idsStr, status: 'DELIVERED' })
+      });
+    } catch (_) {}
+
+    try {
+      await fetch(`${GAS_URL}?action=batch_update_status&order_ids=${encodeURIComponent(idsStr)}&status=DELIVERED${TQ}`);
+      await fetch(`${GAS_URL}?action=batch_mark_paid&order_ids=${encodeURIComponent(idsStr)}${TQ}`);
+    } catch (_) {}
+
+    speak(`Đã gộp thanh toán Bàn ${tableNum}, tổng tiền ${fmtSpeak(totalSum)} đồng`);
+    renderOrders();
+
+  } catch (err) {
+    alert('Lỗi gộp đơn: ' + (err.message || 'Không xác định'));
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function renderOrders() {
   const list     = document.getElementById('orders-list');
   const filtered = applyFilter(allOrders);
@@ -906,7 +1051,8 @@ function renderOrders() {
       ${allOrders.length ? 'Không có đơn nào khớp.' : 'Chưa có đơn nào hôm nay.'}</div>`;
     return;
   }
-  list.innerHTML = filtered.map(o => {
+  const summaryBar = renderTableSummaryBar();
+  list.innerHTML = summaryBar + filtered.map(o => {
     if (!o.short_code && o.metadata && o.metadata.short_code) o.short_code = o.metadata.short_code;
     if (!o.delivery_type && o.metadata && o.metadata.delivery_type) o.delivery_type = o.metadata.delivery_type;
     if (!o.items_summary && o.items && o.items.length) o.items_summary = formatItemsSummary(o.items);

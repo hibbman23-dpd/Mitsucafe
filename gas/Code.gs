@@ -195,6 +195,23 @@ var GET_ROUTES = {
       return { ok: true, order_id: orderId, payment_status: paymentResult.payment_status, already_paid: paymentResult.already_paid };
     }
   },
+  'batch_mark_paid': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var orderIds = e.parameter.order_ids ? e.parameter.order_ids.split(',') : [];
+      if (!orderIds.length) return { ok: false, error: 'order_ids required' };
+      return batchMarkOrdersPaid(orderIds);
+    }
+  },
+  'batch_update_status': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var orderIds = e.parameter.order_ids ? e.parameter.order_ids.split(',') : [];
+      var newStatus = e.parameter.status;
+      if (!orderIds.length || !newStatus) return { ok: false, error: 'order_ids and status required' };
+      return batchUpdateOrdersStatus(orderIds, newStatus);
+    }
+  },
   'pending_print': {
     auth: AUTH.REPORT,
     handler: function(e) {

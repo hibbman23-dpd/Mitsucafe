@@ -42,5 +42,25 @@ class TestPrintlib(unittest.TestCase):
         self.assertGreaterEqual(nul_len, 16, "cần đủ NUL để hấp thụ cold-start")
         self.assertEqual(out[nul_len:nul_len + 2], b"\x1b@", "ESC @ ngay sau padding")
 
+    def test_grouped_receipt_raster_returns_bytes(self):
+        from printlib import build_receipt_raster
+        grouped_order = {
+            "order_id": "GRP-TABLE03-12345",
+            "timestamp": "2026-07-24T09:00:00+07:00",
+            "table_id": "03",
+            "customer_name": "Khách Bàn 03",
+            "customer_id": "",
+            "total": 120000,
+            "payment": {"method": "cash"},
+            "metadata": {"short_code": "BÀN 03", "delivery_type": "dine_in", "notes": "Gộp 2 đơn (Q01, Q05)"},
+            "items": [
+                {"name": "Cà phê sữa", "qty": 2, "price": 70000, "modifiers": {"size": "L"}},
+                {"name": "Bánh mì patê", "qty": 1, "price": 50000, "modifiers": {}}
+            ],
+        }
+        out = build_receipt_raster(grouped_order, is_cash=True)
+        self.assertIsInstance(out, bytes)
+        self.assertGreater(len(out), 0)
+
 if __name__ == "__main__":
     unittest.main()

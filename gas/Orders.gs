@@ -527,6 +527,45 @@ function markOrderPaid(orderId, opts) {
 }
 
 /**
+ * Đánh dấu thanh toán đồng loạt nhiều đơn (dùng cho gộp đơn theo bàn).
+ * @param {Array<string>} orderIds
+ * @param {object} [opts]
+ */
+function batchMarkOrdersPaid(orderIds, opts) {
+  if (!orderIds || !orderIds.length) return { ok: false, error: 'orderIds required' };
+  var results = [];
+  for (var i = 0; i < orderIds.length; i++) {
+    try {
+      var res = markOrderPaid(orderIds[i], opts);
+      results.push({ order_id: orderIds[i], ok: true, res: res });
+    } catch (err) {
+      results.push({ order_id: orderIds[i], ok: false, error: String(err) });
+    }
+  }
+  return { ok: true, results: results };
+}
+
+/**
+ * Cập nhật trạng thái đồng loạt nhiều đơn (dùng cho gộp đơn theo bàn).
+ * @param {Array<string>} orderIds
+ * @param {string} newStatus
+ * @param {object} [opts]
+ */
+function batchUpdateOrdersStatus(orderIds, newStatus, opts) {
+  if (!orderIds || !orderIds.length || !newStatus) return { ok: false, error: 'orderIds and newStatus required' };
+  var results = [];
+  for (var i = 0; i < orderIds.length; i++) {
+    try {
+      var res = updateOrderStatus(orderIds[i], newStatus, opts);
+      results.push({ order_id: orderIds[i], ok: true, res: res });
+    } catch (err) {
+      results.push({ order_id: orderIds[i], ok: false, error: String(err) });
+    }
+  }
+  return { ok: true, results: results };
+}
+
+/**
  * Trả về danh sách đơn hôm nay (mới nhất lên đầu) cho KDS polling.
  */
 function getTodayOrders() {
