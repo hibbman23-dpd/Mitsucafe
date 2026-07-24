@@ -678,10 +678,15 @@ def order_create():
     # Đơn đã được ghi vào outbox trong GATEWAY.mint_order (atomic, trước khi in).
     # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
-    if cups:
-        if _print_engine() == "spool":
+    if _print_engine() == "spool":
+        if cups:
             SPOOL.enqueue_labels(order, cups)
-        else:
+        # Always enqueue receipt for kitchen/bar ticket upon order creation
+        is_cash = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
+        copies = 2 if is_cash else 1
+        SPOOL.enqueue_receipt(order, is_cash=is_cash, copies=copies)
+    else:
+        if cups:
             def _async_print_labels():
                 try:
                     all_labels = build_order_labels_tspl(order, cups)
@@ -690,6 +695,11 @@ def order_create():
                 except Exception as exc:
                     log.error("label print failed %s: %s", order_id, exc)
             threading.Thread(target=_async_print_labels, daemon=True).start()
+        try:
+            is_cash = bool((payload.get("payment") or {}).get("status") == "PAID")
+            _print_receipt_bytes(build_receipt(order), open_drawer=is_cash)
+        except Exception as exc:
+            log.error("receipt print failed %s: %s", order_id, exc)
 
     return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
                     "printed": True, "warning": None}), 200
