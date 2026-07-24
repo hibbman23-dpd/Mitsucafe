@@ -884,3 +884,173 @@ function _creditStampsForOrder(order) {
     logError('loyalty.notify', notifErr);
   }
 }
+
+/**
+ * Đổi toàn bộ đơn active/unpaid từ bàn cũ sang bàn mới.
+ * @param {string} fromTableId
+ * @param {string} toTableId
+ */
+function transferTableOrders(fromTableId, toTableId) {
+  if (!fromTableId || !toTableId) return { ok: false, error: 'fromTableId and toTableId required' };
+  var sheet = _ordersSheet();
+  var data = sheet.getDataRange().getValues();
+  var count = 0;
+  var updatedIds = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0]) continue;
+    var tbl = String(row[6] || '').trim();
+    var status = String(row[12] || '');
+    var payStatus = String(row[19] || '');
+
+    var isActiveOrUnpaid = payStatus !== 'PAID' || ['NEW','CONFIRMED','MAKING','READY','DELIVERING'].indexOf(status) !== -1;
+    if (isActiveOrUnpaid && tbl === String(fromTableId).trim() && status !== 'CANCELLED') {
+      sheet.getRange(i + 1, 7).setValue(toTableId); // col 7 = table_id (G)
+      count++;
+      updatedIds.push(String(row[0]));
+    }
+  }
+
+  _logAudit('TRANSFER_TABLE', 'Chuyển bàn ' + fromTableId + ' -> ' + toTableId + ' (' + count + ' đơn)');
+  return { ok: true, count: count, updated_ids: updatedIds, from_table: fromTableId, to_table: toTableId };
+}
+
+/**
+ * Hủy 1 món trong đơn hàng và tính lại tổng tiền.
+ * @param {string} orderId
+ * @param {number} itemIndex - 0-based index trong items array
+ * @param {string} reason
+ */
+function cancelOrderItem(orderId, itemIndex, reason) {
+  if (!orderId || itemIndex === undefined) return { ok: false, error: 'orderId and itemIndex required' };
+  var row = _findOrderRow(orderId);
+  if (!row) return { ok: false, error: 'Order not found' };
+
+  var sheet = _ordersSheet();
+  var items = [];
+  try { items = JSON.parse(row.data[9]); } catch(e) {}
+
+  if (itemIndex < 0 || itemIndex >= items.length) {
+    return { ok: false, error: 'Invalid itemIndex' };
+  }
+
+  var canceledItem = items.splice(itemIndex, 1)[0];
+  var newSubtotal = items.reduce(function(acc, it) { return acc + (Number(it.price) || 0) * (Number(it.qty) || 1); }, 0);
+  var newTotal = newSubtotal;
+
+  sheet.getRange(row.rowIndex, 10).setValue(JSON.stringify(items)); // col 10 = items_json (J)
+  sheet.getRange(row.rowIndex, 11).setValue(newSubtotal);          // col 11 = subtotal (K)
+  sheet.getRange(row.rowIndex, 12).setValue(newTotal);             // col 12 = total (L)
+
+  _logAudit('CANCEL_ITEM', 'Hủy món "' + (canceledItem.name || '') + '" đơn ' + orderId + '. Lý do: ' + (reason || 'Không ghi'));
+  return { ok: true, order_id: orderId, new_total: newTotal, canceled_item: canceledItem };
+}
+
+/**
+ * Tách một số món từ đơn gốc ra đơn mới độc lập.
+ * @param {string} parentOrderId
+ * @param {Array<number>} itemIndexes
+ */
+function splitBill(parentOrderId, itemIndexes) {
+  if (!parentOrderId || !itemIndexes || !itemIndexes.length) return { ok: false, error: 'parentOrderId and itemIndexes required' };
+  var row = _findOrderRow(parentOrderId);
+  if (!row) return { ok: false, error: 'Parent order not found' };
+
+  var sheet = _ordersSheet();
+  var parentOrder = _rowToOrder(row.data);
+  var items = parentOrder.items || [];
+
+  var keepItems = [];
+  var splitItems = [];
+
+  for (var i = 0; i < items.length; i++) {
+    if (itemIndexes.indexOf(i) !== -1) {
+      splitItems.push(items[i]);
+    } else {
+      keepItems.push(items[i]);
+    }
+  }
+
+  if (!splitItems.length) return { ok: false, error: 'No items selected to split' };
+
+  // Recalculate parent order total
+  var parentSubtotal = keepItems.reduce(function(acc, it) { return acc + (Number(it.price) || 0) * (Number(it.qty) || 1); }, 0);
+  sheet.getRange(row.rowIndex, 10).setValue(JSON.stringify(keepItems));
+  sheet.getRange(row.rowIndex, 11).setValue(parentSubtotal);
+  sheet.getRange(row.rowIndex, 12).setValue(parentSubtotal);
+
+  // Create new split order
+  var newOrderId = generateOrderId();
+  var newSubtotal = splitItems.reduce(function(acc, it) { return acc + (Number(it.price) || 0) * (Number(it.qty) || 1); }, 0);
+
+  var newOrderPayload = {
+    order_id: newOrderId,
+    event_id: generateEventId(),
+    timestamp: new Date().toISOString(),
+    channel: parentOrder.channel || 'web',
+    utm_source: parentOrder.utm_source || 'kds_split',
+    location_id: parentOrder.location_id || 'LAM_HA_01',
+    table_id: parentOrder.table_id || '',
+    staff_id: parentOrder.staff_id || '',
+    customer_id: parentOrder.customer_id || '',
+    items: splitItems,
+    subtotal: newSubtotal,
+    total: newSubtotal,
+    status: 'NEW',
+    payment_status: 'UNPAID',
+    notes: 'Đơn tách từ ' + parentOrderId,
+    customer_name: parentOrder.customer_name || ''
+  };
+
+  var letter = _letterFor(parentOrder.delivery_type || 'dine_in');
+  var shortCode = letter + 'S' + Math.floor(10 + Math.random() * 90);
+
+  var newRow = [
+    newOrderId,
+    newOrderPayload.event_id,
+    newOrderPayload.timestamp,
+    newOrderPayload.channel,
+    newOrderPayload.utm_source,
+    newOrderPayload.location_id,
+    newOrderPayload.table_id,
+    newOrderPayload.staff_id,
+    newOrderPayload.customer_id,
+    JSON.stringify(splitItems),
+    newSubtotal,
+    newSubtotal,
+    'NEW',
+    newOrderPayload.timestamp,
+    '', '', '', '', '',
+    'UNPAID',
+    '', '', '',
+    newOrderPayload.notes,
+    newOrderPayload.customer_name,
+    shortCode,
+    parentOrder.delivery_type || 'dine_in',
+    ''
+  ];
+
+  sheet.appendRow(newRow);
+  _logAudit('SPLIT_BILL', 'Tách đơn ' + parentOrderId + ' -> đơn mới ' + newOrderId + ' (' + splitItems.length + ' món)');
+  return { ok: true, parent_order_id: parentOrderId, new_order_id: newOrderId, split_total: newSubtotal, short_code: shortCode };
+}
+
+/**
+ * Ghi vết nhật ký kiểm toán vào sheet AuditLogs.
+ */
+function _logAudit(action, details) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('AuditLogs');
+    if (!sheet) {
+      sheet = ss.insertSheet('AuditLogs');
+      sheet.appendRow(['log_id', 'timestamp', 'action', 'details']);
+    }
+    var logId = 'LOG-' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd-HHmmss');
+    var ts = new Date().toISOString();
+    sheet.appendRow([logId, ts, action, details]);
+  } catch (e) {
+    logError('logAudit', e);
+  }
+}

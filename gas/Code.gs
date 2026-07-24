@@ -212,6 +212,35 @@ var GET_ROUTES = {
       return batchUpdateOrdersStatus(orderIds, newStatus);
     }
   },
+  'transfer_table': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var fromTable = e.parameter.from_table;
+      var toTable = e.parameter.to_table;
+      if (!fromTable || !toTable) return { ok: false, error: 'from_table and to_table required' };
+      return transferTableOrders(fromTable, toTable);
+    }
+  },
+  'cancel_order_item': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var orderId = e.parameter.order_id;
+      var itemIndex = parseInt(e.parameter.item_index, 10);
+      var reason = e.parameter.reason || '';
+      if (!orderId || isNaN(itemIndex)) return { ok: false, error: 'order_id and valid item_index required' };
+      return cancelOrderItem(orderId, itemIndex, reason);
+    }
+  },
+  'split_bill': {
+    auth: AUTH.REPORT,
+    handler: function(e) {
+      var parentOrderId = e.parameter.parent_order_id;
+      var indexesStr = e.parameter.item_indexes || '';
+      var indexes = indexesStr.split(',').map(function(x) { return parseInt(x, 10); }).filter(function(x) { return !isNaN(x); });
+      if (!parentOrderId || !indexes.length) return { ok: false, error: 'parent_order_id and item_indexes required' };
+      return splitBill(parentOrderId, indexes);
+    }
+  },
   'pending_print': {
     auth: AUTH.REPORT,
     handler: function(e) {

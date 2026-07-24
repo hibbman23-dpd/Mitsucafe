@@ -253,6 +253,16 @@ def enqueue_labels_route():
     n = SPOOL.enqueue_labels(order, cups)
     return jsonify({"ok": True, "enqueued": n}), 200
 
+@app.post("/enqueue/single_label")
+def enqueue_single_label_route():
+    p = request.get_json(force=True, silent=True) or {}
+    order = p.get("order") or {}
+    cup_item = p.get("cup_item") or {}
+    cup_index = int(p.get("cup_index", 1))
+    total_cups = int(p.get("total_cups", 1))
+    n = SPOOL.enqueue_single_label(order, cup_item, cup_index, total_cups)
+    return jsonify({"ok": True, "enqueued": n}), 200
+
 @app.post("/enqueue/receipt")
 def enqueue_receipt_route():
     p = request.get_json(force=True, silent=True) or {}

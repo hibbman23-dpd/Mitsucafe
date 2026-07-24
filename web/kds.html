@@ -1043,6 +1043,139 @@ async function finishTableGroup(tableId, btn) {
   }
 }
 
+const MANAGER_PIN = '1234';
+
+function verifyManagerPin() {
+  const pin = prompt('Yêu cầu nhập Mã PIN Quản lý để thực hiện:', '');
+  if (!pin) return false;
+  if (pin.trim() !== MANAGER_PIN) {
+    alert('Mã PIN Quản lý không đúng!');
+    return false;
+  }
+  return true;
+}
+
+async function reprintBill(orderId) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  try {
+    const payload = JSON.parse(JSON.stringify(o));
+    payload.is_reprint = true;
+    await fetch(`${GATEWAY_URL}/enqueue/receipt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: payload, is_cash: false })
+    });
+    alert('Đã gửi lệnh in lại bill cho đơn ' + (o.short_code || orderId));
+  } catch (err) {
+    alert('Không gửi được lệnh in lại bill.');
+  }
+}
+
+async function reprintCupLabelPrompt(orderId) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  let itemsList = [];
+  if (Array.isArray(o.items)) itemsList = o.items;
+  else if (typeof o.items_json === 'string') {
+    try { itemsList = JSON.parse(o.items_json); } catch(_) {}
+  }
+  if (!itemsList.length) {
+    alert('Đơn hàng không có danh sách ly để in lại.');
+    return;
+  }
+
+  const cupOptions = itemsList.map((it, idx) => `${idx + 1}. ${it.name}`).join('\n');
+  const choice = prompt(`Chọn số thứ tự ly muốn in lại tem:\n${cupOptions}`, '1');
+  if (!choice) return;
+  const idx = parseInt(choice, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= itemsList.length) {
+    alert('Số thứ tự không hợp lệ.');
+    return;
+  }
+
+  const selectedItem = itemsList[idx];
+  try {
+    await fetch(`${GATEWAY_URL}/enqueue/single_label`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        order: o,
+        cup_item: selectedItem,
+        cup_index: idx + 1,
+        total_cups: itemsList.length
+      })
+    });
+    alert(`Đã gửi lệnh in lại tem ly "${selectedItem.name}"`);
+  } catch (err) {
+    alert('Không gửi được lệnh in tem.');
+  }
+}
+
+async function transferTablePrompt(fromTableId) {
+  const tableNum = String(fromTableId).replace(/^TABLE_/i, '');
+  const toTable = prompt(`Chuyển tất cả đơn từ Bàn ${tableNum} sang Bàn số:`, '');
+  if (!toTable) return;
+  const cleanToTable = toTable.trim();
+  if (!cleanToTable) return;
+  const targetTbl = 'TABLE_' + cleanToTable.padStart(2, '0');
+
+  try {
+    allOrders.forEach(o => {
+      if (String(o.table_id).trim() === String(fromTableId).trim()) {
+        o.table_id = targetTbl;
+      }
+    });
+    renderOrders();
+
+    await fetch(`${GAS_URL}?action=transfer_table&from_table=${encodeURIComponent(fromTableId)}&to_table=${encodeURIComponent(targetTbl)}${TQ}`);
+    alert(`Đã chuyển Bàn ${tableNum} sang Bàn ${cleanToTable}`);
+  } catch (err) {
+    alert('Lỗi chuyển bàn: ' + (err.message || 'Chưa đồng bộ được'));
+  }
+}
+
+async function cancelItemPrompt(orderId) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  let itemsList = [];
+  if (Array.isArray(o.items)) itemsList = o.items;
+  else if (typeof o.items_json === 'string') {
+    try { itemsList = JSON.parse(o.items_json); } catch(_) {}
+  }
+  if (!itemsList.length) {
+    alert('Đơn hàng không có món để hủy.');
+    return;
+  }
+
+  const options = itemsList.map((it, idx) => `${idx + 1}. ${it.name} (${fmt(it.price)})`).join('\n');
+  const choice = prompt(`Chọn món muốn HỦY trong đơn ${o.short_code || orderId}:\n${options}`, '1');
+  if (!choice) return;
+  const idx = parseInt(choice, 10) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= itemsList.length) {
+    alert('Số món không hợp lệ.');
+    return;
+  }
+
+  const reason = prompt(`Lý do hủy món "${itemsList[idx].name}":`, 'Khách báo hủy');
+  if (reason === null) return;
+
+  if (!verifyManagerPin()) return;
+
+  try {
+    const res = await fetch(`${GAS_URL}?action=cancel_order_item&order_id=${encodeURIComponent(orderId)}&item_index=${idx}&reason=${encodeURIComponent(reason)}${TQ}`);
+    const d = await res.json();
+    if (d.ok) {
+      alert(`Đã hủy món "${itemsList[idx].name}". Tổng tiền mới: ${fmt(d.new_total)}`);
+      loadOrders();
+    } else {
+      alert('Lỗi hủy món: ' + (d.error || 'Server từ chối'));
+    }
+  } catch (err) {
+    alert('Lỗi kết nối khi hủy món.');
+  }
+}
+
 function renderOrders() {
   const list     = document.getElementById('orders-list');
   const filtered = applyFilter(allOrders);
@@ -1095,6 +1228,12 @@ function renderOrders() {
         <div class="card-body">
           <div class="items-summary">${esc(o.items_summary)||'(không có chi tiết)'}</div>
           ${notesHtml}
+          <div style="display:flex; gap:6px; margin-top:8px; border-top:1px dashed var(--border); padding-top:6px; flex-wrap:wrap;">
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại bill" onclick="reprintBill('${esc(o.order_id)}')">🖨️ Bill</button>
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại tem ly lẻ" onclick="reprintCupLabelPrompt('${esc(o.order_id)}')">🏷️ Tem lẻ</button>
+            ${o.table_id ? `<button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="Chuyển bàn" onclick="transferTablePrompt('${esc(o.table_id)}')">🔄 Bàn</button>` : ''}
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#ef5350;" title="Hủy món" onclick="cancelItemPrompt('${esc(o.order_id)}')">❌ Hủy món</button>
+          </div>
           <div class="total-row">
             <span class="total-amount">${fmt(o.total)}</span>
             <div style="display: flex; gap: 6px; align-items: center;">

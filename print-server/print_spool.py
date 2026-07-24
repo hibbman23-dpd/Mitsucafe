@@ -60,6 +60,16 @@ class PrintSpool:
             self._conn.commit()
         return inserted
 
+    def enqueue_single_label(self, order, cup_item, cup_index, total_cups):
+        order_id = order.get("order_id", "")
+        order_meta = {k: v for k, v in order.items() if k != "items"}
+        with self._lock:
+            key = f"{order_id}:label:{cup_index}:reprint:{int(time.time())}"
+            payload = {"order": order_meta, "item": cup_item, "is_cash": False}
+            n = self._insert(key, order_id, "label", "label", cup_index, total_cups, payload)
+            self._conn.commit()
+        return n
+
     def enqueue_receipt(self, order, is_cash):
         order_id = order.get("order_id", "")
         with self._lock:

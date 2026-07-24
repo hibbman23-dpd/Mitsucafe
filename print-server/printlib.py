@@ -279,6 +279,8 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     add_logo(300)
     add_gap(2)
     add_text("Mitsu Café",       f_header, "center")
+    if order.get("is_reprint"):
+        add_text("*** BẢN IN LẠI ***", f_norm, "center")
     add_gap(1)
     add_text("Lâm Hà, Lâm Đồng", f_addr,  "center")
     add_hline(thick=2, gap_before=4, gap_after=4)
