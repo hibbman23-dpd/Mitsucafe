@@ -45,14 +45,15 @@ _W   = RASTER_DOTS_WIDTH
 _PAD = 8
 _CW  = _W - 2 * _PAD
 
+_SZ_SUPER   = 48
 _SZ_HEADER  = 30
 _SZ_TITLE   = 38
 _SZ_LOGO    = 22
 _SZ_ADDR    = 14
 _SZ_NORMAL  = 22
-_SZ_SMALL   = 22
+_SZ_SMALL   = 24
 _SZ_TOTAL   = 26
-_SZ_ITEM    = 32
+_SZ_ITEM    = 36
 
 _SZ_LBL_HDR  = 18
 _SZ_LBL_ITEM = 30
@@ -224,6 +225,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
 
     W, PAD, CW = _W, _PAD, _CW
 
+    f_super  = _load_font(_SZ_SUPER)
     f_title  = _load_font(_SZ_TITLE)
     f_header = _load_font(_SZ_HEADER)
     f_addr   = _load_font(_SZ_ADDR)
@@ -280,7 +282,17 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         cmds.append(("logo", x, y, logo))
         y += logo.height
 
+    meta        = order.get("metadata") or {}
+    ts          = _format_timestamp(str(order.get("timestamp", "")))
+    short_code  = str(meta.get("short_code", "")).replace("#", "").strip()
+    ticket_no   = f"ĐƠN SỐ #{short_code}" if short_code else f"ĐƠN SỐ #{str(order.get('order_id',''))[-4:]}"
+    table_label = _loc_label(order)
+
     add_text("=== PHIẾU PHA CHẾ ===", f_header, "center")
+    add_text(ticket_no, f_super, "center")
+
+    if table_label:
+        add_text(table_label, f_title, "center")
 
     copy_num = order.get("copy_num", 0)
     if copy_num == 1:
@@ -290,16 +302,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
 
     if order.get("is_reprint"):
         add_text("*** BẢN IN LẠI ***", f_norm, "center")
-    add_hline(thick=2, gap_before=4, gap_after=4)
 
-    meta        = order.get("metadata") or {}
-    ts          = _format_timestamp(str(order.get("timestamp", "")))
-    short_code  = ("#" + str(meta.get("short_code", ""))) if meta.get("short_code") else ""
-    table_label = _loc_label(order)
-    order_line  = "  /  ".join(filter(None, [short_code, table_label]))
-
-    if order_line:
-        add_text(order_line, f_title, "center")
     add_text(f"Thời gian: {ts}", f_norm, "center")
 
     customer_name = order.get("customer_name", "")
@@ -381,18 +384,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         for nl in (note_lines or [f"Ghi chú: {notes}"]):
             add_text(nl, f_small, indent=0)
 
-    add_hline(thick=1, gap_before=3, gap_after=3)
-
-    total_str = f"Tổng:  {_format_amount(order.get('total', 0))}đ"
-    pmt_str   = f"TT:  {_payment_label((order.get('payment') or {}).get('method', ''))}"
-
-    add_text(total_str, f_total, "right")
-    add_text(pmt_str,   f_norm,  "right")
-    add_hline(thick=2, gap_before=4, gap_after=4)
-
-    add_text("Cảm ơn! Hẹn gặp lại nhé!", f_norm, "center")
-    add_text("mitsu.cafe",               f_addr,  "center")
-    add_hline(thick=1, gap_before=3, gap_after=6)
+    add_hline(thick=3, gap_before=6, gap_after=12)
 
     height = y + 8
     img = Image.new("L", (W, height), 255)
@@ -546,16 +538,6 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
         for nl in note_lines:
             parts.append(enc("  " + nl + "\n"))
     parts.append(enc("-" * W + "\n"))
-    parts.append(ESC + b"!\x08")
-    parts.append(enc(rjust("Tổng: " + _format_amount(order.get("total", 0)) + "đ", W) + "\n"))
-    parts.append(ESC + b"!\x00")
-    pmt = (order.get("payment") or {}).get("method", "")
-    parts.append(enc(rjust("TT: " + _payment_label(pmt), W) + "\n"))
-    parts.append(enc("=" * W + "\n"))
-    parts.append(ESC + b"a\x01")
-    parts.append(enc("Cảm ơn! Hẹn gặp lại nhé!\n"))
-    parts.append(enc("mitsu.cafe\n"))
-    parts.append(ESC + b"a\x00")
     parts.append(enc("=" * W + "\n"))
     parts.append(b"\n\n\n")
     if is_cash:
