@@ -2279,9 +2279,14 @@ function closeSizeSheet(e) {
   pendingItem = null;
 }
 
-// ─── STAFF CART ───────────────────────────────────────────────────────────────
+function makeCartKey(sku, modifiers) {
+  if (!modifiers || typeof modifiers !== 'object') return String(sku);
+  const parts = Object.keys(modifiers).sort().map(k => `${k}:${modifiers[k]}`);
+  return (String(sku) + '_' + parts.join('_')).replace(/[^a-zA-Z0-9_\-]/g, '');
+}
+
 function addToStaffCart(item, modifiers, price) {
-  const key = item.sku + '_' + JSON.stringify(modifiers);
+  const key = makeCartKey(item.sku, modifiers);
   const ex  = staffCart.find(c => c._key === key);
   if (ex) { ex.qty++; ex.subtotal = ex.qty * ex.price; }
   else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty:1, price, modifiers, subtotal:price });
@@ -2377,12 +2382,12 @@ function renderCartItems() {
             <div class="cart-item-price">${fmt(ci.subtotal)}</div>
           </div>
           <div class="stepper" style="display:flex; align-items:center; gap:4px;">
-            <button class="step-btn" style="${ci.qty === 1 ? 'background:rgba(235,98,74,0.25); color:#ff6b6b; border-color:#eb624a;' : ''}" title="${ci.qty === 1 ? 'Xóa món này khỏi đơn' : 'Giảm 1'}" onclick="updateCartItemQty('${ci._key}',-1)">
+            <button class="step-btn" style="${ci.qty === 1 ? 'background:rgba(235,98,74,0.25); color:#ff6b6b; border-color:#eb624a;' : ''}" title="${ci.qty === 1 ? 'Xóa món này khỏi đơn' : 'Giảm 1'}" onclick="updateCartItemQty('${esc(ci._key)}',-1)">
               ${ci.qty === 1 ? '🗑️' : '−'}
             </button>
             <span class="qty-val">${ci.qty}</span>
-            <button class="step-btn" onclick="updateCartItemQty('${ci._key}',1)">+</button>
-            <button class="step-btn" style="background:rgba(235,98,74,0.18); color:#ff6b6b; border-color:transparent; margin-left:4px; font-size:0.75rem; padding:4px 8px; border-radius:6px;" title="Xóa món khỏi đơn" onclick="removeCartItem('${ci._key}')">🗑️ Xóa</button>
+            <button class="step-btn" onclick="updateCartItemQty('${esc(ci._key)}',1)">+</button>
+            <button class="step-btn" style="background:rgba(235,98,74,0.18); color:#ff6b6b; border-color:transparent; margin-left:4px; font-size:0.75rem; padding:4px 8px; border-radius:6px;" title="Xóa món khỏi đơn" onclick="removeCartItem('${esc(ci._key)}')">🗑️ Xóa</button>
           </div>
         </div>
         <div style="margin-top:2px;">
@@ -2390,8 +2395,8 @@ function renderCartItems() {
                  style="font-size:0.78rem; padding:6px 10px; border-radius:6px; background:rgba(0,0,0,0.25); border:1px solid var(--border); color:var(--cream);"
                  placeholder="📝 Ghi chú riêng cho món này (vd: ít đá, ly riêng...)"
                  value="${esc(currentNote)}"
-                 onchange="updateCartItemNote('${ci._key}', this.value)"
-                 oninput="updateCartItemNote('${ci._key}', this.value)">
+                 onchange="updateCartItemNote('${esc(ci._key)}', this.value)"
+                 oninput="updateCartItemNote('${esc(ci._key)}', this.value)">
         </div>
       </div>`;
   }).join('');
