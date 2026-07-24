@@ -105,6 +105,7 @@ def _mods_line(modifiers: dict) -> str:
     if modifiers.get("sugar"):    parts.append(sugar_map.get(modifiers["sugar"], modifiers["sugar"]))
     if modifiers.get("ice"):      parts.append(ice_map.get(modifiers["ice"], modifiers["ice"]))
     if modifiers.get("toppings"): parts.append(modifiers["toppings"])
+    if modifiers.get("note"):     parts.append(f"📌 {modifiers['note']}")
     return " / ".join(parts)
 
 

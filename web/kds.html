@@ -608,8 +608,11 @@ function formatItemsSummary(items) {
     const mods = it.modifiers || {};
     const modParts = [];
     if (mods.size) modParts.push(mods.size);
-    if (mods.ice) modParts.push(mods.ice);
-    if (mods.sugar) modParts.push(mods.sugar);
+    if (mods.ice) modParts.push(ICE_LABEL[mods.ice] || mods.ice);
+    if (mods.sugar) modParts.push(SUGAR_LABEL[mods.sugar] || mods.sugar);
+    if (mods.toppings) modParts.push(mods.toppings);
+    const itemNote = it.note || mods.note || '';
+    if (itemNote) modParts.push(`📌 ${itemNote}`);
     const modStr = modParts.length ? ` (${modParts.join(', ')})` : '';
     return `${name}${modStr} × ${qty}`;
   }).join(' · ');
@@ -1807,6 +1810,18 @@ function renderCustomOptions() {
     `;
   }
   
+  // 5. Item Note
+  html += `
+    <div class="opt-group">
+      <div class="opt-label">📝 Ghi chú riêng món này</div>
+      <input type="text" id="item-note-input" class="form-input"
+             style="padding: 10px 12px; font-size: 0.88rem; border-radius: 8px; background: var(--bg);"
+             placeholder="Ví dụ: Ít đá, ly riêng, không dùng ống hút..."
+             value="${pendingOpts.note || ''}"
+             oninput="pendingOpts.note = this.value">
+    </div>
+  `;
+
   document.getElementById('custom-sheet-body').innerHTML = html;
   
   const basePrice = (pendingOpts.size === 'L' && item.price_l) ? item.price_l : item.price_m;
@@ -1830,6 +1845,9 @@ function confirmCustomOrder() {
   if (pendingOpts.ice) modifiers.ice = pendingOpts.ice;
   if (pendingOpts.toppings && pendingOpts.toppings.length) {
     modifiers.toppings = pendingOpts.toppings.map(t => t.name).join(', ');
+  }
+  if (pendingOpts.note && pendingOpts.note.trim()) {
+    modifiers.note = pendingOpts.note.trim();
   }
   
   addToStaffCart(item, modifiers, totalPrice);
@@ -1899,6 +1917,16 @@ function closeCartSheet(e) {
   document.getElementById('cart-overlay').classList.add('hidden');
 }
 
+function updateCartItemNote(key, noteVal) {
+  const item = staffCart.find(c => c._key === key);
+  if (!item) return;
+  const cleanNote = (noteVal || '').trim();
+  item.note = cleanNote;
+  if (!item.modifiers) item.modifiers = {};
+  if (cleanNote) item.modifiers.note = cleanNote;
+  else delete item.modifiers.note;
+}
+
 function renderCartItems() {
   const list = document.getElementById('cart-items-list');
   if (!staffCart.length) { list.innerHTML = '<div class="empty-state" style="padding:20px 0">Giỏ trống</div>'; return; }
@@ -1909,18 +1937,29 @@ function renderCartItems() {
     if (ci.modifiers?.ice) modsList.push(ICE_LABEL[ci.modifiers.ice] || ci.modifiers.ice);
     if (ci.modifiers?.toppings) modsList.push(ci.modifiers.toppings);
     const modsStr = modsList.length ? `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${modsList.join(', ')}</div>` : '';
+    const currentNote = ci.note || ci.modifiers?.note || '';
     
     return `
-      <div class="cart-item-row">
-        <div>
-          <div class="cart-item-name">${ci.name}${sizeStr}</div>
-          ${modsStr}
-          <div class="cart-item-price">${fmt(ci.subtotal)}</div>
+      <div class="cart-item-row" style="flex-direction:column; align-items:stretch; gap:6px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div class="cart-item-name">${ci.name}${sizeStr}</div>
+            ${modsStr}
+            <div class="cart-item-price">${fmt(ci.subtotal)}</div>
+          </div>
+          <div class="stepper">
+            <button class="step-btn" onclick="updateCartItemQty('${ci._key}',-1)">−</button>
+            <span class="qty-val">${ci.qty}</span>
+            <button class="step-btn" onclick="updateCartItemQty('${ci._key}',1)">+</button>
+          </div>
         </div>
-        <div class="stepper">
-          <button class="step-btn" onclick="updateCartItemQty('${ci._key}',-1)">−</button>
-          <span class="qty-val">${ci.qty}</span>
-          <button class="step-btn" onclick="updateCartItemQty('${ci._key}',1)">+</button>
+        <div style="margin-top:2px;">
+          <input type="text" class="form-input"
+                 style="font-size:0.78rem; padding:6px 10px; border-radius:6px; background:rgba(0,0,0,0.25); border:1px solid var(--border); color:var(--cream);"
+                 placeholder="📝 Ghi chú riêng cho món này (vd: ít đá, ly riêng...)"
+                 value="${esc(currentNote)}"
+                 onchange="updateCartItemNote('${ci._key}', this.value)"
+                 oninput="updateCartItemNote('${ci._key}', this.value)">
         </div>
       </div>`;
   }).join('');
@@ -1969,10 +2008,19 @@ async function submitStaffOrder() {
         channel: 'staff', utm_source: 'kds',
         table_id: tbl,
         customer_id: normPhone,
-        items: staffCart.map(ci => ({
-          sku: ci.sku, name: ci.name, qty: ci.qty, price: ci.price,
-          modifiers: ci.modifiers || {},
-        })),
+        items: staffCart.map(ci => {
+          const itemNote = (ci.note || (ci.modifiers && ci.modifiers.note) || '').trim();
+          const mods = { ...(ci.modifiers || {}) };
+          if (itemNote) mods.note = itemNote;
+          return {
+            sku: ci.sku,
+            name: ci.name,
+            qty: ci.qty,
+            price: ci.price,
+            modifiers: mods,
+            note: itemNote
+          };
+        }),
         total,
         payment: { method: 'cash', total, status: 'PENDING' },
         metadata: {

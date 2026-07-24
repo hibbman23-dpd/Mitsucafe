@@ -233,6 +233,7 @@ function _buildModsLine(modifiers) {
   if (modifiers.sugar)    parts.push(sugarMap[modifiers.sugar] || modifiers.sugar);
   if (modifiers.ice)      parts.push(iceMap[modifiers.ice]     || modifiers.ice);
   if (modifiers.toppings) parts.push(modifiers.toppings);
+  if (modifiers.note)     parts.push('📌 ' + modifiers.note);
   return parts.join(' / '); // '/' thay cho · (ASCII safe)
 }
 
