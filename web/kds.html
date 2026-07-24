@@ -1567,7 +1567,19 @@ function setMenuCat(catId) {
   activeCat = catId;
   renderCatPills();
   renderMenuGrid();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  if (catId === 'all') {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    const sec = document.getElementById(`cat-sec-${catId}`);
+    if (sec) {
+      const yOffset = -140;
+      const y = sec.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
 }
 
 let searchQuery = '';
@@ -1592,18 +1604,13 @@ function renderMenuGrid() {
   const inCart = {};
   staffCart.forEach(c => { inCart[c.sku] = (inCart[c.sku] || 0) + c.qty; });
 
-  let targetCategories = CATEGORIES;
-  if (activeCat !== 'all' && activeCat !== 'hero' && activeCat !== 'trend') {
-    targetCategories = CATEGORIES.filter(c => c.id === activeCat);
-  }
-
   let totalVisibleItems = 0;
-  const sectionsHtml = targetCategories.map(cat => {
+  const sectionsHtml = CATEGORIES.map(cat => {
     const catItems = MENU_DATA.filter(i => {
       if (!i.available) return false;
       if (activeCat === 'hero' && i.role !== 'hero' && i.role !== 'signature') return false;
       if (activeCat === 'trend' && i.role !== 'trend') return false;
-      if (activeCat !== 'all' && activeCat !== 'hero' && activeCat !== 'trend' && i.subcategory !== cat.id) return false;
+      if (i.subcategory !== cat.id) return false;
       if (searchQuery) {
         const n = (i.name || '').toLowerCase();
         const s = (i.sku || '').toLowerCase();
