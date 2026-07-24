@@ -234,6 +234,7 @@ function _buildModsLine(modifiers) {
   if (modifiers.ice)      parts.push(iceMap[modifiers.ice]     || modifiers.ice);
   if (modifiers.toppings) parts.push(modifiers.toppings);
   if (modifiers.note)     parts.push('📌 ' + modifiers.note);
+  if (modifiers.swap_from) parts.push('🔄 Thay: ' + modifiers.swap_from);
   return parts.join(' / '); // '/' thay cho · (ASCII safe)
 }
 

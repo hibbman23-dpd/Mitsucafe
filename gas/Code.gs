@@ -250,6 +250,14 @@ var GET_ROUTES = {
       return deleteTestOrders(orderIds);
     }
   },
+  'swap_order_item': {
+    auth: AUTH.STAFF,
+    handler: function(e) {
+      var body = _parseBody(e);
+      var payload = body.payload || body;
+      return swapOrderItem(payload);
+    }
+  },
   'pending_print': {
     auth: AUTH.REPORT,
     handler: function(e) {

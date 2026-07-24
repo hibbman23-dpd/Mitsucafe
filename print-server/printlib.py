@@ -106,6 +106,7 @@ def _mods_line(modifiers: dict) -> str:
     if modifiers.get("ice"):      parts.append(ice_map.get(modifiers["ice"], modifiers["ice"]))
     if modifiers.get("toppings"): parts.append(modifiers["toppings"])
     if modifiers.get("note"):     parts.append(f"📌 {modifiers['note']}")
+    if modifiers.get("swap_from"): parts.append(f"🔄 Thay cho: {modifiers['swap_from']}")
     return " / ".join(parts)
 
 

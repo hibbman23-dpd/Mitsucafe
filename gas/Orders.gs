@@ -1129,3 +1129,79 @@ function deleteTestOrders(orderIdsInput) {
   _logAudit('delete_test_orders', 'Deleted ' + deletedCount + ' test orders: ' + idsToDelete.join(','));
   return { ok: true, deleted_count: deletedCount };
 }
+
+function swapOrderItem(payload) {
+  if (!payload || !payload.order_id) return { ok: false, error: 'Thiếu order_id' };
+  var pin = String(payload.manager_pin || '').trim();
+  if (pin !== '9999' && pin !== '1234') {
+    return { ok: false, error: 'PIN Quản lý không chính xác (Mặc định: 9999)' };
+  }
+
+  var orderId = String(payload.order_id).trim();
+  var itemIdx = Number(payload.item_index);
+  var newItem = payload.new_item;
+  if (!newItem || !newItem.sku) return { ok: false, error: 'Món mới không hợp lệ' };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('ORDERS');
+  if (!sheet) return { ok: false, error: 'Không tìm thấy tab ORDERS' };
+
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var idIdx = headers.indexOf('order_id');
+  var itemsIdx = headers.indexOf('items_json');
+  var totalIdx = headers.indexOf('total');
+  if (idIdx === -1 || itemsIdx === -1) return { ok: false, error: 'Cấu trúc ORDERS sheet không khớp' };
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idIdx] || '').trim() === orderId) {
+      var rawItems = data[i][itemsIdx];
+      var items = [];
+      try { items = typeof rawItems === 'string' ? JSON.parse(rawItems) : (rawItems || []); } catch(e) { items = []; }
+      
+      if (isNaN(itemIdx) || itemIdx < 0 || itemIdx >= items.length) {
+        return { ok: false, error: 'Vị trí món cần đổi không hợp lệ' };
+      }
+
+      var oldItem = items[itemIdx];
+      var oldName = oldItem.name || oldItem.sku || 'Món cũ';
+      var oldQty = oldItem.qty || 1;
+      var oldPrice = Number(oldItem.price) || 0;
+      var oldSubtotal = (oldItem.subtotal !== undefined) ? Number(oldItem.subtotal) : (oldQty * oldPrice);
+
+      var newQty = Number(newItem.qty) || 1;
+      var newPrice = Number(newItem.price) || 0;
+      var newSubtotal = newQty * newPrice;
+      newItem.subtotal = newSubtotal;
+
+      if (!newItem.modifiers) newItem.modifiers = {};
+      newItem.modifiers.swap_from = oldName;
+
+      items[itemIdx] = newItem;
+
+      var oldOrderTotal = Number(data[i][totalIdx]) || 0;
+      var newOrderTotal = Math.max(0, oldOrderTotal - oldSubtotal + newSubtotal);
+
+      sheet.getRange(i + 1, itemsIdx + 1).setValue(JSON.stringify(items));
+      if (totalIdx !== -1) {
+        sheet.getRange(i + 1, totalIdx + 1).setValue(newOrderTotal);
+      }
+
+      var priceDiff = newSubtotal - oldSubtotal;
+      _logAudit('swap_order_item', 'Đổi món đơn ' + orderId + ': ' + oldName + ' -> ' + newItem.name + ' (Chênh lệch: ' + priceDiff + ')');
+
+      return {
+        ok: true,
+        order_id: orderId,
+        old_item: oldItem,
+        new_item: newItem,
+        items: items,
+        old_total: oldOrderTotal,
+        new_total: newOrderTotal,
+        price_diff: priceDiff
+      };
+    }
+  }
+
+  return { ok: false, error: 'Không tìm thấy đơn hàng: ' + orderId };
+}
