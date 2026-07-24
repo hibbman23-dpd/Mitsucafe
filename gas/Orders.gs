@@ -581,7 +581,9 @@ function getTodayOrders() {
     var row = data[i];
     if (!row[0]) continue;
     var orderId = String(row[0]);
-    var isToday = orderId.indexOf(today) !== -1;
+    var orderDate = row[2] ? new Date(row[2]) : null;
+    var orderDateStr = (orderDate && !isNaN(orderDate.getTime())) ? Utilities.formatDate(orderDate, 'Asia/Ho_Chi_Minh', 'yyyyMMdd') : '';
+    var isToday = orderId.indexOf(today) !== -1 || orderDateStr === today;
     var status = row[12];
     var paymentStatus = row[19];
 
@@ -591,17 +593,20 @@ function getTodayOrders() {
     // Đơn hôm nay HOẶC đơn ngày trước chưa hoàn thành / chưa thanh toán
     if (!isToday && !isActive && !isUnpaid) continue;
     var itemsSummary = '';
+    var items = [];
     try {
-      var items = JSON.parse(row[9]);
-      itemsSummary = items.map(function(it) {
-        var mods = [];
-        if (it.modifiers) {
-          Object.keys(it.modifiers).forEach(function(k) {
-            mods.push(it.modifiers[k]);
-          });
-        }
-        return it.name + ' × ' + it.qty + (mods.length ? ' (' + mods.join(', ') + ')' : '');
-      }).join(', ');
+      items = JSON.parse(row[9]) || [];
+      if (Array.isArray(items)) {
+        itemsSummary = items.map(function(it) {
+          var mods = [];
+          if (it.modifiers) {
+            Object.keys(it.modifiers).forEach(function(k) {
+              if (it.modifiers[k]) mods.push(it.modifiers[k]);
+            });
+          }
+          return (it.name || 'Món') + ' × ' + (it.qty || 1) + (mods.length ? ' (' + mods.join(', ') + ')' : '');
+        }).join(', ');
+      }
     } catch(_) {}
 
     var customerPhone = row[8];
@@ -642,6 +647,8 @@ function getTodayOrders() {
       status:         row[12],
       payment_status: row[19],
       delivery_type:  row[26] || 'pickup',
+      items:          items,
+      items_json:     row[9] || '[]',
       items_summary:  itemsSummary,
       notes:          notes,
       use_free_drink: useFreeDrink,
