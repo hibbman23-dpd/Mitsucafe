@@ -45,15 +45,39 @@ _W   = RASTER_DOTS_WIDTH
 _PAD = 8
 _CW  = _W - 2 * _PAD
 
-_SZ_SUPER   = 48
+_SZ_SUPER   = 56
 _SZ_HEADER  = 30
-_SZ_TITLE   = 38
+_SZ_TITLE   = 34
 _SZ_LOGO    = 22
 _SZ_ADDR    = 14
 _SZ_NORMAL  = 22
 _SZ_SMALL   = 24
 _SZ_TOTAL   = 26
 _SZ_ITEM    = 36
+
+
+def _get_daily_sequence(order: dict) -> str:
+    meta = order.get("metadata") or {}
+    seq = meta.get("daily_seq") or order.get("daily_seq") or order.get("seq")
+    if seq is not None and str(seq).strip() != "":
+        try:
+            return f"#{int(seq):02d}"
+        except (ValueError, TypeError):
+            return f"#{seq}"
+
+    short_code = str(meta.get("short_code") or order.get("short_code") or "").replace("#", "").strip()
+    import re
+    digits = re.findall(r"\d+", short_code)
+    if digits:
+        return f"#{int(digits[0]):02d}"
+
+    oid_digits = re.findall(r"\d+", str(order.get("order_id", "")))
+    if oid_digits:
+        raw_val = oid_digits[-1]
+        val = int(raw_val[-3:]) if len(raw_val) >= 3 else int(raw_val)
+        return f"#{val:02d}"
+
+    return "#01"
 
 _SZ_LBL_HDR  = 18
 _SZ_LBL_ITEM = 30
@@ -282,17 +306,19 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         cmds.append(("logo", x, y, logo))
         y += logo.height
 
-    meta        = order.get("metadata") or {}
-    ts          = _format_timestamp(str(order.get("timestamp", "")))
-    short_code  = str(meta.get("short_code", "")).replace("#", "").strip()
-    ticket_no   = f"ĐƠN SỐ #{short_code}" if short_code else f"ĐƠN SỐ #{str(order.get('order_id',''))[-4:]}"
-    table_label = _loc_label(order)
+    meta          = order.get("metadata") or {}
+    ts            = _format_timestamp(str(order.get("timestamp", "")))
+    short_code    = str(meta.get("short_code") or order.get("short_code") or "").replace("#", "").strip()
+    daily_seq_str = _get_daily_sequence(order)
+    table_label   = _loc_label(order)
 
     add_text("=== PHIẾU PHA CHẾ ===", f_header, "center")
-    add_text(ticket_no, f_super, "center")
+    add_text(f"STT ĐƠN: {daily_seq_str}", f_super, "center")
 
-    if table_label:
-        add_text(table_label, f_title, "center")
+    code_sub  = f"Mã: #{short_code}" if short_code else ""
+    meta_line = "  ·  ".join(filter(None, [code_sub, table_label]))
+    if meta_line:
+        add_text(meta_line, f_title, "center")
 
     copy_num = order.get("copy_num", 0)
     if copy_num == 1:
@@ -492,15 +518,20 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
         ESC + b"a\x00",
         enc("=" * W + "\n"),
     ]
-    ts = _format_timestamp(str(order.get("timestamp", "")))
+    ts            = _format_timestamp(str(order.get("timestamp", "")))
+    short_code    = str(meta.get("short_code") or order.get("short_code") or "").replace("#", "").strip()
+    daily_seq_str = _get_daily_sequence(order)
+    table_label   = _loc_label(order)
+
+    parts.append(GS + b"!\x11")
+    parts.append(enc("STT DON: " + daily_seq_str + "\n"))
+    parts.append(GS + b"!\x00")
+
+    code_sub  = f"Ma: #{short_code}" if short_code else ""
+    meta_line = "  /  ".join(filter(None, [code_sub, table_label]))
+    if meta_line:
+        parts.append(enc("  " + meta_line + "\n"))
     parts.append(enc("Thoi gian: " + ts + "\n"))
-    short_code  = ("#" + str(meta.get("short_code", ""))) if meta.get("short_code") else ""
-    table_label = _loc_label(order)
-    order_line  = "  /  ".join(filter(None, [short_code, table_label]))
-    if order_line:
-        parts.append(GS + b"!\x11")
-        parts.append(enc("  " + order_line + "\n"))
-        parts.append(GS + b"!\x00")
     customer_name = order.get("customer_name", "")
     customer_id   = str(order.get("customer_id", ""))
     if customer_name:
