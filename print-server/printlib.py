@@ -51,9 +51,9 @@ _SZ_TITLE   = 34
 _SZ_LOGO    = 22
 _SZ_ADDR    = 14
 _SZ_NORMAL  = 22
-_SZ_SMALL   = 24
+_SZ_SMALL   = 26
 _SZ_TOTAL   = 26
-_SZ_ITEM    = 36
+_SZ_ITEM    = 44
 
 
 def _get_daily_sequence(order: dict) -> str:
