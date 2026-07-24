@@ -46,6 +46,11 @@ class PrintSpool:
             "(idempotency_key,order_id,printer,kind,seq_in_order,total_in_order,payload_json,"
             " status,created_at,updated_at) VALUES(?,?,?,?,?,?,?, 'pending',?,?)",
             (key, order_id, printer, kind, seq, total, json.dumps(payload), now, now))
+        if cur.rowcount == 0 and payload.get("is_cash"):
+            self._conn.execute(
+                "UPDATE print_spool SET payload_json=?, updated_at=? "
+                "WHERE idempotency_key=? AND status='pending'",
+                (json.dumps(payload), now, key))
         return cur.rowcount
 
     def enqueue_labels(self, order, cups):
