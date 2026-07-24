@@ -494,7 +494,7 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
         ESC + b"t\x00",
         ESC + b"a\x01",
         GS + b"!\x11",
-        enc("=== PHIEU PHA CHE ===\n"),
+        enc("Mitsu Cafe - PHIEU PHA CHE\n"),
         GS + b"!\x00",
         (enc("*** LIEN 1: KHACH HANG ***\n") if order.get("copy_num") == 1 else (enc("*** LIEN 2: DOI SOAT QUAY ***\n") if order.get("copy_num") == 2 else b"")),
         ESC + b"a\x00",
