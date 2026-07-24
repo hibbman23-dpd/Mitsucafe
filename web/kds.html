@@ -214,6 +214,11 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 1.25rem; flex-shrink: 0;
     }
+    .menu-family-tag {
+      font-size: 0.65rem; font-weight: 800; color: #2ec4b6;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 2px; opacity: 0.95;
+    }
     .menu-name {
       font-size: 0.88rem; font-weight: 700; line-height: 1.25;
       color: #ffffff; text-transform: uppercase; letter-spacing: 0.01em;
@@ -1569,12 +1574,30 @@ function renderMenuView() {
   renderMenuGrid();
 }
 
+function getShortNameInfo(fullName) {
+  if (!fullName) return { prefix: '', shortName: '' };
+  const prefixes = [
+    'TRÀ SỮA ', 'SỮA CHUA ', 'COLDBREW ', 'CA CAO ', 'MATCHA ', 'HỒNG TRÀ ', 'CF ', 'TRÀ '
+  ];
+  for (let p of prefixes) {
+    if (fullName.toUpperCase().startsWith(p)) {
+      return {
+        prefix: p.trim(),
+        shortName: fullName.slice(p.length).trim()
+      };
+    }
+  }
+  return { prefix: '', shortName: fullName };
+}
+
 function renderCatPills() {
   const totalItems = MENU_DATA.filter(i => i.available).length;
   const cats = [
     { id: 'all', label: 'Tất cả', emoji: '🍶', count: totalItems },
     { id: 'hero', label: 'Bán chạy', emoji: '⭐', count: MENU_DATA.filter(i => i.available && (i.role === 'hero' || i.role === 'signature')).length },
     { id: 'trend', label: 'Hot Trend', emoji: '🔥', count: MENU_DATA.filter(i => i.available && i.role === 'trend').length },
+    { id: 'fam_cacao', label: 'Cacao', emoji: '🍫', count: MENU_DATA.filter(i => i.available && i.name.toUpperCase().includes('CA CAO')).length },
+    { id: 'fam_matcha', label: 'Matcha', emoji: '🍵', count: MENU_DATA.filter(i => i.available && i.name.toUpperCase().includes('MATCHA')).length },
     ...CATEGORIES.map(c => ({
       ...c,
       count: MENU_DATA.filter(i => i.available && i.subcategory === c.id).length
@@ -1631,6 +1654,61 @@ function renderMenuGrid() {
   staffCart.forEach(c => { inCart[c.sku] = (inCart[c.sku] || 0) + c.qty; });
 
   let totalVisibleItems = 0;
+
+  // Family Quick Filter (fam_cacao, fam_matcha)
+  if (activeCat === 'fam_cacao' || activeCat === 'fam_matcha') {
+    const keyword = activeCat === 'fam_cacao' ? 'CA CAO' : 'MATCHA';
+    const famItems = MENU_DATA.filter(i => {
+      if (!i.available) return false;
+      if (!i.name.toUpperCase().includes(keyword)) return false;
+      if (searchQuery) {
+        const n = (i.name || '').toLowerCase();
+        const s = (i.sku || '').toLowerCase();
+        if (!n.includes(searchQuery) && !s.includes(searchQuery)) return false;
+      }
+      return true;
+    }).sort((a, b) => a.sort_order - b.sort_order);
+
+    totalVisibleItems = famItems.length;
+    const cardsHtml = famItems.map(item => {
+      const emoji = CAT_EMOJI[item.subcategory] || '🍶';
+      const badge = ROLE_BADGE[item.role];
+      const qty   = inCart[item.sku] || 0;
+      const priceText = item.price_l
+        ? `M: ${fmt(item.price_m)} · L: ${fmt(item.price_l)}`
+        : fmt(item.price_m);
+      const nameInfo = getShortNameInfo(item.name);
+
+      return `
+        <div class="menu-card${qty ? ' in-cart' : ''}" onclick="tapMenuItem('${item.sku}')">
+          <div class="menu-card-top">
+            <div class="menu-emoji-wrap">${emoji}</div>
+            ${badge ? `<div class="menu-badge ${badge.cls}">${badge.text}</div>` : ''}
+          </div>
+          <div>
+            ${nameInfo.prefix ? `<div class="menu-family-tag">${nameInfo.prefix}</div>` : ''}
+            <div class="menu-name">${nameInfo.shortName}</div>
+            ${item.name_jp ? `<div class="menu-jp">${item.name_jp}</div>` : ''}
+          </div>
+          <div class="menu-price">${priceText}</div>
+          ${qty ? `<div class="cart-qty-badge">${qty}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    document.getElementById('menu-sections').innerHTML = `
+      <div class="menu-cat-section" id="cat-sec-${activeCat}">
+        <div class="menu-cat-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span>${activeCat === 'fam_cacao' ? '🍫' : '🍵'}</span>
+            <span>${activeCat === 'fam_cacao' ? 'Tất cả món Cacao' : 'Tất cả món Matcha'}</span>
+          </div>
+          <span class="menu-cat-count">${famItems.length} món</span>
+        </div>
+        <div class="menu-grid">${cardsHtml}</div>
+      </div>`;
+    return;
+  }
+
   const sectionsHtml = CATEGORIES.map(cat => {
     const catItems = MENU_DATA.filter(i => {
       if (!i.available) return false;
@@ -1656,6 +1734,7 @@ function renderMenuGrid() {
       const priceText = item.price_l
         ? `M: ${fmt(item.price_m)} · L: ${fmt(item.price_l)}`
         : fmt(item.price_m);
+      const nameInfo = getShortNameInfo(item.name);
 
       return `
         <div class="menu-card${qty ? ' in-cart' : ''}" onclick="tapMenuItem('${item.sku}')">
@@ -1664,7 +1743,8 @@ function renderMenuGrid() {
             ${badge ? `<div class="menu-badge ${badge.cls}">${badge.text}</div>` : ''}
           </div>
           <div>
-            <div class="menu-name">${item.name}</div>
+            ${nameInfo.prefix ? `<div class="menu-family-tag">${nameInfo.prefix}</div>` : ''}
+            <div class="menu-name">${nameInfo.shortName}</div>
             ${item.name_jp ? `<div class="menu-jp">${item.name_jp}</div>` : ''}
           </div>
           <div class="menu-price">${priceText}</div>
