@@ -648,7 +648,10 @@ function optimisticInsert(payload, minted) {
 // Dev local: truyền token qua URL (?token=...) hoặc localStorage('mitsu_report_token') — không commit.
 function _resolveReportToken() {
   const injected = '__REPORT_API_TOKEN__';
-  if (injected.indexOf('REPORT_API_TOKEN') === -1) return injected; // Worker đã tiêm
+  if (injected.indexOf('REPORT_API_TOKEN') === -1) {
+    try { localStorage.setItem('mitsu_report_token', injected); } catch (e) {}
+    return injected; // Worker / Local print_server đã tiêm
+  }
   // Chưa tiêm (đang chạy local / GitHub Pages thô) → lấy từ URL hoặc localStorage
   try {
     const fromUrl = new URLSearchParams(window.location.search).get('token');
@@ -656,8 +659,8 @@ function _resolveReportToken() {
     return localStorage.getItem('mitsu_report_token') || '';
   } catch (e) { return ''; }
 }
-const REPORT_TOKEN = _resolveReportToken();
-const TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
+let REPORT_TOKEN = _resolveReportToken();
+let TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
 
 // ─── MENU CONSTANTS ──────────────────────────────────────────────────────────
 const CAT_EMOJI = {
@@ -1332,6 +1335,16 @@ function setLocalOverride(orderId, patch) {
 }
 
 async function loadOrders() {
+  if (!REPORT_TOKEN) {
+    try {
+      const tokRes = await fetch('http://127.0.0.1:5001/token').then(r => r.json());
+      if (tokRes && tokRes.ok && tokRes.token) {
+        REPORT_TOKEN = tokRes.token;
+        TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
+        try { localStorage.setItem('mitsu_report_token', REPORT_TOKEN); } catch (_) {}
+      }
+    } catch (_) {}
+  }
   let res;
   try {
     res = await fetch(`${GAS_URL}?action=orders${TQ}`);

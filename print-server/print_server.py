@@ -272,6 +272,11 @@ def enqueue_receipt_route():
     return jsonify({"ok": True, "enqueued": n}), 200
 
 
+@app.get("/token")
+def get_token():
+    token = _resolve_server_auth_token()
+    return jsonify({"ok": True, "token": token}), 200
+
 @app.get("/kds.html")
 def serve_kds():
     file_path = os.path.join(WEB_DIR, "kds.html")
