@@ -896,6 +896,7 @@ function transferTableOrders(fromTableId, toTableId) {
   var data = sheet.getDataRange().getValues();
   var count = 0;
   var updatedIds = [];
+  var now = Date.now();
 
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
@@ -904,8 +905,11 @@ function transferTableOrders(fromTableId, toTableId) {
     var status = String(row[12] || '');
     var payStatus = String(row[19] || '');
 
+    var orderDate = row[2] ? new Date(row[2]) : null;
+    var isRecent = orderDate && (now - orderDate.getTime() < 24 * 3600 * 1000);
+
     var isActiveOrUnpaid = payStatus !== 'PAID' || ['NEW','CONFIRMED','MAKING','READY','DELIVERING'].indexOf(status) !== -1;
-    if (isActiveOrUnpaid && tbl === String(fromTableId).trim() && status !== 'CANCELLED') {
+    if (isRecent && isActiveOrUnpaid && tbl === String(fromTableId).trim() && status !== 'CANCELLED') {
       sheet.getRange(i + 1, 7).setValue(toTableId); // col 7 = table_id (G)
       count++;
       updatedIds.push(String(row[0]));
@@ -921,9 +925,13 @@ function transferTableOrders(fromTableId, toTableId) {
  * @param {string} orderId
  * @param {number} itemIndex - 0-based index trong items array
  * @param {string} reason
+ * @param {string} pin
  */
-function cancelOrderItem(orderId, itemIndex, reason) {
+function cancelOrderItem(orderId, itemIndex, reason, pin) {
   if (!orderId || itemIndex === undefined) return { ok: false, error: 'orderId and itemIndex required' };
+  if (pin && pin.trim() !== '1234') {
+    return { ok: false, error: 'Mã PIN Quản lý không đúng!' };
+  }
   var row = _findOrderRow(orderId);
   if (!row) return { ok: false, error: 'Order not found' };
 
@@ -943,6 +951,10 @@ function cancelOrderItem(orderId, itemIndex, reason) {
   sheet.getRange(row.rowIndex, 11).setValue(newSubtotal);          // col 11 = subtotal (K)
   sheet.getRange(row.rowIndex, 12).setValue(newTotal);             // col 12 = total (L)
 
+  if (items.length === 0) {
+    sheet.getRange(row.rowIndex, 13).setValue('CANCELLED');        // col 13 = status (M)
+  }
+
   _logAudit('CANCEL_ITEM', 'Hủy món "' + (canceledItem.name || '') + '" đơn ' + orderId + '. Lý do: ' + (reason || 'Không ghi'));
   return { ok: true, order_id: orderId, new_total: newTotal, canceled_item: canceledItem };
 }
@@ -951,9 +963,13 @@ function cancelOrderItem(orderId, itemIndex, reason) {
  * Tách một số món từ đơn gốc ra đơn mới độc lập.
  * @param {string} parentOrderId
  * @param {Array<number>} itemIndexes
+ * @param {string} pin
  */
-function splitBill(parentOrderId, itemIndexes) {
+function splitBill(parentOrderId, itemIndexes, pin) {
   if (!parentOrderId || !itemIndexes || !itemIndexes.length) return { ok: false, error: 'parentOrderId and itemIndexes required' };
+  if (pin && pin.trim() !== '1234') {
+    return { ok: false, error: 'Mã PIN Quản lý không đúng!' };
+  }
   var row = _findOrderRow(parentOrderId);
   if (!row) return { ok: false, error: 'Parent order not found' };
 
@@ -980,6 +996,10 @@ function splitBill(parentOrderId, itemIndexes) {
   sheet.getRange(row.rowIndex, 11).setValue(parentSubtotal);
   sheet.getRange(row.rowIndex, 12).setValue(parentSubtotal);
 
+  if (keepItems.length === 0) {
+    sheet.getRange(row.rowIndex, 13).setValue('CANCELLED');
+  }
+
   // Create new split order
   var newOrderId = generateOrderId();
   var newSubtotal = splitItems.reduce(function(acc, it) { return acc + (Number(it.price) || 0) * (Number(it.qty) || 1); }, 0);
@@ -1005,6 +1025,7 @@ function splitBill(parentOrderId, itemIndexes) {
 
   var letter = _letterFor(parentOrder.delivery_type || 'dine_in');
   var shortCode = letter + 'S' + Math.floor(10 + Math.random() * 90);
+  var idempotencyKey = parentOrderId + ':split:' + newOrderId;
 
   var newRow = [
     newOrderId,
@@ -1028,7 +1049,8 @@ function splitBill(parentOrderId, itemIndexes) {
     newOrderPayload.customer_name,
     shortCode,
     parentOrder.delivery_type || 'dine_in',
-    ''
+    '',
+    idempotencyKey
   ];
 
   sheet.appendRow(newRow);

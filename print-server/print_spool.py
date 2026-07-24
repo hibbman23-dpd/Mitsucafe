@@ -1,6 +1,7 @@
 # print-server/print_spool.py
 """print_spool.py — durable per-output print queue (one job = one label or one receipt)."""
 import json
+import time
 from datetime import datetime, timedelta, timezone
 
 _VN = timezone(timedelta(hours=7))

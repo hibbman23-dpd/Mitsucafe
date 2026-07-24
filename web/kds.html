@@ -1047,12 +1047,12 @@ const MANAGER_PIN = '1234';
 
 function verifyManagerPin() {
   const pin = prompt('Yêu cầu nhập Mã PIN Quản lý để thực hiện:', '');
-  if (!pin) return false;
+  if (!pin) return null;
   if (pin.trim() !== MANAGER_PIN) {
     alert('Mã PIN Quản lý không đúng!');
-    return false;
+    return null;
   }
-  return true;
+  return pin.trim();
 }
 
 async function reprintBill(orderId) {
@@ -1160,10 +1160,11 @@ async function cancelItemPrompt(orderId) {
   const reason = prompt(`Lý do hủy món "${itemsList[idx].name}":`, 'Khách báo hủy');
   if (reason === null) return;
 
-  if (!verifyManagerPin()) return;
+  const pin = verifyManagerPin();
+  if (!pin) return;
 
   try {
-    const res = await fetch(`${GAS_URL}?action=cancel_order_item&order_id=${encodeURIComponent(orderId)}&item_index=${idx}&reason=${encodeURIComponent(reason)}${TQ}`);
+    const res = await fetch(`${GAS_URL}?action=cancel_order_item&order_id=${encodeURIComponent(orderId)}&item_index=${idx}&reason=${encodeURIComponent(reason)}&pin=${encodeURIComponent(pin)}${TQ}`);
     const d = await res.json();
     if (d.ok) {
       alert(`Đã hủy món "${itemsList[idx].name}". Tổng tiền mới: ${fmt(d.new_total)}`);

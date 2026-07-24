@@ -48,6 +48,15 @@ class TestEnqueueRoutes(unittest.TestCase):
                  "total": 30000, "payment": {"method": "cash"}}
         r = self.c.post("/enqueue/receipt", json={"order": order, "is_cash": True})
         self.assertEqual(r.get_json()["enqueued"], 1)
+    def test_enqueue_single_label_route(self):
+        order = {"order_id": "ORD-20260723-0102", "timestamp": "2026-07-23T08:00:00+07:00",
+                 "metadata": {"short_code": "Q12", "delivery_type": "dine_in", "notes": ""}}
+        cup_item = {"name": "Bac xiu", "qty": 1, "modifiers": {}}
+        r = self.c.post("/enqueue/single_label", json={
+            "order": order, "cup_item": cup_item, "cup_index": 1, "total_cups": 2
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()["enqueued"], 1)
     def test_health_has_spool_stats(self):
         r = self.c.get("/health")
         self.assertIn("spool", r.get_json())

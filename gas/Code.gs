@@ -227,8 +227,9 @@ var GET_ROUTES = {
       var orderId = e.parameter.order_id;
       var itemIndex = parseInt(e.parameter.item_index, 10);
       var reason = e.parameter.reason || '';
+      var pin = e.parameter.pin || '';
       if (!orderId || isNaN(itemIndex)) return { ok: false, error: 'order_id and valid item_index required' };
-      return cancelOrderItem(orderId, itemIndex, reason);
+      return cancelOrderItem(orderId, itemIndex, reason, pin);
     }
   },
   'split_bill': {
@@ -236,9 +237,10 @@ var GET_ROUTES = {
     handler: function(e) {
       var parentOrderId = e.parameter.parent_order_id;
       var indexesStr = e.parameter.item_indexes || '';
+      var pin = e.parameter.pin || '';
       var indexes = indexesStr.split(',').map(function(x) { return parseInt(x, 10); }).filter(function(x) { return !isNaN(x); });
       if (!parentOrderId || !indexes.length) return { ok: false, error: 'parent_order_id and item_indexes required' };
-      return splitBill(parentOrderId, indexes);
+      return splitBill(parentOrderId, indexes, pin);
     }
   },
   'pending_print': {
