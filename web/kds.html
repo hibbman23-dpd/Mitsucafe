@@ -302,8 +302,8 @@
       padding: 10px 0; border-radius: var(--radius); text-align: center; cursor: pointer; font-size: .86rem;
     }
     .mode-btn.active { background: var(--teal); border-color: var(--teal); color: var(--cream); font-weight: 600; }
-    .table-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-    @media (min-width: 500px) { .table-grid { grid-template-columns: repeat(8, 1fr); } }
+    .table-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    @media (min-width: 500px) { .table-grid { grid-template-columns: repeat(7, 1fr); } }
     .table-btn {
       background: var(--bg); border: 1px solid var(--border); color: var(--muted);
       padding: 9px 4px; border-radius: 8px; text-align: center; cursor: pointer;
@@ -1937,7 +1937,7 @@ function setMode(mode) {
 
 function renderTableGrid() {
   const grid = document.getElementById('table-grid');
-  const nums = Array.from({length:12}, (_,i) => String(i+1).padStart(2,'0'));
+  const nums = Array.from({length:13}, (_,i) => String(i+1).padStart(2,'0'));
   grid.innerHTML = nums.map(n => `
     <div class="table-btn${selectedTable===n?' active':''}" onclick="selectTable('${n}')">${n}</div>
   `).join('');
