@@ -540,7 +540,17 @@ function getTodayOrders() {
 
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    if (!row[0] || String(row[0]).indexOf(today) === -1) continue;
+    if (!row[0]) continue;
+    var orderId = String(row[0]);
+    var isToday = orderId.indexOf(today) !== -1;
+    var status = row[12];
+    var paymentStatus = row[19];
+
+    var isActive = ['NEW', 'CONFIRMED', 'MAKING', 'READY', 'DELIVERING'].indexOf(status) !== -1;
+    var isUnpaid = paymentStatus !== 'PAID' && status !== 'CANCELLED';
+
+    // Đơn hôm nay HOẶC đơn ngày trước chưa hoàn thành / chưa thanh toán
+    if (!isToday && !isActive && !isUnpaid) continue;
     var itemsSummary = '';
     try {
       var items = JSON.parse(row[9]);
