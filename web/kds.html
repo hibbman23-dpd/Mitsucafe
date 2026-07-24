@@ -403,6 +403,7 @@
     <button class="filter-pill" id="btn-toggle-label-print" onclick="toggleLabelPrint()" style="margin-left:auto;">🏷️ Tem: BẬT</button>
     <button class="filter-pill" id="btn-toggle-sound" onclick="toggleSound()">🔇 Đã tắt tiếng</button>
   </div>
+  <div class="table-filter-bar" id="table-filter-bar" style="display:flex; gap:6px; overflow-x:auto; padding:6px 0; margin-bottom:10px; -webkit-overflow-scrolling:touch; scrollbar-width:none;"></div>
   <div class="orders-list" id="orders-list">
     <div class="empty-state"><div class="icon">☕</div>Đang tải đơn hàng...</div>
   </div>
@@ -529,9 +530,14 @@
         <span class="order-total-label">Tổng cộng</span>
         <span class="order-total-amount" id="order-form-total">0đ</span>
       </div>
-      <button class="btn-submit-order" id="btn-submit-order" onclick="submitStaffOrder()">
-        Đặt đơn
-      </button>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn-submit-order" id="btn-submit-order" style="flex:1;" onclick="submitStaffOrder(false)">
+          Đặt đơn
+        </button>
+        <button class="btn-submit-order" id="btn-quick-pay-order" style="flex:1; background:#2ec4b6;" onclick="submitStaffOrder(true)">
+          💳 Gửi & Thanh toán ngay
+        </button>
+      </div>
     </div>
 
     <!-- Success state (shown after submit) -->
@@ -986,19 +992,57 @@ async function deactivatePromo() {
   }
 }
 
-// ─── ORDERS VIEW ─────────────────────────────────────────────────────────────
+let activeTableFilter = 'all';
+
 function setFilter(f, btn) {
   activeFilter = f;
-  document.querySelectorAll('.filter-pill').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.filter-bar .filter-pill').forEach(el => el.classList.remove('active'));
   btn.classList.add('active');
   renderOrders();
 }
 
+function renderTableFilterPills() {
+  const bar = document.getElementById('table-filter-bar');
+  if (!bar) return;
+
+  const items = [
+    { id: 'all', label: 'Tất cả vị trí' },
+    { id: 'pickup', label: '🥡 Mang đi' },
+    ...Array.from({ length: 17 }, (_, i) => {
+      const num = String(i + 1).padStart(2, '0');
+      return { id: `TABLE_${num}`, label: `🪑 Bàn ${num}` };
+    })
+  ];
+
+  bar.innerHTML = items.map(it => `
+    <button class="filter-pill${activeTableFilter === it.id ? ' active' : ''}"
+            style="white-space:nowrap; flex-shrink:0; font-size:0.75rem; padding:4px 10px;"
+            onclick="setTableFilter('${it.id}')">
+      ${it.label}
+    </button>`).join('');
+}
+
+function setTableFilter(tableId) {
+  activeTableFilter = tableId;
+  renderTableFilterPills();
+  renderOrders();
+}
+
 function applyFilter(orders) {
-  if (activeFilter === 'pending') return orders.filter(o => o.payment_status !== 'PAID');
-  if (activeFilter === 'active')  return orders.filter(o => ['NEW','CONFIRMED','MAKING','READY'].includes(o.status));
-  if (activeFilter === 'paid')    return orders.filter(o => o.payment_status === 'PAID');
-  return orders;
+  let list = orders;
+  if (activeFilter === 'pending') list = list.filter(o => o.payment_status !== 'PAID');
+  else if (activeFilter === 'active')  list = list.filter(o => ['NEW','CONFIRMED','MAKING','READY'].includes(o.status));
+  else if (activeFilter === 'paid')    list = list.filter(o => o.payment_status === 'PAID');
+
+  if (activeTableFilter === 'pickup') {
+    list = list.filter(o => {
+      const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
+      return dt === 'pickup' || dt === 'delivery';
+    });
+  } else if (activeTableFilter && activeTableFilter.startsWith('TABLE_')) {
+    list = list.filter(o => String(o.table_id || '').trim().toUpperCase() === activeTableFilter.toUpperCase());
+  }
+  return list;
 }
 
 function renderTableSummaryBar() {
@@ -1027,8 +1071,10 @@ function renderTableSummaryBar() {
     const tableNum = tid.replace(/^(table_|ban|bàn)\s*/i, '');
     const totalSum = orders.reduce((acc, x) => acc + (Number(x.total) || 0), 0);
     const count = orders.length;
-    html += `<button class="btn-mark-paid" style="background: var(--teal); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;" onclick="finishTableGroup('${esc(tid)}', this)">
-      🧾 Thanh toán Bàn ${esc(tableNum)} (${count} đơn · ${fmt(totalSum)})
+    const isFocused = (activeTableFilter && activeTableFilter.toUpperCase() === tid.toUpperCase());
+    const bgStyle = isFocused ? 'background:#2ec4b6; border:2px solid #fff; transform:scale(1.04); font-weight:800;' : 'background: var(--teal);';
+    html += `<button class="btn-mark-paid" style="${bgStyle} color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s;" onclick="finishTableGroup('${esc(tid)}', this)">
+      💳 Thanh toán Bàn ${esc(tableNum)} (${count} đơn · ${fmt(totalSum)})
     </button>`;
   });
 
@@ -1281,11 +1327,13 @@ async function cancelItemPrompt(orderId) {
 }
 
 function renderOrders() {
+  renderTableFilterPills();
   const list     = document.getElementById('orders-list');
   const filtered = applyFilter(allOrders);
   if (!filtered.length) {
-    list.innerHTML = `<div class="empty-state"><div class="icon">🍵</div>
-      ${allOrders.length ? 'Không có đơn nào khớp.' : 'Chưa có đơn nào hôm nay.'}</div>`;
+    const summaryBar = renderTableSummaryBar();
+    list.innerHTML = summaryBar + `<div class="empty-state"><div class="icon">🍵</div>
+      ${allOrders.length ? 'Không có đơn nào khớp bộ lọc vị trí/bàn.' : 'Chưa có đơn nào hôm nay.'}</div>`;
     return;
   }
   const summaryBar = renderTableSummaryBar();
@@ -2347,7 +2395,7 @@ function setMode(mode) {
 
 function renderTableGrid() {
   const grid = document.getElementById('table-grid');
-  const nums = Array.from({length:13}, (_,i) => String(i+1).padStart(2,'0'));
+  const nums = Array.from({length:17}, (_,i) => String(i+1).padStart(2,'0'));
   grid.innerHTML = nums.map(n => `
     <div class="table-btn${selectedTable===n?' active':''}" onclick="selectTable('${n}')">${n}</div>
   `).join('');
@@ -2358,10 +2406,12 @@ function selectTable(n) {
   renderTableGrid();
 }
 
-async function submitStaffOrder() {
+async function submitStaffOrder(quickPay = false) {
   if (!staffCart.length) return;
   const btn = document.getElementById('btn-submit-order');
-  btn.disabled = true; btn.textContent = 'Đang gửi...';
+  const btnQuick = document.getElementById('btn-quick-pay-order');
+  if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi...'; }
+  if (btnQuick) { btnQuick.disabled = true; btnQuick.textContent = 'Đang gửi...'; }
 
   if (!pendingStaffSubmit) {
     const phone = document.getElementById('staff-phone').value.trim().replace(/\D/g,'');
@@ -2393,7 +2443,7 @@ async function submitStaffOrder() {
           };
         }),
         total,
-        payment: { method: 'cash', total, status: 'PENDING' },
+        payment: { method: 'cash', total, status: quickPay ? 'PAID' : 'PENDING' },
         metadata: {
           delivery_type: orderMode,
           business_line: 'kissaten',
@@ -2407,21 +2457,115 @@ async function submitStaffOrder() {
   }
   const { payload, shortCode, total, tableId, selectedTable: submittedTable } = pendingStaffSubmit;
 
+  if (quickPay) {
+    payload.payment_status = 'PAID';
+    if (payload.payment) payload.payment.status = 'PAID';
+  }
+
   try {
     const minted = await submitOrder(payload);
+    if (quickPay) {
+      minted.payment_status = 'PAID';
+      payload.order_id = minted.order_id || payload.order_id;
+      try {
+        fetch(`${GATEWAY_URL}/enqueue/receipt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order: payload, is_cash: true, copies: 2 })
+        });
+      } catch (_) {}
+    }
+
     optimisticInsert(payload, minted);
 
     pendingStaffSubmit = null;
-    btn.disabled = false; btn.textContent = 'Đặt đơn';
+    if (btn) { btn.disabled = false; btn.textContent = 'Đặt đơn'; }
+    if (btnQuick) { btnQuick.disabled = false; btnQuick.textContent = '💳 Gửi & Thanh toán ngay'; }
     document.getElementById('order-form').classList.add('hidden');
     document.getElementById('submit-success').classList.remove('hidden');
     document.getElementById('submit-success-msg').textContent =
-      `Mã đơn: ${minted.short_code || shortCode}${tableId ? '  ·  Bàn ' + submittedTable : ''}  ·  ${fmt(total)}`;
+      `Mã đơn: ${minted.short_code || shortCode}${tableId ? '  ·  Bàn ' + submittedTable : ''}  ·  ${fmt(total)} ${quickPay ? '(ĐÃ THANH TOÁN)' : ''}`;
   } catch(err) {
-    btn.disabled = false;
-    btn.textContent = 'Đặt đơn';
+    if (btn) { btn.disabled = false; btn.textContent = 'Đặt đơn'; }
+    if (btnQuick) { btnQuick.disabled = false; btnQuick.textContent = '💳 Gửi & Thanh toán ngay'; }
     alert('Đơn CHƯA gửi được (' + ((err && err.message) || 'mất kết nối') + ') — giỏ hàng vẫn giữ nguyên, thử lại.');
   }
+}
+
+function injectMockTestOrders() {
+  const nowStr = new Date().toISOString();
+  const mocks = [
+    {
+      order_id: 'MOCK-B01-' + Date.now().toString(36),
+      short_code: 'Q101',
+      delivery_type: 'dine_in',
+      table_id: 'TABLE_01',
+      status: 'CONFIRMED',
+      payment_status: 'PENDING',
+      total: 65000,
+      customer_id: '0901111111',
+      created_iso: nowStr,
+      items: [
+        { sku: 'DR001', name: 'CF MITSU', qty: 1, price: 25000, modifiers: { size: 'M' }, subtotal: 25000 },
+        { sku: 'DR066', name: 'TRÀ SỮA KEM TIRAMISU', qty: 1, price: 40000, modifiers: { size: 'M', sugar: '50%', ice: 'less' }, note: 'Ít đá', subtotal: 40000 }
+      ]
+    },
+    {
+      order_id: 'MOCK-B05-' + Date.now().toString(36),
+      short_code: 'Q105',
+      delivery_type: 'dine_in',
+      table_id: 'TABLE_05',
+      status: 'CONFIRMED',
+      payment_status: 'PENDING',
+      total: 55000,
+      customer_id: '0905555555',
+      created_iso: nowStr,
+      items: [
+        { sku: 'DR045', name: 'CA CAO OREO KEM DẺO', qty: 1, price: 35000, modifiers: { size: 'M' }, note: 'Nhiều bánh oreo', subtotal: 35000 },
+        { sku: 'DR002', name: 'CF SỮA', qty: 1, price: 20000, modifiers: { size: 'M' }, subtotal: 20000 }
+      ]
+    },
+    {
+      order_id: 'MOCK-B17-' + Date.now().toString(36),
+      short_code: 'Q117',
+      delivery_type: 'dine_in',
+      table_id: 'TABLE_17',
+      status: 'CONFIRMED',
+      payment_status: 'PENDING',
+      total: 48000,
+      customer_id: '0901717171',
+      created_iso: nowStr,
+      items: [
+        { sku: 'DR056', name: 'TRÀ VẢI HOA HỒNG', qty: 1, price: 30000, modifiers: { size: 'M', sugar: '70%' }, subtotal: 30000 },
+        { sku: 'DR083', name: 'SỮA CHUA CA CAO', qty: 1, price: 18000, modifiers: {}, subtotal: 18000 }
+      ]
+    },
+    {
+      order_id: 'MOCK-MDI-' + Date.now().toString(36),
+      short_code: 'Q188',
+      delivery_type: 'pickup',
+      table_id: '',
+      status: 'CONFIRMED',
+      payment_status: 'PENDING',
+      total: 50000,
+      customer_id: '0909999999',
+      created_iso: nowStr,
+      items: [
+        { sku: 'DR032', name: 'MATCHA LATTE', qty: 1, price: 30000, modifiers: { size: 'M' }, subtotal: 30000 },
+        { sku: 'DR005', name: 'CF MUỐI', qty: 1, price: 20000, modifiers: { size: 'M' }, subtotal: 20000 }
+      ]
+    }
+  ];
+
+  mocks.forEach(m => {
+    m.items_summary = formatItemsSummary(m.items);
+    if (!allOrders.find(x => x.order_id === m.order_id)) {
+      allOrders.unshift(m);
+      seenOrderIds.add(m.order_id);
+    }
+  });
+
+  renderOrders();
 }
 
 function startKDS() {
@@ -2431,7 +2575,7 @@ function startKDS() {
   updateLabelPrintBtn();
   renderTableGrid();
   loadPromoStatus();
-  loadOrders();
+  loadOrders().then(() => injectMockTestOrders());
   setInterval(loadOrders, POLL_MS);
 }
 
