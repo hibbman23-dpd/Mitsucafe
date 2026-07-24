@@ -262,18 +262,33 @@
       background: rgba(0,0,0,.5); display: flex; align-items: flex-end;
     }
     .overlay-bg.hidden { display: none; }
-    /* Size picker modal centered */
+    /* Size picker modal centered & high-contrast */
     #size-overlay {
       align-items: center;
       justify-content: center;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
     #size-overlay .bottom-sheet {
-      border-radius: 16px;
+      background: #1e1e24;
+      border-radius: 20px;
       width: 92%;
-      max-width: 480px;
+      max-width: 520px;
       margin: auto;
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      overflow: hidden;
+    }
+    #size-overlay .sheet-head {
+      padding: 18px 22px 14px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    #size-overlay .sheet-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #ffffff;
     }
     #size-sheet .size-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 18px; }
     .size-btn {
@@ -489,8 +504,8 @@
     <div class="sheet-body" id="custom-sheet-body" style="padding: 16px 0; overflow-y: auto; max-height: 50vh;">
       <!-- Dynamic options injected here -->
     </div>
-    <div class="sheet-footer" style="padding: 16px; border-top: 1px solid var(--border); display: flex; gap: 12px;">
-      <button class="btn-submit-order" id="btn-add-custom-cart" onclick="confirmCustomOrder()" style="flex: 1; padding: 12px; font-weight: 700; border-radius: 8px; background: var(--coral); color: white; cursor: pointer; border: none;">Thêm vào giỏ</button>
+    <div class="sheet-footer" style="padding: 18px 22px; border-top: 2px solid rgba(255, 255, 255, 0.1); background: rgba(0, 0, 0, 0.2); display: flex; gap: 12px;">
+      <button class="btn-submit-order" id="btn-add-custom-cart" onclick="confirmCustomOrder()" style="flex: 1; padding: 16px; font-size: 1.15rem; font-weight: 800; border-radius: 12px; background: var(--coral); color: white; cursor: pointer; border: none; box-shadow: 0 6px 20px rgba(235, 98, 74, 0.4);">Thêm vào giỏ</button>
     </div>
   </div>
 </div>
