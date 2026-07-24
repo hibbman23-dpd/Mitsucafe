@@ -580,8 +580,8 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
 
 
 def build_receipt(order: dict, is_cash: bool = False) -> bytes:
-    fmt = os.getenv("RECEIPT_FORMAT", os.getenv("RECEIPT_MODE", "raster"))
-    if fmt != "text":
+    fmt = os.getenv("RECEIPT_FORMAT", "text").lower()
+    if fmt == "raster":
         try:
             return build_receipt_raster(order, is_cash)
         except Exception as exc:

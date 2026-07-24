@@ -583,9 +583,8 @@ const POLL_MS  = 15000;
 // Chỉ bật local-first khi KDS phục vụ qua http same-origin với gateway (:5001).
 // Nếu mở qua https (deploy Worker cũ) → fetch http://:5001 bị chặn mixed-content →
 // mỗi đơn hiện dialog fallback. Khi đó tắt local-first, chạy thẳng GAS như cũ.
-const LOCAL_FIRST = (location.protocol === 'http:');
-// KDS được serve từ chính gateway (:5001) → same-origin, không cần dựng host/port tay.
-const GATEWAY_URL = (location.origin && location.origin.startsWith('http'))
+const LOCAL_FIRST = (location.protocol === 'http:' || location.protocol === 'file:' || location.protocol === 'https:');
+const GATEWAY_URL = (location.origin && location.origin.startsWith('http') && !location.origin.includes('github.io'))
   ? location.origin
   : 'http://localhost:5001';
 
