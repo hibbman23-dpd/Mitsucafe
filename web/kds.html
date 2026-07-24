@@ -2300,6 +2300,16 @@ function updateCartItemQty(key, delta) {
   renderMenuGrid();
 }
 
+function removeCartItem(key) {
+  const idx = staffCart.findIndex(c => c._key === key);
+  if (idx >= 0) {
+    staffCart.splice(idx, 1);
+    renderCartItems();
+    updateCartBar();
+    renderMenuGrid();
+  }
+}
+
 function updateCartBar() {
   const bar = document.getElementById('cart-bar');
   const show = activeView === 'menu' && staffCart.length > 0;
@@ -2366,10 +2376,13 @@ function renderCartItems() {
             ${modsStr}
             <div class="cart-item-price">${fmt(ci.subtotal)}</div>
           </div>
-          <div class="stepper">
-            <button class="step-btn" onclick="updateCartItemQty('${ci._key}',-1)">−</button>
+          <div class="stepper" style="display:flex; align-items:center; gap:4px;">
+            <button class="step-btn" style="${ci.qty === 1 ? 'background:rgba(235,98,74,0.25); color:#ff6b6b; border-color:#eb624a;' : ''}" title="${ci.qty === 1 ? 'Xóa món này khỏi đơn' : 'Giảm 1'}" onclick="updateCartItemQty('${ci._key}',-1)">
+              ${ci.qty === 1 ? '🗑️' : '−'}
+            </button>
             <span class="qty-val">${ci.qty}</span>
             <button class="step-btn" onclick="updateCartItemQty('${ci._key}',1)">+</button>
+            <button class="step-btn" style="background:rgba(235,98,74,0.18); color:#ff6b6b; border-color:transparent; margin-left:4px; font-size:0.75rem; padding:4px 8px; border-radius:6px;" title="Xóa món khỏi đơn" onclick="removeCartItem('${ci._key}')">🗑️ Xóa</button>
           </div>
         </div>
         <div style="margin-top:2px;">
