@@ -395,6 +395,7 @@
     <button class="filter-pill"        onclick="setFilter('pending',this)">⚠️ Chờ TT</button>
     <button class="filter-pill"        onclick="setFilter('active',this)">Đang làm</button>
     <button class="filter-pill"        onclick="setFilter('paid',this)">✅ Đã TT</button>
+    <button class="filter-pill" id="btn-toggle-sound" onclick="toggleSound()" style="margin-left:auto;">🔇 Đã tắt tiếng</button>
   </div>
   <div class="orders-list" id="orders-list">
     <div class="empty-state"><div class="icon">☕</div>Đang tải đơn hàng...</div>
@@ -765,8 +766,29 @@ function enableTTS() {
   document.getElementById('tts-banner').classList.add('hidden');
 }
 
+let soundMuted = localStorage.getItem('kds_sound_muted') !== '0'; // Mặc định TẮT TIẾNG theo yêu cầu
+
+function toggleSound() {
+  soundMuted = !soundMuted;
+  try { localStorage.setItem('kds_sound_muted', soundMuted ? '1' : '0'); } catch(e){}
+  if (soundMuted && window.speechSynthesis) window.speechSynthesis.cancel();
+  if (!soundMuted && !ttsReady) enableTTS();
+  updateSoundBtn();
+}
+
+function updateSoundBtn() {
+  const btn = document.getElementById('btn-toggle-sound');
+  if (btn) {
+    btn.innerHTML = soundMuted ? '🔇 Đã tắt tiếng' : '🔊 Đã bật tiếng';
+    btn.style.background = soundMuted ? 'rgba(255,255,255,0.06)' : 'var(--teal)';
+    btn.style.borderColor = soundMuted ? 'var(--border)' : 'var(--teal)';
+    btn.style.color = soundMuted ? 'var(--muted)' : '#fff';
+  }
+}
+
 // Chuông "đơn mới": 2 nốt ngắn bằng WebAudio (không cần file âm thanh).
 function playNewOrderChime() {
+  if (soundMuted) return;
   try {
     if (!audioCtx) return;                       // chưa mở khoá (chưa bấm enable TTS)
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -785,6 +807,7 @@ function playNewOrderChime() {
 }
 
 function speak(text) {
+  if (soundMuted) return;
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
@@ -1984,7 +2007,8 @@ async function submitStaffOrder() {
 
 function startKDS() {
   if (window.__kdsStarted) return; window.__kdsStarted = true;
-  if (!window.speechSynthesis) document.getElementById('tts-banner').classList.add('hidden');
+  if (!window.speechSynthesis || soundMuted) document.getElementById('tts-banner').classList.add('hidden');
+  updateSoundBtn();
   renderTableGrid();
   loadPromoStatus();
   loadOrders();
