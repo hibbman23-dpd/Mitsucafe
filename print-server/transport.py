@@ -29,35 +29,38 @@ class CupsTransport(Transport):
             _cups_locks[printer_name] = threading.Lock()
         self._lock = _cups_locks[printer_name]
 
-    def _wait_queue_empty(self, max_wait=60.0):
+    def _wait_queue_empty(self, max_wait=3.0):
         import time as _t
         start = _t.time()
-        while _t.time() - start < max_wait:
-            try:
-                subprocess.run(["cupsenable", self.printer_name], capture_output=True, timeout=2)
-                subprocess.run(["cupsaccept", self.printer_name], capture_output=True, timeout=2)
-            except Exception:
-                pass
-            res = subprocess.run(["lpstat", "-o", self.printer_name], capture_output=True, text=True)
+        try:
+            res = subprocess.run(["lpstat", "-o", self.printer_name], capture_output=True, text=True, timeout=1.0)
             if not res.stdout.strip():
                 return True
-            _t.sleep(0.4)
+        except Exception:
+            pass
+
+        while _t.time() - start < max_wait:
+            try:
+                subprocess.run(["cupsenable", self.printer_name], capture_output=True, timeout=1.0)
+                subprocess.run(["cupsaccept", self.printer_name], capture_output=True, timeout=1.0)
+            except Exception:
+                pass
+            res = subprocess.run(["lpstat", "-o", self.printer_name], capture_output=True, text=True, timeout=1.0)
+            if not res.stdout.strip():
+                return True
+            _t.sleep(0.1)
         log.warning("CUPS queue %s still has jobs after %.1fs max_wait", self.printer_name, max_wait)
         return False
 
-    # CUPS ghi 'Job aborted due to backend errors' vào error_log khi usb backend stall
-    # (máy in clone không trả back-channel EP 0x81). lpr/lp exit 0 CHỈ nghĩa là "đã vào
-    # spool CUPS" — job vẫn có thể bị hủy sau đó. Phải soi error_log per-job, nếu abort
-    # thì raise để PrintWorker requeue (chống phantom-printed: DB 'printed' mà giấy không ra).
     error_log_path = "/var/log/cups/error_log"
 
     def _job_aborted(self, job_num: str) -> bool:
         try:
             with open(self.error_log_path, "rb") as f:
-                f.seek(max(0, os.path.getsize(self.error_log_path) - 262144))  # 256KB cuối
+                f.seek(max(0, os.path.getsize(self.error_log_path) - 262144))
                 tail = f.read().decode(errors="replace")
         except Exception:
-            return False   # không đọc được log (máy khác/quyền) → best-effort như cũ
+            return False
         needle = f"[Job {job_num}]"
         for line in tail.splitlines():
             if needle in line and ("Job aborted" in line or "Backend returned status 1" in line):
@@ -66,21 +69,15 @@ class CupsTransport(Transport):
 
     def send(self, data: bytes) -> int:
         with self._lock:
-            # 1. Chờ hàng đợi CUPS sạch trước khi phát lệnh
-            self._wait_queue_empty()
-            # 2. Submit qua `lp` để lấy job-id ("request id is PRINTER-123 (1 file(s))")
+            self._wait_queue_empty(max_wait=3.0)
             res = subprocess.run(["lp", "-d", self.printer_name, "-o", "raw"],
-                                 input=data, capture_output=True, check=True, timeout=30)
+                                 input=data, capture_output=True, check=True, timeout=10)
             out = (res.stdout or b"").decode(errors="replace")
             job_num = ""
             for tok in out.split():
                 if tok.startswith(self.printer_name + "-"):
                     job_num = tok.rsplit("-", 1)[-1]
                     break
-            # 3. Đợi job rời hàng đợi (in xong HOẶC bị abort — cả 2 đều làm queue trống)
-            self._wait_queue_empty()
-            time.sleep(0.5)
-            # 4. Verify: job có bị CUPS abort không → raise để worker requeue
             if job_num and self._job_aborted(job_num):
                 raise RuntimeError(
                     f"CUPS aborted job {self.printer_name}-{job_num} (usb backend stall) — not printed")

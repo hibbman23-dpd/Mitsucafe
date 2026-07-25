@@ -211,11 +211,11 @@ def _start_workers():
     _spawn("label", LABEL_TRANSPORT,
            {"cups_printer": LABEL_CUPS_PRINTER, "vid": LABEL_USB_VID, "pid": LABEL_USB_PID,
             "ep_out": LABEL_USB_EP, "ip": LABEL_PRINTER_IP, "port": LABEL_PRINTER_PORT,
-            "serial_port": LABEL_SERIAL_PORT}, pacing_s=0.8)
+            "serial_port": LABEL_SERIAL_PORT}, pacing_s=0.1)
     _spawn("receipt", RECEIPT_TRANSPORT,
            {"cups_printer": RECEIPT_CUPS_PRINTER, "vid": RECEIPT_USB_VID, "pid": RECEIPT_USB_PID,
             "ep_out": RECEIPT_USB_EP, "ip": RECEIPT_PRINTER_IP, "port": RECEIPT_PRINTER_PORT,
-            "serial_port": RECEIPT_SERIAL_PORT}, pacing_s=1.0)
+            "serial_port": RECEIPT_SERIAL_PORT}, pacing_s=0.05)
 
     def _reconcile_loop():
         last_purge = 0.0  # 0 → chạy purge ngay lần đầu, sau đó ~mỗi 24h
