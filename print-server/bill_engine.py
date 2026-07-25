@@ -61,11 +61,13 @@ def _qty_map(items):
 def split_order(store, order_id, partitions, expected_version):
     """Fork an order's line items into sub-orders <id>-A, <id>-B, ...
 
-    Every origin line quantity must be fully accounted for across partitions.
-    The origin order becomes status SPLIT (version-locked).
+    Every origin line quantity (modifier-aware) must be fully accounted for across
+    partitions. Version check + inserts + origin->SPLIT happen atomically in the store.
     """
     if not partitions:
         raise ValueError("partitions required")
+    if len(partitions) > len(_LETTERS):
+        raise ValueError("too many partitions (max 26)")
     origin = store.get(order_id)
     if origin is None:
         raise KeyError(order_id)
@@ -76,9 +78,9 @@ def split_order(store, order_id, partitions, expected_version):
             part_qty[key] = part_qty.get(key, 0) + q
     if part_qty != origin_qty:
         raise ValueError(f"partitions do not sum to origin: {part_qty} != {origin_qty}")
-    subs = []
+    suborders = []
     for i, part in enumerate(partitions):
-        subs.append(store.insert_suborder({
+        suborders.append({
             "order_id": f"{order_id}-{_LETTERS[i]}",
             "parent_order_id": order_id,
             "short_code": f"{origin.get('short_code','')}{_LETTERS[i]}",
@@ -86,9 +88,8 @@ def split_order(store, order_id, partitions, expected_version):
             "table_id": origin.get("table_id", ""),
             "source": origin.get("source", "staff"),
             "items": part,
-        }))
-    store.set_status(order_id, "SPLIT", expected_version)
-    return subs
+        })
+    return store.split_atomic(order_id, suborders, expected_version)
 
 
 def merge_bill(store, order_ids):

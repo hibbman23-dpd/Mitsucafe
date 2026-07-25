@@ -1,5 +1,5 @@
 import sqlite3, tempfile, threading, unittest
-from order_store import OrderStore
+from order_store import OrderStore, VersionConflict
 import bill_engine
 
 
@@ -98,3 +98,20 @@ class TestSplitMerge(unittest.TestCase):
         g = res["group_id"]
         self.assertEqual(self.s.get("ORD-20260726-0001")["bill_group_id"], g)
         self.assertEqual(self.s.get("ORD-20260726-0002")["bill_group_id"], g)
+
+    def test_split_stale_version_creates_no_orphans(self):
+        with self.assertRaises(VersionConflict):
+            bill_engine.split_order(
+                self.s, "ORD-20260726-0001",
+                partitions=[
+                    [{"sku": "DR005", "name": "Cà phê muối", "qty": 2, "price": 30000}],
+                    [{"sku": "DR028", "name": "Trà sữa oolong", "qty": 1, "price": 25000}]],
+                expected_version=99)
+        self.assertIsNone(self.s.get("ORD-20260726-0001-A"))
+        self.assertIsNone(self.s.get("ORD-20260726-0001-B"))
+        self.assertNotEqual(self.s.get("ORD-20260726-0001")["status"], "SPLIT")
+
+    def test_split_too_many_partitions_rejected(self):
+        with self.assertRaises(ValueError):
+            bill_engine.split_order(self.s, "ORD-20260726-0001",
+                                    partitions=[[] for _ in range(27)], expected_version=1)
