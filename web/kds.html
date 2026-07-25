@@ -2574,13 +2574,6 @@ async function submitStaffOrder(quickPay = false) {
     if (quickPay) {
       minted.payment_status = 'PAID';
       payload.order_id = minted.order_id || payload.order_id;
-      try {
-        fetch(`${GATEWAY_URL}/enqueue/receipt`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order: payload, is_cash: true, copies: 2 })
-        });
-      } catch (_) {}
     }
 
     optimisticInsert(payload, minted);

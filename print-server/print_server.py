@@ -268,7 +268,7 @@ def enqueue_receipt_route():
     p = request.get_json(force=True, silent=True) or {}
     order = p.get("order") or {}
     is_cash = bool(p.get("is_cash", False))
-    copies = int(p.get("copies", 1))
+    copies = 1
     n = SPOOL.enqueue_receipt(order, is_cash, copies=copies)
     return jsonify({"ok": True, "enqueued": n}), 200
 
@@ -681,10 +681,9 @@ def order_create():
     if _print_engine() == "spool":
         if cups:
             SPOOL.enqueue_labels(order, cups)
-        # Always enqueue receipt for kitchen/bar ticket upon order creation
+        # Always enqueue receipt for kitchen/bar ticket upon order creation (EXACTLY 1 COPY)
         is_cash = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
-        copies = 2 if is_cash else 1
-        SPOOL.enqueue_receipt(order, is_cash=is_cash, copies=copies)
+        SPOOL.enqueue_receipt(order, is_cash=is_cash, copies=1)
     else:
         if cups:
             def _async_print_labels():
