@@ -640,6 +640,21 @@ async function submitOrder(payload) {
   return { order_id: d.order_id, short_code: d.short_code };
 }
 
+async function callReportApi(action, payload = {}) {
+  try {
+    const url = `${GAS_URL}?action=${encodeURIComponent(action)}${TQ}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, token: 'kds_staff_token_2026', ...payload })
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('callReportApi error:', err);
+    return { ok: false, error: err.message || 'Lỗi kết nối máy chủ' };
+  }
+}
+
 function formatItemsSummary(items) {
   if (!items || !items.length) return '';
   return items.map(it => {
