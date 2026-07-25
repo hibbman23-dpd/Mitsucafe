@@ -1551,6 +1551,10 @@ async function loadOrders() {
     if ((serverCaughtUp && payCaughtUp) || expired) { localOverrides.delete(o.order_id); ovChanged = true; return; }
     if (ov.status && rankOf(ov.status) > rankOf(o.status)) o.status = ov.status;
     if (ov.payment_status === 'PAID') o.payment_status = 'PAID';
+    if (ov.items && Array.isArray(ov.items) && ov.items.length) {
+      o.items = ov.items;
+      o.items_summary = formatItemsSummary(ov.items);
+    }
   });
   if (ovChanged) _saveOverrides(localOverrides);
 

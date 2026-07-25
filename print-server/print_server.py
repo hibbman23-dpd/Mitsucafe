@@ -789,8 +789,12 @@ def order_swap_item():
     if pin not in ("1234", "9999"):
         return jsonify({"ok": False, "error": "Mã PIN Quản lý không đúng!"}), 400
 
-    with sqlite3.connect(DB_PATH) as conn:
-        row = conn.execute("SELECT payload_json FROM outbox WHERE order_id = ?", (order_id,)).fetchone()
+    order_payload = None
+    with GATEWAY._lock:
+        row = GATEWAY._conn.execute(
+            "SELECT payload_json FROM outbox WHERE order_id = ? AND op = 'ingest_order'",
+            (order_id,)
+        ).fetchone()
         if row:
             p = json.loads(row[0])
             items = p.get("items", [])
@@ -803,15 +807,23 @@ def order_swap_item():
                 items[item_idx] = new_item
                 p["items"] = items
                 p["total"] = sum((float(it.get("price") or 0)) * (int(it.get("qty") or 1)) for it in items)
-                conn.execute("UPDATE outbox SET payload_json = ? WHERE order_id = ?", (json.dumps(p), order_id))
+                GATEWAY._conn.execute(
+                    "UPDATE outbox SET payload_json = ? WHERE order_id = ? AND op = 'ingest_order'",
+                    (json.dumps(p), order_id)
+                )
+                GATEWAY._conn.commit()
+                order_payload = p
 
     try:
-        if _print_engine() == "spool":
-            SPOOL.enqueue_single_label(order_id, new_item)
+        if _print_engine() == "spool" and order_payload:
+            items = order_payload.get("items", [])
+            item_idx = int(item_index)
+            SPOOL.enqueue_single_label(order_payload, new_item, item_idx + 1, len(items))
     except Exception as exc:
         log.warning("swap_item single_label print failed: %s", exc)
 
-    GATEWAY.enqueue("swap_order_item", order_id, f"{order_id}:swap:{item_index}",
+    swap_key = f"{order_id}:swap:{item_index}:{int(time.time() * 1000)}"
+    GATEWAY.enqueue("swap_order_item", order_id, swap_key,
                     {"action": "swap_order_item", "order_id": order_id, "item_index": item_index, "new_item": new_item, "manager_pin": pin})
 
     return jsonify({"ok": True, "order_id": order_id}), 200

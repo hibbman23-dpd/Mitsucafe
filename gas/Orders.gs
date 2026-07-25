@@ -1158,6 +1158,7 @@ function swapOrderItem(payload) {
   var idIdx = headers.indexOf('order_id');
   var itemsIdx = headers.indexOf('items_json');
   var totalIdx = headers.indexOf('total');
+  var subtotalIdx = headers.indexOf('subtotal');
   if (idIdx === -1 || itemsIdx === -1) return { ok: false, error: 'Cấu trúc ORDERS sheet không khớp' };
 
   for (var i = 1; i < data.length; i++) {
@@ -1186,10 +1187,15 @@ function swapOrderItem(payload) {
 
       items[itemIdx] = newItem;
 
+      var oldOrderSubtotal = subtotalIdx !== -1 ? (Number(data[i][subtotalIdx]) || 0) : oldOrderTotal;
+      var newOrderSubtotal = Math.max(0, oldOrderSubtotal - oldSubtotal + newSubtotal);
       var oldOrderTotal = Number(data[i][totalIdx]) || 0;
       var newOrderTotal = Math.max(0, oldOrderTotal - oldSubtotal + newSubtotal);
 
       sheet.getRange(i + 1, itemsIdx + 1).setValue(JSON.stringify(items));
+      if (subtotalIdx !== -1) {
+        sheet.getRange(i + 1, subtotalIdx + 1).setValue(newOrderSubtotal);
+      }
       if (totalIdx !== -1) {
         sheet.getRange(i + 1, totalIdx + 1).setValue(newOrderTotal);
       }

@@ -39,7 +39,8 @@ function _authorize(authClass, e, payload) {
     return String(secret) === String(_bws);
   }
   if (authClass === AUTH.STAFF) {
-    return _requireStaffToken(e || { parameter: { token: payload && payload.token } });
+    var _st = (e && e.parameter && e.parameter.token) || (payload && payload.token) || '';
+    return _requireStaffToken({ parameter: { token: _st } });
   }
   if (authClass === AUTH.REPORT) {
     // Token có thể ở query (GET: e.parameter.token) HOẶC body JSON (POST: payload.token).
