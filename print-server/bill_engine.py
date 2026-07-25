@@ -4,9 +4,16 @@ Pure helpers over OrderStore. No Flask. The print server's routes call these and
 then drive PrintSpool for any tickets/bills that result.
 """
 
+import json
+
 
 def _line_key(it):
-    return it.get("sku") or it.get("name") or ""
+    """Identity of a line for qty aggregation: SKU/name PLUS its modifiers, so two
+    lines of the same drink with different size/ice/sugar/toppings are distinct
+    (a size swap must register as a drop of the old variant)."""
+    base = it.get("sku") or it.get("name") or ""
+    mods = it.get("modifiers") or {}
+    return base + "|" + json.dumps(mods, sort_keys=True, ensure_ascii=False)
 
 
 def diff_removed_kitchen_lines(old_items, new_items):
@@ -27,7 +34,7 @@ def diff_removed_kitchen_lines(old_items, new_items):
         if drop > 0:
             sample = next((i for i in old_items if _line_key(i) == key), {})
             removed.append({"name": sample.get("name", ""), "sku": sample.get("sku", ""),
-                            "removed_qty": drop})
+                            "modifiers": sample.get("modifiers", {}), "removed_qty": drop})
     return removed
 
 
