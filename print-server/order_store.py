@@ -135,3 +135,15 @@ class OrderStore:
 
     def set_paid(self, order_id, paid, expected_version):
         return self._bump(order_id, expected_version, "paid=?", (1 if paid else 0,))
+
+    def set_items(self, order_id, items, expected_version):
+        return self._bump(
+            order_id, expected_version,
+            "items_json=?, total=?",
+            (json.dumps(items, ensure_ascii=False), compute_total(items)))
+
+    def set_meta(self, order_id, customer_note, bill_meta, expected_version):
+        return self._bump(
+            order_id, expected_version,
+            "customer_note=?, bill_meta_json=?",
+            (customer_note or "", json.dumps(bill_meta or {}, ensure_ascii=False)))
