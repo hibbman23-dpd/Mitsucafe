@@ -2316,49 +2316,65 @@ async function executeSwapOrderItem() {
   btn.disabled = true;
   btn.textContent = 'Đang xử lý đổi món...';
 
+  let swappedOk = false;
+  let errMsg = '';
+
+  // 1. Local-First: Try Gateway /order/swap_item (<10ms)
   try {
-    const res = await callReportApi('swap_order_item', {
-      order_id: pendingSwap.orderId,
-      item_index: pendingSwap.oldItemIndex,
-      new_item: pendingSwap.newItem,
-      manager_pin: pin
-    });
-
-    if (!res || !res.ok) {
-      alert('Lỗi đổi món: ' + (res?.error || 'Không thể kết nối máy chủ'));
-      btn.disabled = false;
-      btn.textContent = '🚀 Xác Nhận Đổi Món & In Tem Mới';
-      return;
+    const gwRes = await fetch(`${GATEWAY_URL}/order/swap_item`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        order_id: pendingSwap.orderId,
+        item_index: pendingSwap.oldItemIndex,
+        new_item: pendingSwap.newItem,
+        manager_pin: pin
+      })
+    }).then(r => r.json());
+    if (gwRes && gwRes.ok) {
+      swappedOk = true;
+    } else if (gwRes && gwRes.error) {
+      errMsg = gwRes.error;
     }
+  } catch (_) {}
 
-    if (!labelPrintMuted) {
-      try {
-        await fetch(GATEWAY_URL + '/enqueue/single_label', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            order_id: pendingSwap.orderId,
-            item: pendingSwap.newItem,
-            cup_num: 1,
-            total_cups: 1,
-            short_code: pendingSwap.order.short_code,
-            delivery_type: pendingSwap.order.delivery_type,
-            table_id: pendingSwap.order.table_id
-          })
-        });
-      } catch(err) {
-        console.warn('In tem ly mới thất bại via gateway:', err);
+  // 2. Fallback to GAS if Local Gateway missed or offline
+  if (!swappedOk && !errMsg) {
+    try {
+      const res = await callReportApi('swap_order_item', {
+        order_id: pendingSwap.orderId,
+        item_index: pendingSwap.oldItemIndex,
+        new_item: pendingSwap.newItem,
+        manager_pin: pin
+      });
+      if (res && res.ok) {
+        swappedOk = true;
+      } else {
+        errMsg = res?.error || 'Không thể kết nối máy chủ';
       }
+    } catch (err) {
+      errMsg = err.message || 'Lỗi kết nối';
     }
+  }
 
-    closeSwapOverlay();
-    alert('✅ Đổi món thành công!' + (!labelPrintMuted ? ' Đã gửi lệnh in tem ly mới.' : ' (In tem ly đang TẠM TẮT)'));
-    await loadOrders();
-  } catch(err) {
-    alert('Lỗi kết nối: ' + err.message);
+  if (!swappedOk) {
+    alert('Lỗi đổi món: ' + (errMsg || 'Mã PIN không đúng hoặc không thể kết nối máy chủ'));
     btn.disabled = false;
     btn.textContent = '🚀 Xác Nhận Đổi Món & In Tem Mới';
+    return;
   }
+
+  // Update UI memory state immediately
+  const targetOrder = allOrders.find(o => o.order_id === pendingSwap.orderId);
+  if (targetOrder && targetOrder.items) {
+    targetOrder.items[pendingSwap.oldItemIndex] = pendingSwap.newItem;
+    targetOrder.items_summary = formatItemsSummary(targetOrder.items);
+    setLocalOverride(pendingSwap.orderId, { items: targetOrder.items });
+  }
+
+  closeSwapOverlay();
+  alert('✅ Đổi món thành công! Đã gửi lệnh in tem ly mới.');
+  renderOrders();
 }
 
 function closeSizeSheet(e) {

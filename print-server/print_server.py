@@ -776,6 +776,48 @@ def order_mark_paid():
     return jsonify({"ok": True, "queued_offline": True, "receipt_printed_local": receipt_printed}), 200
 
 
+@app.post("/order/swap_item")
+def order_swap_item():
+    payload = request.get_json(force=True, silent=True) or {}
+    order_id = payload.get("order_id")
+    item_index = payload.get("item_index")
+    new_item = payload.get("new_item")
+    pin = str(payload.get("manager_pin") or "").strip()
+
+    if not order_id or item_index is None or not new_item:
+        return jsonify({"ok": False, "error": "Missing order_id, item_index or new_item"}), 400
+    if pin not in ("1234", "9999"):
+        return jsonify({"ok": False, "error": "Mã PIN Quản lý không đúng!"}), 400
+
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute("SELECT payload_json FROM outbox WHERE order_id = ?", (order_id,)).fetchone()
+        if row:
+            p = json.loads(row[0])
+            items = p.get("items", [])
+            item_idx = int(item_index)
+            if 0 <= item_idx < len(items):
+                old_item = items[item_idx]
+                old_name = old_item.get("name") or old_item.get("sku") or "Món cũ"
+                if not new_item.get("modifiers"): new_item["modifiers"] = {}
+                new_item["modifiers"]["swap_from"] = old_name
+                items[item_idx] = new_item
+                p["items"] = items
+                p["total"] = sum((float(it.get("price") or 0)) * (int(it.get("qty") or 1)) for it in items)
+                conn.execute("UPDATE outbox SET payload_json = ? WHERE order_id = ?", (json.dumps(p), order_id))
+
+    try:
+        if _print_engine() == "spool":
+            SPOOL.enqueue_single_label(order_id, new_item)
+    except Exception as exc:
+        log.warning("swap_item single_label print failed: %s", exc)
+
+    GATEWAY.enqueue("swap_order_item", order_id, f"{order_id}:swap:{item_index}",
+                    {"action": "swap_order_item", "order_id": order_id, "item_index": item_index, "new_item": new_item, "manager_pin": pin})
+
+    return jsonify({"ok": True, "order_id": order_id}), 200
+
+
+
 # ── Debug / test endpoints ─────────────────────────────────────────────────────
 def _build_test_receipt() -> bytes:
     """Xây dựng hoá đơn Mitsu Café chuẩn (logo, phông chữ, ngắt dòng thông minh) để test máy in."""

@@ -724,6 +724,17 @@ var POST_ROUTES = {
         return { ok: true, order_id: p.order_id, payment_status: r.payment_status, already_paid: r.already_paid };
       } finally { lock.releaseLock(); }
     }
+  },
+  'swap_order_item': {
+    auth: AUTH.STAFF,
+    handler: function(p) {
+      var payload = p.payload || p;
+      var lock = LockService.getScriptLock();
+      lock.waitLock(15000);
+      try {
+        return swapOrderItem(payload);
+      } finally { lock.releaseLock(); }
+    }
   }
 };
 
