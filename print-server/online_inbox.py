@@ -33,10 +33,12 @@ class OnlineInbox:
             return list(self._pending.values())
 
     def accept(self, online_order_id, order_dict):
+        """Consume a pending online order. Idempotent: accepting an id that is not
+        currently pending (already accepted, or never polled) is a no-op returning
+        accepted=False and does NOT blacklist it — so an id the mailbox delivers
+        later still surfaces via poll()."""
         with self._lock:
-            if online_order_id in self._accepted or online_order_id not in self._pending:
-                self._accepted.add(online_order_id)
-                self._pending.pop(online_order_id, None)
+            if online_order_id not in self._pending:
                 return {"accepted": False}
             self._pending.pop(online_order_id, None)
             self._accepted.add(online_order_id)
