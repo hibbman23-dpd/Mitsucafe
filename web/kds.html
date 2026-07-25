@@ -1279,6 +1279,25 @@ async function reprintBill(orderId) {
   }
 }
 
+async function reprintPrepTicket(orderId) {
+  // In lại PHIẾU PHA CHẾ (đơn bếp, không giá) — dùng khi thay giấy / kẹt giấy.
+  // force=true để in lại được nhiều lần; tag=prep giữ đúng bản không tổng tiền.
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  try {
+    const payload = JSON.parse(JSON.stringify(o));
+    payload.is_reprint = true;
+    await fetch(`${GATEWAY_URL}/enqueue/receipt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: payload, is_cash: false, tag: 'prep', force: true })
+    });
+    alert('Đã gửi in lại PHIẾU PHA CHẾ (đơn bếp) cho ' + (o.short_code || orderId));
+  } catch (err) {
+    alert('Không gửi được lệnh in đơn bếp.');
+  }
+}
+
 async function reprintCupLabelPrompt(orderId) {
   const o = allOrders.find(x => x.order_id === orderId);
   if (!o) return;
@@ -1440,6 +1459,7 @@ function renderOrders() {
           ${notesHtml}
           <div style="display:flex; gap:6px; margin-top:8px; border-top:1px dashed var(--border); padding-top:6px; flex-wrap:wrap;">
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại bill" onclick="reprintBill('${esc(o.order_id)}')">🖨️ Bill</button>
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại phiếu pha chế (đơn bếp)" onclick="reprintPrepTicket('${esc(o.order_id)}')">🧾 Đơn bếp</button>
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại tem ly lẻ" onclick="reprintCupLabelPrompt('${esc(o.order_id)}')">🏷️ Tem lẻ</button>
             ${o.table_id ? `<button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="Chuyển bàn" onclick="transferTablePrompt('${esc(o.table_id)}')">🔄 Bàn</button>` : ''}
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#2ec4b6;" title="Đổi món" onclick="swapItemPrompt('${esc(o.order_id)}')">🔀 Đổi món</button>
