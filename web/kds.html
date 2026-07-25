@@ -502,7 +502,7 @@
   <div class="cart-bar-left">
     🛒 <span id="cart-count">0</span> món &nbsp;·&nbsp; <span id="cart-total-bar">0đ</span>
   </div>
-  <div class="cart-bar-right">Gửi đơn →</div>
+  <div class="cart-bar-right">Gửi đơn → (Phím M)</div>
 </div>
 
 <!-- ════════ OVERLAY: CUSTOM PICKER ════════ -->
@@ -561,7 +561,7 @@
       </div>
       <div style="display:flex; gap:10px; margin-top:12px;">
         <button class="btn-submit-order" id="btn-submit-order" style="flex:1; padding:16px; font-size:1.05rem; font-weight:800; border-radius:12px; border:none; cursor:pointer; background:#eb624a; color:#fff;" onclick="submitStaffOrder(false)">
-          🚀 Đặt đơn / Gửi đơn (Phím R)
+          🚀 Đặt đơn / Gửi đơn (Phím M)
         </button>
         <button class="btn-submit-order" id="btn-quick-pay-order" style="flex:1; padding:16px; font-size:1.05rem; font-weight:800; border-radius:12px; border:none; cursor:pointer; background:#2ec4b6; color:#fff;" onclick="submitStaffOrder(true)">
           💳 Gửi & Thanh toán ngay (Enter ↵)
@@ -2041,19 +2041,28 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // 2. Cart & Checkout Modal
+  // 2. Cart & Checkout Modal IS OPEN
   if (cartOverlay && !cartOverlay.classList.contains('hidden')) {
     if (e.key === 'Enter') {
       e.preventDefault();
       submitStaffOrder(true); // Enter = 💳 Gửi & Thanh toán ngay
-    } else if (e.key && e.key.toLowerCase() === 'r') {
+    } else if (e.key && e.key.toLowerCase() === 'm') {
       if (!isInputFocused) {
         e.preventDefault();
-        submitStaffOrder(false); // Phím R = 🚀 Đặt đơn / Gửi đơn
+        submitStaffOrder(false); // Phím M = 🚀 Đặt đơn / Gửi đơn
       }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       closeCartSheet();
+    }
+    return;
+  }
+
+  // 3. Main POS Menu (Cart Modal is NOT open, press M to open cart & review order)
+  if (e.key && e.key.toLowerCase() === 'm' && !isInputFocused) {
+    if (staffCart && staffCart.length > 0) {
+      e.preventDefault();
+      openCartSheet(); // Phím M = Mở giỏ hàng & Gửi đơn từ màn hình chính!
     }
   }
 });
