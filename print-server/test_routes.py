@@ -7,9 +7,15 @@ class TestRoutes(unittest.TestCase):
         self.c = print_server.app.test_client()
         self._db = tempfile.mktemp(suffix=".db")
         from gateway import Gateway
+        from order_store import OrderStore
         def fake_reserve(dtype, n): return {"letter": "Q", "date": "20260722", "from": 1, "to": n}
         print_server.GATEWAY = Gateway(self._db, "http://gas", "tok",
                                        reserve_fn=fake_reserve, today="20260722")
+        # Task 5: STORE binds to GATEWAY._conn at import time (real outbox.db) —
+        # rebind it here too, or order_create()'s STORE.upsert_create() would write
+        # test orders into the production orders table (confirmed happened once
+        # while wiring Task 5; do not remove this line).
+        print_server.STORE = OrderStore(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
         self._printed = []
         print_server._print_label_bytes = lambda data: self._printed.append(data) or len(data)
     def tearDown(self):

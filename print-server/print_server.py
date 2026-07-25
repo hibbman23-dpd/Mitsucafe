@@ -146,6 +146,11 @@ RECEIPT_TRANSPORT = os.getenv("RECEIPT_TRANSPORT", "cups")
 
 SPOOL = PrintSpool(GATEWAY._conn, GATEWAY._lock)
 
+# ── Materialized orders store (Task 5) ─────────────────────────────────────────
+from order_store import OrderStore, VersionConflict
+STORE = OrderStore(GATEWAY._conn, GATEWAY._lock)
+INBOX = None  # placeholder — Task 8 rebinds this to a real OnlineInbox
+
 def _print_engine():
     return os.getenv("PRINT_ENGINE", "legacy")
 
@@ -678,6 +683,23 @@ def order_create():
         "items": payload.get("items", []),
     }
 
+    is_paid = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
+
+    # Materialize into the daytime orders store (Task 5) — read routes (/orders,
+    # /order/<id>, /orders/changes) serve off this, independent of the outbox log.
+    STORE.upsert_create({
+        "order_id": order_id,
+        "short_code": short_code,
+        "delivery_type": order["metadata"]["delivery_type"],
+        "table_id": order["table_id"],
+        "source": (payload.get("metadata") or {}).get("source", "staff"),
+        "items": order["items"],
+        "total": order.get("total", 0),
+        "paid": is_paid,
+        "customer_note": order["metadata"].get("notes", ""),
+        "bill_meta": {},
+    })
+
     cups = []
     for it in order["items"]:
         for _ in range(max(1, int(it.get("qty", 1)))):
@@ -689,8 +711,9 @@ def order_create():
     # PHIẾU PHA CHẾ (tag=prep) in MỌI đơn lúc tạo — vé cho bar pha, KHÔNG mở két.
     # HÓA ĐƠN (tag=bill) chỉ in khi đơn đã thanh toán ngay (quickPay) — mở két nếu tiền mặt.
     # 2 tag khác nhau => key idempotency khác => KHÔNG bị dedup nuốt, cả hai đều ra.
-    is_paid = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
-    if _print_engine() == "spool":
+    if _print_engine() == "noop":
+        pass  # tests: skip physical enqueue entirely (no hardware, no spool)
+    elif _print_engine() == "spool":
         if cups:
             SPOOL.enqueue_labels(order, cups)
         SPOOL.enqueue_receipt(order, is_cash=False, tag="prep")
@@ -726,6 +749,24 @@ def order_lookup():
     if not found:
         return jsonify({"ok": True, "found": False}), 200
     return jsonify({"ok": True, "found": True, **found}), 200
+
+@app.get("/orders")
+def orders_list():
+    from gateway import _today_str
+    return jsonify({"ok": True, "orders": STORE.list_orders(since_date=_today_str())}), 200
+
+@app.get("/order/<order_id>")
+def order_get(order_id):
+    o = STORE.get(order_id)
+    if not o:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return jsonify({"ok": True, "order": o}), 200
+
+@app.get("/orders/changes")
+def orders_changes():
+    since = request.args.get("since", "")
+    return jsonify({"ok": True, "changes": STORE.changes_since(since),
+                    "now": _now_iso_server()}), 200
 
 @app.post("/order/status")
 def order_status():
