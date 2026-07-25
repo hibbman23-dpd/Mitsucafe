@@ -1203,29 +1203,28 @@ async function finishTableGroup(tableId, btn) {
       console.warn('In bill gộp gateway thất bại, tiếp tục cập nhật trạng thái:', printErr);
     }
 
-    // 2. Cập nhật trạng thái tất cả đơn của bàn đó thành DELIVERED & PAID
-    const idsStr = orderIds.join(',');
-    targetOrders.forEach(o => {
-      o.status = 'DELIVERED';
-      o.payment_status = 'PAID';
-      setLocalOverride(o.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
-    });
-
-    try {
-      await fetch(`${GATEWAY_URL}/order/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: idsStr, status: 'DELIVERED' })
-      });
-    } catch (_) {}
-
-    try {
-      await fetch(`${GAS_URL}?action=batch_update_status&order_ids=${encodeURIComponent(idsStr)}&status=DELIVERED${TQ}`);
-      await fetch(`${GAS_URL}?action=batch_mark_paid&order_ids=${encodeURIComponent(idsStr)}${TQ}`);
-    } catch (_) {}
-
-    speak(`Đã gộp thanh toán Bàn ${tableNum}, tổng tiền ${fmtSpeak(totalSum)} đồng`);
+    // 2. Đánh DELIVERED & PAID cho TỪNG đơn qua gwMarkPaid/gwStatus — CÓ outbox fallback
+    //    khi GAS chập chờn. Bug cũ: gọi trần batch_mark_paid tới GAS trong catch rỗng, GAS hiccup
+    //    1 nhịp là mất PAID im lặng (bill vẫn in, status vẫn set) → đơn kẹt PENDING vĩnh viễn.
+    const failed = [];
+    for (const o of targetOrders) {
+      try {
+        if (o.payment_status !== 'PAID') await gwMarkPaid(o.order_id, o, true);
+        await gwStatus(o.order_id, 'DELIVERED');
+        o.status = 'DELIVERED';
+        o.payment_status = 'PAID';
+        setLocalOverride(o.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
+      } catch (err) {
+        failed.push((o.short_code || o.order_id) + ': ' + ((err && err.message) || 'lỗi'));
+      }
+    }
     renderOrders();
+    if (failed.length) {
+      alert('⚠️ ' + failed.length + '/' + targetOrders.length + ' đơn CHƯA lưu được thanh toán:\n' +
+            failed.join('\n') + '\n\nKiểm tra mạng/GAS rồi bấm Xong lại cho bàn này.');
+    } else {
+      speak(`Đã gộp thanh toán Bàn ${tableNum}, tổng tiền ${fmtSpeak(totalSum)} đồng`);
+    }
 
   } catch (err) {
     alert('Lỗi gộp đơn: ' + (err.message || 'Không xác định'));
@@ -1594,11 +1593,11 @@ async function gwStatus(orderId, status) {
   const r = await fetch(`${GAS_URL}?action=update_status&order_id=${encodeURIComponent(orderId)}&status=${status}${TQ}`);
   const d = await r.json(); if (!d.ok) throw new Error(d.error || 'status_failed'); return d;
 }
-async function gwMarkPaid(orderId, order) {
+async function gwMarkPaid(orderId, order, skipReceipt = false) {
   if (LOCAL_FIRST) {
     try {
       const r = await fetch(`${GATEWAY_URL}/order/mark_paid`, { method:'POST',
-        headers:{'Content-Type':'application/json'}, body: JSON.stringify({ order_id: orderId, order }) });
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({ order_id: orderId, order, skip_receipt: skipReceipt }) });
       const d = await r.json(); if (d.ok) return d;
     } catch (_) {}
   }

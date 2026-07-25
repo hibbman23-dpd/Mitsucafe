@@ -681,12 +681,14 @@ def order_create():
     # Đơn đã được ghi vào outbox trong GATEWAY.mint_order (atomic, trước khi in).
     # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
+    # Chính sách: BILL chỉ in khi đơn đã thanh toán (quickPay = PAID ngay lúc tạo).
+    # Đơn PENDING chỉ in tem ly; bill sẽ in lúc thanh toán (Xong / mark_paid).
+    is_paid = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
     if _print_engine() == "spool":
         if cups:
             SPOOL.enqueue_labels(order, cups)
-        # Always enqueue receipt for kitchen/bar ticket upon order creation (EXACTLY 1 COPY)
-        is_cash = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
-        SPOOL.enqueue_receipt(order, is_cash=is_cash, copies=1)
+        if is_paid:
+            SPOOL.enqueue_receipt(order, is_cash=is_paid, copies=1)
     else:
         if cups:
             def _async_print_labels():
@@ -697,11 +699,11 @@ def order_create():
                 except Exception as exc:
                     log.error("label print failed %s: %s", order_id, exc)
             threading.Thread(target=_async_print_labels, daemon=True).start()
-        try:
-            is_cash = bool((payload.get("payment") or {}).get("status") == "PAID")
-            _print_receipt_bytes(build_receipt(order), open_drawer=is_cash)
-        except Exception as exc:
-            log.error("receipt print failed %s: %s", order_id, exc)
+        if is_paid:
+            try:
+                _print_receipt_bytes(build_receipt(order), open_drawer=is_paid)
+            except Exception as exc:
+                log.error("receipt print failed %s: %s", order_id, exc)
 
     return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
                     "printed": True, "warning": None}), 200
@@ -726,15 +728,10 @@ def order_status():
     else:
         payload["order_id"] = order_id
 
-    try:
-        d = _gas_post(payload)
-        if d.get("ok"):
-            return jsonify(d), 200      # online OK
-    except Exception:
-        pass
-    # offline HOẶC GAS trả not-ok (vd unknown_action) → queue để syncer đẩy sau
+    # Local-first: ghi outbox rồi trả NGAY, KHÔNG chờ GAS. Syncer nền (3s) đẩy lên GAS.
+    # Bỏ _gas_post đồng bộ (block ≤8s) — đó là nguồn delay của nút Xong.
     GATEWAY.enqueue("status", order_id, f"{order_id}:{status}", payload)
-    return jsonify({"ok": True, "queued_offline": True}), 200
+    return jsonify({"ok": True, "queued": True}), 200
 
 @app.post("/order/mark_paid")
 def order_mark_paid():
@@ -752,8 +749,11 @@ def order_mark_paid():
         if not meta.get("short_code"):
             meta["short_code"] = recp.get("gateway_short_code", "")
         recp["metadata"] = meta
+    # skip_receipt: dùng khi Xong gộp bàn (finishTableGroup) — bill tổng đã in riêng,
+    # mỗi đơn con chỉ đánh PAID, KHÔNG in bill lẻ (tránh in N+1 bill).
+    skip_receipt = bool(p.get("skip_receipt"))
     receipt_printed = False
-    if recp and recp.get("items"):
+    if recp and recp.get("items") and not skip_receipt:
         # Mở két CHỈ khi tiền mặt. VietQR/chuyển khoản không có tiền mặt để bỏ két → không kick.
         method = ((recp.get("payment") or {}).get("method")) or p.get("payment_method") or "cash"
         is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
@@ -764,16 +764,12 @@ def order_mark_paid():
                 _print_receipt_bytes(build_receipt(recp), open_drawer=is_cash); receipt_printed = True
             except Exception as exc:
                 log.error("local receipt failed: %s", exc)
-    try:
-        d = _gas_post({"action": "mark_paid", "order_id": order_id,
-                       "receipt_printed_local": receipt_printed})
-        if d.get("ok"):
-            return jsonify({**d, "receipt_printed_local": receipt_printed}), 200
-    except Exception:
-        pass
+    # Local-first: in bill local xong thì ghi outbox + trả NGAY, KHÔNG chờ GAS (bỏ _gas_post
+    # đồng bộ block ≤8s = nguồn delay). Syncer nền đẩy GAS với receipt_printed_local=True để
+    # GAS KHÔNG in lần 2. Đây là gốc rễ 45 đơn kẹt: batch cũ gọi GAS trần, hiccup là mất PAID.
     GATEWAY.enqueue("mark_paid", order_id, f"{order_id}:paid",
-                    {"action": "mark_paid", "order_id": order_id, "receipt_printed_local": receipt_printed})
-    return jsonify({"ok": True, "queued_offline": True, "receipt_printed_local": receipt_printed}), 200
+                    {"action": "mark_paid", "order_id": order_id, "receipt_printed_local": True})
+    return jsonify({"ok": True, "queued": True, "receipt_printed_local": receipt_printed}), 200
 
 
 @app.post("/order/swap_item")
