@@ -100,11 +100,18 @@ class TestOrderSpoolE2E(unittest.TestCase):
         oid = self.c.post("/order", json=body).get_json()["order_id"]
         r = self.c.post("/order/mark_paid", json={"order_id": oid, "payment_method": "cash"})
         self.assertTrue(r.get_json()["ok"])
+        # Tạo đơn in PHIẾU PHA CHẾ (tag=prep); mark_paid in HÓA ĐƠN (tag=bill) — key riêng, không dedup.
         row = print_server.SPOOL._conn.execute(
-            "SELECT idempotency_key, order_id, payload_json FROM print_spool WHERE printer='receipt'").fetchone()
-        self.assertEqual(row["idempotency_key"], f"{oid}:receipt:0")   # real order_id, not ':receipt:0'
+            "SELECT idempotency_key, order_id, payload_json FROM print_spool "
+            "WHERE printer='receipt' AND idempotency_key LIKE '%:bill:%'").fetchone()
+        self.assertEqual(row["idempotency_key"], f"{oid}:bill:0")
         self.assertEqual(row["order_id"], oid)
         self.assertTrue(_json.loads(row["payload_json"])["is_cash"])   # cash → drawer will kick
+        # PHIẾU PHA CHẾ vẫn có mặt (in lúc tạo đơn, không mở két)
+        prep = print_server.SPOOL._conn.execute(
+            "SELECT payload_json FROM print_spool WHERE idempotency_key=?", (f"{oid}:prep:0",)).fetchone()
+        self.assertIsNotNone(prep)
+        self.assertFalse(_json.loads(prep["payload_json"])["is_cash"])
 
     def test_mark_paid_vietqr_receipt_no_drawer(self):
         import json as _json
@@ -113,10 +120,9 @@ class TestOrderSpoolE2E(unittest.TestCase):
                 "idempotency_key": "e2e-qr"}
         oid = self.c.post("/order", json=body).get_json()["order_id"]
         self.c.post("/order/mark_paid", json={"order_id": oid, "payment_method": "vietqr"})
-        rid = print_server.SPOOL._conn.execute(
-            "SELECT id FROM print_spool WHERE printer='receipt'").fetchone()[0]
         payload = _json.loads(print_server.SPOOL._conn.execute(
-            "SELECT payload_json FROM print_spool WHERE id=?", (rid,)).fetchone()["payload_json"])
+            "SELECT payload_json FROM print_spool "
+            "WHERE printer='receipt' AND idempotency_key=?", (f"{oid}:bill:0",)).fetchone()["payload_json"])
         self.assertFalse(payload["is_cash"])  # non-cash → no drawer kick
 
 

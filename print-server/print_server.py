@@ -269,7 +269,9 @@ def enqueue_receipt_route():
     order = p.get("order") or {}
     is_cash = bool(p.get("is_cash", False))
     copies = 1
-    n = SPOOL.enqueue_receipt(order, is_cash, copies=copies)
+    tag = p.get("tag", "receipt")
+    force = bool(p.get("force", False))
+    n = SPOOL.enqueue_receipt(order, is_cash, copies=copies, tag=tag, force=force)
     return jsonify({"ok": True, "enqueued": n}), 200
 
 
@@ -681,14 +683,16 @@ def order_create():
     # Đơn đã được ghi vào outbox trong GATEWAY.mint_order (atomic, trước khi in).
     # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
-    # Chính sách: BILL chỉ in khi đơn đã thanh toán (quickPay = PAID ngay lúc tạo).
-    # Đơn PENDING chỉ in tem ly; bill sẽ in lúc thanh toán (Xong / mark_paid).
+    # PHIẾU PHA CHẾ (tag=prep) in MỌI đơn lúc tạo — vé cho bar pha, KHÔNG mở két.
+    # HÓA ĐƠN (tag=bill) chỉ in khi đơn đã thanh toán ngay (quickPay) — mở két nếu tiền mặt.
+    # 2 tag khác nhau => key idempotency khác => KHÔNG bị dedup nuốt, cả hai đều ra.
     is_paid = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
     if _print_engine() == "spool":
         if cups:
             SPOOL.enqueue_labels(order, cups)
+        SPOOL.enqueue_receipt(order, is_cash=False, tag="prep")
         if is_paid:
-            SPOOL.enqueue_receipt(order, is_cash=is_paid, copies=1)
+            SPOOL.enqueue_receipt(order, is_cash=True, tag="bill")
     else:
         if cups:
             def _async_print_labels():
@@ -699,11 +703,15 @@ def order_create():
                 except Exception as exc:
                     log.error("label print failed %s: %s", order_id, exc)
             threading.Thread(target=_async_print_labels, daemon=True).start()
+        try:
+            _print_receipt_bytes(build_receipt(order), open_drawer=False)
+        except Exception as exc:
+            log.error("prep ticket print failed %s: %s", order_id, exc)
         if is_paid:
             try:
-                _print_receipt_bytes(build_receipt(order), open_drawer=is_paid)
+                _print_receipt_bytes(build_receipt(order), open_drawer=True)
             except Exception as exc:
-                log.error("receipt print failed %s: %s", order_id, exc)
+                log.error("bill print failed %s: %s", order_id, exc)
 
     return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
                     "printed": True, "warning": None}), 200
@@ -758,7 +766,7 @@ def order_mark_paid():
         method = ((recp.get("payment") or {}).get("method")) or p.get("payment_method") or "cash"
         is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
         if _print_engine() == "spool":
-            SPOOL.enqueue_receipt(recp, is_cash); receipt_printed = True
+            SPOOL.enqueue_receipt(recp, is_cash, tag="bill"); receipt_printed = True
         else:
             try:
                 _print_receipt_bytes(build_receipt(recp), open_drawer=is_cash); receipt_printed = True

@@ -2,6 +2,7 @@
 """print_spool.py — durable per-output print queue (one job = one label or one receipt)."""
 import json
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 
 _VN = timezone(timedelta(hours=7))
@@ -76,12 +77,18 @@ class PrintSpool:
             self._conn.commit()
         return n
 
-    def enqueue_receipt(self, order, is_cash, copies=1):
+    def enqueue_receipt(self, order, is_cash, copies=1, tag="receipt", force=False):
+        """In 1 tờ nhiệt.
+        tag: phân loại để tách idempotency key — 'prep' (phiếu pha chế lúc tạo đơn) vs
+             'bill' (hóa đơn lúc thanh toán). Cùng order_id nhưng khác tag => KHÔNG bị
+             dedup nuốt, cả hai đều in. force=True: thêm timestamp để in lại nhiều lần
+             (reprint bill)."""
         order_id = order.get("order_id", "")
+        suffix = f":{uuid.uuid4().hex[:10]}" if force else ""
         inserted = 0
         with self._lock:
             if copies <= 1:
-                key = f"{order_id}:receipt:0"
+                key = f"{order_id}:{tag}:0{suffix}"
                 order_copy = dict(order)
                 if "copy_num" not in order_copy:
                     order_copy["copy_num"] = 1
@@ -89,7 +96,7 @@ class PrintSpool:
                 inserted += self._insert(key, order_id, "receipt", "receipt", 0, 1, payload)
             else:
                 for copy_num in range(1, copies + 1):
-                    key = f"{order_id}:receipt:{copy_num}"
+                    key = f"{order_id}:{tag}:{copy_num}{suffix}"
                     order_copy = dict(order)
                     order_copy["copy_num"] = copy_num
                     payload = {"order": order_copy, "is_cash": bool(is_cash)}

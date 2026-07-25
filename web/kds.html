@@ -1258,18 +1258,20 @@ async function reprintBill(orderId) {
     setLocalOverride(orderId, { payment_status: 'PAID' });
     renderOrders();
 
+    // Đánh PAID nhưng KHÔNG in (skip_receipt) — bill sẽ in ở lệnh force bên dưới,
+    // tránh in 2 tờ. force=true + tag=bill => reprint lặp được nhiều lần.
     try {
       fetch(`${GATEWAY_URL}/order/mark_paid`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: orderId, order: o })
+        body: JSON.stringify({ order_id: orderId, order: o, skip_receipt: true })
       });
     } catch (_) {}
 
     await fetch(`${GATEWAY_URL}/enqueue/receipt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order: payload, is_cash: true })
+      body: JSON.stringify({ order: payload, is_cash: true, tag: 'bill', force: true })
     });
     alert('Đã gửi lệnh in bill & cập nhật trạng thái Đã Thanh Toán cho đơn ' + (o.short_code || orderId));
   } catch (err) {
