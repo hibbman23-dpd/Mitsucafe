@@ -681,7 +681,7 @@ function optimisticInsert(payload, minted) {
     short_code: shortCode,
     delivery_type: dt,
     status: 'CONFIRMED',
-    payment_status: 'PENDING',
+    payment_status: minted.payment_status || (payload.payment||{}).status || payload.payment_status || 'PENDING',
     total: payload.total || 0,
     items: payload.items || [],
     items_summary: formatItemsSummary(payload.items),
@@ -2574,6 +2574,7 @@ async function submitStaffOrder(quickPay = false) {
     if (quickPay) {
       minted.payment_status = 'PAID';
       payload.order_id = minted.order_id || payload.order_id;
+      setLocalOverride(minted.order_id || payload.order_id, { payment_status: 'PAID' });
     }
 
     optimisticInsert(payload, minted);

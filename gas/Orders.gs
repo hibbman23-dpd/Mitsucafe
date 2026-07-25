@@ -141,7 +141,11 @@ function validateOrderPayload(p) {
     ready_at: null,
     delivering_at: null,
     delivered_at: null,
-    payment: { method: (p.payment && p.payment.method) || 'vietqr', total: total, status: 'PENDING' },
+    payment: {
+      method: (p.payment && p.payment.method) || 'vietqr',
+      total: total,
+      status: (p.payment && p.payment.status) || p.payment_status || 'PENDING'
+    },
     label_printed_at: null,
     invoice_url: null,
     printed_at: null,
