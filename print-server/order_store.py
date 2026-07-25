@@ -147,3 +147,33 @@ class OrderStore:
             order_id, expected_version,
             "customer_note=?, bill_meta_json=?",
             (customer_note or "", json.dumps(bill_meta or {}, ensure_ascii=False)))
+
+    def insert_suborder(self, sub):
+        """Insert a forked sub-order row (e.g., ORD-...0001-A from split_order)."""
+        oid = sub["order_id"]
+        items = sub.get("items", [])
+        now = _now_iso()
+        with self.lock:
+            self.conn.execute(
+                "INSERT OR IGNORE INTO orders(order_id, parent_order_id, short_code, "
+                "delivery_type, table_id, status, paid, source, items_json, customer_note, "
+                "bill_meta_json, total, version, created_at, updated_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)",
+                (oid, sub.get("parent_order_id"), sub.get("short_code", ""),
+                 sub.get("delivery_type", "dine_in"), sub.get("table_id", ""), "NEW", 0,
+                 sub.get("source", "staff"), json.dumps(items, ensure_ascii=False),
+                 sub.get("customer_note", ""), json.dumps(sub.get("bill_meta", {}), ensure_ascii=False),
+                 int(sub.get("total") or compute_total(items)), now, now))
+            self.conn.commit()
+        return self.get(oid)
+
+    def set_bill_group(self, order_ids, group_id):
+        """Tag whole orders with a shared bill_group_id (groups them for a combined bill)."""
+        now = _now_iso()
+        with self.lock:
+            for oid in order_ids:
+                self.conn.execute(
+                    "UPDATE orders SET bill_group_id=?, version=version+1, updated_at=? "
+                    "WHERE order_id=?", (group_id, now, oid))
+            self.conn.commit()
+        return [self.get(o) for o in order_ids]
