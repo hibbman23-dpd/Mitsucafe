@@ -559,12 +559,12 @@
         <span class="order-total-label">Tổng cộng</span>
         <span class="order-total-amount" id="order-form-total">0đ</span>
       </div>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button class="btn-submit-order" id="btn-submit-order" style="flex:1;" onclick="submitStaffOrder(false)">
-          Đặt đơn
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button class="btn-submit-order" id="btn-submit-order" style="flex:1; padding:16px; font-size:1.05rem; font-weight:800; border-radius:12px; border:none; cursor:pointer; background:#eb624a; color:#fff;" onclick="submitStaffOrder(false)">
+          🚀 Đặt đơn (Space ␣)
         </button>
-        <button class="btn-submit-order" id="btn-quick-pay-order" style="flex:1; background:#2ec4b6;" onclick="submitStaffOrder(true)">
-          💳 Gửi & Thanh toán ngay
+        <button class="btn-submit-order" id="btn-quick-pay-order" style="flex:1; padding:16px; font-size:1.05rem; font-weight:800; border-radius:12px; border:none; cursor:pointer; background:#2ec4b6; color:#fff;" onclick="submitStaffOrder(true)">
+          💳 Gửi & Thanh toán ngay (Enter ↵)
         </button>
       </div>
     </div>
@@ -2009,6 +2009,11 @@ function renderCustomOptions() {
 
 document.addEventListener('keydown', function(e) {
   const sizeOverlay = document.getElementById('size-overlay');
+  const cartOverlay = document.getElementById('cart-overlay');
+  const activeTag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toLowerCase() : '';
+  const isInputFocused = (activeTag === 'input' || activeTag === 'textarea');
+
+  // 1. Option Picker Modal (Choose Size / Toppings / Note)
   if (sizeOverlay && !sizeOverlay.classList.contains('hidden')) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -2016,6 +2021,23 @@ document.addEventListener('keydown', function(e) {
     } else if (e.key === 'Escape') {
       e.preventDefault();
       closeSizeSheet();
+    }
+    return;
+  }
+
+  // 2. Cart & Checkout Modal
+  if (cartOverlay && !cartOverlay.classList.contains('hidden')) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitStaffOrder(true); // Enter = 💳 Gửi & Thanh toán ngay
+    } else if (e.code === 'Space' || e.key === ' ') {
+      if (!isInputFocused) {
+        e.preventDefault();
+        submitStaffOrder(false); // Spacebar = 🚀 Đặt đơn
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCartSheet();
     }
   }
 });
