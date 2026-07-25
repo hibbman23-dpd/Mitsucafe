@@ -115,3 +115,35 @@ class TestSplitMerge(unittest.TestCase):
         with self.assertRaises(ValueError):
             bill_engine.split_order(self.s, "ORD-20260726-0001",
                                     partitions=[[] for _ in range(27)], expected_version=1)
+
+    def test_split_atomic_rolls_back_partial_write_on_error(self):
+        # Second sub-order has a non-numeric price -> compute_total raises mid-write.
+        subs = [
+            {"order_id": "ORD-20260726-0001-A", "parent_order_id": "ORD-20260726-0001",
+             "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}]},
+            {"order_id": "ORD-20260726-0001-B", "parent_order_id": "ORD-20260726-0001",
+             "items": [{"sku": "DR028", "name": "Y", "qty": 1, "price": "bad"}]},
+        ]
+        with self.assertRaises(Exception):
+            self.s.split_atomic("ORD-20260726-0001", subs, expected_version=1)
+        self.assertIsNone(self.s.get("ORD-20260726-0001-A"))            # rolled back, no orphan
+        self.assertNotEqual(self.s.get("ORD-20260726-0001")["status"], "SPLIT")
+        # must not resurrect on a later unrelated commit
+        self.s.upsert_create({"order_id": "ORD-20260726-0009", "short_code": "Q09",
+                              "delivery_type": "dine_in", "table_id": "B1", "source": "staff",
+                              "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}]})
+        self.assertIsNone(self.s.get("ORD-20260726-0001-A"))
+
+    def test_split_preexisting_suborder_id_rejected_no_orphan(self):
+        self.s.upsert_create({"order_id": "ORD-20260726-0001-A", "short_code": "Q01A",
+                              "delivery_type": "dine_in", "table_id": "B1", "source": "staff",
+                              "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}]})
+        with self.assertRaises(ValueError):
+            bill_engine.split_order(
+                self.s, "ORD-20260726-0001",
+                partitions=[
+                    [{"sku": "DR005", "name": "Cà phê muối", "qty": 2, "price": 30000}],
+                    [{"sku": "DR028", "name": "Trà sữa oolong", "qty": 1, "price": 25000}]],
+                expected_version=1)
+        self.assertIsNone(self.s.get("ORD-20260726-0001-B"))  # sibling never created
+        self.assertNotEqual(self.s.get("ORD-20260726-0001")["status"], "SPLIT")

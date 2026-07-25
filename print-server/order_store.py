@@ -163,24 +163,27 @@ class OrderStore:
             for sub in suborders:
                 if self.conn.execute("SELECT 1 FROM orders WHERE order_id=? LIMIT 1",
                                      (sub["order_id"],)).fetchone():
-                    self.conn.rollback()
                     raise ValueError(f"sub-order id already exists: {sub['order_id']}")
-            for sub in suborders:
-                items = sub.get("items", [])
+            try:
+                for sub in suborders:
+                    items = sub.get("items", [])
+                    self.conn.execute(
+                        "INSERT INTO orders(order_id, parent_order_id, short_code, delivery_type, "
+                        "table_id, status, paid, source, items_json, customer_note, bill_meta_json, "
+                        "total, version, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)",
+                        (sub["order_id"], sub.get("parent_order_id"), sub.get("short_code", ""),
+                         sub.get("delivery_type", "dine_in"), sub.get("table_id", ""), "NEW", 0,
+                         sub.get("source", "staff"), json.dumps(items, ensure_ascii=False),
+                         sub.get("customer_note", ""),
+                         json.dumps(sub.get("bill_meta", {}), ensure_ascii=False),
+                         int(sub.get("total") or compute_total(items)), now, now))
                 self.conn.execute(
-                    "INSERT INTO orders(order_id, parent_order_id, short_code, delivery_type, "
-                    "table_id, status, paid, source, items_json, customer_note, bill_meta_json, "
-                    "total, version, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)",
-                    (sub["order_id"], sub.get("parent_order_id"), sub.get("short_code", ""),
-                     sub.get("delivery_type", "dine_in"), sub.get("table_id", ""), "NEW", 0,
-                     sub.get("source", "staff"), json.dumps(items, ensure_ascii=False),
-                     sub.get("customer_note", ""),
-                     json.dumps(sub.get("bill_meta", {}), ensure_ascii=False),
-                     int(sub.get("total") or compute_total(items)), now, now))
-            self.conn.execute(
-                "UPDATE orders SET status='SPLIT', version=version+1, updated_at=? WHERE order_id=?",
-                (now, order_id))
-            self.conn.commit()
+                    "UPDATE orders SET status='SPLIT', version=version+1, updated_at=? WHERE order_id=?",
+                    (now, order_id))
+                self.conn.commit()
+            except Exception:
+                self.conn.rollback()
+                raise
         return [self.get(s["order_id"]) for s in suborders]
 
     def set_bill_group(self, order_ids, group_id):
