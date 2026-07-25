@@ -2576,18 +2576,6 @@ async function submitStaffOrder(quickPay = false) {
       payload.order_id = minted.order_id || payload.order_id;
       payload.payment_status = 'PAID';
       setLocalOverride(minted.order_id || payload.order_id, { payment_status: 'PAID' });
-
-      try {
-        fetch(`${GATEWAY_URL}/enqueue/receipt`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ order: payload, is_cash: true, copies: 1 })
-        });
-      } catch (_) {}
-
-      try {
-        fetch(`${GAS_URL}?action=mark_paid&order_id=${encodeURIComponent(minted.order_id || payload.order_id)}${TQ}`);
-      } catch (_) {}
     }
 
     optimisticInsert(payload, minted);
