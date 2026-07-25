@@ -47,3 +47,18 @@ class TestEodSync(unittest.TestCase):
         outdir = tempfile.mkdtemp()
         path = eod_sync.snapshot_db(db_path, outdir)
         self.assertTrue(os.path.exists(path))
+
+
+class TestEodPayload(unittest.TestCase):
+    def test_build_gas_payload_shape(self):
+        order = {"order_id": "ORD-1", "short_code": "Q01", "table_id": "B1",
+                 "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}],
+                 "total": 30000, "paid": 1, "bill_meta": {"customer_name": "A"},
+                 "delivery_type": "dine_in"}
+        p = eod_sync.build_gas_payload(order)
+        self.assertEqual(p["action"], "ingest_order")
+        self.assertEqual(p["order_id"], "ORD-1")
+        self.assertTrue(p["receipt_printed_local"])
+        self.assertEqual(p["payment_status"], "PAID")
+        self.assertEqual(p["total"], 30000)
+        self.assertEqual(len(p["items"]), 1)

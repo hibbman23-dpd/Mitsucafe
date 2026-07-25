@@ -31,3 +31,22 @@ def snapshot_db(db_path, backup_dir):
     dest = f"{backup_dir.rstrip('/')}/store-{stamp}.db"
     shutil.copy2(db_path, dest)
     return dest
+
+
+def build_gas_payload(order):
+    """Map a materialized order row to the GAS ingest_order contract for EOD archive."""
+    return {
+        "action": "ingest_order",
+        "order_id": order["order_id"],
+        "gateway_order_id": order["order_id"],
+        "gateway_short_code": order.get("short_code", ""),
+        "metadata": {"short_code": order.get("short_code", ""),
+                     "delivery_type": order.get("delivery_type", "dine_in"),
+                     "source": order.get("source", "staff")},
+        "table_id": order.get("table_id", ""),
+        "customer_name": (order.get("bill_meta") or {}).get("customer_name", ""),
+        "items": order.get("items", []),
+        "total": order.get("total", 0),
+        "payment_status": "PAID" if order.get("paid") else "UNPAID",
+        "receipt_printed_local": True,
+    }
