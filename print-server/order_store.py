@@ -196,3 +196,19 @@ class OrderStore:
                     "WHERE order_id=?", (group_id, now, oid))
             self.conn.commit()
         return [self.get(o) for o in order_ids]
+
+    def unsynced_finalized(self):
+        """Return finalized-but-unsynced orders (PAID or CANCELLED, synced_at IS NULL),
+        ordered by created_at ascending."""
+        with self.lock:
+            rows = self.conn.execute(
+                "SELECT * FROM orders WHERE synced_at IS NULL AND status IN ('PAID','CANCELLED') "
+                "ORDER BY created_at ASC").fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def mark_synced(self, order_id):
+        """Mark an order as synced (sets synced_at to now)."""
+        with self.lock:
+            self.conn.execute("UPDATE orders SET synced_at=? WHERE order_id=?",
+                              (_now_iso(), order_id))
+            self.conn.commit()

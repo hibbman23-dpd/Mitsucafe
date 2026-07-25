@@ -1,0 +1,49 @@
+import os, sqlite3, tempfile, threading, unittest
+from order_store import OrderStore
+import eod_sync
+
+
+def _store():
+    conn = sqlite3.connect(tempfile.mktemp(suffix=".db"), check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return OrderStore(conn, threading.Lock())
+
+
+def _finalized(s, oid, status="PAID"):
+    s.upsert_create({"order_id": oid, "short_code": "Q01", "delivery_type": "dine_in",
+                     "table_id": "B1", "source": "staff",
+                     "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}]})
+    s.set_status(oid, status, expected_version=1)
+
+
+class TestEodSync(unittest.TestCase):
+    def test_unsynced_finalized_excludes_open_orders(self):
+        s = _store()
+        _finalized(s, "ORD-1", "PAID")
+        s.upsert_create({"order_id": "ORD-2", "short_code": "Q02", "delivery_type": "dine_in",
+                         "table_id": "B1", "source": "staff", "items": []})  # stays NEW
+        ids = [o["order_id"] for o in s.unsynced_finalized()]
+        self.assertEqual(ids, ["ORD-1"])
+
+    def test_sync_pushes_and_marks(self):
+        s = _store(); _finalized(s, "ORD-1", "PAID")
+        pushed = []
+        res = eod_sync.sync_finalized(s, post_fn=lambda o: (pushed.append(o["order_id"]) or {"ok": True}))
+        self.assertEqual(res["pushed"], 1)
+        self.assertEqual(s.unsynced_finalized(), [])  # nothing left
+        # re-run is safe: no double push
+        res2 = eod_sync.sync_finalized(s, post_fn=lambda o: {"ok": True})
+        self.assertEqual(res2["pushed"], 0)
+
+    def test_sync_failure_leaves_unsynced(self):
+        s = _store(); _finalized(s, "ORD-1", "PAID")
+        res = eod_sync.sync_finalized(s, post_fn=lambda o: {"ok": False})
+        self.assertEqual(res["failed"], 1)
+        self.assertEqual(len(s.unsynced_finalized()), 1)
+
+    def test_snapshot_copies_file(self):
+        s = _store(); _finalized(s, "ORD-1")
+        db_path = s.conn.execute("PRAGMA database_list").fetchone()[2]
+        outdir = tempfile.mkdtemp()
+        path = eod_sync.snapshot_db(db_path, outdir)
+        self.assertTrue(os.path.exists(path))
