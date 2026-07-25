@@ -82,7 +82,10 @@ function validateOrderPayload(p) {
     var mods = it.modifiers || {};
     var unit = 0;
 
-    if (menuItem) {
+    if (it.price && Number(it.price) > 0) {
+      // Nếu client đã gửi giá đơn vị (ví dụ KDS POS đã tính đúng promo/size), giữ nguyên giá client
+      unit = Number(it.price);
+    } else if (menuItem) {
       unit = (mods.size === 'L' && menuItem.price_l) ? Number(menuItem.price_l) : Number(menuItem.price_m);
 
       // Promo toàn quán (PROMO_PERCENT) áp lên giá size TRƯỚC khi cộng topping
@@ -107,7 +110,7 @@ function validateOrderPayload(p) {
     }
 
     it.qty = qty;
-    it.price = unit; // ghi đè giá client gửi — dùng lại khi in tem/bill/report doanh thu
+    it.price = unit;
     subtotal += unit * qty;
   });
 
