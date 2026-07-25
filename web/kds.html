@@ -1253,14 +1253,28 @@ async function reprintBill(orderId) {
   try {
     const payload = JSON.parse(JSON.stringify(o));
     payload.is_reprint = true;
+
+    // In bill là đã thanh toán -> cập nhật trạng thái PAID ngay lập tức
+    o.payment_status = 'PAID';
+    setLocalOverride(orderId, { payment_status: 'PAID' });
+    renderOrders();
+
+    try {
+      fetch(`${GATEWAY_URL}/order/mark_paid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, order: o })
+      });
+    } catch (_) {}
+
     await fetch(`${GATEWAY_URL}/enqueue/receipt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order: payload, is_cash: false })
+      body: JSON.stringify({ order: payload, is_cash: true })
     });
-    alert('Đã gửi lệnh in lại bill cho đơn ' + (o.short_code || orderId));
+    alert('Đã gửi lệnh in bill & cập nhật trạng thái Đã Thanh Toán cho đơn ' + (o.short_code || orderId));
   } catch (err) {
-    alert('Không gửi được lệnh in lại bill.');
+    alert('Không gửi được lệnh in bill.');
   }
 }
 
@@ -1533,7 +1547,7 @@ async function loadOrders() {
     if (o.status === 'CANCELLED') { localOverrides.delete(o.order_id); ovChanged = true; return; }
     const serverCaughtUp = ov.status ? rankOf(o.status) >= rankOf(ov.status) : true;
     const payCaughtUp    = ov.payment_status ? o.payment_status === ov.payment_status : true;
-    const expired        = Date.now() - ov.timestamp > OVERRIDE_TTL_MS;
+    const expired        = (Date.now() - ov.timestamp > OVERRIDE_TTL_MS) && (ov.payment_status !== 'PAID');
     if ((serverCaughtUp && payCaughtUp) || expired) { localOverrides.delete(o.order_id); ovChanged = true; return; }
     if (ov.status && rankOf(ov.status) > rankOf(o.status)) o.status = ov.status;
     if (ov.payment_status === 'PAID') o.payment_status = 'PAID';
