@@ -6,7 +6,7 @@
   <key>Label</key><string>com.lamha.kissaten.eodsync</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/python3</string>
+    <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
     <string>/Users/dpd/Projects/lamha-kissaten/print-server/print_server.py</string>
   </array>
   <key>EnvironmentVariables</key>
