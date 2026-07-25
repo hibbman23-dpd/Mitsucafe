@@ -9,32 +9,35 @@ os.environ.setdefault("GAS_WEBAPP_URL", "http://gas.invalid")
 import print_server
 from gateway import Gateway
 from print_spool import PrintSpool
+from order_store import OrderStore
 
 
 class TestOrderSpoolE2E(unittest.TestCase):
     def setUp(self):
         # save globals so we can restore them (no leakage into other test modules)
-        self._orig = (print_server.GATEWAY, print_server.SPOOL,
+        self._orig = (print_server.GATEWAY, print_server.SPOOL, print_server.STORE,
                       print_server._gas_mark, print_server._gas_post,
                       os.environ.get("PRINT_ENGINE"))
         os.environ["PRINT_ENGINE"] = "spool"          # route branch reads this dynamically
         print_server.app.config["TESTING"] = True
         self.c = print_server.app.test_client()
         self._db = tempfile.mktemp(suffix=".db")
-        # rebind BOTH GATEWAY and SPOOL to one temp DB (SPOOL binds import-time GATEWAY,
-        # so rebinding GATEWAY alone would leave SPOOL on the real outbox.db)
+        # rebind GATEWAY, SPOOL, and STORE to one temp DB (SPOOL and STORE both bind
+        # import-time GATEWAY, so rebinding GATEWAY alone would leave them on the real
+        # outbox.db — this is what let /order writes leak into prod, Task 5 fix)
         def fake_reserve(dtype, n):
             return {"letter": "Q", "date": "20260723", "from": 1, "to": n}
         print_server.GATEWAY = Gateway(self._db, "http://gas", "tok",
                                        reserve_fn=fake_reserve, today="20260723")
         print_server.SPOOL = PrintSpool(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
+        print_server.STORE = OrderStore(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
         # keep GAS marking off the network
         print_server._gas_mark = lambda oid, kind: True
         print_server._gas_post = lambda payload, timeout=8: {"ok": True}
 
     def tearDown(self):
-        gw, sp, gm, gp, engine = self._orig
-        print_server.GATEWAY, print_server.SPOOL = gw, sp
+        gw, sp, st, gm, gp, engine = self._orig
+        print_server.GATEWAY, print_server.SPOOL, print_server.STORE = gw, sp, st
         print_server._gas_mark, print_server._gas_post = gm, gp
         if engine is None:
             os.environ.pop("PRINT_ENGINE", None)
