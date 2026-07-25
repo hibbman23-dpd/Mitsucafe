@@ -148,6 +148,7 @@ SPOOL = PrintSpool(GATEWAY._conn, GATEWAY._lock)
 
 # ── Materialized orders store (Task 5) ─────────────────────────────────────────
 from order_store import OrderStore, VersionConflict
+import bill_engine
 STORE = OrderStore(GATEWAY._conn, GATEWAY._lock)
 INBOX = None  # placeholder — Task 8 rebinds this to a real OnlineInbox
 
@@ -767,6 +768,85 @@ def orders_changes():
     since = request.args.get("since", "")
     return jsonify({"ok": True, "changes": STORE.changes_since(since),
                     "now": _now_iso_server()}), 200
+
+
+def _enqueue_cancel_ticket(order, cancelled_lines):
+    """Print a PHIẾU HỦY/ĐIỀU CHỈNH to the bar so staff stop making voided drinks."""
+    if not cancelled_lines or _print_engine() == "noop":
+        return
+    cancel_order = dict(order)
+    cancel_order["items"] = [{"name": c["name"], "sku": c["sku"], "qty": c["removed_qty"]}
+                             for c in cancelled_lines]
+    cancel_order.setdefault("metadata", {})["notes"] = "PHIẾU HỦY/ĐIỀU CHỈNH"
+    if _print_engine() == "spool":
+        SPOOL.enqueue_receipt(cancel_order, is_cash=False, tag="cancel")
+
+
+@app.patch("/order/<order_id>/items")
+def order_patch_items(order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    try:
+        res = bill_engine.apply_items_edit(
+            STORE, order_id, p.get("items", []), int(p.get("version", -1)))
+    except VersionConflict:
+        return jsonify({"ok": False, "error": "version_conflict"}), 409
+    except KeyError:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    _enqueue_cancel_ticket(res["order"], res["cancelled_lines"])
+    return jsonify({"ok": True, "order": res["order"],
+                    "cancelled_lines": res["cancelled_lines"]}), 200
+
+
+@app.patch("/order/<order_id>/meta")
+def order_patch_meta(order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    try:
+        o = STORE.set_meta(order_id, p.get("customer_note", ""),
+                           p.get("bill_meta", {}), int(p.get("version", -1)))
+    except VersionConflict:
+        return jsonify({"ok": False, "error": "version_conflict"}), 409
+    return jsonify({"ok": True, "order": o}), 200
+
+
+@app.post("/order/<order_id>/split")
+def order_split(order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    try:
+        subs = bill_engine.split_order(
+            STORE, order_id, p.get("partitions", []), int(p.get("version", -1)))
+    except VersionConflict:
+        return jsonify({"ok": False, "error": "version_conflict"}), 409
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return jsonify({"ok": True, "suborders": subs}), 200
+
+
+@app.post("/bill/merge")
+def bill_merge():
+    p = request.get_json(force=True, silent=True) or {}
+    try:
+        res = bill_engine.merge_bill(STORE, p.get("order_ids", []))
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True, **res}), 200
+
+
+@app.post("/bill/<order_id>/print")
+def bill_print(order_id):
+    o = STORE.get(order_id)
+    if not o:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    if _print_engine() == "noop":
+        return jsonify({"ok": True, "printed": False, "engine": "noop"}), 200
+    recp = {"order_id": o["order_id"], "items": o["items"], "total": o["total"],
+            "metadata": {"short_code": o["short_code"], "notes": o["customer_note"]},
+            "table_id": o["table_id"], "bill_meta": o["bill_meta"]}
+    if _print_engine() == "spool":
+        SPOOL.enqueue_receipt(recp, is_cash=False, tag="bill")
+    return jsonify({"ok": True, "printed": True}), 200
+
 
 @app.post("/order/status")
 def order_status():

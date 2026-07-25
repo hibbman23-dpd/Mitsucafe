@@ -63,5 +63,47 @@ class TestOrderRoutes(RouteTestBase):
         self.assertTrue(len(r.get_json()["changes"]) >= 1)
 
 
+class TestEditRoutes(RouteTestBase):
+    def setUp(self):
+        super().setUp()
+        self.oid = self.c.post("/order", json={
+            "idempotency_key": "e1", "metadata": {"delivery_type": "dine_in"},
+            "table_id": "B2",
+            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 2, "price": 30000},
+                      {"sku": "DR028", "name": "Trà sữa oolong", "qty": 1, "price": 25000}],
+        }).get_json()["order_id"]
+
+    def _ver(self):
+        return self.c.get(f"/order/{self.oid}").get_json()["order"]["version"]
+
+    def test_patch_items_recomputes_and_returns_cancelled(self):
+        r = self.c.patch(f"/order/{self.oid}/items", json={
+            "version": self._ver(),
+            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]})
+        d = r.get_json()
+        self.assertEqual(d["order"]["total"], 30000)
+        self.assertTrue(len(d["cancelled_lines"]) >= 1)
+
+    def test_patch_items_stale_version_409(self):
+        r = self.c.patch(f"/order/{self.oid}/items", json={
+            "version": 999, "items": []})
+        self.assertEqual(r.status_code, 409)
+
+    def test_split_route(self):
+        r = self.c.post(f"/order/{self.oid}/split", json={
+            "version": self._ver(),
+            "partitions": [
+                [{"sku": "DR005", "name": "Cà phê muối", "qty": 2, "price": 30000}],
+                [{"sku": "DR028", "name": "Trà sữa oolong", "qty": 1, "price": 25000}]]})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.get_json()["suborders"]), 2)
+
+    def test_split_bad_partition_400(self):
+        r = self.c.post(f"/order/{self.oid}/split", json={
+            "version": self._ver(),
+            "partitions": [[{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]]})
+        self.assertEqual(r.status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()
