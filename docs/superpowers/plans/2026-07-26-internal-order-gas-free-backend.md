@@ -688,13 +688,34 @@ git commit -m "feat(bill-engine): split via order forking + merge via shared bil
 import os, tempfile, unittest
 os.environ["PRINT_ENGINE"] = "noop"  # avoid real printer I/O; see Step 3 note
 import print_server
+from gateway import Gateway
+from order_store import OrderStore
+from online_inbox import OnlineInbox
 
 
-class TestOrderRoutes(unittest.TestCase):
+def _fake_reserve(dtype, n):
+    return {"letter": "Q", "date": "20260726", "from": 1, "to": n}
+
+
+class RouteTestBase(unittest.TestCase):
+    """Rebind GATEWAY/STORE/INBOX to a throwaway temp DB so route tests never
+    touch the production outbox.db (module-level STORE/SPOOL bind at import time
+    to the real DB — rebinding GATEWAY alone is not enough)."""
     def setUp(self):
         print_server.app.testing = True
         self.c = print_server.app.test_client()
+        self._db = tempfile.mktemp(suffix=".db")
+        print_server.GATEWAY = Gateway(self._db, "http://gas", "tok",
+                                       reserve_fn=_fake_reserve, today="20260726")
+        print_server.STORE = OrderStore(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
+        print_server.INBOX = OnlineInbox(print_server.STORE, fetch_fn=lambda: [])
 
+    def tearDown(self):
+        if os.path.exists(self._db):
+            os.remove(self._db)
+
+
+class TestOrderRoutes(RouteTestBase):
     def _create(self, idem="r1", table="B1"):
         return self.c.post("/order", json={
             "idempotency_key": idem,
@@ -833,10 +854,9 @@ git commit -m "feat(routes): materialize orders on create + list/get/changes rea
 
 ```python
 # append to print-server/test_routes_orderstore.py
-class TestEditRoutes(unittest.TestCase):
+class TestEditRoutes(RouteTestBase):
     def setUp(self):
-        print_server.app.testing = True
-        self.c = print_server.app.test_client()
+        super().setUp()
         self.oid = self.c.post("/order", json={
             "idempotency_key": "e1", "metadata": {"delivery_type": "dine_in"},
             "table_id": "B2",
@@ -1129,10 +1149,9 @@ git commit -m "feat(online-inbox): poll GAS mailbox, dedupe, offline catch-up, i
 
 ```python
 # append to print-server/test_routes_orderstore.py
-class TestInboxRoutes(unittest.TestCase):
+class TestInboxRoutes(RouteTestBase):
     def setUp(self):
-        print_server.app.testing = True
-        self.c = print_server.app.test_client()
+        super().setUp()
         # seed one pending online order directly into the shared INBOX
         print_server.INBOX._pending["OLX"] = {"online_order_id": "OLX",
             "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]}
