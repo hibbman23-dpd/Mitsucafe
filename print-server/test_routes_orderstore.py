@@ -3,11 +3,7 @@ os.environ["PRINT_ENGINE"] = "noop"  # avoid real printer I/O; see Step 3 note
 import print_server
 from gateway import Gateway
 from order_store import OrderStore
-# NOTE: online_inbox.py does not exist yet (it lands in Task 7/Phase 5 of the
-# GAS-free backend plan). Task 5 only needs print_server.INBOX to exist as an
-# attribute so it can be rebound later — a real OnlineInbox import here would
-# raise ModuleNotFoundError. Using a placeholder keeps this test file runnable
-# standalone at Task 5 time; Task 8 will restore the real OnlineInbox rebind.
+from online_inbox import OnlineInbox
 
 
 def _fake_reserve(dtype, n):
@@ -25,7 +21,7 @@ class RouteTestBase(unittest.TestCase):
         print_server.GATEWAY = Gateway(self._db, "http://gas", "tok",
                                        reserve_fn=_fake_reserve, today="20260726")
         print_server.STORE = OrderStore(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
-        print_server.INBOX = None  # placeholder until Task 8 wires the real OnlineInbox
+        print_server.INBOX = OnlineInbox(print_server.STORE, fetch_fn=lambda: [])
 
     def tearDown(self):
         if os.path.exists(self._db):
@@ -103,6 +99,35 @@ class TestEditRoutes(RouteTestBase):
             "version": self._ver(),
             "partitions": [[{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]]})
         self.assertEqual(r.status_code, 400)
+
+
+class TestInboxRoutes(RouteTestBase):
+    def setUp(self):
+        super().setUp()
+        # seed one pending online order directly into the shared INBOX
+        print_server.INBOX._pending["OLX"] = {"online_order_id": "OLX",
+            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]}
+
+    def test_inbox_lists_pending(self):
+        r = self.c.get("/inbox")
+        ids = [p["online_order_id"] for p in r.get_json()["pending"]]
+        self.assertIn("OLX", ids)
+
+    def test_accept_creates_order(self):
+        r = self.c.post("/inbox/OLX/accept", json={
+            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}],
+            "table_id": "TAKE", "customer_name": "Anh A"})
+        d = r.get_json()
+        self.assertTrue(d["ok"])
+        self.assertTrue(d["order_id"].startswith("ORD-"))
+        self.assertEqual(STORE_source_of(d["order_id"]), "online")
+
+    def test_cloud_status(self):
+        self.assertIn("online", self.c.get("/cloud/status").get_json())
+
+
+def STORE_source_of(order_id):
+    return print_server.STORE.get(order_id)["source"]
 
 
 if __name__ == "__main__":

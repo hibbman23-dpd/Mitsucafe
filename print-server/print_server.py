@@ -150,7 +150,53 @@ SPOOL = PrintSpool(GATEWAY._conn, GATEWAY._lock)
 from order_store import OrderStore, VersionConflict
 import bill_engine
 STORE = OrderStore(GATEWAY._conn, GATEWAY._lock)
-INBOX = None  # placeholder — Task 8 rebinds this to a real OnlineInbox
+
+# ── Online-order inbox (Task 8) ────────────────────────────────────────────────
+from online_inbox import OnlineInbox
+
+
+def _gas_fetch_online():
+    """Pull pending online orders from GAS mailbox. Returns [] on any failure so the
+    inbox flags offline rather than raising into the poll loop's status."""
+    d = GATEWAY._post_to_gas({"action": "pending_online_orders"})
+    return d.get("orders", []) if isinstance(d, dict) else []
+
+
+INBOX = OnlineInbox(STORE, fetch_fn=(lambda: []) if os.getenv("PRINT_ENGINE") == "noop"
+                    else _gas_fetch_online)
+
+
+@app.get("/inbox")
+def inbox_list():
+    return jsonify({"ok": True, "pending": INBOX.pending(), "status": INBOX.status()}), 200
+
+
+@app.post("/inbox/<online_order_id>/accept")
+def inbox_accept(online_order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    minted = GATEWAY.mint_order({
+        "idempotency_key": "online:" + online_order_id,
+        "metadata": {"delivery_type": "pickup", "source": "online"},
+        "table_id": p.get("table_id", ""),
+        "customer_name": p.get("customer_name", ""),
+        "items": p.get("items", []),
+    })
+    order_id, short_code = minted["order_id"], minted["short_code"]
+    STORE.upsert_create({
+        "order_id": order_id, "short_code": short_code, "delivery_type": "pickup",
+        "table_id": p.get("table_id", ""), "source": "online",
+        "items": p.get("items", []),
+        "bill_meta": {"customer_name": p.get("customer_name", "")},
+    })
+    res = INBOX.accept(online_order_id, p)
+    return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
+                    "accepted": res["accepted"]}), 200
+
+
+@app.get("/cloud/status")
+def cloud_status():
+    st = INBOX.status()
+    return jsonify({"ok": True, **st}), 200
 
 def _print_engine():
     return os.getenv("PRINT_ENGINE", "legacy")
