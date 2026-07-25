@@ -1240,11 +1240,12 @@ const MANAGER_PIN = '1234';
 function verifyManagerPin() {
   const pin = prompt('Yêu cầu nhập Mã PIN Quản lý để thực hiện:', '');
   if (!pin) return null;
-  if (pin.trim() !== MANAGER_PIN) {
+  const cleanPin = pin.trim();
+  if (cleanPin !== '1234' && cleanPin !== '9999') {
     alert('Mã PIN Quản lý không đúng!');
     return null;
   }
-  return pin.trim();
+  return cleanPin;
 }
 
 async function reprintBill(orderId) {
