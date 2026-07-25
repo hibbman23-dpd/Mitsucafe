@@ -85,6 +85,7 @@ class PrintSpool:
              (reprint bill)."""
         order_id = order.get("order_id", "")
         suffix = f":{uuid.uuid4().hex[:10]}" if force else ""
+        show_total = (tag == "bill")   # HÓA ĐƠN in tổng tiền; PHIẾU PHA CHẾ (prep) thì không
         inserted = 0
         with self._lock:
             if copies <= 1:
@@ -92,14 +93,14 @@ class PrintSpool:
                 order_copy = dict(order)
                 if "copy_num" not in order_copy:
                     order_copy["copy_num"] = 1
-                payload = {"order": order_copy, "is_cash": bool(is_cash)}
+                payload = {"order": order_copy, "is_cash": bool(is_cash), "show_total": show_total}
                 inserted += self._insert(key, order_id, "receipt", "receipt", 0, 1, payload)
             else:
                 for copy_num in range(1, copies + 1):
                     key = f"{order_id}:{tag}:{copy_num}{suffix}"
                     order_copy = dict(order)
                     order_copy["copy_num"] = copy_num
-                    payload = {"order": order_copy, "is_cash": bool(is_cash)}
+                    payload = {"order": order_copy, "is_cash": bool(is_cash), "show_total": show_total}
                     inserted += self._insert(key, order_id, "receipt", "receipt", copy_num, copies, payload)
             self._conn.commit()
         return inserted

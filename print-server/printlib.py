@@ -244,7 +244,7 @@ def _draw_bee(draw, cx: int, top: int, s: float = 1.1) -> int:
 
 
 # ── Receipt builder ───────────────────────────────────────────────────────────
-def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
+def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = False) -> bytes:
     from PIL import Image, ImageDraw
 
     W, PAD, CW = _W, _PAD, _CW
@@ -410,6 +410,17 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         for nl in (note_lines or [f"Ghi chú: {notes}"]):
             add_text(nl, f_small, indent=0)
 
+    # HÓA ĐƠN (show_total=True): tổng tiền + phương thức + cảm ơn. PHIẾU PHA CHẾ bỏ qua.
+    if show_total:
+        add_hline(thick=1, gap_before=3, gap_after=3)
+        total_str = f"Tổng:  {_format_amount(order.get('total', 0))}đ"
+        pmt_str   = f"TT:  {_payment_label((order.get('payment') or {}).get('method', ''))}"
+        add_text(total_str, f_total, "right")
+        add_text(pmt_str,   f_norm,  "right")
+        add_hline(thick=2, gap_before=4, gap_after=4)
+        add_text("Cảm ơn! Hẹn gặp lại nhé!", f_norm, "center")
+        add_text("mitsu.cafe",               f_addr,  "center")
+
     add_hline(thick=3, gap_before=6, gap_after=12)
 
     height = y + 8
@@ -495,7 +506,7 @@ def _viet_cp1258(s: str) -> str:
     return "".join(result)
 
 
-def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
+def build_receipt_text(order: dict, is_cash: bool = False, show_total: bool = False) -> bytes:
     ESC = b"\x1b"
     GS  = b"\x1d"
     W   = 32
@@ -569,6 +580,18 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
         for nl in note_lines:
             parts.append(enc("  " + nl + "\n"))
     parts.append(enc("-" * W + "\n"))
+    # HÓA ĐƠN (show_total=True): tổng tiền + phương thức + cảm ơn. PHIẾU PHA CHẾ bỏ qua (vé bếp sạch).
+    if show_total:
+        parts.append(ESC + b"!\x08")
+        parts.append(enc(rjust("Tong: " + _format_amount(order.get("total", 0)) + "d", W) + "\n"))
+        parts.append(ESC + b"!\x00")
+        pmt = (order.get("payment") or {}).get("method", "")
+        parts.append(enc(rjust("TT: " + _payment_label(pmt), W) + "\n"))
+        parts.append(enc("=" * W + "\n"))
+        parts.append(ESC + b"a\x01")
+        parts.append(enc("Cam on! Hen gap lai nhe!\n"))
+        parts.append(enc("mitsu.cafe\n"))
+        parts.append(ESC + b"a\x00")
     parts.append(enc("=" * W + "\n"))
     parts.append(b"\n\n\n")
     if is_cash:
@@ -579,14 +602,14 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
     return b"".join(parts)
 
 
-def build_receipt(order: dict, is_cash: bool = False) -> bytes:
+def build_receipt(order: dict, is_cash: bool = False, show_total: bool = False) -> bytes:
     fmt = os.getenv("RECEIPT_FORMAT", "text").lower()
     if fmt == "raster":
         try:
-            return build_receipt_raster(order, is_cash)
+            return build_receipt_raster(order, is_cash, show_total=show_total)
         except Exception as exc:
             log.warning("Raster build failed (%s), fallback to text mode", exc)
-    return build_receipt_text(order, is_cash)
+    return build_receipt_text(order, is_cash, show_total=show_total)
 
 
 # ── Label builder ─────────────────────────────────────────────────────────────

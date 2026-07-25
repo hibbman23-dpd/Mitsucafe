@@ -159,7 +159,8 @@ def _cups_from_items(order_items):
 def _render_job(job):
     payload = json.loads(job["payload_json"])
     if job["kind"] == "receipt":
-        return build_receipt(payload["order"], is_cash=payload.get("is_cash", False))
+        return build_receipt(payload["order"], is_cash=payload.get("is_cash", False),
+                             show_total=payload.get("show_total", False))
     return build_label_tspl(payload["order"], payload["item"],
                             job["seq_in_order"], job["total_in_order"], include_header=False)
 
@@ -709,7 +710,7 @@ def order_create():
             log.error("prep ticket print failed %s: %s", order_id, exc)
         if is_paid:
             try:
-                _print_receipt_bytes(build_receipt(order), open_drawer=True)
+                _print_receipt_bytes(build_receipt(order, show_total=True), open_drawer=True)
             except Exception as exc:
                 log.error("bill print failed %s: %s", order_id, exc)
 
@@ -769,7 +770,7 @@ def order_mark_paid():
             SPOOL.enqueue_receipt(recp, is_cash, tag="bill"); receipt_printed = True
         else:
             try:
-                _print_receipt_bytes(build_receipt(recp), open_drawer=is_cash); receipt_printed = True
+                _print_receipt_bytes(build_receipt(recp, show_total=True), open_drawer=is_cash); receipt_printed = True
             except Exception as exc:
                 log.error("local receipt failed: %s", exc)
     # Local-first: in bill local xong thì ghi outbox + trả NGAY, KHÔNG chờ GAS (bỏ _gas_post

@@ -178,3 +178,28 @@ class TestReceiptPrepBillTags(SpoolBase):
         self.assertEqual((n1, n2), (1, 1))  # force => key có timestamp, không dedup
         self.assertEqual(self.conn.execute(
             "SELECT COUNT(*) FROM print_spool WHERE idempotency_key LIKE '%:bill:%'").fetchone()[0], 2)
+
+
+class TestBillShowTotal(SpoolBase):
+    """HÓA ĐƠN (tag=bill) mang cờ show_total=True; PHIẾU PHA CHẾ (prep) = False."""
+
+    def test_payload_show_total_flag(self):
+        import json as _json
+        o = _order()
+        self.spool.enqueue_receipt(o, is_cash=False, tag="prep")
+        self.spool.enqueue_receipt(o, is_cash=True,  tag="bill")
+        rows = {r["idempotency_key"]: _json.loads(r["payload_json"])
+                for r in self.conn.execute("SELECT idempotency_key, payload_json FROM print_spool")}
+        self.assertFalse(rows["ORD-20260723-0001:prep:0"]["show_total"])
+        self.assertTrue(rows["ORD-20260723-0001:bill:0"]["show_total"])
+
+    def test_build_receipt_text_total_only_when_flagged(self):
+        from printlib import build_receipt_text
+        o = {"order_id": "X", "timestamp": "2026-07-23T08:00:00+07:00", "total": 66500,
+             "payment": {"method": "cash"}, "metadata": {"short_code": "Q9"},
+             "items": [{"name": "CF Sua", "qty": 1, "price": 66500, "modifiers": {}}]}
+        prep = build_receipt_text(o, is_cash=False, show_total=False)
+        bill = build_receipt_text(o, is_cash=True,  show_total=True)
+        self.assertNotIn(b"Tong:", prep)          # phiếu pha chế: KHÔNG tổng
+        self.assertIn(b"Tong:", bill)             # hóa đơn: CÓ tổng
+        self.assertIn(b"Cam on", bill)
