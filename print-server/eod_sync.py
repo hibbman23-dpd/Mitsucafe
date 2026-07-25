@@ -2,10 +2,13 @@
 finalized. Time-independent: any run picks up all unsynced-finalized rows, so a late
 run, an outage, or a crash simply catches up next time. Re-runnable (synced_at gate).
 """
+import logging
 import shutil
 from datetime import datetime, timedelta, timezone
 
 _VN = timezone(timedelta(hours=7))
+
+log = logging.getLogger("eod_sync")
 
 
 def sync_finalized(store, post_fn):
@@ -15,7 +18,8 @@ def sync_finalized(store, post_fn):
     for order in store.unsynced_finalized():
         try:
             d = post_fn(order)
-        except Exception:
+        except Exception as exc:
+            log.error("EOD push failed for %s: %s", order.get("order_id"), exc)
             d = {"ok": False}
         if d and d.get("ok"):
             store.mark_synced(order["order_id"])

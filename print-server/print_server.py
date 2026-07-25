@@ -149,6 +149,7 @@ SPOOL = PrintSpool(GATEWAY._conn, GATEWAY._lock)
 # ── Materialized orders store (Task 5) ─────────────────────────────────────────
 from order_store import OrderStore, VersionConflict
 import bill_engine
+import eod_sync
 STORE = OrderStore(GATEWAY._conn, GATEWAY._lock)
 
 # ── Online-order inbox (Task 8) ────────────────────────────────────────────────
@@ -1804,7 +1805,59 @@ def _syncer_loop():
         time.sleep(interval if done else min(30, interval * 2))
 
 
+def _start_background_workers():
+    """Poll loop + hourly snapshot loop, as daemon threads. No-op under
+    PRINT_ENGINE=noop so the test client never spawns background threads."""
+    if os.getenv("PRINT_ENGINE") == "noop":
+        return
+
+    def _poll_loop():
+        while True:
+            try:
+                # ONLINE_POLL defaults OFF: the GAS-side `pending_online_orders`
+                # mailbox action does not exist yet (tracked as a separate
+                # follow-up task), so an on-by-default poll would error every
+                # ~ONLINE_POLL_SEC seconds on the live server after deploy.
+                if os.getenv("ONLINE_POLL", "0") == "1":
+                    INBOX.poll()
+            except Exception as e:
+                log.error("inbox poll error: %s", e)
+            time.sleep(int(os.getenv("ONLINE_POLL_SEC", "20")))
+
+    def _snapshot_loop():
+        db_path = GATEWAY.db_path
+        outdir = os.getenv("BACKUP_DIR", os.path.join(os.path.dirname(__file__), "backups"))
+        os.makedirs(outdir, exist_ok=True)
+        while True:
+            time.sleep(3600)
+            try:
+                eod_sync.snapshot_db(db_path, outdir)
+            except Exception as e:
+                log.error("snapshot error: %s", e)
+
+    threading.Thread(target=_poll_loop, daemon=True).start()
+    threading.Thread(target=_snapshot_loop, daemon=True).start()
+
+
+# NOTE (known gap, see spec review): GAS ingest_order does NOT credit loyalty
+# stamps or run revenue rollup — those fire only in markOrderPaid. This EOD push
+# archives the order row but does NOT yet credit stamps/metrics for PAID orders.
+# A follow-up must send a mark_paid per PAID order (mirroring gateway.sync's two
+# ops) once GAS markOrderPaid semantics are confirmed. Do not treat EOD loyalty
+# as working until then.
+def run_eod_sync():
+    """Callable by launchd/cron at ~23:00 and again next morning; idempotent."""
+    def post(order):
+        return GATEWAY._post_to_gas(eod_sync.build_gas_payload(order))
+    return eod_sync.sync_finalized(STORE, post_fn=post)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
+if __name__ == "__main__" and os.getenv("RUN_EOD") == "1":
+    import sys
+    print(run_eod_sync())
+    sys.exit(0)
+
 if __name__ == "__main__":
     if os.getenv("GATEWAY_SYNC", "1") == "1":
         threading.Thread(target=_syncer_loop, daemon=True).start()
@@ -1818,4 +1871,5 @@ if __name__ == "__main__":
         LABEL_SERIAL_PORT if LABEL_MODE == "serial" else f"{LABEL_PRINTER_IP}:{LABEL_PRINTER_PORT}",
         LABEL_MODE,
     )
+    _start_background_workers()
     app.run(host="0.0.0.0", port=SERVER_PORT, threaded=True)
