@@ -159,8 +159,10 @@ def _cups_from_items(order_items):
 def _render_job(job):
     payload = json.loads(job["payload_json"])
     if job["kind"] == "receipt":
+        show_total = payload.get("show_total", False)
+        # HÓA ĐƠN (show_total) → raster có logo Mitsu; PHIẾU PHA CHẾ → theo env (text).
         return build_receipt(payload["order"], is_cash=payload.get("is_cash", False),
-                             show_total=payload.get("show_total", False))
+                             show_total=show_total, prefer_raster=show_total)
     return build_label_tspl(payload["order"], payload["item"],
                             job["seq_in_order"], job["total_in_order"], include_header=False)
 

@@ -312,6 +312,9 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
     daily_seq_str = _get_daily_sequence(order)
     table_label   = _loc_label(order)
 
+    # Logo Mitsu cách điệu (assets/receipt-logo.png) ở đầu — nổi bật cho HÓA ĐƠN.
+    add_logo()
+    add_gap(4)
     add_text("=== PHIẾU PHA CHẾ ===", f_header, "center")
     add_text(f"STT ĐƠN: {daily_seq_str}", f_super, "center")
 
@@ -602,9 +605,12 @@ def build_receipt_text(order: dict, is_cash: bool = False, show_total: bool = Fa
     return b"".join(parts)
 
 
-def build_receipt(order: dict, is_cash: bool = False, show_total: bool = False) -> bytes:
+def build_receipt(order: dict, is_cash: bool = False, show_total: bool = False,
+                  prefer_raster: bool = False) -> bytes:
+    # HÓA ĐƠN (prefer_raster=True): render raster để có logo Mitsu cách điệu + tổng tiền.
+    # PHIẾU PHA CHẾ: theo RECEIPT_FORMAT (mặc định text, nhanh, không logo).
     fmt = os.getenv("RECEIPT_FORMAT", "text").lower()
-    if fmt == "raster":
+    if fmt == "raster" or prefer_raster:
         try:
             return build_receipt_raster(order, is_cash, show_total=show_total)
         except Exception as exc:
