@@ -645,8 +645,7 @@ async function callReportApi(action, payload = {}) {
     const url = `${GAS_URL}?action=${encodeURIComponent(action)}${TQ}`;
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, token: 'kds_staff_token_2026', ...payload })
+      body: JSON.stringify({ action, token: REPORT_TOKEN || 'kds_staff_token_2026', ...payload })
     });
     return await res.json();
   } catch (err) {
@@ -2334,7 +2333,7 @@ async function executeSwapOrderItem() {
 
     if (!labelPrintMuted) {
       try {
-        await fetch(LOCAL_GW + '/enqueue/single_label', {
+        await fetch(GATEWAY_URL + '/enqueue/single_label', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
