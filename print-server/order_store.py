@@ -97,3 +97,41 @@ class OrderStore:
             row = self.conn.execute(
                 "SELECT * FROM orders WHERE order_id=?", (order_id,)).fetchone()
         return _row_to_dict(row)
+
+    def list_orders(self, since_date=None):
+        q = "SELECT * FROM orders"
+        args = ()
+        if since_date:
+            q += " WHERE created_at LIKE ?"
+            args = (since_date[:4] + "-" + since_date[4:6] + "-" + since_date[6:8] + "%",)
+        q += " ORDER BY updated_at DESC"
+        with self.lock:
+            rows = self.conn.execute(q, args).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def changes_since(self, ts):
+        with self.lock:
+            rows = self.conn.execute(
+                "SELECT * FROM orders WHERE updated_at > ? ORDER BY updated_at ASC",
+                (ts,)).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+    def _bump(self, order_id, expected_version, set_sql, set_args):
+        """Apply an optimistic-locked UPDATE that also bumps version + updated_at."""
+        now = _now_iso()
+        with self.lock:
+            cur = self.conn.execute(
+                f"UPDATE orders SET {set_sql}, version=version+1, updated_at=? "
+                "WHERE order_id=? AND version=?",
+                (*set_args, now, order_id, expected_version))
+            if cur.rowcount == 0:
+                self.conn.rollback()
+                raise VersionConflict(f"{order_id} version != {expected_version}")
+            self.conn.commit()
+        return self.get(order_id)
+
+    def set_status(self, order_id, status, expected_version):
+        return self._bump(order_id, expected_version, "status=?", (status,))
+
+    def set_paid(self, order_id, paid, expected_version):
+        return self._bump(order_id, expected_version, "paid=?", (1 if paid else 0,))

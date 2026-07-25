@@ -51,5 +51,38 @@ class TestOrderStoreCreate(unittest.TestCase):
         self.assertEqual(s.get("ORD-20260726-0001")["short_code"], "Q01")
 
 
+class TestOrderStoreListAndStatus(unittest.TestCase):
+    def setUp(self):
+        self.s = _store()
+        self.s.upsert_create(_order("ORD-20260726-0001"))
+        self.s.upsert_create(_order("ORD-20260726-0002", short_code="Q02"))
+
+    def test_list_orders_returns_all(self):
+        self.assertEqual(len(self.s.list_orders()), 2)
+
+    def test_changes_since_returns_only_newer(self):
+        row = self.s.get("ORD-20260726-0001")
+        ts = row["updated_at"]
+        # mutate the second order so its updated_at advances past ts
+        import time; time.sleep(0.01)
+        self.s.set_status("ORD-20260726-0002", "CONFIRMED", expected_version=1)
+        changed = self.s.changes_since(ts)
+        ids = [c["order_id"] for c in changed]
+        self.assertIn("ORD-20260726-0002", ids)
+
+    def test_set_status_bumps_version(self):
+        r = self.s.set_status("ORD-20260726-0001", "CONFIRMED", expected_version=1)
+        self.assertEqual(r["status"], "CONFIRMED")
+        self.assertEqual(r["version"], 2)
+
+    def test_set_status_stale_version_raises(self):
+        with self.assertRaises(VersionConflict):
+            self.s.set_status("ORD-20260726-0001", "CONFIRMED", expected_version=99)
+
+    def test_set_paid(self):
+        r = self.s.set_paid("ORD-20260726-0001", True, expected_version=1)
+        self.assertEqual(r["paid"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()
