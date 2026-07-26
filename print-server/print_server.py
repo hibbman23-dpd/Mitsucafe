@@ -356,6 +356,14 @@ def serve_order():
 def serve_menu_data():
     return send_from_directory(WEB_DIR, "menu-data.js")
 
+@app.get("/order-api.js")
+def serve_order_api():
+    return send_from_directory(WEB_DIR, "order-api.js")
+
+@app.get("/checkout.js")
+def serve_checkout():
+    return send_from_directory(WEB_DIR, "checkout.js")
+
 @app.get("/mitsu.css")
 def serve_mitsu_css():
     return send_from_directory(WEB_DIR, "mitsu.css")
