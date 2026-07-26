@@ -838,6 +838,9 @@ def _enqueue_cancel_ticket(order, cancelled_lines):
 @app.patch("/order/<order_id>/items")
 def order_patch_items(order_id):
     p = request.get_json(force=True, silent=True) or {}
+    cur = STORE.get(order_id)
+    if cur and cur.get("paid") and str(p.get("manager_pin") or "") not in ("1234", "9999"):
+        return jsonify({"ok": False, "error": "paid_order_needs_pin"}), 403
     try:
         res = bill_engine.apply_items_edit(
             STORE, order_id, p.get("items", []), int(p.get("version", -1)))
@@ -874,6 +877,18 @@ def order_split(order_id):
     except KeyError:
         return jsonify({"ok": False, "error": "not found"}), 404
     return jsonify({"ok": True, "suborders": subs}), 200
+
+
+@app.post("/order/<order_id>/void")
+def order_void(order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    if str(p.get("manager_pin") or "") not in ("1234", "9999"):
+        return jsonify({"ok": False, "error": "bad_pin"}), 403
+    o = STORE.void_order(order_id, p.get("reason", ""), p.get("staff", ""))
+    if o is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    STORE.apply_status(order_id, "VOIDED")  # ensure status mirrors even if void raced
+    return jsonify({"ok": True, "order": o}), 200
 
 
 @app.post("/bill/merge")

@@ -117,5 +117,20 @@ class TestApplyMirror(unittest.TestCase):
         self.assertEqual(self.s.unsynced_finalized(), [])
 
 
+class TestVoid(unittest.TestCase):
+    def setUp(self):
+        self.s = _store()
+        self.s.upsert_create(_order("ORD-20260726-0001"))
+
+    def test_void_sets_status_reason_who(self):
+        r = self.s.void_order("ORD-20260726-0001", "khách trả lại", "cashier1")
+        self.assertEqual(r["status"], "VOIDED")
+        self.assertEqual(r["void_reason"], "khách trả lại")
+        self.assertEqual(r["voided_by"], "cashier1")
+
+    def test_void_missing_returns_none(self):
+        self.assertIsNone(self.s.void_order("NOPE", "x", "y"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -124,6 +124,31 @@ class TestEditRoutes(RouteTestBase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(sorted(r.get_json()["order_ids"]), sorted([self.oid, oid2]))
 
+    def test_void_requires_valid_pin(self):
+        r = self.c.post(f"/order/{self.oid}/void", json={"reason": "nhầm", "staff": "a", "manager_pin": "0000"})
+        self.assertEqual(r.status_code, 403)
+
+    def test_void_ok_with_pin(self):
+        r = self.c.post(f"/order/{self.oid}/void", json={"reason": "nhầm", "staff": "a", "manager_pin": "1234"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.c.get(f"/order/{self.oid}").get_json()["order"]["status"], "VOIDED")
+
+    def test_patch_items_on_paid_order_needs_pin(self):
+        # mark paid first (mirrors into STORE), then editing must require a PIN
+        self.c.post("/order/mark_paid", json={"order_id": self.oid})
+        r = self.c.patch(f"/order/{self.oid}/items", json={
+            "version": self.c.get(f"/order/{self.oid}").get_json()["order"]["version"],
+            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]})
+        self.assertEqual(r.status_code, 403)
+
+    def test_patch_items_on_paid_order_ok_with_pin(self):
+        self.c.post("/order/mark_paid", json={"order_id": self.oid})
+        r = self.c.patch(f"/order/{self.oid}/items", json={
+            "version": self.c.get(f"/order/{self.oid}").get_json()["order"]["version"],
+            "manager_pin": "9999",
+            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]})
+        self.assertEqual(r.status_code, 200)
+
 
 class TestInboxRoutes(RouteTestBase):
     def setUp(self):

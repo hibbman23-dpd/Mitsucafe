@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS orders (
   bill_meta_json  TEXT,
   total           INTEGER,
   bill_group_id   TEXT,
+  void_reason     TEXT,
+  voided_by       TEXT,
   version         INTEGER DEFAULT 1,
   created_at      TEXT,
   updated_at      TEXT,
@@ -71,6 +73,11 @@ class OrderStore:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA busy_timeout=5000;")
             conn.executescript(ORDERS_SCHEMA)
+            for col in ("void_reason", "voided_by"):
+                try:
+                    conn.execute(f"ALTER TABLE orders ADD COLUMN {col} TEXT")
+                except Exception:
+                    pass  # already present
             conn.commit()
 
     def upsert_create(self, order):
@@ -230,6 +237,9 @@ class OrderStore:
 
     def apply_paid(self, order_id, paid=True):
         return self._apply(order_id, "paid=?", (1 if paid else 0,))
+
+    def void_order(self, order_id, reason, staff):
+        return self._apply(order_id, "status='VOIDED', void_reason=?, voided_by=?", (reason, staff))
 
     def unsynced_finalized(self):
         """Return finalized-but-unsynced orders (paid=1 or CANCELLED, synced_at IS NULL),
