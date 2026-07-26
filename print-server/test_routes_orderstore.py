@@ -4,6 +4,7 @@ import print_server
 from gateway import Gateway
 from order_store import OrderStore
 from online_inbox import OnlineInbox
+from print_spool import PrintSpool
 
 
 def _fake_reserve(dtype, n):
@@ -21,6 +22,7 @@ class RouteTestBase(unittest.TestCase):
         print_server.GATEWAY = Gateway(self._db, "http://gas", "tok",
                                        reserve_fn=_fake_reserve, today="20260726")
         print_server.STORE = OrderStore(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
+        print_server.SPOOL = PrintSpool(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
         print_server.INBOX = OnlineInbox(print_server.STORE, fetch_fn=lambda: [])
 
     def tearDown(self):
@@ -163,6 +165,30 @@ class TestEodGuard(unittest.TestCase):
         finally:
             if prev is not None:
                 _os.environ["GATEWAY_SYNC"] = prev
+
+
+class TestSpoolPath(RouteTestBase):
+    def setUp(self):
+        super().setUp()
+        self.oid = self.c.post("/order", json={
+            "idempotency_key": "sp1", "metadata": {"delivery_type": "dine_in"}, "table_id": "B9",
+            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]}).get_json()["order_id"]
+
+    def test_bill_print_spool_writes_to_temp_spool_not_prod(self):
+        import os as _os
+        prev = _os.environ.get("PRINT_ENGINE")
+        _os.environ["PRINT_ENGINE"] = "spool"
+        try:
+            before = print_server.SPOOL._conn.execute("SELECT count(*) FROM print_spool").fetchone()[0]
+            r = self.c.post(f"/bill/{self.oid}/print")
+            self.assertTrue(r.get_json()["printed"])
+            after = print_server.SPOOL._conn.execute("SELECT count(*) FROM print_spool").fetchone()[0]
+            self.assertEqual(after, before + 1)  # enqueued into the TEMP spool
+        finally:
+            if prev is None:
+                _os.environ.pop("PRINT_ENGINE", None)
+            else:
+                _os.environ["PRINT_ENGINE"] = prev
 
 
 if __name__ == "__main__":
