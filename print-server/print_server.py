@@ -943,7 +943,7 @@ def order_mark_paid():
         is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
         if _print_engine() == "spool":
             SPOOL.enqueue_receipt(recp, is_cash, tag="bill"); receipt_printed = True
-        else:
+        elif _print_engine() != "noop":  # legacy path; noop (tests) must NOT touch the live printer
             try:
                 _print_receipt_bytes(build_receipt(recp, show_total=True), open_drawer=is_cash); receipt_printed = True
             except Exception as exc:
