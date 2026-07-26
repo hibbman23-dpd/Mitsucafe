@@ -149,6 +149,13 @@ class TestEditRoutes(RouteTestBase):
             "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]})
         self.assertEqual(r.status_code, 200)
 
+    def test_patch_items_on_voided_order_needs_pin(self):
+        self.c.post(f"/order/{self.oid}/void", json={"reason": "x", "staff": "a", "manager_pin": "1234"})
+        r = self.c.patch(f"/order/{self.oid}/items", json={
+            "version": self.c.get(f"/order/{self.oid}").get_json()["order"]["version"],
+            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]})
+        self.assertEqual(r.status_code, 403)
+
 
 class TestInboxRoutes(RouteTestBase):
     def setUp(self):

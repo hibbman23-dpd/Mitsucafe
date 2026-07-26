@@ -839,8 +839,9 @@ def _enqueue_cancel_ticket(order, cancelled_lines):
 def order_patch_items(order_id):
     p = request.get_json(force=True, silent=True) or {}
     cur = STORE.get(order_id)
-    if cur and cur.get("paid") and str(p.get("manager_pin") or "") not in ("1234", "9999"):
-        return jsonify({"ok": False, "error": "paid_order_needs_pin"}), 403
+    _locked = cur and (cur.get("paid") or cur.get("status") == "VOIDED")
+    if _locked and str(p.get("manager_pin") or "") not in ("1234", "9999"):
+        return jsonify({"ok": False, "error": "locked_order_needs_pin"}), 403
     try:
         res = bill_engine.apply_items_edit(
             STORE, order_id, p.get("items", []), int(p.get("version", -1)))
