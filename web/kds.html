@@ -8,6 +8,13 @@
   <meta http-equiv="Pragma" content="no-cache">
   <title>Màn bếp · Mitsu 蜜</title>
   <script src="menu-data.js?v=20260722_v2"></script>
+  <script src="order-api.js"></script>
+  <script src="checkout.js"></script>
+  <script>
+    // GATEWAY_URL is defined later in the page's main script; guard with a getter used at call time.
+    window.__api = null;
+    function api() { if (!window.__api) window.__api = OrderApi(GATEWAY_URL); return window.__api; }
+  </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap">
   <link rel="stylesheet" href="mitsu.css">
   <style>
@@ -1510,48 +1517,21 @@ function setLocalOverride(orderId, patch) {
   _saveOverrides(localOverrides);
 }
 
+let __lastChangeTs = '2000-01-01T00:00:00';
 async function loadOrders() {
-  if (!REPORT_TOKEN) {
-    try {
-      const tokRes = await fetch('http://127.0.0.1:5001/token').then(r => r.json());
-      if (tokRes && tokRes.ok && tokRes.token) {
-        REPORT_TOKEN = tokRes.token;
-        TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
-        try { localStorage.setItem('mitsu_report_token', REPORT_TOKEN); } catch (_) {}
-      }
-    } catch (_) {}
-  }
-  let res;
+  let r;
   try {
-    res = await fetch(`${GAS_URL}?action=orders${TQ}`);
+    r = await api().listOrders();
   } catch (_) {
-    // fetch ném lỗi = mất mạng HOẶC Google chặn (trang 403 của Google không có header CORS
-    // nên browser cũng ném TypeError). Phân biệt: probe 1 asset cùng origin — mạng sống mà
-    // GAS fail → GAS bị chặn, không phải WiFi.
-    let onlineOk = false;
-    try {
-      const p = await fetch('favicon-32.png?ping=' + Date.now(), { cache: 'no-store' });
-      onlineOk = p.ok;
-    } catch (_) {}
-    if (onlineOk) showOrdersError('Google chặn API (GAS)', GAS_BLOCKED_MSG);
-    else showOrdersError('Mất kết nối mạng', 'Kiểm tra WiFi/4G của thiết bị này.');
+    showOrdersError('Mất kết nối máy chủ', 'Không tải được đơn từ máy chủ local.');
     return;
   }
-  let data;
-  try {
-    data = JSON.parse(await res.text());
-  } catch (_) {
-    // GAS trả HTML thay vì JSON (trang chặn của Google) → hỏng phía server, KHÔNG phải mất mạng.
-    showOrdersError('Google chặn API (HTTP ' + res.status + ')', GAS_BLOCKED_MSG);
+  if (!(r.status === 200 && r.body && r.body.ok)) {
+    showOrdersError('Mất kết nối máy chủ', 'Không tải được đơn từ máy chủ local.');
     return;
   }
-  if (!data.ok) {
-    const msg = data.error === 'unauthorized'
-      ? 'Thiếu/sai token API — mở KDS qua đúng địa chỉ mitsu-ops (token tự tiêm), hoặc thêm ?token=... vào URL.'
-      : 'Server báo lỗi: ' + (data.error || 'không rõ');
-    showOrdersError('Không tải được đơn', msg);
-    return;
-  }
+  const data = r.body;
+  __lastChangeTs = data.now || __lastChangeTs;
   // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc, trừ lần load đầu.
   const fresh = data.orders.filter(o => !seenOrderIds.has(o.order_id));
   data.orders.forEach(o => seenOrderIds.add(o.order_id));
@@ -1586,6 +1566,18 @@ async function loadOrders() {
   const now = new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   document.getElementById('refresh-time').textContent = 'Cập nhật: ' + now;
 }
+
+async function pollOrderChanges() {
+  try {
+    const r = await api().pollChanges(__lastChangeTs);
+    if (r.status === 200 && r.body.ok && r.body.changes.length) {
+      allOrders = checkout.mergeChanges(allOrders, r.body.changes);
+      __lastChangeTs = r.body.now || __lastChangeTs;
+      renderOrders();
+    } else if (r.body && r.body.now) { __lastChangeTs = r.body.now; }
+  } catch (_) {}
+}
+setInterval(pollOrderChanges, 4000);
 
 async function kickCashDrawer(btn) {
   if (btn) { btn.disabled = true; btn.textContent = '...'; }
@@ -2732,7 +2724,6 @@ function startKDS() {
   renderTableGrid();
   loadPromoStatus();
   loadOrders();
-  setInterval(loadOrders, POLL_MS);
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
