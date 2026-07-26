@@ -36,3 +36,17 @@ test('isLate true beyond threshold', () => {
   assert.strictEqual(C.isLate('2026-07-26T10:00:00+07:00', '2026-07-26T10:20:00+07:00', 15), true);
   assert.strictEqual(C.isLate('2026-07-26T10:00:00+07:00', '2026-07-26T10:05:00+07:00', 15), false);
 });
+
+test('applyQty does not alias nested modifiers', () => {
+  const items = [{ sku: 'A', qty: 2, modifiers: { sugar: '50%' } }];
+  const out = C.applyQty(items, 0, -1);
+  out[0].modifiers.sugar = '0%';
+  assert.strictEqual(items[0].modifiers.sugar, '50%');  // original untouched
+});
+
+test('buildPartitions does not alias nested modifiers', () => {
+  const items = [{ sku: 'A', qty: 1, modifiers: { ice: 'full' } }];
+  const parts = C.buildPartitions(items, ['A']);
+  parts[0][0].modifiers.ice = 'none';
+  assert.strictEqual(items[0].modifiers.ice, 'full');
+});
