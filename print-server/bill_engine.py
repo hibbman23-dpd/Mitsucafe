@@ -99,3 +99,16 @@ def merge_bill(store, order_ids):
     group_id = "BG-" + order_ids[0]
     orders = store.set_bill_group(order_ids, group_id)
     return {"group_id": group_id, "orders": orders}
+
+
+def build_group_bill(store, group_id):
+    """Aggregate every order in a merged bill_group into one combined bill."""
+    members = store.get_bill_group(group_id)
+    if not members:
+        raise KeyError(group_id)
+    items, total, order_ids = [], 0, []
+    for o in members:
+        items.extend(o["items"])
+        total += int(o["total"] or 0)
+        order_ids.append(o["order_id"])
+    return {"group_id": group_id, "items": items, "total": total, "order_ids": order_ids}

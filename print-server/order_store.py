@@ -205,6 +205,13 @@ class OrderStore:
                 raise
         return [self.get(o) for o in order_ids]
 
+    def get_bill_group(self, group_id):
+        with self.lock:
+            rows = self.conn.execute(
+                "SELECT * FROM orders WHERE bill_group_id=? ORDER BY created_at ASC",
+                (group_id,)).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
     def _apply(self, order_id, set_sql, set_args):
         """Version-LESS best-effort mirror of an authoritative KDS action.
         Bumps version + updated_at. No-op (returns None) if the order isn't here."""

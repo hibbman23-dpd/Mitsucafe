@@ -156,3 +156,27 @@ class TestSplitMerge(unittest.TestCase):
                 expected_version=1)
         self.assertIsNone(self.s.get("ORD-20260726-0001-B"))  # sibling never created
         self.assertNotEqual(self.s.get("ORD-20260726-0001")["status"], "SPLIT")
+
+
+class TestGroupBill(unittest.TestCase):
+    def setUp(self):
+        self.s = _store()
+        self.s.upsert_create({"order_id": "ORD-A", "short_code": "Q01", "delivery_type": "dine_in",
+                              "table_id": "B1", "source": "staff",
+                              "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}]})
+        self.s.upsert_create({"order_id": "ORD-B", "short_code": "Q02", "delivery_type": "dine_in",
+                              "table_id": "B1", "source": "staff",
+                              "items": [{"sku": "DR028", "name": "Y", "qty": 2, "price": 25000}]})
+        bill_engine.merge_bill(self.s, ["ORD-A", "ORD-B"])
+
+    def test_build_group_bill_aggregates_items_and_total(self):
+        g = "BG-ORD-A"
+        bill = bill_engine.build_group_bill(self.s, g)
+        self.assertEqual(sorted(bill["order_ids"]), ["ORD-A", "ORD-B"])
+        self.assertEqual(len(bill["items"]), 2)  # 1 item-entry from ORD-A + 1 from ORD-B
+        self.assertEqual(bill["items"][1]["qty"], 2)  # qty stays on the line, not exploded
+        self.assertEqual(bill["total"], 30000 + 50000)
+
+    def test_build_group_bill_unknown_group_raises(self):
+        with self.assertRaises(KeyError):
+            bill_engine.build_group_bill(self.s, "BG-NONE")

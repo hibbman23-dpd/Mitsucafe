@@ -828,6 +828,11 @@ def _enqueue_cancel_ticket(order, cancelled_lines):
     cancel_order.setdefault("metadata", {})["notes"] = "PHIẾU HỦY/ĐIỀU CHỈNH"
     if _print_engine() == "spool":
         SPOOL.enqueue_receipt(cancel_order, is_cash=False, tag="cancel")
+    elif _print_engine() != "noop":  # legacy
+        try:
+            _print_receipt_bytes(build_receipt(cancel_order), open_drawer=False)
+        except Exception as exc:
+            log.error("cancel ticket print failed: %s", exc)
 
 
 @app.patch("/order/<order_id>/items")
@@ -895,7 +900,32 @@ def bill_print(order_id):
             "table_id": o["table_id"], "bill_meta": o["bill_meta"]}
     if _print_engine() == "spool":
         SPOOL.enqueue_receipt(recp, is_cash=False, tag="bill")
+    else:  # legacy
+        try:
+            _print_receipt_bytes(build_receipt(recp, show_total=True), open_drawer=False)
+        except Exception as exc:
+            log.error("bill print failed %s: %s", order_id, exc)
     return jsonify({"ok": True, "printed": True}), 200
+
+
+@app.post("/bill/group/<group_id>/print")
+def bill_group_print(group_id):
+    try:
+        bill = bill_engine.build_group_bill(STORE, group_id)
+    except KeyError:
+        return jsonify({"ok": False, "error": "group not found"}), 404
+    if _print_engine() == "noop":
+        return jsonify({"ok": True, "printed": False, "order_ids": bill["order_ids"]}), 200
+    recp = {"order_id": group_id, "items": bill["items"], "total": bill["total"],
+            "metadata": {"short_code": group_id, "notes": ""}}
+    if _print_engine() == "spool":
+        SPOOL.enqueue_receipt(recp, is_cash=False, tag="bill")
+    else:  # legacy
+        try:
+            _print_receipt_bytes(build_receipt(recp, show_total=True), open_drawer=False)
+        except Exception as exc:
+            log.error("group bill print failed %s: %s", group_id, exc)
+    return jsonify({"ok": True, "printed": True, "order_ids": bill["order_ids"]}), 200
 
 
 @app.post("/order/status")

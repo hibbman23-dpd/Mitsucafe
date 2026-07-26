@@ -112,6 +112,16 @@ class TestEditRoutes(RouteTestBase):
         self.c.post("/order/status", json={"order_id": self.oid, "status": "CANCELLED"})
         self.assertEqual(self.c.get(f"/order/{self.oid}").get_json()["order"]["status"], "CANCELLED")
 
+    def test_group_print_noop(self):
+        # merge this order with a second one, then print the group
+        oid2 = self.c.post("/order", json={
+            "idempotency_key": "g2", "metadata": {"delivery_type": "dine_in"}, "table_id": "B2",
+            "items": [{"sku": "DR028", "name": "Y", "qty": 1, "price": 25000}]}).get_json()["order_id"]
+        g = self.c.post("/bill/merge", json={"order_ids": [self.oid, oid2]}).get_json()["group_id"]
+        r = self.c.post(f"/bill/group/{g}/print")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(sorted(r.get_json()["order_ids"]), sorted([self.oid, oid2]))
+
 
 class TestInboxRoutes(RouteTestBase):
     def setUp(self):
