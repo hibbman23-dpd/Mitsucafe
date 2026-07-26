@@ -587,6 +587,20 @@
   </div>
 </div>
 
+<!-- ════════ OVERLAY: CHECKOUT (iPOS-style bill review/edit/print/pay) ════════ -->
+<div class="overlay-bg hidden" id="checkout-overlay" onclick="closeCheckout(event)">
+  <div class="bottom-sheet" id="checkout-sheet" style="max-width:640px; margin:auto; border-radius:16px; max-height:90vh; overflow-y:auto;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="checkout-title">💳 Thanh toán</div>
+      <button class="btn-close" onclick="closeCheckout()">✕</button>
+    </div>
+    <div class="sheet-body" id="checkout-sheet-body">
+      <!-- Dynamic content injected by renderCheckout() -->
+    </div>
+  </div>
+</div>
+
 <script>
 const esc = s => String(s == null ? '' : s).replace(/[<>&"']/g, c => ({
   '<': '&lt;',
@@ -1122,7 +1136,7 @@ function renderTableSummaryBar() {
     const count = orders.length;
     const isFocused = (activeTableFilter && activeTableFilter.toUpperCase() === tid.toUpperCase());
     const bgStyle = isFocused ? 'background:#2ec4b6; border:2px solid #fff; transform:scale(1.04); font-weight:800;' : 'background: var(--teal);';
-    html += `<button class="btn-mark-paid" style="${bgStyle} color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s;" onclick="finishTableGroup('${esc(tid)}', this)">
+    html += `<button class="btn-mark-paid" style="${bgStyle} color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s;" onclick="openCheckoutTable('${esc(tid)}')">
       💳 Thanh toán Bàn ${esc(tableNum)} (${count} đơn · ${fmt(totalSum)})
     </button>`;
   });
@@ -1455,7 +1469,9 @@ function renderOrders() {
         <div class="card-top">
           <div class="short-code">${esc(o.short_code)||'—'}</div>
           <div class="order-meta">
-            <strong>${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong><br>
+            ${o.table_id
+              ? `<strong style="cursor:pointer; text-decoration:underline dotted;" title="Mở thanh toán bàn" onclick="openCheckoutTable('${esc(o.table_id)}')">${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong>`
+              : `<strong>${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong>`}<br>
             ${o.customer_name ? esc(o.customer_name)+' · ' : ''}${esc(o.customer_id) || 'Khách vãng lai'}<br>
             ${o.customer_stamps ? `<span style="color: var(--gold); font-weight: bold; font-size: 0.72rem;">${esc(o.customer_stamps)}</span><br>` : ''}
             ${esc(o.timestamp)} ${ageChip}<span class="status-chip s-${esc(o.status)}">${esc(statusVi(o.status))}</span>
@@ -1638,7 +1654,8 @@ function actionButtons(o) {
   if (dt === 'pickup' || dt === 'take_away') {
     const ready = (o.status !== 'READY')
       ? `<button class="btn-mark-paid" style="background:#2196F3;color:#fff;flex:1;" onclick="setReady('${esc(o.order_id)}',this)">🔔 Sẵn sàng</button>` : '';
-    return ready + xong + pha;
+    const checkoutBtn = `<button class="btn-sm" style="flex:0 0 auto;padding:8px 12px;" title="Mở màn hình thanh toán" onclick="openCheckout('${esc(o.order_id)}')">🧾 Tính tiền</button>`;
+    return ready + xong + pha + checkoutBtn;
   }
   return xong + pha;   // dine_in
 }
@@ -1707,6 +1724,507 @@ async function updateStatus(orderId, newStatus, btn) {
     btn.classList.remove('loading'); btn.textContent = oldText;
     alert('Lỗi cập nhật trạng thái — thử lại.');
   }
+}
+
+// ─── CHECKOUT (iPOS-style bill review/edit/split/merge/print/pay) ─────────────
+// Talks to the local OrderStore-backed API (api()/checkout.js) — order objects here
+// carry `.paid` (bool) + `.version` (int), NOT the legacy `.payment_status` string
+// used by the older GAS-era board code above. Anti-fraud: editing a paid order's
+// lines requires verifyManagerPin() first, PIN forwarded to patchItems.
+let checkoutState = null; // { orderId, tableId, mergeSelected:Set, splitAssign:{idx:'A'} , paymentMethod }
+
+function toast(msg) {
+  let t = document.getElementById('kds-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'kds-toast';
+    t.style.cssText = 'position:fixed; left:50%; bottom:24px; transform:translateX(-50%); ' +
+      'background:#222330; color:#fff; padding:12px 20px; border-radius:10px; font-size:0.88rem; ' +
+      'font-weight:600; z-index:99999; box-shadow:0 8px 24px rgba(0,0,0,.5); ' +
+      'border:1px solid rgba(255,255,255,.15); max-width:90vw; text-align:center; transition:opacity .2s;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(() => { t.style.opacity = '0'; }, 2600);
+}
+
+function isCheckoutOrderPaid(o) { return !!(o && (o.paid || o.payment_status === 'PAID')); }
+
+function checkoutModsStr(it) {
+  const mods = it.modifiers || {};
+  const parts = [];
+  if (mods.size) parts.push(mods.size);
+  if (mods.ice) parts.push(ICE_LABEL[mods.ice] || mods.ice);
+  if (mods.sugar) parts.push(SUGAR_LABEL[mods.sugar] || mods.sugar);
+  if (mods.toppings) parts.push(mods.toppings);
+  return parts.join(', ');
+}
+
+function openCheckout(orderId) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) { alert('Không tìm thấy đơn hàng.'); return; }
+  checkoutState = { orderId, tableId: o.table_id || null, mergeSelected: new Set(), splitAssign: {}, paymentMethod: 'cash' };
+  document.getElementById('checkout-overlay').classList.remove('hidden');
+  renderCheckout();
+}
+
+function openCheckoutTable(tableId) {
+  const orders = allOrders.filter(o =>
+    String(o.table_id || '').trim() === String(tableId).trim() &&
+    !['CANCELLED', 'VOIDED', 'SPLIT'].includes(o.status));
+  if (!orders.length) { alert('Không tìm thấy đơn đang mở cho bàn này.'); return; }
+  const primary = orders.find(o => !isCheckoutOrderPaid(o)) || orders[0];
+  checkoutState = { orderId: primary.order_id, tableId, mergeSelected: new Set(), splitAssign: {}, paymentMethod: 'cash' };
+  document.getElementById('checkout-overlay').classList.remove('hidden');
+  renderCheckout();
+}
+
+function closeCheckout(e) {
+  if (e && e.target && e.target.id !== 'checkout-overlay') return;
+  document.getElementById('checkout-overlay').classList.add('hidden');
+  checkoutState = null;
+}
+
+function checkoutSwitchOrder(orderId) {
+  if (!checkoutState) return;
+  checkoutState.orderId = orderId;
+  checkoutState.splitAssign = {};
+  renderCheckout();
+}
+
+function renderCheckout() {
+  if (!checkoutState) return;
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) { closeCheckout(); return; }
+  document.getElementById('checkout-title').textContent =
+    '💳 Thanh toán — Đơn ' + (o.short_code || o.order_id);
+
+  const items = o.items || [];
+  const tableOrders = checkoutState.tableId
+    ? allOrders.filter(x => String(x.table_id || '').trim() === String(checkoutState.tableId).trim() &&
+        !['CANCELLED', 'VOIDED'].includes(x.status))
+    : [];
+  const isPaid = isCheckoutOrderPaid(o);
+  const meta = o.bill_meta || {};
+
+  const switchHtml = tableOrders.length > 1 ? `
+    <div style="padding:10px 22px 0; display:flex; gap:6px; flex-wrap:wrap;">
+      ${tableOrders.map(to => `
+        <button class="btn-sm" style="padding:4px 10px; font-size:.76rem; ${to.order_id===o.order_id?'background:var(--teal);color:#fff;':''}" onclick="checkoutSwitchOrder('${esc(to.order_id)}')">
+          ${esc(to.short_code || to.order_id)}${isCheckoutOrderPaid(to)?' ✅':''}
+        </button>`).join('')}
+    </div>` : '';
+
+  const linesHtml = items.length ? items.map((it, idx) => {
+    const modsStr = checkoutModsStr(it);
+    const note = (it.modifiers && it.modifiers.note) || it.note || '';
+    const groupOpts = ['', 'A', 'B', 'C', 'D'].map(g =>
+      `<option value="${g}" ${((checkoutState.splitAssign[idx] || '') === g) ? 'selected' : ''}>${g || '–'}</option>`).join('');
+    return `
+      <div class="cart-item-row" style="flex-direction:column; align-items:stretch; gap:6px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+          <div style="flex:1;">
+            <div class="cart-item-name">${esc(it.name)}</div>
+            ${modsStr ? `<div style="font-size:.75rem; color:var(--muted); margin-top:2px;">${esc(modsStr)}</div>` : ''}
+            <div class="cart-item-price">${fmt(checkout.lineSubtotal(it))}</div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+            <div class="stepper">
+              <button class="step-btn" onclick="checkoutQty(${idx}, -1)">−</button>
+              <span class="qty-val">${it.qty || 1}</span>
+              <button class="step-btn" onclick="checkoutQty(${idx}, 1)">+</button>
+            </div>
+            <button class="btn-sm" style="padding:2px 10px; font-size:.7rem; color:#ef5350;" onclick="checkoutRemoveLine(${idx})">🗑 Xoá</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" class="form-input" style="flex:1; font-size:.78rem; padding:5px 10px;" placeholder="Ghi chú dòng..." value="${esc(note)}" onchange="checkoutLineNote(${idx}, this.value)">
+          <select class="form-input" style="width:66px; padding:5px 6px; font-size:.78rem;" title="Nhóm tách bill" onchange="checkoutSetSplitGroup(${idx}, this.value)">${groupOpts}</select>
+        </div>
+      </div>`;
+  }).join('') : '<div class="empty-state" style="padding:16px 0;">Chưa có món nào</div>';
+
+  const metaHtml = `
+    <div class="form-row">
+      <label class="form-label">Ghi chú đơn</label>
+      <input class="form-input" id="checkout-note" value="${esc(o.customer_note || '')}" onchange="checkoutSaveMeta()">
+    </div>
+    <div class="form-row" style="display:flex; gap:10px;">
+      <div style="flex:1;">
+        <label class="form-label">Tên khách</label>
+        <input class="form-input" id="checkout-cust-name" value="${esc(meta.customer_name || '')}" onchange="checkoutSaveMeta()">
+      </div>
+      <div style="flex:1;">
+        <label class="form-label">MST / VAT</label>
+        <input class="form-input" id="checkout-vat" value="${esc(meta.vat || '')}" onchange="checkoutSaveMeta()">
+      </div>
+    </div>`;
+
+  const splitHtml = items.length > 1 ? `
+    <div class="form-row">
+      <label class="form-label">Tách bill</label>
+      <div style="font-size:.76rem; color:var(--muted); margin-bottom:8px;">Gán nhóm A/B/C cho MỌI dòng ở trên rồi bấm Tách.</div>
+      <button class="btn-sm" style="width:100%;" onclick="checkoutSplit()">✂️ Tách theo nhóm đã gán</button>
+    </div>` : '';
+
+  const subOrders = allOrders.filter(x => x.parent_order_id === o.order_id);
+  const subHtml = subOrders.length ? `
+    <div class="form-row">
+      <label class="form-label">Đơn con sau khi tách</label>
+      ${subOrders.map(s => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border); font-size:.85rem;">
+          <span>${esc(s.short_code || s.order_id)} · ${fmt(s.total)}</span>
+          <button class="btn-sm" style="padding:3px 10px; font-size:.74rem;" onclick="checkoutPrintOnly('${esc(s.order_id)}')">🖨 In</button>
+        </div>`).join('')}
+    </div>` : '';
+
+  const mergeHtml = tableOrders.length > 1 ? `
+    <div class="form-row">
+      <label class="form-label">Gộp bàn</label>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        ${tableOrders.map(to => `
+          <label style="display:flex; align-items:center; gap:8px; font-size:.85rem; background:rgba(255,255,255,.04); padding:8px 10px; border-radius:8px; cursor:pointer;">
+            <input type="checkbox" ${checkoutState.mergeSelected.has(to.order_id) ? 'checked' : ''} onchange="checkoutToggleMerge('${esc(to.order_id)}', this.checked)">
+            <span style="flex:1;">${esc(to.short_code || to.order_id)} · ${fmt(to.total)}${isCheckoutOrderPaid(to) ? ' ✅' : ''}</span>
+          </label>`).join('')}
+      </div>
+      <button class="btn-sm" style="width:100%; margin-top:8px;" onclick="checkoutMergeTable()">🧾 Gộp bàn đã chọn & in bill gộp</button>
+    </div>` : '';
+
+  const total = checkout.cartTotal(items);
+  document.getElementById('checkout-sheet-body').innerHTML = `
+    ${switchHtml}
+    <div class="cart-items">${linesHtml}</div>
+    <div style="padding:0 22px;">
+      <button class="btn-sm" style="width:100%; margin:4px 0 8px;" onclick="checkoutOpenAddItem()">➕ Thêm món</button>
+    </div>
+    <div class="order-form">
+      ${metaHtml}
+      ${splitHtml}
+      ${subHtml}
+      ${mergeHtml}
+      <div class="order-total-row">
+        <span class="order-total-label">TỔNG CỘNG ${isPaid ? '<span style="color:#81C784;font-weight:700;">· Đã thanh toán</span>' : ''}</span>
+        <span class="order-total-amount" style="font-size:1.4rem;">${fmt(total)}</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Phương thức thanh toán</label>
+        <div class="mode-btns">
+          <div class="mode-btn ${checkoutState.paymentMethod !== 'vietqr' ? 'active' : ''}" onclick="checkoutSetPayMethod('cash')">💵 Tiền mặt</div>
+          <div class="mode-btn ${checkoutState.paymentMethod === 'vietqr' ? 'active' : ''}" onclick="checkoutSetPayMethod('vietqr')">📱 VietQR</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button class="btn-submit-order" style="flex:1; background:#4a5568;" onclick="checkoutVoidPrompt()">🗑 Huỷ đơn</button>
+        <button class="btn-submit-order" style="flex:2; background:#2ec4b6;" onclick="checkoutPrintAndPay()">🖨 In bill + Thu tiền</button>
+      </div>
+    </div>`;
+}
+
+async function checkoutPatchItems(orderId, newItems) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  let pin = null;
+  if (isCheckoutOrderPaid(o)) { pin = verifyManagerPin(); if (!pin) return; } // anti-fraud: paid edit needs PIN
+  const r = await api().patchItems(orderId, newItems, o.version, pin);
+  if (checkout.isStale(r.status)) {
+    await loadOrders();
+    toast('Đơn vừa đổi ở máy khác — đã tải lại');
+    renderCheckout();
+    return;
+  }
+  if (r.status === 200 && r.body.ok) {
+    Object.assign(o, r.body.order);
+    o.items_summary = formatItemsSummary(o.items);
+    setLocalOverride(orderId, { items: r.body.order.items, total: r.body.order.total, version: r.body.order.version });
+    renderCheckout();
+    renderOrders();
+  } else {
+    toast('Lỗi cập nhật món: ' + ((r.body && r.body.error) || 'không rõ'));
+  }
+}
+
+function checkoutQty(idx, delta) {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const newItems = checkout.applyQty(o.items || [], idx, delta);
+  checkoutPatchItems(o.order_id, newItems);
+}
+
+function checkoutRemoveLine(idx) {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const cur = (o.items || [])[idx];
+  if (!cur) return;
+  const newItems = checkout.applyQty(o.items || [], idx, -(Number(cur.qty) || 1));
+  checkoutPatchItems(o.order_id, newItems);
+}
+
+function checkoutLineNote(idx, val) {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const newItems = (o.items || []).map(checkout.cloneItem);
+  if (!newItems[idx]) return;
+  newItems[idx].modifiers = Object.assign({}, newItems[idx].modifiers, { note: val });
+  newItems[idx].note = val;
+  checkoutPatchItems(o.order_id, newItems);
+}
+
+function checkoutSetSplitGroup(idx, val) {
+  if (!checkoutState) return;
+  if (!val) delete checkoutState.splitAssign[idx];
+  else checkoutState.splitAssign[idx] = val;
+}
+
+async function checkoutSaveMeta() {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const note = document.getElementById('checkout-note').value;
+  const custName = document.getElementById('checkout-cust-name').value;
+  const vat = document.getElementById('checkout-vat').value;
+  const bill_meta = Object.assign({}, o.bill_meta, { customer_name: custName, vat });
+  const r = await api().patchMeta(o.order_id, { customer_note: note, bill_meta }, o.version);
+  if (checkout.isStale(r.status)) {
+    await loadOrders();
+    toast('Đơn vừa đổi ở máy khác — đã tải lại');
+    renderCheckout();
+    return;
+  }
+  if (r.status === 200 && r.body.ok) {
+    Object.assign(o, r.body.order);
+    toast('Đã lưu ghi chú đơn');
+  } else {
+    toast('Lỗi lưu ghi chú: ' + ((r.body && r.body.error) || 'không rõ'));
+  }
+}
+
+async function checkoutSplit() {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const items = o.items || [];
+  const assignment = items.map((_, idx) => checkoutState.splitAssign[idx] || null);
+  if (assignment.some(a => a == null)) { alert('Gán nhóm A/B/C cho MỌI dòng trước khi tách.'); return; }
+  let partitions;
+  try { partitions = checkout.buildPartitions(items, assignment); }
+  catch (e) { alert('Lỗi tách: ' + (e.message || e)); return; }
+  if (partitions.length < 2) { alert('Cần ít nhất 2 nhóm khác nhau để tách bill.'); return; }
+  const r = await api().splitOrder(o.order_id, partitions, o.version);
+  if (checkout.isStale(r.status)) {
+    await loadOrders();
+    toast('Đơn vừa đổi ở máy khác — đã tải lại');
+    renderCheckout();
+    return;
+  }
+  if (r.status === 200 && r.body.ok) {
+    await loadOrders();
+    checkoutState.splitAssign = {};
+    // Origin flips to a SPLIT shell (audit trail only) — continue checkout on the first sub-order.
+    if (r.body.suborders && r.body.suborders.length) checkoutState.orderId = r.body.suborders[0].order_id;
+    toast('Đã tách thành ' + r.body.suborders.length + ' đơn con');
+    renderCheckout();
+  } else {
+    alert('Lỗi tách đơn: ' + ((r.body && r.body.error) || 'không rõ'));
+  }
+}
+
+async function checkoutPrintOnly(orderId) {
+  const r = await api().printBill(orderId);
+  toast(r.body && r.body.printed ? 'Đã in bill' : 'Đã gửi lệnh in (chế độ test không in thật)');
+}
+
+function checkoutToggleMerge(orderId, checked) {
+  if (!checkoutState) return;
+  if (checked) checkoutState.mergeSelected.add(orderId);
+  else checkoutState.mergeSelected.delete(orderId);
+}
+
+async function checkoutMergeTable() {
+  const ids = Array.from(checkoutState.mergeSelected);
+  if (!ids.includes(checkoutState.orderId)) ids.push(checkoutState.orderId);
+  if (ids.length < 2) { alert('Chọn ít nhất 2 đơn để gộp bàn.'); return; }
+  const r = await api().mergeBill(ids);
+  if (r.status === 200 && r.body.ok) {
+    await api().printGroup(r.body.group_id);
+    await loadOrders();
+    toast('Đã gộp bill nhóm ' + r.body.group_id + ' và gửi lệnh in.');
+    renderCheckout();
+  } else {
+    alert('Lỗi gộp bàn: ' + ((r.body && r.body.error) || 'không rõ'));
+  }
+}
+
+function checkoutSetPayMethod(m) {
+  if (!checkoutState) return;
+  checkoutState.paymentMethod = m;
+  renderCheckout();
+}
+
+async function checkoutPrintAndPay() {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const method = checkoutState.paymentMethod || 'cash';
+  try {
+    if (o.bill_group_id) await api().printGroup(o.bill_group_id);
+    else await api().printBill(o.order_id);
+    await api().markPaid(o.order_id, { payment_method: method });
+    await api().setStatus(o.order_id, 'DELIVERED');
+    o.paid = 1; o.status = 'DELIVERED'; o.payment_status = 'PAID';
+    setLocalOverride(o.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
+    await loadOrders();
+    toast('Đã in bill và thu tiền đơn ' + (o.short_code || o.order_id));
+    closeCheckout();
+  } catch (err) {
+    alert('Lỗi in bill / thu tiền: ' + ((err && err.message) || 'mất kết nối') + ' — thử lại.');
+  }
+}
+
+// ─── CHECKOUT: void order (PIN + reason chips) ─────────────────────────────────
+const VOID_REASONS = ['Khách đổi ý', 'Gọi nhầm món', 'Hết nguyên liệu', 'Lỗi hệ thống', 'Khác'];
+
+function checkoutVoidPrompt() {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const html = `
+    <div class="overlay-bg" id="void-overlay" onclick="closeVoidOverlay(event)">
+      <div class="bottom-sheet" style="max-width:460px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">🗑 Huỷ đơn #${esc(o.short_code || o.order_id)}</div>
+          <button class="btn-close" onclick="closeVoidOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+          <label class="form-label">Lý do huỷ</label>
+          <div class="opt-chips" style="padding:0;">
+            ${VOID_REASONS.map(r => `<div class="kds-chip" onclick="selectVoidReason(this,'${esc(r)}')">${esc(r)}</div>`).join('')}
+          </div>
+          <input type="text" class="form-input" id="void-reason-input" placeholder="Lý do huỷ...">
+          <input type="text" class="form-input" id="void-staff-input" placeholder="Tên nhân viên (không bắt buộc)">
+          <button class="btn-submit-order" style="background:#ef5350;" onclick="executeVoidOrder()">🗑 Xác nhận Huỷ (cần PIN Quản lý)</button>
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('void-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'void-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+
+function selectVoidReason(el, reason) {
+  document.querySelectorAll('#void-overlay .kds-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const input = document.getElementById('void-reason-input');
+  if (input) input.value = reason;
+}
+
+function closeVoidOverlay(e) {
+  if (e && e.target && e.target.id !== 'void-overlay') return;
+  const el = document.getElementById('void-overlay-container');
+  if (el) el.innerHTML = '';
+}
+
+async function executeVoidOrder() {
+  if (!checkoutState) return;
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const reasonInput = document.getElementById('void-reason-input');
+  const staffInput = document.getElementById('void-staff-input');
+  const reason = (reasonInput ? reasonInput.value : '').trim();
+  const staff = (staffInput ? staffInput.value : '').trim() || 'staff';
+  if (!reason) { alert('Vui lòng nhập lý do huỷ.'); return; }
+  const pin = verifyManagerPin();
+  if (!pin) return;
+  const r = await api().voidOrder(o.order_id, reason, staff, pin);
+  if (r.status === 200 && r.body.ok) {
+    Object.assign(o, r.body.order);
+    setLocalOverride(o.order_id, { status: 'VOIDED' });
+    closeVoidOverlay();
+    closeCheckout();
+    await loadOrders();
+    toast('Đã huỷ đơn ' + (o.short_code || o.order_id));
+  } else {
+    alert('Lỗi huỷ đơn: ' + ((r.body && r.body.error) || 'PIN sai hoặc mất kết nối') + ' — thử lại.');
+  }
+}
+
+// ─── CHECKOUT: + Thêm món (reuses the staff menu-add picker + size-sheet) ──────
+let pendingCheckoutAdd = false;
+
+function checkoutOpenAddItem() {
+  const html = `
+    <div class="overlay-bg" id="checkout-add-overlay" onclick="closeCheckoutAddOverlay(event)">
+      <div class="bottom-sheet" style="max-width:580px; margin:auto; border-radius:16px; max-height:85vh; overflow-y:auto;">
+        <div class="sheet-head">
+          <div class="sheet-title">➕ Thêm món vào đơn</div>
+          <button class="btn-close" onclick="closeCheckoutAddOverlay()">✕</button>
+        </div>
+        <div style="padding:12px 16px;">
+          <input type="text" class="form-input" style="margin-bottom:12px; font-size:0.85rem; padding:8px 12px; border-radius:8px;" placeholder="🔍 Tìm món..." oninput="filterCheckoutAddMenu(this.value)">
+          <div id="checkout-add-menu-list" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; max-height:55vh; overflow-y:auto; padding-right:4px;">
+            ${renderCheckoutAddMenuItems()}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('checkout-add-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'checkout-add-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+
+function renderCheckoutAddMenuItems(filterStr = '') {
+  const query = (filterStr || '').trim().toLowerCase();
+  const available = MENU_DATA.filter(i => {
+    if (!i.available) return false;
+    if (query) return (i.name || '').toLowerCase().includes(query) || (i.sku || '').toLowerCase().includes(query);
+    return true;
+  });
+  return available.map(item => `
+    <div class="menu-card" style="padding:10px; cursor:pointer;" onclick="checkoutSelectAddItem('${item.sku}')">
+      <div style="font-weight:700; font-size:0.82rem; color:#fff;">${esc(item.name)}</div>
+      <div style="font-weight:700; font-size:0.8rem; color:var(--gold); margin-top:4px;">${fmt(item.price_m)}</div>
+    </div>`).join('');
+}
+
+function filterCheckoutAddMenu(val) {
+  const list = document.getElementById('checkout-add-menu-list');
+  if (list) list.innerHTML = renderCheckoutAddMenuItems(val);
+}
+
+function closeCheckoutAddOverlay(e) {
+  if (e && e.target && e.target.id !== 'checkout-add-overlay') return;
+  const el = document.getElementById('checkout-add-overlay-container');
+  if (el) el.innerHTML = '';
+}
+
+function checkoutSelectAddItem(sku) {
+  const item = MENU_DATA.find(m => m.sku === sku);
+  if (!item) return;
+  pendingItem = item;
+  pendingOpts = {
+    size: item.price_l ? 'M' : null,
+    sugar: item.customizations?.sugar?.length ? item.customizations.sugar[Math.floor(item.customizations.sugar.length / 2)] : null,
+    ice: item.customizations?.ice?.length ? item.customizations.ice[0] : null,
+    toppings: [],
+    note: ''
+  };
+  const c = item.customizations || {};
+  const hasOpts = item.price_l || (c.sugar && c.sugar.length) || (c.ice && c.ice.length) || (c.toppings && c.toppings.length);
+  if (hasOpts) {
+    document.getElementById('size-item-name').textContent = '[Thêm vào đơn] ' + item.name;
+    document.getElementById('size-overlay').classList.remove('hidden');
+    renderCustomOptions();
+    pendingCheckoutAdd = true;
+  } else {
+    confirmCheckoutAddItem(item, {}, item.price_m);
+  }
+}
+
+function confirmCheckoutAddItem(item, modifiers, price) {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const newItem = { sku: item.sku, name: item.name, qty: 1, price, subtotal: price, modifiers, note: modifiers.note || '' };
+  const newItems = (o.items || []).map(checkout.cloneItem).concat([newItem]);
+  closeCheckoutAddOverlay();
+  checkoutPatchItems(o.order_id, newItems);
 }
 
 // ─── MENU VIEW ────────────────────────────────────────────────────────────────
@@ -2120,6 +2638,13 @@ function confirmCustomOrder() {
     pendingSwap.isCustomizing = false;
     closeSizeSheet();
     confirmSwapNewItem(item, modifiers, totalPrice);
+    return;
+  }
+
+  if (pendingCheckoutAdd) {
+    pendingCheckoutAdd = false;
+    closeSizeSheet();
+    confirmCheckoutAddItem(item, modifiers, totalPrice);
     return;
   }
 
