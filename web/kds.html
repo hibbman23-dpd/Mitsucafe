@@ -1778,6 +1778,7 @@ async function loadOrders() {
   });
   if (ovChanged) _saveOverrides(localOverrides);
 
+  normalizePaid(data.orders);
   const serverIds = new Set(data.orders.map(o => o.order_id));
   const stillPending = allOrders.filter(o => o._optimistic && !serverIds.has(o.order_id));
   allOrders = [...stillPending, ...data.orders];
@@ -1791,6 +1792,7 @@ async function pollOrderChanges() {
     const r = await api().pollChanges(__lastChangeTs);
     if (r.status === 200 && r.body.ok && r.body.changes.length) {
       allOrders = checkout.mergeChanges(allOrders, r.body.changes);
+      normalizePaid(allOrders);
       __lastChangeTs = r.body.now || __lastChangeTs;
       renderOrders();
     } else if (r.body && r.body.now) { __lastChangeTs = r.body.now; }
@@ -1954,6 +1956,10 @@ function toast(msg) {
 }
 
 function isCheckoutOrderPaid(o) { return !!(o && (o.paid || o.payment_status === 'PAID')); }
+
+// Local /orders trả `paid` (int) nhưng không có `payment_status`; các chỗ check
+// trạng thái thanh toán trên board đọc payment_status → phải đồng bộ lại.
+function normalizePaid(list) { (list || []).forEach(o => { if (o && o.paid && !o.payment_status) o.payment_status = 'PAID'; }); return list; }
 
 function checkoutModsStr(it) {
   const mods = it.modifiers || {};
@@ -2285,26 +2291,50 @@ async function checkoutPrintAndPay(e) {
   if (!o) { if (btn) btn.disabled = false; return; }
   const method = checkoutState.paymentMethod || 'cash';
   const EXCLUDED = ['CANCELLED', 'VOIDED', 'SPLIT'];
-  const groupId = o.bill_group_id || checkoutState.groupId;
+  let groupId = o.bill_group_id || checkoutState.groupId;
   let settleSet;
   if (groupId) {
-    settleSet = allOrders.filter(x => x.bill_group_id === groupId && !EXCLUDED.includes(x.status));
+    settleSet = allOrders.filter(x => x.bill_group_id === groupId && !EXCLUDED.includes(x.status) && !isCheckoutOrderPaid(x));
   } else if (checkoutState.tableId) {
     settleSet = allOrders.filter(x =>
       String(x.table_id || '').trim() === String(checkoutState.tableId).trim() &&
-      !EXCLUDED.includes(x.status));
+      !EXCLUDED.includes(x.status) && !isCheckoutOrderPaid(x));
   } else {
     settleSet = [o];
   }
-  if (!settleSet.length) settleSet = [o];
+  // Đơn đang focus luôn phải nằm trong settle set nếu chưa thanh toán, kể cả khi bị lọc ra ở trên.
+  if (!isCheckoutOrderPaid(o) && !settleSet.includes(o)) settleSet.push(o);
+  if (!settleSet.length) {
+    if (btn) btn.disabled = false;
+    alert('Đơn đã thanh toán.');
+    return;
+  }
   try {
+    if (settleSet.length > 1 && !groupId) {
+      const mres = await api().mergeBill(settleSet.map(so => so.order_id));
+      if (mres.status === 200 && mres.body && mres.body.ok) {
+        groupId = mres.body.group_id;
+      }
+    }
     if (groupId) await api().printGroup(groupId);
     else await api().printBill(o.order_id);
+    const failed = [];
     for (const so of settleSet) {
-      await api().markPaid(so.order_id, { payment_method: method });
-      await api().setStatus(so.order_id, 'DELIVERED');
-      so.paid = 1; so.status = 'DELIVERED'; so.payment_status = 'PAID';
-      setLocalOverride(so.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
+      const rPaid = await api().markPaid(so.order_id, { payment_method: method, skip_receipt: true });
+      const rStatus = await api().setStatus(so.order_id, 'DELIVERED');
+      const ok = rPaid.status === 200 && rPaid.body && rPaid.body.ok && rStatus.status === 200 && rStatus.body && rStatus.body.ok;
+      if (ok) {
+        so.paid = 1; so.status = 'DELIVERED'; so.payment_status = 'PAID';
+        setLocalOverride(so.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
+      } else {
+        failed.push(so.short_code || so.order_id);
+      }
+    }
+    if (failed.length) {
+      if (btn) btn.disabled = false;
+      alert('Một số đơn chưa thu được tiền: ' + failed.join(', ') + ' — thử lại.');
+      await loadOrders();
+      return;
     }
     toast('Đã in bill và thu tiền ' + settleSet.length + ' đơn (' + (o.short_code || o.order_id) + ')');
     closeCheckout();
