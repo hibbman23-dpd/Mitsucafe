@@ -1731,7 +1731,7 @@ async function updateStatus(orderId, newStatus, btn) {
 // carry `.paid` (bool) + `.version` (int), NOT the legacy `.payment_status` string
 // used by the older GAS-era board code above. Anti-fraud: editing a paid order's
 // lines requires verifyManagerPin() first, PIN forwarded to patchItems.
-let checkoutState = null; // { orderId, tableId, mergeSelected:Set, splitAssign:{idx:'A'} , paymentMethod }
+let checkoutState = null; // { orderId, tableId, mergeSelected:Set, splitAssign:{idx:'A'}, paymentMethod, groupId }
 
 function toast(msg) {
   let t = document.getElementById('kds-toast');
@@ -1765,7 +1765,7 @@ function checkoutModsStr(it) {
 function openCheckout(orderId) {
   const o = allOrders.find(x => x.order_id === orderId);
   if (!o) { alert('Không tìm thấy đơn hàng.'); return; }
-  checkoutState = { orderId, tableId: o.table_id || null, mergeSelected: new Set(), splitAssign: {}, paymentMethod: 'cash' };
+  checkoutState = { orderId, tableId: o.table_id || null, mergeSelected: new Set(), splitAssign: {}, paymentMethod: 'cash', groupId: o.bill_group_id || null };
   document.getElementById('checkout-overlay').classList.remove('hidden');
   renderCheckout();
 }
@@ -1776,7 +1776,7 @@ function openCheckoutTable(tableId) {
     !['CANCELLED', 'VOIDED', 'SPLIT'].includes(o.status));
   if (!orders.length) { alert('Không tìm thấy đơn đang mở cho bàn này.'); return; }
   const primary = orders.find(o => !isCheckoutOrderPaid(o)) || orders[0];
-  checkoutState = { orderId: primary.order_id, tableId, mergeSelected: new Set(), splitAssign: {}, paymentMethod: 'cash' };
+  checkoutState = { orderId: primary.order_id, tableId, mergeSelected: new Set(), splitAssign: {}, paymentMethod: 'cash', groupId: primary.bill_group_id || null };
   document.getElementById('checkout-overlay').classList.remove('hidden');
   renderCheckout();
 }
@@ -1866,7 +1866,7 @@ function renderCheckout() {
     <div class="form-row">
       <label class="form-label">Tách bill</label>
       <div style="font-size:.76rem; color:var(--muted); margin-bottom:8px;">Gán nhóm A/B/C cho MỌI dòng ở trên rồi bấm Tách.</div>
-      <button class="btn-sm" style="width:100%;" onclick="checkoutSplit()">✂️ Tách theo nhóm đã gán</button>
+      <button class="btn-sm" style="width:100%;" onclick="checkoutSplit(event)">✂️ Tách theo nhóm đã gán</button>
     </div>` : '';
 
   const subOrders = allOrders.filter(x => x.parent_order_id === o.order_id);
@@ -1890,7 +1890,7 @@ function renderCheckout() {
             <span style="flex:1;">${esc(to.short_code || to.order_id)} · ${fmt(to.total)}${isCheckoutOrderPaid(to) ? ' ✅' : ''}</span>
           </label>`).join('')}
       </div>
-      <button class="btn-sm" style="width:100%; margin-top:8px;" onclick="checkoutMergeTable()">🧾 Gộp bàn đã chọn & in bill gộp</button>
+      <button class="btn-sm" style="width:100%; margin-top:8px;" onclick="checkoutMergeTable(event)">🧾 Gộp bàn đã chọn</button>
     </div>` : '';
 
   const total = checkout.cartTotal(items);
@@ -1918,7 +1918,7 @@ function renderCheckout() {
       </div>
       <div style="display:flex; gap:10px; margin-top:12px;">
         <button class="btn-submit-order" style="flex:1; background:#4a5568;" onclick="checkoutVoidPrompt()">🗑 Huỷ đơn</button>
-        <button class="btn-submit-order" style="flex:2; background:#2ec4b6;" onclick="checkoutPrintAndPay()">🖨 In bill + Thu tiền</button>
+        <button class="btn-submit-order" style="flex:2; background:#2ec4b6;" onclick="checkoutPrintAndPay(event)">🖨 In bill + Thu tiền</button>
       </div>
     </div>`;
 }
@@ -2000,32 +2000,38 @@ async function checkoutSaveMeta() {
   }
 }
 
-async function checkoutSplit() {
-  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
-  if (!o) return;
-  const items = o.items || [];
-  const assignment = items.map((_, idx) => checkoutState.splitAssign[idx] || null);
-  if (assignment.some(a => a == null)) { alert('Gán nhóm A/B/C cho MỌI dòng trước khi tách.'); return; }
-  let partitions;
-  try { partitions = checkout.buildPartitions(items, assignment); }
-  catch (e) { alert('Lỗi tách: ' + (e.message || e)); return; }
-  if (partitions.length < 2) { alert('Cần ít nhất 2 nhóm khác nhau để tách bill.'); return; }
-  const r = await api().splitOrder(o.order_id, partitions, o.version);
-  if (checkout.isStale(r.status)) {
-    await loadOrders();
-    toast('Đơn vừa đổi ở máy khác — đã tải lại');
-    renderCheckout();
-    return;
-  }
-  if (r.status === 200 && r.body.ok) {
-    await loadOrders();
-    checkoutState.splitAssign = {};
-    // Origin flips to a SPLIT shell (audit trail only) — continue checkout on the first sub-order.
-    if (r.body.suborders && r.body.suborders.length) checkoutState.orderId = r.body.suborders[0].order_id;
-    toast('Đã tách thành ' + r.body.suborders.length + ' đơn con');
-    renderCheckout();
-  } else {
-    alert('Lỗi tách đơn: ' + ((r.body && r.body.error) || 'không rõ'));
+async function checkoutSplit(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
+  try {
+    const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+    if (!o) return;
+    const items = o.items || [];
+    const assignment = items.map((_, idx) => checkoutState.splitAssign[idx] || null);
+    if (assignment.some(a => a == null)) { alert('Gán nhóm A/B/C cho MỌI dòng trước khi tách.'); return; }
+    let partitions;
+    try { partitions = checkout.buildPartitions(items, assignment); }
+    catch (e) { alert('Lỗi tách: ' + (e.message || e)); return; }
+    if (partitions.length < 2) { alert('Cần ít nhất 2 nhóm khác nhau để tách bill.'); return; }
+    const r = await api().splitOrder(o.order_id, partitions, o.version);
+    if (checkout.isStale(r.status)) {
+      await loadOrders();
+      toast('Đơn vừa đổi ở máy khác — đã tải lại');
+      renderCheckout();
+      return;
+    }
+    if (r.status === 200 && r.body.ok) {
+      await loadOrders();
+      checkoutState.splitAssign = {};
+      // Origin flips to a SPLIT shell (audit trail only) — continue checkout on the first sub-order.
+      if (r.body.suborders && r.body.suborders.length) checkoutState.orderId = r.body.suborders[0].order_id;
+      toast('Đã tách thành ' + r.body.suborders.length + ' đơn con');
+      renderCheckout();
+    } else {
+      alert('Lỗi tách đơn: ' + ((r.body && r.body.error) || 'không rõ'));
+    }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -2040,18 +2046,24 @@ function checkoutToggleMerge(orderId, checked) {
   else checkoutState.mergeSelected.delete(orderId);
 }
 
-async function checkoutMergeTable() {
-  const ids = Array.from(checkoutState.mergeSelected);
-  if (!ids.includes(checkoutState.orderId)) ids.push(checkoutState.orderId);
-  if (ids.length < 2) { alert('Chọn ít nhất 2 đơn để gộp bàn.'); return; }
-  const r = await api().mergeBill(ids);
-  if (r.status === 200 && r.body.ok) {
-    await api().printGroup(r.body.group_id);
-    await loadOrders();
-    toast('Đã gộp bill nhóm ' + r.body.group_id + ' và gửi lệnh in.');
-    renderCheckout();
-  } else {
-    alert('Lỗi gộp bàn: ' + ((r.body && r.body.error) || 'không rõ'));
+async function checkoutMergeTable(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
+  try {
+    const ids = Array.from(checkoutState.mergeSelected);
+    if (!ids.includes(checkoutState.orderId)) ids.push(checkoutState.orderId);
+    if (ids.length < 2) { alert('Chọn ít nhất 2 đơn để gộp bàn.'); return; }
+    const r = await api().mergeBill(ids);
+    if (r.status === 200 && r.body.ok) {
+      checkoutState.groupId = r.body.group_id;
+      await loadOrders();
+      toast('Đã gộp bill nhóm ' + r.body.group_id + '. Bấm "In bill + Thu tiền" để in.');
+      renderCheckout();
+    } else {
+      alert('Lỗi gộp bàn: ' + ((r.body && r.body.error) || 'không rõ'));
+    }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -2061,21 +2073,41 @@ function checkoutSetPayMethod(m) {
   renderCheckout();
 }
 
-async function checkoutPrintAndPay() {
+// Settle EVERY open order at the table/group in one tap — not just the focused order —
+// so a merged bill or a multi-order table doesn't leave siblings stuck open on the board.
+async function checkoutPrintAndPay(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
   const o = allOrders.find(x => x.order_id === checkoutState.orderId);
-  if (!o) return;
+  if (!o) { if (btn) btn.disabled = false; return; }
   const method = checkoutState.paymentMethod || 'cash';
+  const EXCLUDED = ['CANCELLED', 'VOIDED', 'SPLIT'];
+  const groupId = o.bill_group_id || checkoutState.groupId;
+  let settleSet;
+  if (groupId) {
+    settleSet = allOrders.filter(x => x.bill_group_id === groupId && !EXCLUDED.includes(x.status));
+  } else if (checkoutState.tableId) {
+    settleSet = allOrders.filter(x =>
+      String(x.table_id || '').trim() === String(checkoutState.tableId).trim() &&
+      !EXCLUDED.includes(x.status));
+  } else {
+    settleSet = [o];
+  }
+  if (!settleSet.length) settleSet = [o];
   try {
-    if (o.bill_group_id) await api().printGroup(o.bill_group_id);
+    if (groupId) await api().printGroup(groupId);
     else await api().printBill(o.order_id);
-    await api().markPaid(o.order_id, { payment_method: method });
-    await api().setStatus(o.order_id, 'DELIVERED');
-    o.paid = 1; o.status = 'DELIVERED'; o.payment_status = 'PAID';
-    setLocalOverride(o.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
-    await loadOrders();
-    toast('Đã in bill và thu tiền đơn ' + (o.short_code || o.order_id));
+    for (const so of settleSet) {
+      await api().markPaid(so.order_id, { payment_method: method });
+      await api().setStatus(so.order_id, 'DELIVERED');
+      so.paid = 1; so.status = 'DELIVERED'; so.payment_status = 'PAID';
+      setLocalOverride(so.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
+    }
+    toast('Đã in bill và thu tiền ' + settleSet.length + ' đơn (' + (o.short_code || o.order_id) + ')');
     closeCheckout();
+    await loadOrders();
   } catch (err) {
+    if (btn) btn.disabled = false;
     alert('Lỗi in bill / thu tiền: ' + ((err && err.message) || 'mất kết nối') + ' — thử lại.');
   }
 }
@@ -2100,7 +2132,7 @@ function checkoutVoidPrompt() {
           </div>
           <input type="text" class="form-input" id="void-reason-input" placeholder="Lý do huỷ...">
           <input type="text" class="form-input" id="void-staff-input" placeholder="Tên nhân viên (không bắt buộc)">
-          <button class="btn-submit-order" style="background:#ef5350;" onclick="executeVoidOrder()">🗑 Xác nhận Huỷ (cần PIN Quản lý)</button>
+          <button class="btn-submit-order" style="background:#ef5350;" onclick="executeVoidOrder(event)">🗑 Xác nhận Huỷ (cần PIN Quản lý)</button>
         </div>
       </div>
     </div>`;
@@ -2122,27 +2154,33 @@ function closeVoidOverlay(e) {
   if (el) el.innerHTML = '';
 }
 
-async function executeVoidOrder() {
-  if (!checkoutState) return;
-  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
-  if (!o) return;
-  const reasonInput = document.getElementById('void-reason-input');
-  const staffInput = document.getElementById('void-staff-input');
-  const reason = (reasonInput ? reasonInput.value : '').trim();
-  const staff = (staffInput ? staffInput.value : '').trim() || 'staff';
-  if (!reason) { alert('Vui lòng nhập lý do huỷ.'); return; }
-  const pin = verifyManagerPin();
-  if (!pin) return;
-  const r = await api().voidOrder(o.order_id, reason, staff, pin);
-  if (r.status === 200 && r.body.ok) {
-    Object.assign(o, r.body.order);
-    setLocalOverride(o.order_id, { status: 'VOIDED' });
-    closeVoidOverlay();
-    closeCheckout();
-    await loadOrders();
-    toast('Đã huỷ đơn ' + (o.short_code || o.order_id));
-  } else {
-    alert('Lỗi huỷ đơn: ' + ((r.body && r.body.error) || 'PIN sai hoặc mất kết nối') + ' — thử lại.');
+async function executeVoidOrder(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
+  try {
+    if (!checkoutState) return;
+    const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+    if (!o) return;
+    const reasonInput = document.getElementById('void-reason-input');
+    const staffInput = document.getElementById('void-staff-input');
+    const reason = (reasonInput ? reasonInput.value : '').trim();
+    const staff = (staffInput ? staffInput.value : '').trim() || 'staff';
+    if (!reason) { alert('Vui lòng nhập lý do huỷ.'); return; }
+    const pin = verifyManagerPin();
+    if (!pin) return;
+    const r = await api().voidOrder(o.order_id, reason, staff, pin);
+    if (r.status === 200 && r.body.ok) {
+      Object.assign(o, r.body.order);
+      setLocalOverride(o.order_id, { status: 'VOIDED' });
+      closeVoidOverlay();
+      closeCheckout();
+      await loadOrders();
+      toast('Đã huỷ đơn ' + (o.short_code || o.order_id));
+    } else {
+      alert('Lỗi huỷ đơn: ' + ((r.body && r.body.error) || 'PIN sai hoặc mất kết nối') + ' — thử lại.');
+    }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -2178,7 +2216,7 @@ function renderCheckoutAddMenuItems(filterStr = '') {
     return true;
   });
   return available.map(item => `
-    <div class="menu-card" style="padding:10px; cursor:pointer;" onclick="checkoutSelectAddItem('${item.sku}')">
+    <div class="menu-card" style="padding:10px; cursor:pointer;" onclick="checkoutSelectAddItem('${esc(item.sku)}')">
       <div style="font-weight:700; font-size:0.82rem; color:#fff;">${esc(item.name)}</div>
       <div style="font-weight:700; font-size:0.8rem; color:var(--gold); margin-top:4px;">${fmt(item.price_m)}</div>
     </div>`).join('');
