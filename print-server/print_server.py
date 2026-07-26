@@ -801,7 +801,8 @@ def order_lookup():
 @app.get("/orders")
 def orders_list():
     from gateway import _today_str
-    return jsonify({"ok": True, "orders": STORE.list_orders(since_date=_today_str())}), 200
+    return jsonify({"ok": True, "orders": STORE.list_orders(since_date=_today_str()),
+                    "now": _now_iso_server()}), 200
 
 @app.get("/order/<order_id>")
 def order_get(order_id):

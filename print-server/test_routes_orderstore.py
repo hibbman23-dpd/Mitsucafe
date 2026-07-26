@@ -60,6 +60,12 @@ class TestOrderRoutes(RouteTestBase):
         r = self.c.get("/orders/changes?since=2000-01-01T00:00:00")
         self.assertTrue(len(r.get_json()["changes"]) >= 1)
 
+    def test_orders_returns_now_cursor(self):
+        self._create("nowr")
+        d = self.c.get("/orders").get_json()
+        self.assertIn("now", d)
+        self.assertTrue(d["now"])  # non-empty ISO timestamp so the client seeds its poll cursor
+
 
 class TestEditRoutes(RouteTestBase):
     def setUp(self):
