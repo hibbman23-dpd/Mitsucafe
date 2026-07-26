@@ -1845,17 +1845,13 @@ def _start_background_workers():
     threading.Thread(target=_snapshot_loop, daemon=True).start()
 
 
-# NOTE (known gap, see spec review): GAS ingest_order does NOT credit loyalty
-# stamps or run revenue rollup — those fire only in markOrderPaid. This EOD push
-# archives the order row but does NOT yet credit stamps/metrics for PAID orders.
-# A follow-up must send a mark_paid per PAID order (mirroring gateway.sync's two
-# ops) once GAS markOrderPaid semantics are confirmed. Do not treat EOD loyalty
-# as working until then.
 def run_eod_sync():
-    """Callable by launchd/cron at ~23:00 and again next morning; idempotent."""
-    def post(order):
-        return GATEWAY._post_to_gas(eod_sync.build_gas_payload(order))
-    return eod_sync.sync_finalized(STORE, post_fn=post)
+    """Callable by launchd/cron at ~23:00 and again next morning; idempotent.
+    Two-op archive: ingest_order then mark_paid (PAID) / update_status (CANCELLED),
+    so GAS credits loyalty stamps + revenue."""
+    def post(op):
+        return GATEWAY._post_to_gas(op)
+    return eod_sync.sync_finalized_2op(STORE, post_fn=post)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

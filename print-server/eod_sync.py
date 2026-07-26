@@ -29,6 +29,44 @@ def sync_finalized(store, post_fn):
     return {"pushed": pushed, "failed": failed}
 
 
+def build_mark_paid_payload(order):
+    return {"action": "mark_paid", "order_id": order["order_id"],
+            "receipt_printed_local": True}
+
+
+def build_cancel_status_payload(order):
+    return {"action": "update_status", "order_id": order["order_id"], "status": "CANCELLED"}
+
+
+def sync_finalized_2op(store, post_fn):
+    """Archive each finalized order with the proven two-op GAS pattern:
+    ingest_order (creates row) then mark_paid (credits stamps + revenue) for PAID,
+    or update_status CANCELLED. Mark synced only when every required op succeeds."""
+    pushed, failed = 0, 0
+    for order in store.unsynced_finalized():
+        ops = [build_gas_payload(order)]
+        if order.get("paid"):
+            ops.append(build_mark_paid_payload(order))
+        elif order.get("status") == "CANCELLED":
+            ops.append(build_cancel_status_payload(order))
+        ok = True
+        for op in ops:
+            try:
+                d = post_fn(op)
+            except Exception as exc:
+                log.error("EOD op %s failed for %s: %s", op.get("action"), order.get("order_id"), exc)
+                d = {"ok": False}
+            if not (d and d.get("ok")):
+                ok = False
+                break
+        if ok:
+            store.mark_synced(order["order_id"])
+            pushed += 1
+        else:
+            failed += 1
+    return {"pushed": pushed, "failed": failed}
+
+
 def snapshot_db(db_path, backup_dir):
     """Copy the SQLite file to backup_dir/store-YYYYMMDD-HHMM.db, returns the path."""
     stamp = datetime.now(_VN).strftime("%Y%m%d-%H%M")

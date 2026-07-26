@@ -65,3 +65,32 @@ class TestEodPayload(unittest.TestCase):
         self.assertEqual(p["payment_status"], "PAID")
         self.assertEqual(p["total"], 30000)
         self.assertEqual(len(p["items"]), 1)
+
+
+class TestTwoOpSync(unittest.TestCase):
+    def test_paid_order_sends_ingest_then_mark_paid(self):
+        s = _store(); _finalized(s, "ORD-1", "PAID")
+        seen = []
+        res = eod_sync.sync_finalized_2op(s, post_fn=lambda p: (seen.append(p["action"]) or {"ok": True}))
+        self.assertEqual(seen, ["ingest_order", "mark_paid"])
+        self.assertEqual(res["pushed"], 1)
+        self.assertEqual(s.unsynced_finalized(), [])
+
+    def test_cancelled_order_sends_ingest_then_update_status(self):
+        s = _store(); _finalized(s, "ORD-2", "CANCELLED")
+        seen = []
+        eod_sync.sync_finalized_2op(s, post_fn=lambda p: (seen.append((p["action"], p.get("status"))) or {"ok": True}))
+        self.assertEqual(seen, [("ingest_order", None), ("update_status", "CANCELLED")])
+
+    def test_second_op_failure_leaves_unsynced(self):
+        s = _store(); _finalized(s, "ORD-3", "PAID")
+        def post(p):
+            return {"ok": p["action"] == "ingest_order"}  # ingest ok, mark_paid fails
+        res = eod_sync.sync_finalized_2op(s, post_fn=post)
+        self.assertEqual(res["failed"], 1)
+        self.assertEqual(len(s.unsynced_finalized()), 1)
+
+    def test_mark_paid_payload_has_receipt_printed_local(self):
+        p = eod_sync.build_mark_paid_payload({"order_id": "ORD-1"})
+        self.assertEqual(p["action"], "mark_paid")
+        self.assertTrue(p["receipt_printed_local"])
