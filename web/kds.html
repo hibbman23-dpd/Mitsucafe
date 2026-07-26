@@ -60,6 +60,35 @@
     }
     .nav-tab.active { color: var(--cream); border-bottom-color: var(--coral); }
 
+    /* ── STATUS BADGES (cloud / printer) + ONLINE INBOX ── */
+    .header-status { display: flex; align-items: center; gap: 10px; }
+    .status-pill {
+      font-size: .68rem; font-weight: 600; color: var(--muted);
+      white-space: nowrap;
+    }
+    .btn-inbox {
+      position: relative; background: var(--surface); border: 1px solid var(--border);
+      color: var(--cream); padding: 7px 12px; border-radius: 20px; cursor: pointer;
+      font-size: .85rem;
+    }
+    .btn-inbox:active { opacity: .75; }
+    .inbox-count {
+      position: absolute; top: -6px; right: -6px;
+      background: #e53935; color: #fff; font-size: .62rem; font-weight: 800;
+      min-width: 17px; height: 17px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center; padding: 0 4px;
+    }
+    .inbox-count.hidden { display: none; }
+    .inbox-item-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .inbox-item-card.late { border-left: 3px solid #e53935; box-shadow: 0 0 0 1px rgba(229,57,53,.35); }
+    .late-flag {
+      display: inline-block; background: #e53935; color: #fff; font-size: .68rem; font-weight: 800;
+      letter-spacing: .03em; padding: 3px 9px; border-radius: 10px; margin-bottom: 6px;
+    }
+
     /* ── TTS BANNER ── */
     .tts-banner {
       background: rgba(200,150,62,.1); border: 1px solid rgba(200,150,62,.25);
@@ -415,7 +444,12 @@
     <div class="kds-title"><span class="wm">mitsu<span class="dot">.</span></span> <small style="font-weight:400;color:var(--muted)">(Lâm Hà)</small></div>
     <div class="kds-sub" id="refresh-time">Đang tải...</div>
   </div>
-  <button class="btn-sm" onclick="loadOrders()">↺ Làm mới</button>
+  <div class="header-status">
+    <span class="status-pill" id="cloud-badge" title="Trạng thái cloud">🟡 —</span>
+    <span class="status-pill" id="printer-badge" title="Trạng thái máy in">🟢</span>
+    <button class="btn-inbox" id="inbox-btn" onclick="openInboxList()" title="Đơn online chờ nhận">📥<span class="inbox-count hidden" id="inbox-count">0</span></button>
+    <button class="btn-sm" onclick="loadOrders()">↺ Làm mới</button>
+  </div>
 </header>
 
 <!-- MAIN NAV TABS -->
@@ -909,6 +943,175 @@ function speak(text) {
   utt.lang = 'vi-VN'; utt.rate = 0.88;
   window.speechSynthesis.speak(utt);
 }
+
+// Chuông "đơn online TRỄ": 3 nốt vuông gấp gáp hơn chuông đơn mới thường, để phân biệt khi cần ưu tiên.
+function playLateOrderChime() {
+  if (soundMuted) return;
+  try {
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    [660, 660, 660].forEach((freq, i) => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square'; osc.frequency.value = freq;
+      const t0 = audioCtx.currentTime + i * 0.22;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.28, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(t0); osc.stop(t0 + 0.2);
+    });
+  } catch (e) {}
+}
+
+// ─── ONLINE INBOX (mitsu.cafe orders pending accept) ──────────────────────────
+let __inboxSeen = new Set();
+let __inboxPending = [];
+
+async function pollInbox() {
+  let r;
+  try { r = await api().inbox(); } catch (_) { return; }
+  if (!(r.status === 200 && r.body && r.body.ok)) return;
+  const pend = r.body.pending || [];
+  __inboxPending = pend;
+  updateInboxBadge(pend.length);
+  const nowIso = new Date().toISOString();
+  let hasNewLate = false, hasNewFresh = false;
+  for (const p of pend) {
+    if (__inboxSeen.has(p.online_order_id)) continue;
+    __inboxSeen.add(p.online_order_id);
+    if (p.created_at && checkout.isLate(p.created_at, nowIso)) hasNewLate = true;
+    else hasNewFresh = true;
+  }
+  if (hasNewLate) playLateOrderChime();
+  else if (hasNewFresh) playNewOrderChime();
+  const overlay = document.getElementById('inbox-overlay');
+  if (overlay) renderInboxList(pend);
+}
+
+function updateInboxBadge(count) {
+  const badge = document.getElementById('inbox-count');
+  if (!badge) return;
+  badge.textContent = String(count);
+  badge.classList.toggle('hidden', !count);
+}
+
+function openInboxList() {
+  renderInboxList(__inboxPending);
+}
+
+function inboxItemsSummary(items) {
+  return (items || []).map(i => (i.qty || 1) + '× ' + esc(i.name || i.sku || '')).join(', ');
+}
+
+function renderInboxList(pend) {
+  const nowIso = new Date().toISOString();
+  const html = `
+    <div class="overlay-bg" id="inbox-overlay" onclick="closeInboxOverlay(event)">
+      <div class="bottom-sheet" style="max-width:520px; margin:auto; border-radius:16px; max-height:85vh; overflow-y:auto;">
+        <div class="sheet-head">
+          <div class="sheet-title">📥 Đơn online chờ nhận (${pend.length})</div>
+          <button class="btn-close" onclick="closeInboxOverlay()">✕</button>
+        </div>
+        <div style="padding:12px 16px;">
+          ${pend.length ? pend.map(p => renderInboxItemCard(p, nowIso)).join('') :
+            '<div class="empty-state" style="padding:30px 0;"><div class="icon">📭</div>Không có đơn online chờ nhận</div>'}
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('inbox-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'inbox-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+
+function renderInboxItemCard(p, nowIso) {
+  const late = !!(p.created_at && checkout.isLate(p.created_at, nowIso));
+  const lateMin = late ? Math.round(checkout.lateMinutes(p.created_at, nowIso)) : 0;
+  return `
+    <div class="inbox-item-card ${late ? 'late' : ''}">
+      ${late ? `<div class="late-flag">⚠️ ĐƠN TRỄ ${lateMin} PHÚT</div>` : ''}
+      <div style="font-weight:700; font-size:.9rem; color:#fff; margin-bottom:2px;">${esc(p.customer_name || 'Khách online')}</div>
+      <div style="font-size:.8rem; color:var(--muted); margin-bottom:8px;">${inboxItemsSummary(p.items)}</div>
+      <button class="btn-mark-paid" style="width:100%;" onclick="acceptOnlineOrder('${esc(p.online_order_id)}', this)">✅ Nhận</button>
+    </div>`;
+}
+
+function closeInboxOverlay(e) {
+  if (e && e.target && e.target.id !== 'inbox-overlay') return;
+  const el = document.getElementById('inbox-overlay-container');
+  if (el) el.innerHTML = '';
+}
+
+async function acceptOnlineOrder(onlineOrderId, btn) {
+  if (!btn || btn.disabled) return; // double-tap guard
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = 'Đang nhận...';
+  try {
+    const p = __inboxPending.find(x => x.online_order_id === onlineOrderId);
+    if (!p) { btn.disabled = false; btn.textContent = old; return; }
+    const r = await api().acceptOnline(onlineOrderId, {
+      items: p.items || [],
+      table_id: p.table_id || '',
+      customer_name: p.customer_name || ''
+    });
+    if (r.status === 200 && r.body && r.body.ok) {
+      __inboxPending = __inboxPending.filter(x => x.online_order_id !== onlineOrderId);
+      updateInboxBadge(__inboxPending.length);
+      renderInboxList(__inboxPending);
+      toast('Đã nhận đơn online ' + (r.body.short_code || ''));
+      await loadOrders();
+    } else {
+      alert('Lỗi nhận đơn: ' + ((r.body && r.body.error) || 'mất kết nối') + ' — thử lại.');
+      btn.disabled = false; btn.textContent = old;
+    }
+  } catch (err) {
+    alert('Lỗi nhận đơn: ' + ((err && err.message) || 'mất kết nối') + ' — thử lại.');
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+setInterval(pollInbox, 20000);
+
+// ─── CLOUD + PRINTER STATUS BADGES ─────────────────────────────────────────────
+async function pollCloud() {
+  let r;
+  try { r = await api().cloudStatus(); } catch (_) { setCloudBadge(null); return; }
+  setCloudBadge(r.status === 200 && r.body && r.body.ok ? r.body.online : null);
+}
+
+function setCloudBadge(online) {
+  const el = document.getElementById('cloud-badge');
+  if (!el) return;
+  if (online === true)  { el.textContent = '🟢 Online';           el.title = 'Cloud (GAS) đang kết nối'; }
+  else if (online === false) { el.textContent = '🟡 Offline (local)'; el.title = 'Mất kết nối cloud — vẫn thu ngân/in tem local bình thường'; }
+  else { el.textContent = '🟡 —'; el.title = 'Chưa rõ trạng thái cloud'; }
+}
+
+async function pollPrinters() {
+  let r;
+  try { r = await api().health(); } catch (_) { setPrinterBadge(null); return; }
+  setPrinterBadge(r.status === 200 ? r.body : null);
+}
+
+function setPrinterBadge(body) {
+  const el = document.getElementById('printer-badge');
+  if (!el) return;
+  const printers = body && body.printers;
+  if (!printers) { el.textContent = '🔴'; el.title = 'Không rõ trạng thái máy in'; return; }
+  const labelOk   = !!(printers.label   && printers.label.online);
+  const receiptOk = !!(printers.receipt && printers.receipt.online);
+  if (labelOk && receiptOk) {
+    el.textContent = '🟢'; el.title = 'Máy in tem + hoá đơn OK';
+  } else {
+    const down = [];
+    if (!labelOk) down.push('tem');
+    if (!receiptOk) down.push('hoá đơn');
+    // Cảnh báo MỀM — KHÔNG khoá nút in/thanh toán, chỉ nhắc nhân viên kiểm tra máy in.
+    el.textContent = '🔴'; el.title = 'Máy in ' + down.join(' + ') + ' mất kết nối — vẫn cho phép in/thanh toán, kiểm tra máy in.';
+  }
+}
+setInterval(pollCloud, 15000);
+setInterval(pollPrinters, 30000);
 
 // ─── VIEW SWITCH ─────────────────────────────────────────────────────────────
 function switchView(v) {
@@ -3287,6 +3490,9 @@ function startKDS() {
   renderTableGrid();
   loadPromoStatus();
   loadOrders();
+  pollInbox();
+  pollCloud();
+  pollPrinters();
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
