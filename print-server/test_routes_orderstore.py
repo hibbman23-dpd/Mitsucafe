@@ -100,6 +100,10 @@ class TestEditRoutes(RouteTestBase):
             "partitions": [[{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]]})
         self.assertEqual(r.status_code, 400)
 
+    def test_merge_missing_order_404(self):
+        r = self.c.post("/bill/merge", json={"order_ids": [self.oid, "ORD-NOPE"]})
+        self.assertEqual(r.status_code, 404)
+
 
 class TestInboxRoutes(RouteTestBase):
     def setUp(self):

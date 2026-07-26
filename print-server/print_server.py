@@ -813,8 +813,9 @@ def order_get(order_id):
 @app.get("/orders/changes")
 def orders_changes():
     since = request.args.get("since", "")
-    return jsonify({"ok": True, "changes": STORE.changes_since(since),
-                    "now": _now_iso_server()}), 200
+    now = _now_iso_server()
+    changes = STORE.changes_since(since)
+    return jsonify({"ok": True, "changes": changes, "now": now}), 200
 
 
 def _enqueue_cancel_ticket(order, cancelled_lines):
@@ -877,6 +878,8 @@ def bill_merge():
         res = bill_engine.merge_bill(STORE, p.get("order_ids", []))
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError as e:
+        return jsonify({"ok": False, "error": "order not found: %s" % e}), 404
     return jsonify({"ok": True, **res}), 200
 
 

@@ -187,14 +187,22 @@ class OrderStore:
         return [self.get(s["order_id"]) for s in suborders]
 
     def set_bill_group(self, order_ids, group_id):
-        """Tag whole orders with a shared bill_group_id (groups them for a combined bill)."""
+        """Tag whole orders with a shared bill_group_id (groups them for a combined bill).
+        Atomic: any missing order_id rolls back the whole batch instead of leaving a
+        partial (and silently under-billed) merge."""
         now = _now_iso()
         with self.lock:
-            for oid in order_ids:
-                self.conn.execute(
-                    "UPDATE orders SET bill_group_id=?, version=version+1, updated_at=? "
-                    "WHERE order_id=?", (group_id, now, oid))
-            self.conn.commit()
+            try:
+                for oid in order_ids:
+                    cur = self.conn.execute(
+                        "UPDATE orders SET bill_group_id=?, version=version+1, updated_at=? "
+                        "WHERE order_id=?", (group_id, now, oid))
+                    if cur.rowcount == 0:
+                        raise KeyError(oid)
+                self.conn.commit()
+            except Exception:
+                self.conn.rollback()
+                raise
         return [self.get(o) for o in order_ids]
 
     def unsynced_finalized(self):

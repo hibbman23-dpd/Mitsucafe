@@ -99,6 +99,15 @@ class TestSplitMerge(unittest.TestCase):
         self.assertEqual(self.s.get("ORD-20260726-0001")["bill_group_id"], g)
         self.assertEqual(self.s.get("ORD-20260726-0002")["bill_group_id"], g)
 
+    def test_merge_missing_order_rolls_back(self):
+        # a second order to merge with, so we can see it is NOT tagged on failure
+        self.s.upsert_create({"order_id": "ORD-20260726-0002", "short_code": "Q02",
+                              "delivery_type": "dine_in", "table_id": "B1", "source": "staff",
+                              "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}]})
+        with self.assertRaises(KeyError):
+            bill_engine.merge_bill(self.s, ["ORD-20260726-0002", "ORD-NOPE"])
+        self.assertIsNone(self.s.get("ORD-20260726-0002")["bill_group_id"])  # rolled back
+
     def test_split_stale_version_creates_no_orphans(self):
         with self.assertRaises(VersionConflict):
             bill_engine.split_order(
