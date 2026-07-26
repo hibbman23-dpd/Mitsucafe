@@ -1846,9 +1846,14 @@ def _start_background_workers():
 
 
 def run_eod_sync():
-    """Callable by launchd/cron at ~23:00 and again next morning; idempotent.
-    Two-op archive: ingest_order then mark_paid (PAID) / update_status (CANCELLED),
-    so GAS credits loyalty stamps + revenue."""
+    """EOD archive is the SOLE GAS pusher ONLY when the realtime syncer is disabled.
+    While GATEWAY_SYNC is on, the syncer already archives every order live every 3s, so
+    running EOD too would double-push to GAS (different idempotency keys) -> duplicate
+    Sheets rows = phantom revenue/loyalty. EOD therefore refuses to run unless the
+    operator has explicitly set GATEWAY_SYNC=0 (opting into EOD as the sole pusher)."""
+    if os.getenv("GATEWAY_SYNC", "1") != "0":
+        log.warning("run_eod_sync skipped: realtime syncer active (GATEWAY_SYNC!=0); EOD redundant")
+        return {"skipped": "syncer_active", "pushed": 0, "failed": 0}
     def post(op):
         return GATEWAY._post_to_gas(op)
     return eod_sync.sync_finalized_2op(STORE, post_fn=post)

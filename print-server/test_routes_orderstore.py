@@ -142,5 +142,18 @@ def STORE_source_of(order_id):
     return print_server.STORE.get(order_id)["source"]
 
 
+class TestEodGuard(unittest.TestCase):
+    def test_run_eod_sync_skips_while_syncer_active(self):
+        import os as _os
+        prev = _os.environ.pop("GATEWAY_SYNC", None)  # ensure default (syncer active)
+        try:
+            res = print_server.run_eod_sync()
+            self.assertEqual(res["skipped"], "syncer_active")
+            self.assertEqual(res["pushed"], 0)
+        finally:
+            if prev is not None:
+                _os.environ["GATEWAY_SYNC"] = prev
+
+
 if __name__ == "__main__":
     unittest.main()

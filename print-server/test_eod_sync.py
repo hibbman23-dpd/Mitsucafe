@@ -66,6 +66,12 @@ class TestEodPayload(unittest.TestCase):
         self.assertEqual(p["total"], 30000)
         self.assertEqual(len(p["items"]), 1)
 
+    def test_build_gas_payload_has_stable_idempotency_key(self):
+        p = eod_sync.build_gas_payload({"order_id": "ORD-1", "short_code": "Q01",
+                                        "items": [], "total": 0})
+        self.assertEqual(p["idempotency_key"], "ORD-1")
+        self.assertEqual(p["metadata"]["idempotency_key"], "ORD-1")
+
 
 class TestTwoOpSync(unittest.TestCase):
     def test_paid_order_sends_ingest_then_mark_paid(self):
