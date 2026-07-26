@@ -13,7 +13,10 @@ def _finalized(s, oid, status="PAID"):
     s.upsert_create({"order_id": oid, "short_code": "Q01", "delivery_type": "dine_in",
                      "table_id": "B1", "source": "staff",
                      "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}]})
-    s.set_status(oid, status, expected_version=1)
+    if status == "PAID":
+        s.apply_paid(oid, True)
+    else:
+        s.apply_status(oid, status)
 
 
 class TestEodSync(unittest.TestCase):

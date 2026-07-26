@@ -84,5 +84,38 @@ class TestOrderStoreListAndStatus(unittest.TestCase):
         self.assertEqual(r["paid"], 1)
 
 
+class TestApplyMirror(unittest.TestCase):
+    def setUp(self):
+        self.s = _store()
+        self.s.upsert_create(_order("ORD-20260726-0001"))
+
+    def test_apply_status_updates_and_bumps_version(self):
+        r = self.s.apply_status("ORD-20260726-0001", "CANCELLED")
+        self.assertEqual(r["status"], "CANCELLED")
+        self.assertEqual(r["version"], 2)
+
+    def test_apply_status_missing_is_noop_returns_none(self):
+        self.assertIsNone(self.s.apply_status("ORD-NOPE", "MAKING"))
+
+    def test_apply_paid_sets_flag(self):
+        r = self.s.apply_paid("ORD-20260726-0001", True)
+        self.assertEqual(r["paid"], 1)
+
+    def test_unsynced_finalized_matches_paid_flag(self):
+        self.s.apply_paid("ORD-20260726-0001", True)
+        ids = [o["order_id"] for o in self.s.unsynced_finalized()]
+        self.assertEqual(ids, ["ORD-20260726-0001"])
+
+    def test_unsynced_finalized_matches_cancelled_status(self):
+        self.s.upsert_create(_order("ORD-20260726-0002", short_code="Q02"))
+        self.s.apply_status("ORD-20260726-0002", "CANCELLED")
+        ids = [o["order_id"] for o in self.s.unsynced_finalized()]
+        self.assertIn("ORD-20260726-0002", ids)
+
+    def test_unsynced_finalized_excludes_plain_confirmed(self):
+        self.s.apply_status("ORD-20260726-0001", "CONFIRMED")
+        self.assertEqual(self.s.unsynced_finalized(), [])
+
+
 if __name__ == "__main__":
     unittest.main()

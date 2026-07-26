@@ -913,6 +913,8 @@ def order_status():
     # Local-first: ghi outbox rồi trả NGAY, KHÔNG chờ GAS. Syncer nền (3s) đẩy lên GAS.
     # Bỏ _gas_post đồng bộ (block ≤8s) — đó là nguồn delay của nút Xong.
     GATEWAY.enqueue("status", order_id, f"{order_id}:{status}", payload)
+    for _oid in (order_id.split(",") if is_batch else [order_id]):
+        STORE.apply_status(_oid.strip(), status)
     return jsonify({"ok": True, "queued": True}), 200
 
 @app.post("/order/mark_paid")
@@ -951,6 +953,7 @@ def order_mark_paid():
     # GAS KHÔNG in lần 2. Đây là gốc rễ 45 đơn kẹt: batch cũ gọi GAS trần, hiccup là mất PAID.
     GATEWAY.enqueue("mark_paid", order_id, f"{order_id}:paid",
                     {"action": "mark_paid", "order_id": order_id, "receipt_printed_local": True})
+    STORE.apply_paid(order_id, True)
     return jsonify({"ok": True, "queued": True, "receipt_printed_local": receipt_printed}), 200
 
 

@@ -205,12 +205,31 @@ class OrderStore:
                 raise
         return [self.get(o) for o in order_ids]
 
+    def _apply(self, order_id, set_sql, set_args):
+        """Version-LESS best-effort mirror of an authoritative KDS action.
+        Bumps version + updated_at. No-op (returns None) if the order isn't here."""
+        now = _now_iso()
+        with self.lock:
+            cur = self.conn.execute(
+                f"UPDATE orders SET {set_sql}, version=version+1, updated_at=? WHERE order_id=?",
+                (*set_args, now, order_id))
+            self.conn.commit()
+            if cur.rowcount == 0:
+                return None
+        return self.get(order_id)
+
+    def apply_status(self, order_id, status):
+        return self._apply(order_id, "status=?", (status,))
+
+    def apply_paid(self, order_id, paid=True):
+        return self._apply(order_id, "paid=?", (1 if paid else 0,))
+
     def unsynced_finalized(self):
-        """Return finalized-but-unsynced orders (PAID or CANCELLED, synced_at IS NULL),
+        """Return finalized-but-unsynced orders (paid=1 or CANCELLED, synced_at IS NULL),
         ordered by created_at ascending."""
         with self.lock:
             rows = self.conn.execute(
-                "SELECT * FROM orders WHERE synced_at IS NULL AND status IN ('PAID','CANCELLED') "
+                "SELECT * FROM orders WHERE synced_at IS NULL AND (paid=1 OR status='CANCELLED') "
                 "ORDER BY created_at ASC").fetchall()
         return [_row_to_dict(r) for r in rows]
 

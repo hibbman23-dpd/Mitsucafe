@@ -104,6 +104,14 @@ class TestEditRoutes(RouteTestBase):
         r = self.c.post("/bill/merge", json={"order_ids": [self.oid, "ORD-NOPE"]})
         self.assertEqual(r.status_code, 404)
 
+    def test_mark_paid_mirrors_into_store(self):
+        self.c.post("/order/mark_paid", json={"order_id": self.oid})
+        self.assertEqual(self.c.get(f"/order/{self.oid}").get_json()["order"]["paid"], 1)
+
+    def test_status_cancel_mirrors_into_store(self):
+        self.c.post("/order/status", json={"order_id": self.oid, "status": "CANCELLED"})
+        self.assertEqual(self.c.get(f"/order/{self.oid}").get_json()["order"]["status"], "CANCELLED")
+
 
 class TestInboxRoutes(RouteTestBase):
     def setUp(self):
