@@ -406,6 +406,20 @@
     /* ── HIDDEN UTIL ── */
     .hidden { display: none !important; }
 
+    /* ── FLOOR MAP (sơ đồ bàn) ── */
+    .floor-map { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; padding:6px 0 100px; }
+    .table-tile { aspect-ratio:1/1; border-radius:16px; border:2px solid var(--border); background:var(--surface);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; cursor:pointer;
+      transition:transform .1s, border-color .15s; padding:8px; text-align:center; }
+    .table-tile:hover { transform:translateY(-2px); }
+    .table-tile .tnum { font-size:1.6rem; font-weight:800; color:var(--cream); line-height:1; }
+    .table-tile .tstate { font-size:.72rem; letter-spacing:.03em; }
+    .table-tile .tmeta { font-size:.8rem; font-weight:700; color:var(--cream); }
+    .table-tile.empty { border-color:rgba(80,180,120,.4); }
+    .table-tile.empty .tstate { color:#57b978; }
+    .table-tile.busy { border-color:rgba(230,160,60,.7); background:rgba(230,160,60,.10); }
+    .table-tile.busy .tstate { color:#e0a63c; }
+
     /* ── CUSTOM OPTIONS ── */
     .opt-group  { margin-bottom: 16px; padding: 0 18px; }
     .opt-label  {
@@ -461,6 +475,10 @@
 
 <!-- ════════ VIEW: ORDERS ════════ -->
 <div id="view-orders">
+  <div class="orders-mode-toggle" style="display:flex; gap:8px; margin-bottom:10px;">
+    <button class="filter-pill active" id="mode-list" onclick="setOrdersMode('list')">📋 Danh sách</button>
+    <button class="filter-pill" id="mode-map" onclick="setOrdersMode('map')">🗺️ Sơ đồ bàn</button>
+  </div>
   <div class="tts-banner" id="tts-banner">
     🔔 Bật thông báo âm thanh khi xác nhận thanh toán
     <button class="btn-tts" onclick="enableTTS()">Bật loa</button>
@@ -477,6 +495,7 @@
   <div class="orders-list" id="orders-list">
     <div class="empty-state"><div class="icon">☕</div>Đang tải đơn hàng...</div>
   </div>
+  <div class="floor-map hidden" id="floor-map"></div>
 </div>
 
 <!-- ════════ VIEW: MENU ════════ -->
@@ -1267,6 +1286,8 @@ function setFilter(f, btn) {
   renderOrders();
 }
 
+const TABLE_COUNT = 20;   // số bàn của quán — đổi số này là đổi cả sơ đồ bàn, chip lọc, lưới gọi món
+
 function renderTableFilterPills() {
   const bar = document.getElementById('table-filter-bar');
   if (!bar) return;
@@ -1274,7 +1295,7 @@ function renderTableFilterPills() {
   const items = [
     { id: 'all', label: 'Tất cả vị trí' },
     { id: 'pickup', label: '🥡 Mang đi' },
-    ...Array.from({ length: 17 }, (_, i) => {
+    ...Array.from({ length: TABLE_COUNT }, (_, i) => {
       const num = String(i + 1).padStart(2, '0');
       return { id: `TABLE_${num}`, label: `🪑 Bàn ${num}` };
     })
@@ -1635,6 +1656,7 @@ function renderOrders() {
     const summaryBar = renderTableSummaryBar();
     list.innerHTML = summaryBar + `<div class="empty-state"><div class="icon">🍵</div>
       ${allOrders.length ? 'Không có đơn nào khớp bộ lọc vị trí/bàn.' : 'Chưa có đơn nào hôm nay.'}</div>`;
+    if (ordersViewMode === 'map') renderFloorMap();
     return;
   }
   const summaryBar = renderTableSummaryBar();
@@ -1702,6 +1724,67 @@ function renderOrders() {
         ${footer}
       </div>`;
   }).join('');
+  if (ordersViewMode === 'map') renderFloorMap();
+}
+
+// ─── FLOOR MAP (sơ đồ bàn — iPOS style) ────────────────────────────────────
+let ordersViewMode = 'list';
+
+function setOrdersMode(m) {
+  ordersViewMode = m;
+  document.getElementById('mode-list').classList.toggle('active', m === 'list');
+  document.getElementById('mode-map').classList.toggle('active', m === 'map');
+  document.getElementById('orders-list').classList.toggle('hidden', m !== 'list');
+  document.getElementById('table-filter-bar').classList.toggle('hidden', m === 'map');
+  document.getElementById('floor-map').classList.toggle('hidden', m !== 'map');
+  if (m === 'map') renderFloorMap();
+}
+
+function renderFloorMap() {
+  const map = document.getElementById('floor-map');
+  if (!map) return;
+  const activeStatuses = ['DELIVERED', 'CANCELLED', 'VOIDED', 'SPLIT'];
+  const tableOrders = n => allOrders.filter(o =>
+    parseInt(String(o.table_id || '').replace(/\D/g, ''), 10) === n &&
+    !activeStatuses.includes(o.status));
+
+  const tiles = [];
+  for (let n = 1; n <= TABLE_COUNT; n++) {
+    const orders = tableOrders(n);
+    const numLabel = String(n).padStart(2, '0');
+    if (!orders.length) {
+      tiles.push(`
+        <div class="table-tile empty" onclick="switchView('menu'); selectedTable='${numLabel}'; renderTableGrid();">
+          <div class="tnum">${numLabel}</div>
+          <div class="tstate">● Trống</div>
+        </div>`);
+    } else {
+      const sum = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+      tiles.push(`
+        <div class="table-tile busy" onclick="openCheckoutTable('${esc(orders[0].table_id)}')">
+          <div class="tnum">${numLabel}</div>
+          <div class="tstate">● Đang phục vụ</div>
+          <div class="tmeta">${orders.length} đơn · ${fmt(sum)}</div>
+        </div>`);
+    }
+  }
+
+  // Tile tổng hợp Mang đi (nếu có đơn pickup/take_away đang hoạt động)
+  const pickupOrders = allOrders.filter(o => {
+    const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
+    return (dt === 'pickup' || dt === 'take_away') && !activeStatuses.includes(o.status);
+  });
+  if (pickupOrders.length) {
+    const sum = pickupOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    tiles.push(`
+      <div class="table-tile busy" onclick="openCheckout('${esc(pickupOrders[0].order_id)}')">
+        <div class="tnum">🥡</div>
+        <div class="tstate">● Mang đi</div>
+        <div class="tmeta">${pickupOrders.length} đơn · ${fmt(sum)}</div>
+      </div>`);
+  }
+
+  map.innerHTML = tiles.join('');
 }
 
 // Lỗi tải đơn: hiện lý do + cách xử lý ngay trên board thay vì treo "Đang tải đơn hàng...".
@@ -3344,7 +3427,7 @@ function setMode(mode) {
 
 function renderTableGrid() {
   const grid = document.getElementById('table-grid');
-  const nums = Array.from({length:17}, (_,i) => String(i+1).padStart(2,'0'));
+  const nums = Array.from({length:TABLE_COUNT}, (_,i) => String(i+1).padStart(2,'0'));
   grid.innerHTML = nums.map(n => `
     <div class="table-btn${selectedTable===n?' active':''}" onclick="selectTable('${n}')">${n}</div>
   `).join('');
