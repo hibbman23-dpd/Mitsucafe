@@ -32,6 +32,7 @@ function OrderApi(baseUrl, fetchImpl) {
     acceptOnline: (id, payload) => call('/inbox/' + encodeURIComponent(id) + '/accept', 'POST', payload || {}),
     cloudStatus: () => call('/cloud/status', 'GET'),
     health: () => call('/health', 'GET'),
+    printCustomLabel: (name, modifiers, qty) => call('/print/custom_label', 'POST', { name, modifiers, qty }),
   };
 }
 if (typeof module !== 'undefined' && module.exports) module.exports = { OrderApi };

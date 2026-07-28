@@ -408,7 +408,7 @@
 
     /* ── FLOOR MAP (sơ đồ bàn) ── */
     .floor-map { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; padding:6px 0 100px; }
-    .table-tile { aspect-ratio:1/1; border-radius:16px; border:2px solid var(--border); background:var(--surface);
+    .table-tile { position:relative; aspect-ratio:1/1; border-radius:16px; border:2px solid var(--border); background:var(--surface);
       display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; cursor:pointer;
       transition:transform .1s, border-color .15s; padding:8px; text-align:center; }
     .table-tile:hover { transform:translateY(-2px); }
@@ -419,6 +419,8 @@
     .table-tile.empty .tstate { color:#57b978; }
     .table-tile.busy { border-color:rgba(230,160,60,.7); background:rgba(230,160,60,.10); }
     .table-tile.busy .tstate { color:#e0a63c; }
+    .tile-add { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:8px;
+      border:none; background:var(--coral); color:#fff; font-size:1.1rem; font-weight:800; cursor:pointer; line-height:1; }
 
     /* ── CUSTOM OPTIONS ── */
     .opt-group  { margin-bottom: 16px; padding: 0 18px; }
@@ -489,6 +491,7 @@
     <button class="filter-pill"        onclick="setFilter('pending',this)">⚠️ Chờ TT</button>
     <button class="filter-pill"        onclick="setFilter('active',this)">Đang làm</button>
     <button class="filter-pill"        onclick="setFilter('paid',this)">✅ Đã TT</button>
+    <button class="filter-pill" id="btn-custom-label" onclick="openCustomLabelSheet()">🏷️ Tem lẻ</button>
     <button class="filter-pill" id="btn-toggle-label-print" onclick="toggleLabelPrint()" style="margin-left:auto;">🏷️ Tem: BẬT</button>
     <button class="filter-pill" id="btn-toggle-sound" onclick="toggleSound()">🔇 Đã tắt tiếng</button>
   </div>
@@ -652,6 +655,28 @@
     </div>
     <div class="sheet-body" id="checkout-sheet-body">
       <!-- Dynamic content injected by renderCheckout() -->
+    </div>
+  </div>
+</div>
+
+<!-- ════════ OVERLAY: TEM LẺ (off-menu custom label print) ════════ -->
+<div class="overlay-bg hidden" id="custom-label-overlay" onclick="if(event.target.id==='custom-label-overlay')closeCustomLabelSheet()">
+  <div class="bottom-sheet" style="max-width:460px;margin:auto;border-radius:16px;">
+    <div class="sheet-head"><div class="sheet-title">🏷️ In tem món lẻ</div>
+      <button class="btn-close" onclick="closeCustomLabelSheet()">✕</button></div>
+    <div class="sheet-body" style="padding:14px 16px;">
+      <input class="form-input" id="cl-name" placeholder="Tên món (gõ tự do)" style="width:100%;margin-bottom:10px;">
+      <div class="opt-chips" id="cl-size"></div>
+      <div class="opt-chips" id="cl-ice" style="margin-top:8px;"></div>
+      <div class="opt-chips" id="cl-sugar" style="margin-top:8px;"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin:12px 0;">
+        <span>Số lượng</span>
+        <button class="btn-sm" onclick="clQty(-1)">－</button>
+        <span id="cl-qty" style="font-weight:800;min-width:24px;text-align:center;">1</span>
+        <button class="btn-sm" onclick="clQty(1)">＋</button>
+      </div>
+      <button class="btn-mark-paid" style="width:100%;background:#eb624a;color:#fff;padding:14px;border-radius:12px;"
+        onclick="printCustomLabelFromSheet(this)">🖨 In tem</button>
     </div>
   </div>
 </div>
@@ -846,6 +871,35 @@ let promoInterval = null;
 
 const ICE_LABEL   = { full: 'Nhiều đá', less: 'Ít đá', none: 'Không đá', blended: 'Xay' };
 const SUGAR_LABEL = { '0%':'Không ngọt','30%':'Ít ngọt','50%':'Vừa','70%':'Ngọt','100%':'Rất ngọt' };
+
+// ─── TEM LẺ (off-menu custom label) ────────────────────────────────────────
+let clState = { size: 'M', ice: '', sugar: '', qty: 1 };
+function openCustomLabelSheet() {
+  clState = { size: 'M', ice: '', sugar: '', qty: 1 };
+  document.getElementById('cl-name').value = '';
+  document.getElementById('cl-qty').textContent = '1';
+  renderClChips();
+  document.getElementById('custom-label-overlay').classList.remove('hidden');
+}
+function closeCustomLabelSheet() { document.getElementById('custom-label-overlay').classList.add('hidden'); }
+function clQty(d) { clState.qty = Math.max(1, clState.qty + d); document.getElementById('cl-qty').textContent = clState.qty; }
+function renderClChips() {
+  const chip = (val, cur, on) => `<button class="kds-chip${val === cur ? ' active' : ''}" onclick="${on}">${val || '—'}</button>`;
+  document.getElementById('cl-size').innerHTML = 'Size: ' + ['S', 'M', 'L'].map(s => chip(s, clState.size, `clSet('size','${s}')`)).join('');
+  document.getElementById('cl-ice').innerHTML = 'Đá: ' + ['', 'less', 'none'].map(v => chip(ICE_LABEL[v] || (v || 'BT'), ICE_LABEL[clState.ice] || (clState.ice || 'BT'), `clSet('ice','${v}')`)).join('');
+  document.getElementById('cl-sugar').innerHTML = 'Đường: ' + ['', '50', '30'].map(v => chip(SUGAR_LABEL[v] || (v || 'BT'), SUGAR_LABEL[clState.sugar] || (clState.sugar || 'BT'), `clSet('sugar','${v}')`)).join('');
+}
+function clSet(k, v) { clState[k] = v; renderClChips(); }
+async function printCustomLabelFromSheet(btn) {
+  const name = document.getElementById('cl-name').value.trim();
+  if (!name) { alert('Nhập tên món.'); return; }
+  btn.disabled = true;
+  const mods = { size: clState.size, ice: clState.ice, sugar: clState.sugar };
+  const r = await api().printCustomLabel(name, mods, clState.qty);
+  btn.disabled = false;
+  if (r.body && r.body.ok) { toast(r.body.printed ? 'Đã in tem.' : 'Đã gửi (chế độ thử).'); closeCustomLabelSheet(); }
+  else { alert('In tem lỗi — thử lại.'); }
+}
 
 function applyPromoPercent(active) {
   const pct = (activePromo && activePromo.percent) ? activePromo.percent : 5;
@@ -1835,6 +1889,8 @@ function renderFloorMap() {
       const sum = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
       tiles.push(`
         <div class="table-tile busy" onclick="openCheckoutTable('${esc(orders[0].table_id)}')">
+          <button class="tile-add" title="Gọi thêm món"
+            onclick="event.stopPropagation(); addRoundToTable(${n});">＋</button>
           <div class="tnum">${numLabel}</div>
           <div class="tstate">● Đang phục vụ</div>
           <div class="tmeta">${orders.length} đơn · ${fmt(sum)}</div>
@@ -1858,6 +1914,12 @@ function renderFloorMap() {
   }
 
   map.innerHTML = tiles.join('');
+}
+
+function addRoundToTable(n) {
+  switchView('menu');
+  selectedTable = String(n).padStart(2, '0');
+  renderTableGrid();
 }
 
 // Lỗi tải đơn: hiện lý do + cách xử lý ngay trên board thay vì treo "Đang tải đơn hàng...".
