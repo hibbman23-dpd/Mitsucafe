@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Gọi món — Mitsu 蜜</title>
+<link rel="stylesheet" href="mitsu.css">
+<style>
+  body{margin:0;background:#17120e;color:#f2ead9;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:96px}
+  .oh{position:sticky;top:0;background:#1f1913;padding:12px 14px;border-bottom:1px solid #332a20;z-index:5}
+  .tables{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+  .tchip{flex:0 0 auto;padding:6px 12px;border-radius:20px;border:1px solid #332a20;background:#1f1913;color:#f2ead9;font-size:.85rem}
+  .tchip.active{background:#eb624a;border-color:#eb624a;color:#fff;font-weight:700}
+  .cat{font-weight:800;margin:16px 12px 8px;color:#d8a94a}
+  .items{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px}
+  .mi{background:#1f1913;border:1px solid #332a20;border-radius:12px;padding:12px;text-align:left}
+  .mi .n{font-weight:700}.mi .p{color:#d8a94a;font-weight:800;margin-top:4px}
+  .cartbar{position:fixed;left:0;right:0;bottom:0;background:#1f1913;border-top:1px solid #332a20;padding:12px 14px;display:flex;gap:10px;align-items:center}
+  .send{flex:1;background:#eb624a;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:1.05rem}
+  .send:disabled{opacity:.5}
+</style></head><body>
+<div class="oh">
+  <div style="font-weight:800">Gọi món · <span id="tbl-label">Chọn bàn</span></div>
+  <div class="tables" id="tables"></div>
+</div>
+<div id="menu"></div>
+<div class="cartbar"><div id="cart-sum">Giỏ: 0 món · 0đ</div>
+  <button class="send" id="send" disabled onclick="sendOrder()">Gửi đơn</button></div>
+<script src="menu-data.js"></script>
+<script src="order-api.js"></script>
+<script>
+const GW = (location.origin && location.origin.startsWith('http')) ? location.origin : 'http://localhost:5001';
+const api = OrderApi(GW);
+const TABLE_COUNT = 20;
+let table = '', cart = [];
+const fmt = n => Number(n).toLocaleString('vi-VN') + 'đ';
+
+function renderTables() {
+  const els = ['<button class="tchip' + (table === 'pickup' ? ' active' : '') + '" onclick="pickTable(\'pickup\')">🥡 Mang đi</button>'];
+  for (let i = 1; i <= TABLE_COUNT; i++) {
+    const n = String(i).padStart(2, '0');
+    els.push('<button class="tchip' + (table === n ? ' active' : '') + '" onclick="pickTable(\'' + n + '\')">Bàn ' + n + '</button>');
+  }
+  document.getElementById('tables').innerHTML = els.join('');
+}
+function pickTable(t) { table = t; document.getElementById('tbl-label').textContent = t === 'pickup' ? 'Mang đi' : ('Bàn ' + t); renderTables(); updateCart(); }
+function renderMenu() {
+  const byCat = {};
+  MENU_DATA.filter(m => m.available).forEach(m => { (byCat[m.subcategory] = byCat[m.subcategory] || []).push(m); });
+  const html = (typeof CATEGORIES !== 'undefined' ? CATEGORIES : []).map(c => {
+    const items = byCat[c.id] || [];
+    if (!items.length) return '';
+    return '<div class="cat">' + (c.emoji || '') + ' ' + c.label + '</div><div class="items">' +
+      items.map(m => '<button class="mi" onclick="addItem(\'' + m.sku + '\')"><div class="n">' + m.name + '</div><div class="p">' + fmt(m.price) + '</div></button>').join('') + '</div>';
+  }).join('');
+  document.getElementById('menu').innerHTML = html;
+}
+function addItem(sku) {
+  const m = MENU_DATA.find(x => x.sku === sku); if (!m) return;
+  const ex = cart.find(c => c.sku === sku);
+  if (ex) ex.qty++; else cart.push({ sku: m.sku, name: m.name, price: m.price, qty: 1, subtotal: m.price, modifiers: {} });
+  updateCart();
+}
+function updateCart() {
+  const n = cart.reduce((s, c) => s + c.qty, 0), t = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  document.getElementById('cart-sum').textContent = 'Giỏ: ' + n + ' món · ' + fmt(t);
+  document.getElementById('send').disabled = !(n && table);
+}
+async function sendOrder() {
+  if (!cart.length || !table) return;
+  const btn = document.getElementById('send'); btn.disabled = true; btn.textContent = 'Đang gửi...';
+  const dt = table === 'pickup' ? 'pickup' : 'dine_in';
+  const items = cart.map(c => ({ sku: c.sku, name: c.name, qty: c.qty, price: c.price, subtotal: c.price * c.qty, modifiers: c.modifiers }));
+  const payload = { idempotency_key: 'm-' + Date.now() + '-' + Math.random().toString(16).slice(2),
+    metadata: { delivery_type: dt }, table_id: dt === 'dine_in' ? table : '', items,
+    total: items.reduce((s, i) => s + i.subtotal, 0) };
+  try {
+    const res = await fetch(GW + '/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const d = await res.json();
+    if (d.ok) { cart = []; updateCart(); btn.textContent = 'Đã gửi ✓ ' + (d.short_code || ''); setTimeout(() => { btn.textContent = 'Gửi đơn'; }, 1500); }
+    else throw new Error(d.error || 'lỗi');
+  } catch (e) { alert('Gửi đơn lỗi — thử lại.'); btn.textContent = 'Gửi đơn'; btn.disabled = false; }
+}
+renderTables(); renderMenu(); updateCart();
+</script>
+</body></html>
