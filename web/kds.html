@@ -1335,9 +1335,10 @@ function applyFilter(orders) {
 function renderTableSummaryBar() {
   const tableMap = new Map();
   allOrders.forEach(o => {
-    if (o.status === 'CANCELLED') return;
-    const isUnpaidOrActive = o.payment_status !== 'PAID' || ['NEW','CONFIRMED','MAKING','READY','DELIVERING'].includes(o.status);
-    if (!isUnpaidOrActive) return;
+    if (['CANCELLED', 'VOIDED', 'SPLIT', 'DELIVERED'].includes(o.status)) return;
+    // Đơn đã thanh toán KHÔNG cộng vào thanh thanh toán bàn (đồng bộ với sơ đồ bàn) —
+    // thanh này chỉ gom tiền CÒN PHẢI THU của bàn.
+    if (isCheckoutOrderPaid(o)) return;
     const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
     if (dt !== 'dine_in' || !o.table_id) return;
     const tid = String(o.table_id).trim();
@@ -1744,9 +1745,11 @@ function renderFloorMap() {
   const map = document.getElementById('floor-map');
   if (!map) return;
   const activeStatuses = ['DELIVERED', 'CANCELLED', 'VOIDED', 'SPLIT'];
+  // Bàn chỉ tính đơn CHƯA thanh toán. Đơn đã trả (paid) coi như xong, không cộng vào bàn —
+  // dù chưa "giao" (status có thể vẫn MAKING/READY). Đây là "tiền còn phải thu ở bàn này".
   const tableOrders = n => allOrders.filter(o =>
     parseInt(String(o.table_id || '').replace(/\D/g, ''), 10) === n &&
-    !activeStatuses.includes(o.status));
+    !activeStatuses.includes(o.status) && !isCheckoutOrderPaid(o));
 
   const tiles = [];
   for (let n = 1; n <= TABLE_COUNT; n++) {
@@ -1772,7 +1775,7 @@ function renderFloorMap() {
   // Tile tổng hợp Mang đi (nếu có đơn pickup/take_away đang hoạt động)
   const pickupOrders = allOrders.filter(o => {
     const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
-    return (dt === 'pickup' || dt === 'take_away') && !activeStatuses.includes(o.status);
+    return (dt === 'pickup' || dt === 'take_away') && !activeStatuses.includes(o.status) && !isCheckoutOrderPaid(o);
   });
   if (pickupOrders.length) {
     const sum = pickupOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
