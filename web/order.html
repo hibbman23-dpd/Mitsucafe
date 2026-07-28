@@ -49,14 +49,14 @@ function renderMenu() {
     const items = byCat[c.id] || [];
     if (!items.length) return '';
     return '<div class="cat">' + (c.emoji || '') + ' ' + c.label + '</div><div class="items">' +
-      items.map(m => '<button class="mi" onclick="addItem(\'' + m.sku + '\')"><div class="n">' + m.name + '</div><div class="p">' + fmt(m.price) + '</div></button>').join('') + '</div>';
+      items.map(m => '<button class="mi" onclick="addItem(\'' + m.sku + '\')"><div class="n">' + m.name + '</div><div class="p">' + fmt(m.price_m) + '</div></button>').join('') + '</div>';
   }).join('');
   document.getElementById('menu').innerHTML = html;
 }
 function addItem(sku) {
   const m = MENU_DATA.find(x => x.sku === sku); if (!m) return;
   const ex = cart.find(c => c.sku === sku);
-  if (ex) ex.qty++; else cart.push({ sku: m.sku, name: m.name, price: m.price, qty: 1, subtotal: m.price, modifiers: {} });
+  if (ex) ex.qty++; else cart.push({ sku: m.sku, name: m.name, price: m.price_m, qty: 1, subtotal: m.price_m, modifiers: {} });
   updateCart();
 }
 function updateCart() {
