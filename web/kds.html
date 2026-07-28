@@ -478,6 +478,7 @@
   <div class="orders-mode-toggle" style="display:flex; gap:8px; margin-bottom:10px;">
     <button class="filter-pill active" id="mode-list" onclick="setOrdersMode('list')">📋 Danh sách</button>
     <button class="filter-pill" id="mode-map" onclick="setOrdersMode('map')">🗺️ Sơ đồ bàn</button>
+    <button class="filter-pill" id="mode-cashier" onclick="setOrdersMode('cashier')">💰 Thu ngân</button>
   </div>
   <div class="tts-banner" id="tts-banner">
     🔔 Bật thông báo âm thanh khi xác nhận thanh toán
@@ -496,6 +497,7 @@
     <div class="empty-state"><div class="icon">☕</div>Đang tải đơn hàng...</div>
   </div>
   <div class="floor-map hidden" id="floor-map"></div>
+  <div class="cashier-view hidden" id="cashier-view"></div>
 </div>
 
 <!-- ════════ VIEW: MENU ════════ -->
@@ -1726,6 +1728,7 @@ function renderOrders() {
       </div>`;
   }).join('');
   if (ordersViewMode === 'map') renderFloorMap();
+  if (ordersViewMode === 'cashier') renderCashier();
 }
 
 // ─── FLOOR MAP (sơ đồ bàn — iPOS style) ────────────────────────────────────
@@ -1735,10 +1738,77 @@ function setOrdersMode(m) {
   ordersViewMode = m;
   document.getElementById('mode-list').classList.toggle('active', m === 'list');
   document.getElementById('mode-map').classList.toggle('active', m === 'map');
+  document.getElementById('mode-cashier').classList.toggle('active', m === 'cashier');
   document.getElementById('orders-list').classList.toggle('hidden', m !== 'list');
-  document.getElementById('table-filter-bar').classList.toggle('hidden', m === 'map');
+  document.getElementById('table-filter-bar').classList.toggle('hidden', m !== 'list');
   document.getElementById('floor-map').classList.toggle('hidden', m !== 'map');
+  document.getElementById('cashier-view').classList.toggle('hidden', m !== 'cashier');
   if (m === 'map') renderFloorMap();
+  if (m === 'cashier') renderCashier();
+}
+
+// ─── CASHIER MODE (Thu ngân) ────────────────────────────────────────────────
+function cashierUnpaid() {
+  const EX = ['CANCELLED', 'VOIDED', 'SPLIT', 'DELIVERED'];
+  const owe = allOrders.filter(o => !EX.includes(o.status) && !isCheckoutOrderPaid(o));
+  // gom theo bàn (dine_in) hoặc từng đơn (pickup)
+  const groups = new Map();
+  owe.forEach(o => {
+    const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
+    const key = (dt === 'dine_in' && o.table_id) ? 'T:' + String(o.table_id).trim() : 'O:' + o.order_id;
+    if (!groups.has(key)) groups.set(key, { key, dt, tableId: o.table_id, orders: [] });
+    groups.get(key).orders.push(o);
+  });
+  return [...groups.values()].map(g => ({
+    ...g,
+    total: g.orders.reduce((s, o) => s + (Number(o.total) || 0), 0),
+    count: g.orders.length,
+    firstAt: g.orders.reduce((m, o) => (o.created_at && (!m || o.created_at < m)) ? o.created_at : m, ''),
+  })).sort((a, b) => (a.firstAt || '').localeCompare(b.firstAt || ''));
+}
+
+function renderCashier() {
+  const el = document.getElementById('cashier-view');
+  const rows = cashierUnpaid();
+  const nDone = allOrders.filter(o => isCheckoutOrderPaid(o) &&
+    !['DELIVERED', 'CANCELLED', 'VOIDED', 'SPLIT'].includes(o.status)).length;
+  const closeBtn = `<button class="btn-mark-paid" style="background:#3f7d4a;color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:12px;"
+      onclick="batchCloseDelivered()">✅ Xong hết đơn đã giao${nDone ? ' (' + nDone + ')' : ''}</button>`;
+  if (!rows.length) {
+    el.innerHTML = closeBtn + '<div class="empty-state"><div class="icon">💰</div>Không có bàn/đơn nào còn nợ tiền.</div>';
+    return;
+  }
+  el.innerHTML = closeBtn + rows.map(g => {
+    const label = (g.dt === 'dine_in' && g.tableId)
+      ? '🪑 Bàn ' + String(g.tableId).replace(/\D/g, '')
+      : '🥡 ' + esc(g.orders[0].short_code || g.orders[0].order_id);
+    const onclick = (g.dt === 'dine_in' && g.tableId)
+      ? `openCheckoutTable('${esc(g.tableId)}')`
+      : `openCheckout('${esc(g.orders[0].order_id)}')`;
+    return `<div class="cashier-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;
+        background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+        <div><div style="font-weight:800;font-size:1.05rem;color:var(--cream);">${label}</div>
+          <div style="color:var(--muted);font-size:.85rem;">${g.count} đơn</div></div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-weight:800;font-size:1.15rem;color:var(--cream);">${fmt(g.total)}</div>
+          <button class="btn-mark-paid" style="background:#eb624a;color:#fff;padding:10px 18px;border-radius:10px;"
+            onclick="${onclick}">💰 Thu tiền</button></div>
+      </div>`;
+  }).join('');
+}
+
+async function batchCloseDelivered() {
+  const targets = allOrders.filter(o => isCheckoutOrderPaid(o) &&
+    !['DELIVERED', 'CANCELLED', 'VOIDED', 'SPLIT'].includes(o.status));
+  if (!targets.length) { alert('Không có đơn đã trả nào cần đóng.'); return; }
+  if (!confirm('Đóng ' + targets.length + ' đơn đã trả tiền (đánh dấu đã giao)?')) return;
+  let ok = 0, fail = 0;
+  for (const o of targets) {
+    const r = await api().setStatus(o.order_id, 'DELIVERED');
+    if (r.status === 200 && r.body && r.body.ok) { o.status = 'DELIVERED'; ok++; } else fail++;
+  }
+  alert('Đã đóng ' + ok + ' đơn' + (fail ? ', ' + fail + ' lỗi — thử lại.' : '.'));
+  await loadOrders();
 }
 
 function renderFloorMap() {
