@@ -960,10 +960,13 @@ def print_custom_label():
     name = (p.get("name") or "").strip()
     if not name:
         return jsonify({"ok": False, "error": "name required"}), 400
-    qty = max(1, int(p.get("qty") or 1))
+    try:
+        qty = max(1, int(p.get("qty") or 1))
+    except (TypeError, ValueError):
+        qty = 1
     item = {"name": name, "sku": "CUSTOM", "qty": 1, "modifiers": p.get("modifiers") or {}}
     cups = [item for _ in range(qty)]
-    order = {"order_id": "CUSTOM", "short_code": "", "table_id": "",
+    order = {"order_id": "CUSTOM-" + str(time.time_ns()), "short_code": "", "table_id": "",
              "metadata": {"short_code": "", "delivery_type": "custom", "notes": "TEM MÓN LẺ"},
              "items": cups}
     engine = _print_engine()

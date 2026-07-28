@@ -172,6 +172,14 @@ class TestEditRoutes(RouteTestBase):
         # under PRINT_ENGINE=noop the route reports printed False and creates no order
         self.assertEqual(len(self.c.get("/orders").get_json()["orders"]), before)
 
+    def test_custom_label_empty_name_400(self):
+        r = self.c.post("/print/custom_label", json={"name": "   "})
+        self.assertEqual(r.status_code, 400)
+
+    def test_custom_label_bad_qty_no_500(self):
+        r = self.c.post("/print/custom_label", json={"name": "Trà lạ", "qty": "abc"})
+        self.assertEqual(r.status_code, 200)  # bad qty defaults to 1, never crashes
+
 
 class TestInboxRoutes(RouteTestBase):
     def setUp(self):
