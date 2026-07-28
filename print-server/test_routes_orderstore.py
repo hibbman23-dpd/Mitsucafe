@@ -163,6 +163,16 @@ class TestEditRoutes(RouteTestBase):
         self.assertEqual(r.status_code, 403)
 
 
+    def test_custom_label_prints_no_order(self):
+        before = len(self.c.get("/orders").get_json()["orders"])
+        r = self.c.post("/print/custom_label", json={
+            "name": "Trà thử nghiệm", "modifiers": {"size": "L", "ice": "less", "sugar": "50"}, "qty": 2})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.get_json()["ok"])
+        # under PRINT_ENGINE=noop the route reports printed False and creates no order
+        self.assertEqual(len(self.c.get("/orders").get_json()["orders"]), before)
+
+
 class TestInboxRoutes(RouteTestBase):
     def setUp(self):
         super().setUp()

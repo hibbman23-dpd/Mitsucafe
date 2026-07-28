@@ -953,6 +953,33 @@ def bill_group_print(group_id):
     return jsonify({"ok": True, "printed": True, "order_ids": bill["order_ids"]}), 200
 
 
+@app.post("/print/custom_label")
+def print_custom_label():
+    """In tem dán ly cho MÓN LẠ ngoài menu — KHÔNG tạo đơn, KHÔNG đụng tiền."""
+    p = request.get_json(force=True, silent=True) or {}
+    name = (p.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name required"}), 400
+    qty = max(1, int(p.get("qty") or 1))
+    item = {"name": name, "sku": "CUSTOM", "qty": 1, "modifiers": p.get("modifiers") or {}}
+    cups = [item for _ in range(qty)]
+    order = {"order_id": "CUSTOM", "short_code": "", "table_id": "",
+             "metadata": {"short_code": "", "delivery_type": "custom", "notes": "TEM MÓN LẺ"},
+             "items": cups}
+    engine = _print_engine()
+    if engine == "noop":
+        return jsonify({"ok": True, "printed": False, "engine": "noop"}), 200
+    try:
+        if engine == "spool":
+            SPOOL.enqueue_labels(order, cups)
+        else:
+            _print_label_bytes(build_order_labels_tspl(order, cups))
+    except Exception as exc:
+        log.error("custom_label print failed: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 502
+    return jsonify({"ok": True, "printed": True}), 200
+
+
 @app.post("/order/status")
 def order_status():
     p = request.get_json(force=True, silent=True) or {}
