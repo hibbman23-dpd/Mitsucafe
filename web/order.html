@@ -4,34 +4,74 @@
 <title>Gọi món — Mitsu 蜜</title>
 <link rel="stylesheet" href="mitsu.css">
 <style>
-  body{margin:0;background:#17120e;color:#f2ead9;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:96px}
+  body{margin:0;background:#17120e;color:#f2ead9;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:104px}
   .oh{position:sticky;top:0;background:#1f1913;padding:12px 14px;border-bottom:1px solid #332a20;z-index:5}
   .tables{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
   .tchip{flex:0 0 auto;padding:6px 12px;border-radius:20px;border:1px solid #332a20;background:#1f1913;color:#f2ead9;font-size:.85rem}
   .tchip.active{background:#eb624a;border-color:#eb624a;color:#fff;font-weight:700}
   .cat{font-weight:800;margin:16px 12px 8px;color:#d8a94a}
   .items{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px}
-  .mi{background:#1f1913;border:1px solid #332a20;border-radius:12px;padding:12px;text-align:left}
+  .mi{background:#1f1913;border:1px solid #332a20;border-radius:12px;padding:12px;text-align:left;color:inherit;cursor:pointer}
   .mi .n{font-weight:700}.mi .p{color:#d8a94a;font-weight:800;margin-top:4px}
-  .cartbar{position:fixed;left:0;right:0;bottom:0;background:#1f1913;border-top:1px solid #332a20;padding:12px 14px;display:flex;gap:10px;align-items:center}
+  .cartbar{position:fixed;left:0;right:0;bottom:0;background:#1f1913;border-top:1px solid #332a20;padding:12px 14px;display:flex;gap:10px;align-items:center;z-index:6}
+  .cartbar .sum{flex:0 0 auto}
   .send{flex:1;background:#eb624a;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:1.05rem}
   .send:disabled{opacity:.5}
+  /* overlay sheets */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:20;display:flex;align-items:flex-end}
+  .ov.hidden{display:none}
+  .sheet{background:#1f1913;width:100%;max-width:520px;margin:0 auto;border-radius:18px 18px 0 0;padding:16px 16px 24px;max-height:88vh;overflow-y:auto}
+  .sheet h3{margin:0 0 4px;font-size:1.15rem}
+  .row-lbl{font-size:.78rem;color:#ab9c85;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.05em}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{padding:8px 14px;border-radius:20px;border:1px solid #332a20;background:#17120e;color:#f2ead9;font-size:.9rem;cursor:pointer}
+  .chip.active{background:#d8a94a;border-color:#d8a94a;color:#1b140b;font-weight:800}
+  .qtyrow{display:flex;align-items:center;gap:14px;margin:16px 0}
+  .qbtn{width:40px;height:40px;border-radius:12px;border:none;background:#eb624a;color:#fff;font-size:1.3rem;font-weight:800}
+  .qval{font-size:1.25rem;font-weight:800;min-width:30px;text-align:center}
+  .add{width:100%;background:#eb624a;color:#fff;border:none;border-radius:14px;padding:15px;font-weight:800;font-size:1.05rem;margin-top:10px}
+  .close{position:absolute;right:14px;top:12px;background:#332a20;border:none;color:#f2ead9;width:34px;height:34px;border-radius:10px;font-size:1rem}
+  /* cart drawer */
+  .cart-line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #332a20}
+  .cart-line .nm{font-weight:700}.cart-line .mods{font-size:.78rem;color:#ab9c85}
+  .cl-x{background:#3a241f;border:none;color:#eb624a;border-radius:8px;padding:6px 10px;font-weight:700}
 </style></head><body>
 <div class="oh">
   <div style="font-weight:800">Gọi món · <span id="tbl-label">Chọn bàn</span></div>
   <div class="tables" id="tables"></div>
 </div>
 <div id="menu"></div>
-<div class="cartbar"><div id="cart-sum">Giỏ: 0 món · 0đ</div>
-  <button class="send" id="send" disabled onclick="sendOrder()">Gửi đơn</button></div>
+
+<div class="cartbar">
+  <div class="sum" id="cart-sum" onclick="toggleCart()" style="cursor:pointer">Giỏ: 0 món · 0đ ▾</div>
+  <button class="send" id="send" disabled onclick="sendOrder()">Gửi đơn</button>
+</div>
+
+<!-- item modifier sheet -->
+<div class="ov hidden" id="item-ov" onclick="if(event.target.id==='item-ov')closeItemSheet()">
+  <div class="sheet" style="position:relative">
+    <button class="close" onclick="closeItemSheet()">✕</button>
+    <div id="item-body"></div>
+  </div>
+</div>
+
+<!-- cart drawer -->
+<div class="ov hidden" id="cart-ov" onclick="if(event.target.id==='cart-ov')toggleCart()">
+  <div class="sheet" style="position:relative">
+    <button class="close" onclick="toggleCart()">✕</button>
+    <h3>Giỏ hàng</h3>
+    <div id="cart-list"></div>
+  </div>
+</div>
+
 <script src="menu-data.js"></script>
 <script src="order-api.js"></script>
 <script>
 const GW = (location.origin && location.origin.startsWith('http')) ? location.origin : 'http://localhost:5001';
-const api = OrderApi(GW);
 const TABLE_COUNT = 20;
-let table = '', cart = [];
+let table = '', cart = [], sheetItem = null, sheetSel = {};
 const fmt = n => Number(n).toLocaleString('vi-VN') + 'đ';
+const ICE_LBL = { full: 'Đá BT', less: 'Ít đá', none: 'Không đá', '': 'Đá BT' };
 
 function renderTables() {
   const els = ['<button class="tchip' + (table === 'pickup' ? ' active' : '') + '" onclick="pickTable(\'pickup\')">🥡 Mang đi</button>'];
@@ -42,6 +82,7 @@ function renderTables() {
   document.getElementById('tables').innerHTML = els.join('');
 }
 function pickTable(t) { table = t; document.getElementById('tbl-label').textContent = t === 'pickup' ? 'Mang đi' : ('Bàn ' + t); renderTables(); updateCart(); }
+
 function renderMenu() {
   const byCat = {};
   MENU_DATA.filter(m => m.available).forEach(m => { (byCat[m.subcategory] = byCat[m.subcategory] || []).push(m); });
@@ -49,36 +90,133 @@ function renderMenu() {
     const items = byCat[c.id] || [];
     if (!items.length) return '';
     return '<div class="cat">' + (c.emoji || '') + ' ' + c.label + '</div><div class="items">' +
-      items.map(m => '<button class="mi" onclick="addItem(\'' + m.sku + '\')"><div class="n">' + m.name + '</div><div class="p">' + fmt(m.price_m) + '</div></button>').join('') + '</div>';
+      items.map(m => '<button class="mi" onclick="openItemSheet(\'' + m.sku + '\')"><div class="n">' + m.name + '</div><div class="p">' + fmt(m.price_m) + '</div></button>').join('') + '</div>';
   }).join('');
   document.getElementById('menu').innerHTML = html;
 }
-function addItem(sku) {
+
+// ── item modifier sheet ─────────────────────────────────────────
+function openItemSheet(sku) {
   const m = MENU_DATA.find(x => x.sku === sku); if (!m) return;
-  const ex = cart.find(c => c.sku === sku);
-  if (ex) ex.qty++; else cart.push({ sku: m.sku, name: m.name, price: m.price_m, qty: 1, subtotal: m.price_m, modifiers: {} });
-  updateCart();
+  sheetItem = m;
+  const cz = m.customizations || {};
+  sheetSel = {
+    size: 'M',
+    ice: (cz.ice && cz.ice.length) ? '' : null,     // '' = default (full) when ice offered; null = not applicable
+    sugar: (cz.sugar && cz.sugar.length) ? cz.sugar[0] : null,
+    toppings: [],
+    qty: 1,
+  };
+  renderItemSheet();
+  document.getElementById('item-ov').classList.remove('hidden');
+}
+function closeItemSheet() { document.getElementById('item-ov').classList.add('hidden'); sheetItem = null; }
+
+function curPrice() {
+  let p = (sheetSel.size === 'L' && sheetItem.price_l) ? sheetItem.price_l : sheetItem.price_m;
+  const tps = (sheetItem.customizations || {}).toppings || [];
+  sheetSel.toppings.forEach(id => { const t = tps.find(x => x.id === id); if (t) p += (t.price || 0); });
+  return p;
+}
+function renderItemSheet() {
+  const m = sheetItem, cz = m.customizations || {};
+  const chip = (label, active, on) => '<button class="chip' + (active ? ' active' : '') + '" onclick="' + on + '">' + label + '</button>';
+  let h = '<h3>' + m.name + '</h3><div style="color:#d8a94a;font-weight:800">' + fmt(curPrice()) + '</div>';
+  // size (M always; L if price_l)
+  const sizes = m.price_l ? ['M', 'L'] : ['M'];
+  if (sizes.length > 1) h += '<div class="row-lbl">Size</div><div class="chips">' +
+    sizes.map(s => chip(s + (s === 'L' ? ' (' + fmt(m.price_l) + ')' : ''), sheetSel.size === s, "selSize('" + s + "')")).join('') + '</div>';
+  // ice
+  if (cz.ice && cz.ice.length) h += '<div class="row-lbl">Đá</div><div class="chips">' +
+    cz.ice.map(v => chip(ICE_LBL[v] || v, sheetSel.ice === (v === 'full' ? '' : v), "selIce('" + (v === 'full' ? '' : v) + "')")).join('') + '</div>';
+  // sugar
+  if (cz.sugar && cz.sugar.length) h += '<div class="row-lbl">Đường</div><div class="chips">' +
+    cz.sugar.map(v => chip(v, sheetSel.sugar === v, "selSugar('" + v + "')")).join('') + '</div>';
+  // toppings (multi)
+  if (cz.toppings && cz.toppings.length) h += '<div class="row-lbl">Topping</div><div class="chips">' +
+    cz.toppings.map(t => chip(t.name + (t.price ? ' +' + fmt(t.price) : ''), sheetSel.toppings.indexOf(t.id) >= 0, "selTopping('" + t.id + "')")).join('') + '</div>';
+  h += '<div class="qtyrow"><span>Số lượng</span><button class="qbtn" onclick="sheetQty(-1)">－</button>' +
+    '<span class="qval">' + sheetSel.qty + '</span><button class="qbtn" onclick="sheetQty(1)">＋</button></div>';
+  h += '<button class="add" onclick="confirmAddItem()">＋ Thêm vào giỏ · ' + fmt(curPrice() * sheetSel.qty) + '</button>';
+  document.getElementById('item-body').innerHTML = h;
+}
+function selSize(s) { sheetSel.size = s; renderItemSheet(); }
+function selIce(v) { sheetSel.ice = v; renderItemSheet(); }
+function selSugar(v) { sheetSel.sugar = v; renderItemSheet(); }
+function selTopping(v) { const i = sheetSel.toppings.indexOf(v); if (i >= 0) sheetSel.toppings.splice(i, 1); else sheetSel.toppings.push(v); renderItemSheet(); }
+function sheetQty(d) { sheetSel.qty = Math.max(1, sheetSel.qty + d); renderItemSheet(); }
+
+function confirmAddItem() {
+  const m = sheetItem, price = curPrice();
+  const mods = {};
+  if (sheetSel.size) mods.size = sheetSel.size;
+  if (sheetSel.ice !== null && sheetSel.ice !== '') mods.ice = sheetSel.ice;
+  if (sheetSel.sugar !== null) mods.sugar = sheetSel.sugar;
+  if (sheetSel.toppings.length) {
+    const tps = (m.customizations || {}).toppings || [];
+    mods.toppings = sheetSel.toppings.map(id => (tps.find(x => x.id === id) || {}).name || id).join(', ');
+  }
+  const key = m.sku + '|' + JSON.stringify(mods);
+  const ex = cart.find(c => c.key === key);
+  if (ex) ex.qty += sheetSel.qty;
+  else cart.push({ key, sku: m.sku, name: m.name, price, qty: sheetSel.qty, modifiers: mods });
+  closeItemSheet(); updateCart();
+}
+
+// ── cart ────────────────────────────────────────────────────────
+function modsText(mods) {
+  const p = [];
+  if (mods.size) p.push(mods.size);
+  if (mods.ice) p.push(ICE_LBL[mods.ice] || mods.ice);
+  if (mods.sugar) p.push('Đường ' + mods.sugar);
+  if (mods.toppings) p.push(mods.toppings);
+  return p.join(' · ');
 }
 function updateCart() {
   const n = cart.reduce((s, c) => s + c.qty, 0), t = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  document.getElementById('cart-sum').textContent = 'Giỏ: ' + n + ' món · ' + fmt(t);
+  document.getElementById('cart-sum').textContent = 'Giỏ: ' + n + ' món · ' + fmt(t) + ' ▾';
   document.getElementById('send').disabled = !(n && table);
+  if (!document.getElementById('cart-ov').classList.contains('hidden')) renderCartList();
 }
+function renderCartList() {
+  const el = document.getElementById('cart-list');
+  if (!cart.length) { el.innerHTML = '<div style="color:#ab9c85;padding:16px 0">Giỏ trống.</div>'; return; }
+  el.innerHTML = cart.map((c, i) => {
+    const mt = modsText(c.modifiers);
+    return '<div class="cart-line"><div><div class="nm">' + c.name + ' × ' + c.qty + '</div>' +
+      (mt ? '<div class="mods">' + mt + '</div>' : '') + '<div class="mods">' + fmt(c.price * c.qty) + '</div></div>' +
+      '<button class="cl-x" onclick="removeLine(' + i + ')">Xoá</button></div>';
+  }).join('');
+}
+function removeLine(i) { cart.splice(i, 1); updateCart(); }
+function toggleCart() {
+  const ov = document.getElementById('cart-ov');
+  ov.classList.toggle('hidden');
+  if (!ov.classList.contains('hidden')) renderCartList();
+}
+
 async function sendOrder() {
   if (!cart.length || !table) return;
   const btn = document.getElementById('send'); btn.disabled = true; btn.textContent = 'Đang gửi...';
   const dt = table === 'pickup' ? 'pickup' : 'dine_in';
   const items = cart.map(c => ({ sku: c.sku, name: c.name, qty: c.qty, price: c.price, subtotal: c.price * c.qty, modifiers: c.modifiers }));
-  const payload = { idempotency_key: 'm-' + Date.now() + '-' + Math.random().toString(16).slice(2),
+  const payload = {
+    idempotency_key: 'm-' + Date.now() + '-' + Math.random().toString(16).slice(2),
     metadata: { delivery_type: dt }, table_id: dt === 'dine_in' ? table : '', items,
-    total: items.reduce((s, i) => s + i.subtotal, 0) };
+    total: items.reduce((s, i) => s + i.subtotal, 0),
+  };
   try {
     const res = await fetch(GW + '/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const d = await res.json();
-    if (d.ok) { cart = []; updateCart(); btn.textContent = 'Đã gửi ✓ ' + (d.short_code || ''); setTimeout(() => { btn.textContent = 'Gửi đơn'; }, 1500); }
-    else throw new Error(d.error || 'lỗi');
+    if (d.ok) {
+      cart = []; updateCart();
+      if (!document.getElementById('cart-ov').classList.contains('hidden')) toggleCart();
+      btn.textContent = 'Đã gửi ✓ ' + (d.short_code || '');
+      setTimeout(() => { btn.textContent = 'Gửi đơn'; }, 1600);
+    } else throw new Error(d.error || 'lỗi');
   } catch (e) { alert('Gửi đơn lỗi — thử lại.'); btn.textContent = 'Gửi đơn'; btn.disabled = false; }
 }
+
 renderTables(); renderMenu(); updateCart();
 </script>
 </body></html>
