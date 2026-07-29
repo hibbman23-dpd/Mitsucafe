@@ -5,6 +5,7 @@ from gateway import Gateway
 from order_store import OrderStore
 from online_inbox import OnlineInbox
 from print_spool import PrintSpool
+from print_issues import PrintIssues
 
 
 def _fake_reserve(dtype, n):
@@ -23,6 +24,7 @@ class RouteTestBase(unittest.TestCase):
                                        reserve_fn=_fake_reserve, today="20260726")
         print_server.STORE = OrderStore(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
         print_server.SPOOL = PrintSpool(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
+        print_server.PRINT_ISSUES = PrintIssues(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
         print_server.INBOX = OnlineInbox(print_server.STORE, fetch_fn=lambda: [])
 
     def tearDown(self):
@@ -254,6 +256,38 @@ class TestSpoolPath(RouteTestBase):
                 _os.environ.pop("PRINT_ENGINE", None)
             else:
                 _os.environ["PRINT_ENGINE"] = prev
+
+
+class TestPrintIssuesRoutes(RouteTestBase):
+    def test_flag_then_list_then_resolve(self):
+        r = self.c.post("/print/issues/flag", json={"order_id": "ORD-1", "note": "tem không ra"})
+        self.assertEqual(r.status_code, 200)
+        listed = self.c.get("/print/issues").get_json()["issues"]
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0]["order_id"], "ORD-1")
+        self.assertEqual(listed[0]["issue_type"], "manual_flag")
+        issue_id = listed[0]["id"]
+        r2 = self.c.post(f"/print/issues/{issue_id}/resolve")
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(self.c.get("/print/issues").get_json()["issues"], [])
+
+    def test_flag_missing_order_id_400(self):
+        r = self.c.post("/print/issues/flag", json={})
+        self.assertEqual(r.status_code, 400)
+
+    def test_resolve_unknown_id_is_noop_200(self):
+        r = self.c.post("/print/issues/999999/resolve")
+        self.assertEqual(r.status_code, 200)
+
+    def test_auto_log_via_spool_alert(self):
+        print_server._spool_alert(
+            {"order_id": "ORD-2", "idempotency_key": "k1", "printer": "label", "seq_in_order": 3},
+            RuntimeError("usb gone"))
+        listed = self.c.get("/print/issues").get_json()["issues"]
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0]["issue_type"], "auto_failed")
+        self.assertEqual(listed[0]["kind"], "label")
+        self.assertEqual(listed[0]["cup_index"], 3)
 
 
 if __name__ == "__main__":

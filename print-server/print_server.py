@@ -151,6 +151,9 @@ RECEIPT_TRANSPORT = os.getenv("RECEIPT_TRANSPORT", "cups")
 
 SPOOL = PrintSpool(GATEWAY._conn, GATEWAY._lock)
 
+from print_issues import PrintIssues
+PRINT_ISSUES = PrintIssues(GATEWAY._conn, GATEWAY._lock)
+
 # ── Materialized orders store (Task 5) ─────────────────────────────────────────
 from order_store import OrderStore, VersionConflict
 import bill_engine
@@ -235,6 +238,11 @@ def _gas_mark(order_id, kind):
 def _spool_alert(job, err):
     text = f"⚠️ In hỏng: {job.get('idempotency_key')} — {str(err)[:200]}"
     log.error("[SPOOL FAILED] %s", text)
+    try:
+        PRINT_ISSUES.log_auto_failed(job.get("order_id", ""), job.get("printer", ""),
+                                      job.get("seq_in_order"), str(err))
+    except Exception as exc:
+        log.error("print_issues log failed: %s", exc)
     try:
         _gas_post({"action": "notify_admin", "text": text})
     except Exception:
@@ -989,6 +997,28 @@ def print_custom_label():
         log.error("custom_label print failed: %s", exc)
         return jsonify({"ok": False, "error": str(exc)}), 502
     return jsonify({"ok": True, "printed": True}), 200
+
+
+@app.get("/print/issues")
+def print_issues_list():
+    return jsonify({"ok": True, "issues": PRINT_ISSUES.list_open()}), 200
+
+
+@app.post("/print/issues/flag")
+def print_issues_flag():
+    """Nhân viên báo 'tem không ra' cho 1 đơn — không cần PIN (chỉ là báo cáo, không đụng tiền)."""
+    p = request.get_json(force=True, silent=True) or {}
+    order_id = (p.get("order_id") or "").strip()
+    if not order_id:
+        return jsonify({"ok": False, "error": "order_id required"}), 400
+    PRINT_ISSUES.flag_manual(order_id, p.get("note") or "")
+    return jsonify({"ok": True}), 200
+
+
+@app.post("/print/issues/<int:issue_id>/resolve")
+def print_issues_resolve(issue_id):
+    PRINT_ISSUES.resolve(issue_id)
+    return jsonify({"ok": True}), 200
 
 
 @app.post("/order/status")
