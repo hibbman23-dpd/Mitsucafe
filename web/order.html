@@ -7,12 +7,12 @@
   body{margin:0;background:#17120e;color:#f2ead9;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:104px}
   .oh{position:sticky;top:0;background:#1f1913;padding:12px 14px;border-bottom:1px solid #332a20;z-index:5}
   .tables{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
-  .tchip{flex:0 0 auto;padding:6px 12px;border-radius:20px;border:1px solid #332a20;background:#1f1913;color:#f2ead9;font-size:.85rem}
+  .tchip{flex:0 0 auto;padding:5px 10px;border-radius:16px;border:1px solid #332a20;background:#1f1913;color:#f2ead9;font-size:.8rem}
   .tchip.active{background:#eb624a;border-color:#eb624a;color:#fff;font-weight:700}
-  .cat{font-weight:800;margin:16px 12px 8px;color:#d8a94a}
-  .items{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px}
-  .mi{background:#1f1913;border:1px solid #332a20;border-radius:12px;padding:12px;text-align:left;color:inherit;cursor:pointer}
-  .mi .n{font-weight:700}.mi .p{color:#d8a94a;font-weight:800;margin-top:4px}
+  .cat{font-weight:800;margin:10px 8px 5px;color:#d8a94a;font-size:.85rem}
+  .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;padding:0 8px}
+  .mi{background:#1f1913;border:1px solid #332a20;border-radius:9px;padding:7px 8px;text-align:left;color:inherit;cursor:pointer;min-height:52px;display:flex;flex-direction:column;justify-content:space-between}
+  .mi .n{font-weight:700;font-size:.82rem;line-height:1.15}.mi .p{color:#d8a94a;font-weight:800;font-size:.82rem;margin-top:3px}
   .cartbar{position:fixed;left:0;right:0;bottom:0;background:#1f1913;border-top:1px solid #332a20;padding:12px 14px;display:flex;gap:10px;align-items:center;z-index:6}
   .cartbar .sum{flex:0 0 auto}
   .send{flex:1;background:#eb624a;color:#fff;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:1.05rem}
@@ -73,6 +73,21 @@ let table = '', cart = [], sheetItem = null, sheetSel = {};
 const fmt = n => Number(n).toLocaleString('vi-VN') + 'đ';
 const ICE_LBL = { full: 'Đá BT', less: 'Ít đá', none: 'Không đá', '': 'Đá BT' };
 
+// Viết tắt HIỂN THỊ trên lưới điện thoại (chỉ để hiện nhiều món; đơn/bill/tem vẫn dùng tên đầy đủ).
+// Sửa/thêm cặp ở đây để hợp thói quen quán.
+const ABBR = [
+  ['CÀ PHÊ', 'CF'], ['TRÀ SỮA', 'TS'], ['TRÀ SỬA', 'TS'], ['CA CAO', 'CACAO'],
+  ['MUỐI HỒNG', 'MH'], ['CARAMEL', 'CRML'], ['CHOCOLATE', 'SOCOLA'],
+  ['ĐẬU PHỘNG', 'Đ.PHỘNG'], ['HẠNH NHÂN', 'H.NHÂN'], ['KEM DẺO', 'K.DẺO'],
+  ['BUÔN MÊ', 'B.MÊ'], ['PHOMAI', 'PM'], ['PHÔ MAI', 'PM'], ['MẬT ONG', 'M.ONG'],
+  ['TRÂN CHÂU', 'TC'], ['HOÀNG KIM', 'H.KIM'], ['THẠCH', 'Thạch'],
+];
+function shortName(name) {
+  let s = name || '';
+  ABBR.forEach(([a, b]) => { s = s.replace(new RegExp(a, 'gi'), b); });
+  return s;
+}
+
 function renderTables() {
   const els = ['<button class="tchip' + (table === 'pickup' ? ' active' : '') + '" onclick="pickTable(\'pickup\')">🥡 Mang đi</button>'];
   for (let i = 1; i <= TABLE_COUNT; i++) {
@@ -90,7 +105,7 @@ function renderMenu() {
     const items = byCat[c.id] || [];
     if (!items.length) return '';
     return '<div class="cat">' + (c.emoji || '') + ' ' + c.label + '</div><div class="items">' +
-      items.map(m => '<button class="mi" onclick="openItemSheet(\'' + m.sku + '\')"><div class="n">' + m.name + '</div><div class="p">' + fmt(m.price_m) + '</div></button>').join('') + '</div>';
+      items.map(m => '<button class="mi" onclick="openItemSheet(\'' + m.sku + '\')"><div class="n">' + shortName(m.name) + '</div><div class="p">' + fmt(m.price_m) + '</div></button>').join('') + '</div>';
   }).join('');
   document.getElementById('menu').innerHTML = html;
 }
