@@ -1237,8 +1237,8 @@ function renderIssueBanner() {
   lEl.innerHTML = printIssuesOpen.map(is => `
     <div class="issue-row">
       <div>#${esc(is.order_id)} · ${is.kind === 'label' ? 'tem' : 'hoá đơn'}${is.issue_type === 'auto_failed' ? ' (lỗi in thật)' : ' (nhân viên báo)'} · ${esc(is.note || '')}</div>
-      <div style="display:flex; gap:6px; flex-shrink:0;">
-        <button class="btn-sm" onclick="reprintIssue(${is.id}, '${esc(is.order_id)}', '${is.kind}', ${is.cup_index == null ? 'null' : is.cup_index})">🏷️ In lại</button>
+      <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+        ${is.kind === 'label' ? `<button class="btn-sm" onclick="reprintIssue(${is.id}, '${esc(is.order_id)}', '${is.kind}', ${is.cup_index == null ? 'null' : is.cup_index})">🏷️ In lại</button>` : `<span style="font-size:0.72rem; color:var(--muted);">in lại bằng nút Bill/Đơn bếp trên thẻ đơn</span>`}
         <button class="btn-sm" onclick="resolveIssueOnly(${is.id})">✓ Đã xử lý</button>
       </div>
     </div>`).join('');
@@ -1255,17 +1255,15 @@ async function resolveIssueOnly(id) {
 }
 
 async function reprintIssue(id, orderId, kind, cupIndex) {
-  if (kind === 'receipt') {
-    await reprintBill(orderId);
+  // Chỉ gọi cho kind === 'label' — banner không còn nút "In lại" cho kind === 'receipt'
+  // vì printer='receipt' dùng chung cho bill/đơn bếp/phiếu huỷ, không phân biệt được (xem Fix 1).
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) { toast('Đơn không còn trong danh sách hôm nay — không thể in lại.'); return; }
+  const itemsList = cupItemsOf(o);
+  if (cupIndex != null && itemsList[cupIndex - 1]) {
+    await reprintCupLabelExecute(orderId, cupIndex - 1, null);
   } else {
-    const o = allOrders.find(x => x.order_id === orderId);
-    if (!o) { toast('Đơn không còn trong danh sách hôm nay — không thể in lại.'); return; }
-    const itemsList = cupItemsOf(o);
-    if (cupIndex != null && itemsList[cupIndex - 1]) {
-      await reprintCupLabelExecute(orderId, cupIndex - 1, null);
-    } else {
-      for (let i = 0; i < itemsList.length; i++) await reprintCupLabelExecute(orderId, i, null);
-    }
+    for (let i = 0; i < itemsList.length; i++) await reprintCupLabelExecute(orderId, i, null);
   }
   await api().resolvePrintIssue(id);
   pollPrintIssues();
@@ -1273,9 +1271,15 @@ async function reprintIssue(id, orderId, kind, cupIndex) {
 
 function flagPrintIssuePrompt(orderId) {
   if (!confirm('Xác nhận: tem đơn này không ra dù đã gửi lệnh in?')) return;
-  api().flagPrintIssue(orderId, 'Nhân viên báo tem không ra').then(() => {
-    toast('Đã báo quản lý — sẽ hiện trên banner.');
-    pollPrintIssues();
+  api().flagPrintIssue(orderId, 'Nhân viên báo tem không ra').then(r => {
+    if (r.status === 200 && r.body && r.body.ok) {
+      toast('Đã báo quản lý — sẽ hiện trên banner.');
+      pollPrintIssues();
+    } else {
+      alert('Không báo được cho quản lý — thử lại.');
+    }
+  }).catch(() => {
+    alert('Không báo được cho quản lý — thử lại.');
   });
 }
 
@@ -3741,6 +3745,10 @@ function resetStaffCart() {
 
 // ─── CART SHEET ───────────────────────────────────────────────────────────────
 function openCartSheet() {
+  // Luôn hiện form gọi món sống, không kẹt lại panel "Đã gửi" cũ nếu lần trước
+  // bị đóng bằng tap-ra-ngoài thay vì nút "Đóng" (xem Fix 2).
+  document.getElementById('submit-success').classList.add('hidden');
+  document.getElementById('order-form').classList.remove('hidden');
   renderCartItems();
   renderTableGrid();
   document.getElementById('order-form-total').textContent = fmt(cartTotal());
@@ -3998,6 +4006,7 @@ function startKDS() {
   pollInbox();
   pollCloud();
   pollPrinters();
+  pollPrintIssues();
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
