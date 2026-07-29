@@ -304,6 +304,10 @@
       padding: 16px;
     }
     .overlay-bg.hidden { display: none !important; }
+    /* size-overlay là dialog customization LỒNG bên trong checkout-overlay/swap — luôn phải nổi trên cùng
+       bất kể thứ tự DOM. checkout-overlay tĩnh nằm SAU size-overlay trong HTML nên cùng z-index 9999 nó
+       đè khuất size-overlay khi cả hai cùng mở (case "➕ Thêm món" trong màn Thanh toán). */
+    #size-overlay { z-index: 10000; }
 
     .bottom-sheet {
       background: #181922 !important;
@@ -2815,6 +2819,7 @@ function checkoutSelectAddItem(sku) {
   const c = item.customizations || {};
   const hasOpts = item.price_l || (c.sugar && c.sugar.length) || (c.ice && c.ice.length) || (c.toppings && c.toppings.length);
   if (hasOpts) {
+    closeCheckoutAddOverlay(); // đóng sheet chọn món TRƯỚC — nếu không size-overlay mở "âm thầm" phía sau (cùng z-index, đè khuất)
     document.getElementById('size-item-name').textContent = '[Thêm vào đơn] ' + item.name;
     document.getElementById('size-overlay').classList.remove('hidden');
     renderCustomOptions();
@@ -3389,6 +3394,7 @@ function selectSwapNewItem(sku) {
   const hasOpts = item.price_l || (c.sugar && c.sugar.length) || (c.ice && c.ice.length) || (c.toppings && c.toppings.length);
 
   if (hasOpts) {
+    closeSwapOverlay(); // đóng sheet chọn món TRƯỚC — cùng lý do như checkoutSelectAddItem
     document.getElementById('size-item-name').textContent = `[Đổi món mới] ` + item.name;
     document.getElementById('size-overlay').classList.remove('hidden');
     renderCustomOptions();
