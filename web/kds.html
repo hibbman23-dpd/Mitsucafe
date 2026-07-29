@@ -1600,108 +1600,201 @@ async function reprintPrepTicket(orderId) {
   }
 }
 
-async function reprintCupLabelPrompt(orderId) {
+function cupItemsOf(o) {
+  if (Array.isArray(o.items)) return o.items;
+  if (typeof o.items_json === 'string') { try { return JSON.parse(o.items_json); } catch(_) {} }
+  return [];
+}
+
+// ─── In lại tem ly (tap-chọn thay vì gõ số) ────────────────────────────────
+function reprintCupLabelPrompt(orderId) {
   const o = allOrders.find(x => x.order_id === orderId);
   if (!o) return;
-  let itemsList = [];
-  if (Array.isArray(o.items)) itemsList = o.items;
-  else if (typeof o.items_json === 'string') {
-    try { itemsList = JSON.parse(o.items_json); } catch(_) {}
-  }
-  if (!itemsList.length) {
-    alert('Đơn hàng không có danh sách ly để in lại.');
-    return;
-  }
-
-  const cupOptions = itemsList.map((it, idx) => `${idx + 1}. ${it.name}`).join('\n');
-  const choice = prompt(`Chọn số thứ tự ly muốn in lại tem:\n${cupOptions}`, '1');
-  if (!choice) return;
-  const idx = parseInt(choice, 10) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= itemsList.length) {
-    alert('Số thứ tự không hợp lệ.');
-    return;
-  }
-
+  const itemsList = cupItemsOf(o);
+  if (!itemsList.length) { alert('Đơn hàng không có danh sách ly để in lại.'); return; }
+  const html = `
+    <div class="overlay-bg" id="cupreprint-overlay" onclick="closeCupReprintOverlay(event)">
+      <div class="bottom-sheet" style="max-width:480px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">↻ In lại tem — Đơn #${esc(o.short_code || o.order_id)}</div>
+          <button class="btn-close" onclick="closeCupReprintOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:8px;">
+          ${itemsList.map((it, idx) => `
+            <button class="btn-sm" style="padding:12px 14px; text-align:left; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:10px;" onclick="reprintCupLabelExecute('${esc(orderId)}', ${idx}, this)">
+              <span>${esc(it.name)}</span><span style="color:var(--gold);">🏷️ In</span>
+            </button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('cupreprint-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'cupreprint-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+function closeCupReprintOverlay(e) {
+  if (e && e.target && e.target.id !== 'cupreprint-overlay') return;
+  const el = document.getElementById('cupreprint-overlay-container');
+  if (el) el.innerHTML = '';
+}
+async function reprintCupLabelExecute(orderId, idx, btn) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  const itemsList = cupItemsOf(o);
   const selectedItem = itemsList[idx];
+  if (!selectedItem) return;
+  if (btn) btn.disabled = true;
   try {
     await fetch(`${GATEWAY_URL}/enqueue/single_label`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        order: o,
-        cup_item: selectedItem,
-        cup_index: idx + 1,
-        total_cups: itemsList.length
-      })
+      body: JSON.stringify({ order: o, cup_item: selectedItem, cup_index: idx + 1, total_cups: itemsList.length })
     });
-    alert(`Đã gửi lệnh in lại tem ly "${selectedItem.name}"`);
+    closeCupReprintOverlay();
+    toast(`Đã gửi lệnh in lại tem "${selectedItem.name}"`);
   } catch (err) {
     alert('Không gửi được lệnh in tem.');
+    if (btn) btn.disabled = false;
   }
 }
 
-async function transferTablePrompt(fromTableId) {
+// ─── Chuyển bàn (tap-chọn số bàn thay vì gõ tay) ───────────────────────────
+function transferTablePrompt(fromTableId) {
   const tableNum = String(fromTableId).replace(/^TABLE_/i, '');
-  const toTable = prompt(`Chuyển tất cả đơn từ Bàn ${tableNum} sang Bàn số:`, '');
-  if (!toTable) return;
-  const cleanToTable = toTable.trim();
-  if (!cleanToTable) return;
-  const targetTbl = 'TABLE_' + cleanToTable.padStart(2, '0');
-
+  const html = `
+    <div class="overlay-bg" id="transfer-overlay" onclick="closeTransferOverlay(event)">
+      <div class="bottom-sheet" style="max-width:520px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">🔄 Chuyển Bàn ${esc(tableNum)} sang bàn số...</div>
+          <button class="btn-close" onclick="closeTransferOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:grid; grid-template-columns:repeat(5,1fr); gap:8px;">
+          ${Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')).filter(n => n !== tableNum).map(n => `
+            <button class="btn-sm" style="padding:12px 4px; text-align:center;" onclick="executeTransferTable('${esc(fromTableId)}','${n}')">Bàn ${n}</button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('transfer-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'transfer-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+function closeTransferOverlay(e) {
+  if (e && e.target && e.target.id !== 'transfer-overlay') return;
+  const el = document.getElementById('transfer-overlay-container');
+  if (el) el.innerHTML = '';
+}
+async function executeTransferTable(fromTableId, toNum) {
+  const targetTbl = 'TABLE_' + toNum;
+  closeTransferOverlay();
   try {
     allOrders.forEach(o => {
-      if (String(o.table_id).trim() === String(fromTableId).trim()) {
-        o.table_id = targetTbl;
-      }
+      if (String(o.table_id).trim() === String(fromTableId).trim()) o.table_id = targetTbl;
     });
     renderOrders();
-
     await fetch(`${GAS_URL}?action=transfer_table&from_table=${encodeURIComponent(fromTableId)}&to_table=${encodeURIComponent(targetTbl)}${TQ}`);
-    alert(`Đã chuyển Bàn ${tableNum} sang Bàn ${cleanToTable}`);
+    toast(`Đã chuyển sang Bàn ${toNum}`);
   } catch (err) {
     alert('Lỗi chuyển bàn: ' + (err.message || 'Chưa đồng bộ được'));
   }
 }
 
-async function cancelItemPrompt(orderId) {
+// ─── Hủy món (tap-chọn món + lý do dạng chip, PIN xác nhận) ────────────────
+const CANCEL_REASONS = ['Khách đổi ý', 'Gọi nhầm món', 'Pha nhầm', 'Hết nguyên liệu', 'Khác'];
+let pendingCancel = null;
+
+function cancelItemPrompt(orderId) {
   const o = allOrders.find(x => x.order_id === orderId);
   if (!o) return;
-  let itemsList = [];
-  if (Array.isArray(o.items)) itemsList = o.items;
-  else if (typeof o.items_json === 'string') {
-    try { itemsList = JSON.parse(o.items_json); } catch(_) {}
-  }
-  if (!itemsList.length) {
-    alert('Đơn hàng không có món để hủy.');
-    return;
-  }
-
-  const options = itemsList.map((it, idx) => `${idx + 1}. ${it.name} (${fmt(it.price)})`).join('\n');
-  const choice = prompt(`Chọn món muốn HỦY trong đơn ${o.short_code || orderId}:\n${options}`, '1');
-  if (!choice) return;
-  const idx = parseInt(choice, 10) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= itemsList.length) {
-    alert('Số món không hợp lệ.');
-    return;
-  }
-
-  const reason = prompt(`Lý do hủy món "${itemsList[idx].name}":`, 'Khách báo hủy');
-  if (reason === null) return;
-
-  const pin = verifyManagerPin();
-  if (!pin) return;
-
+  const itemsList = cupItemsOf(o);
+  if (!itemsList.length) { alert('Đơn hàng không có món để hủy.'); return; }
+  pendingCancel = { orderId, order: o, itemIndex: null };
+  renderCancelStep1();
+}
+function renderCancelStep1() {
+  const o = pendingCancel.order;
+  const itemsList = cupItemsOf(o);
+  const html = `
+    <div class="overlay-bg" id="cancel-overlay" onclick="closeCancelOverlay(event)">
+      <div class="bottom-sheet" style="max-width:480px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">❌ Hủy món — Đơn #${esc(o.short_code || o.order_id)}</div>
+          <button class="btn-close" onclick="closeCancelOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:8px;">
+          ${itemsList.map((it, idx) => `
+            <button class="btn-sm" style="padding:12px 14px; text-align:left; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:10px;" onclick="selectCancelItem(${idx})">
+              <span>${esc(it.name)}</span><span style="color:var(--muted);">${fmt(it.price)}</span>
+            </button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('cancel-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'cancel-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+function selectCancelItem(idx) {
+  pendingCancel.itemIndex = idx;
+  renderCancelStep2();
+}
+function renderCancelStep2() {
+  const itemsList = cupItemsOf(pendingCancel.order);
+  const it = itemsList[pendingCancel.itemIndex];
+  const html = `
+    <div class="overlay-bg" id="cancel-overlay" onclick="closeCancelOverlay(event)">
+      <div class="bottom-sheet" style="max-width:460px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">❌ Lý do hủy "${esc(it.name)}"</div>
+          <button class="btn-close" onclick="closeCancelOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+          <div class="opt-chips" style="padding:0;">
+            ${CANCEL_REASONS.map(r => `<div class="kds-chip" onclick="selectCancelReason(this,'${esc(r)}')">${esc(r)}</div>`).join('')}
+          </div>
+          <input type="text" class="form-input" id="cancel-reason-input" placeholder="Lý do hủy...">
+          <button class="btn-submit-order" style="background:#ef5350;" onclick="executeCancelItem(event)">❌ Xác nhận Hủy (cần PIN Quản lý)</button>
+        </div>
+      </div>
+    </div>`;
+  const el = document.getElementById('cancel-overlay-container');
+  if (el) el.innerHTML = html;
+}
+function selectCancelReason(el, reason) {
+  document.querySelectorAll('#cancel-overlay .kds-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const input = document.getElementById('cancel-reason-input');
+  if (input) input.value = reason;
+}
+function closeCancelOverlay(e) {
+  if (e && e.target && e.target.id !== 'cancel-overlay') return;
+  const el = document.getElementById('cancel-overlay-container');
+  if (el) el.innerHTML = '';
+  pendingCancel = null;
+}
+async function executeCancelItem(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
   try {
-    const res = await fetch(`${GAS_URL}?action=cancel_order_item&order_id=${encodeURIComponent(orderId)}&item_index=${idx}&reason=${encodeURIComponent(reason)}&pin=${encodeURIComponent(pin)}${TQ}`);
+    if (!pendingCancel) return;
+    const { orderId, itemIndex, order: o } = pendingCancel;
+    const reasonInput = document.getElementById('cancel-reason-input');
+    const reason = (reasonInput ? reasonInput.value : '').trim();
+    if (!reason) { alert('Vui lòng chọn hoặc nhập lý do hủy.'); return; }
+    const pin = verifyManagerPin();
+    if (!pin) return;
+    const itemsList = cupItemsOf(o);
+    const itemName = (itemsList[itemIndex] || {}).name || '';
+    const res = await fetch(`${GAS_URL}?action=cancel_order_item&order_id=${encodeURIComponent(orderId)}&item_index=${itemIndex}&reason=${encodeURIComponent(reason)}&pin=${encodeURIComponent(pin)}${TQ}`);
     const d = await res.json();
     if (d.ok) {
-      alert(`Đã hủy món "${itemsList[idx].name}". Tổng tiền mới: ${fmt(d.new_total)}`);
+      closeCancelOverlay();
+      toast(`Đã hủy món "${itemName}". Tổng tiền mới: ${fmt(d.new_total)}`);
       loadOrders();
     } else {
       alert('Lỗi hủy món: ' + (d.error || 'Server từ chối'));
     }
   } catch (err) {
     alert('Lỗi kết nối khi hủy món.');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1765,7 +1858,7 @@ function renderOrders() {
           <div style="display:flex; gap:6px; margin-top:8px; border-top:1px dashed var(--border); padding-top:6px; flex-wrap:wrap;">
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại bill" onclick="reprintBill('${esc(o.order_id)}')">🖨️ Bill</button>
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại phiếu pha chế (đơn bếp)" onclick="reprintPrepTicket('${esc(o.order_id)}')">🧾 Đơn bếp</button>
-            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại tem ly lẻ" onclick="reprintCupLabelPrompt('${esc(o.order_id)}')">🏷️ Tem lẻ</button>
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại tem ly" onclick="reprintCupLabelPrompt('${esc(o.order_id)}')">↻ In lại tem</button>
             ${o.table_id ? `<button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="Chuyển bàn" onclick="transferTablePrompt('${esc(o.table_id)}')">🔄 Bàn</button>` : ''}
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#2ec4b6;" title="Đổi món" onclick="swapItemPrompt('${esc(o.order_id)}')">🔀 Đổi món</button>
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#ef5350;" title="Hủy món" onclick="cancelItemPrompt('${esc(o.order_id)}')">❌ Hủy món</button>
