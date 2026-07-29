@@ -863,6 +863,9 @@ def order_patch_items(order_id):
         return jsonify({"ok": False, "error": "version_conflict"}), 409
     except KeyError:
         return jsonify({"ok": False, "error": "not found"}), 404
+    reason = p.get("reason")
+    if reason:
+        log.info("order_patch_items order=%s reason=%s", order_id, str(reason)[:200])
     _enqueue_cancel_ticket(res["order"], res["cancelled_lines"])
     return jsonify({"ok": True, "order": res["order"],
                     "cancelled_lines": res["cancelled_lines"]}), 200

@@ -1697,7 +1697,7 @@ async function executeTransferTable(fromTableId, toNum) {
   }
 }
 
-// ─── Hủy món (tap-chọn món + lý do dạng chip, PIN xác nhận) ────────────────
+// ─── Hủy món (tap-chọn NHIỀU món cùng lúc, lý do dạng chip, PIN xác nhận) ──
 const CANCEL_REASONS = ['Khách đổi ý', 'Gọi nhầm món', 'Pha nhầm', 'Hết nguyên liệu', 'Khác'];
 let pendingCancel = null;
 
@@ -1706,12 +1706,14 @@ function cancelItemPrompt(orderId) {
   if (!o) return;
   const itemsList = cupItemsOf(o);
   if (!itemsList.length) { alert('Đơn hàng không có món để hủy.'); return; }
-  pendingCancel = { orderId, order: o, itemIndex: null };
+  pendingCancel = { orderId, selected: new Set() };
   renderCancelStep1();
 }
 function renderCancelStep1() {
-  const o = pendingCancel.order;
+  const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
+  if (!o) { closeCancelOverlay(); return; }
   const itemsList = cupItemsOf(o);
+  const n = pendingCancel.selected.size;
   const html = `
     <div class="overlay-bg" id="cancel-overlay" onclick="closeCancelOverlay(event)">
       <div class="bottom-sheet" style="max-width:480px; margin:auto; border-radius:16px;">
@@ -1720,10 +1722,16 @@ function renderCancelStep1() {
           <button class="btn-close" onclick="closeCancelOverlay()">✕</button>
         </div>
         <div style="padding:16px; display:flex; flex-direction:column; gap:8px;">
-          ${itemsList.map((it, idx) => `
-            <button class="btn-sm" style="padding:12px 14px; text-align:left; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:10px;" onclick="selectCancelItem(${idx})">
-              <span>${esc(it.name)}</span><span style="color:var(--muted);">${fmt(it.price)}</span>
-            </button>`).join('')}
+          ${itemsList.map((it, idx) => {
+            const on = pendingCancel.selected.has(idx);
+            return `
+            <button class="btn-sm" style="padding:12px 14px; text-align:left; display:flex; align-items:center; justify-content:space-between; background:${on ? 'rgba(239,83,80,0.18)' : 'rgba(255,255,255,0.05)'}; border:1px solid ${on ? '#ef5350' : 'var(--border)'}; border-radius:10px;" onclick="toggleCancelItem(${idx})">
+              <span>${on ? '☑' : '☐'} ${esc(it.name)}</span><span style="color:var(--muted);">${fmt(it.price)}</span>
+            </button>`;
+          }).join('')}
+        </div>
+        <div style="padding:0 16px 16px;">
+          <button class="btn-submit-order" style="width:100%; background:#ef5350;" ${n === 0 ? 'disabled' : ''} onclick="renderCancelStep2()">❌ Hủy ${n} món đã chọn</button>
         </div>
       </div>
     </div>`;
@@ -1731,21 +1739,27 @@ function renderCancelStep1() {
   if (!el) { el = document.createElement('div'); el.id = 'cancel-overlay-container'; document.body.appendChild(el); }
   el.innerHTML = html;
 }
-function selectCancelItem(idx) {
-  pendingCancel.itemIndex = idx;
-  renderCancelStep2();
+function toggleCancelItem(idx) {
+  if (pendingCancel.selected.has(idx)) pendingCancel.selected.delete(idx);
+  else pendingCancel.selected.add(idx);
+  renderCancelStep1();
 }
 function renderCancelStep2() {
-  const itemsList = cupItemsOf(pendingCancel.order);
-  const it = itemsList[pendingCancel.itemIndex];
+  if (!pendingCancel.selected.size) return;
+  const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
+  if (!o) { closeCancelOverlay(); return; }
+  const itemsList = cupItemsOf(o);
+  const names = Array.from(pendingCancel.selected).sort((a, b) => a - b)
+    .map(i => itemsList[i] && itemsList[i].name).filter(Boolean);
   const html = `
     <div class="overlay-bg" id="cancel-overlay" onclick="closeCancelOverlay(event)">
       <div class="bottom-sheet" style="max-width:460px; margin:auto; border-radius:16px;">
         <div class="sheet-head">
-          <div class="sheet-title">❌ Lý do hủy "${esc(it.name)}"</div>
+          <div class="sheet-title">❌ Lý do hủy ${names.length} món</div>
           <button class="btn-close" onclick="closeCancelOverlay()">✕</button>
         </div>
         <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+          <div style="font-size:.8rem; color:var(--muted);">${names.map(esc).join(', ')}</div>
           <div class="opt-chips" style="padding:0;">
             ${CANCEL_REASONS.map(r => `<div class="kds-chip" onclick="selectCancelReason(this,'${esc(r)}')">${esc(r)}</div>`).join('')}
           </div>
@@ -1773,23 +1787,33 @@ async function executeCancelItem(e) {
   const btn = e && e.target;
   if (btn) btn.disabled = true;
   try {
-    if (!pendingCancel) return;
-    const { orderId, itemIndex, order: o } = pendingCancel;
+    if (!pendingCancel || !pendingCancel.selected.size) return;
+    const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
+    if (!o) { toast('Đơn không còn trong danh sách — đã tải lại'); await loadOrders(); return; }
     const reasonInput = document.getElementById('cancel-reason-input');
     const reason = (reasonInput ? reasonInput.value : '').trim();
     if (!reason) { alert('Vui lòng chọn hoặc nhập lý do hủy.'); return; }
     const pin = verifyManagerPin();
     if (!pin) return;
     const itemsList = cupItemsOf(o);
-    const itemName = (itemsList[itemIndex] || {}).name || '';
-    const res = await fetch(`${GAS_URL}?action=cancel_order_item&order_id=${encodeURIComponent(orderId)}&item_index=${itemIndex}&reason=${encodeURIComponent(reason)}&pin=${encodeURIComponent(pin)}${TQ}`);
-    const d = await res.json();
-    if (d.ok) {
+    const cancelledNames = Array.from(pendingCancel.selected)
+      .map(i => itemsList[i] && itemsList[i].name).filter(Boolean);
+    const newItems = itemsList.filter((_, i) => !pendingCancel.selected.has(i));
+    const r = await api().patchItems(o.order_id, newItems, o.version, pin, reason);
+    if (checkout.isStale(r.status)) {
+      await loadOrders();
+      toast('Đơn vừa đổi ở máy khác — đã tải lại');
+      return;
+    }
+    if (r.status === 200 && r.body.ok) {
+      Object.assign(o, r.body.order);
+      o.items_summary = formatItemsSummary(o.items);
+      setLocalOverride(o.order_id, { items: r.body.order.items, total: r.body.order.total, version: r.body.order.version });
       closeCancelOverlay();
-      toast(`Đã hủy món "${itemName}". Tổng tiền mới: ${fmt(d.new_total)}`);
-      loadOrders();
+      toast(`Đã hủy ${cancelledNames.length} món: ${cancelledNames.join(', ')}`);
+      renderOrders();
     } else {
-      alert('Lỗi hủy món: ' + (d.error || 'Server từ chối'));
+      alert('Lỗi hủy món: ' + ((r.body && r.body.error) || 'không rõ'));
     }
   } catch (err) {
     alert('Lỗi kết nối khi hủy món.');

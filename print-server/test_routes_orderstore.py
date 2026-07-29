@@ -88,6 +88,15 @@ class TestEditRoutes(RouteTestBase):
         self.assertEqual(d["order"]["total"], 30000)
         self.assertTrue(len(d["cancelled_lines"]) >= 1)
 
+    def test_patch_items_removes_two_lines_at_once(self):
+        r = self.c.patch(f"/order/{self.oid}/items", json={
+            "version": self._ver(),
+            "items": [],
+            "reason": "Khách đổi ý"})
+        d = r.get_json()
+        self.assertEqual(d["order"]["total"], 0)
+        self.assertEqual(len(d["cancelled_lines"]), 2)
+
     def test_patch_items_stale_version_409(self):
         r = self.c.patch(f"/order/{self.oid}/items", json={
             "version": 999, "items": []})

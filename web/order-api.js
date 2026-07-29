@@ -14,9 +14,12 @@ function OrderApi(baseUrl, fetchImpl) {
     listOrders: () => call('/orders', 'GET'),
     pollChanges: (since) => call('/orders/changes?since=' + encodeURIComponent(since || ''), 'GET'),
     getOrder: (id) => call('/order/' + encodeURIComponent(id), 'GET'),
-    patchItems: (id, items, version, managerPin) =>
-      call('/order/' + encodeURIComponent(id) + '/items', 'PATCH',
-           managerPin ? { items, version, manager_pin: managerPin } : { items, version }),
+    patchItems: (id, items, version, managerPin, reason) => {
+      const body = { items, version };
+      if (managerPin) body.manager_pin = managerPin;
+      if (reason) body.reason = reason;
+      return call('/order/' + encodeURIComponent(id) + '/items', 'PATCH', body);
+    },
     patchMeta: (id, meta, version) =>
       call('/order/' + encodeURIComponent(id) + '/meta', 'PATCH', Object.assign({ version }, meta)),
     splitOrder: (id, partitions, version) =>

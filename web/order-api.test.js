@@ -30,6 +30,22 @@ test('patchItems PATCHes with version + items and surfaces 409', async () => {
   assert.strictEqual(r.status, 409);
 });
 
+test('patchItems includes reason only when provided', async () => {
+  const rec = {};
+  const api = OrderApi('http://x', fakeFetch(rec, { body: { ok: true } }));
+  await api.patchItems('ORD-1', [{ sku: 'DR005', qty: 1 }], 3, '1234', 'Khách đổi ý');
+  const sent = JSON.parse(rec.opts.body);
+  assert.strictEqual(sent.manager_pin, '1234');
+  assert.strictEqual(sent.reason, 'Khách đổi ý');
+
+  const rec2 = {};
+  const api2 = OrderApi('http://x', fakeFetch(rec2, { body: { ok: true } }));
+  await api2.patchItems('ORD-1', [{ sku: 'DR005', qty: 1 }], 3);
+  const sent2 = JSON.parse(rec2.opts.body);
+  assert.strictEqual('manager_pin' in sent2, false);
+  assert.strictEqual('reason' in sent2, false);
+});
+
 test('splitOrder POSTs partitions', async () => {
   const rec = {};
   const api = OrderApi('http://x', fakeFetch(rec, { body: { ok: true, suborders: [] } }));
