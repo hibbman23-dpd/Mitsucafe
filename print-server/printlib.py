@@ -54,6 +54,7 @@ _SZ_NORMAL  = 22
 _SZ_SMALL   = 26
 _SZ_TOTAL   = 26
 _SZ_ITEM    = 44
+_SZ_MOD_PREP = 38   # tuỳ chọn (vừa/ngọt/ít đá/ghi chú) IN TO trên PHIẾU PHA CHẾ cho bếp dễ đọc; bill vẫn dùng _SZ_SMALL
 
 
 def _get_daily_sequence(order: dict) -> str:
@@ -257,6 +258,8 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
     f_small  = _load_font(_SZ_SMALL)
     f_total  = _load_font(_SZ_TOTAL)
     f_item   = _load_font(_SZ_ITEM)
+    # Phiếu pha chế (show_total=False): modifier + ghi chú in TO cho bếp. Bill (show_total=True): giữ nhỏ.
+    f_mod    = f_small if show_total else _load_font(_SZ_MOD_PREP)
 
     def tw(text, font):
         bb = font.getbbox(text)
@@ -389,14 +392,14 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
             mod_lines, curr_m = [], ""
             for mw in mod_words:
                 test_m = (curr_m + " " + mw).strip()
-                if tw(test_m, f_small) <= CW - 16:
+                if tw(test_m, f_mod) <= CW - 16:
                     curr_m = test_m
                 else:
                     if curr_m: mod_lines.append(curr_m)
                     curr_m = mw
             if curr_m: mod_lines.append(curr_m)
             for ml in (mod_lines or [f"👉 {mods}"]):
-                add_text(ml, f_small, indent=8)
+                add_text(ml, f_mod, indent=8)
 
     notes = meta.get("notes", "")
     if notes:
@@ -404,14 +407,14 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
         note_lines, curr_n = [], ""
         for nw_word in note_words:
             test_n = (curr_n + " " + nw_word).strip()
-            if tw(test_n, f_small) <= CW - 12:
+            if tw(test_n, f_mod) <= CW - 12:
                 curr_n = test_n
             else:
                 if curr_n: note_lines.append(curr_n)
                 curr_n = nw_word
         if curr_n: note_lines.append(curr_n)
         for nl in (note_lines or [f"Ghi chú: {notes}"]):
-            add_text(nl, f_small, indent=0)
+            add_text(nl, f_mod, indent=0)
 
     # HÓA ĐƠN (show_total=True): tổng tiền + phương thức + cảm ơn. PHIẾU PHA CHẾ bỏ qua.
     if show_total:
@@ -574,14 +577,24 @@ def build_receipt_text(order: dict, is_cash: bool = False, show_total: bool = Fa
         mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"})
         if mods:
             mod_lines = _wrap_text_to_lines("-> " + mods, W - 4)
+            # PHIẾU PHA CHẾ (show_total=False): tuỳ chọn IN TO (cao gấp đôi + đậm) cho bếp dễ đọc.
+            # HÓA ĐƠN (show_total=True): giữ thường.
+            if not show_total:
+                parts.append(ESC + b"!\x18")
             for ml in mod_lines:
                 parts.append(enc("  " + ml + "\n"))
+            if not show_total:
+                parts.append(ESC + b"!\x00")
 
     notes = meta.get("notes", "")
     if notes:
         note_lines = _wrap_text_to_lines("Ghi chú: " + notes, W - 2)
+        if not show_total:
+            parts.append(ESC + b"!\x18")   # ghi chú cũng IN TO trên phiếu pha chế
         for nl in note_lines:
             parts.append(enc("  " + nl + "\n"))
+        if not show_total:
+            parts.append(ESC + b"!\x00")
     parts.append(enc("-" * W + "\n"))
     # HÓA ĐƠN (show_total=True): tổng tiền + phương thức + cảm ơn. PHIẾU PHA CHẾ bỏ qua (vé bếp sạch).
     if show_total:
