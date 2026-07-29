@@ -62,3 +62,29 @@ test('acceptOnline POSTs to /inbox/<id>/accept', async () => {
   assert.strictEqual(rec.url, 'http://x/inbox/OL1/accept');
   assert.strictEqual(r.body.order_id, 'ORD-9');
 });
+
+test('printIssues GETs /print/issues', async () => {
+  const rec = {};
+  const api = OrderApi('http://x', fakeFetch(rec, { body: { ok: true, issues: [] } }));
+  const r = await api.printIssues();
+  assert.strictEqual(rec.url, 'http://x/print/issues');
+  assert.deepStrictEqual(r.body.issues, []);
+});
+
+test('flagPrintIssue POSTs order_id + note', async () => {
+  const rec = {};
+  const api = OrderApi('http://x', fakeFetch(rec, { body: { ok: true } }));
+  await api.flagPrintIssue('ORD-1', 'tem không ra');
+  assert.strictEqual(rec.url, 'http://x/print/issues/flag');
+  const sent = JSON.parse(rec.opts.body);
+  assert.strictEqual(sent.order_id, 'ORD-1');
+  assert.strictEqual(sent.note, 'tem không ra');
+});
+
+test('resolvePrintIssue POSTs to /print/issues/<id>/resolve', async () => {
+  const rec = {};
+  const api = OrderApi('http://x', fakeFetch(rec, { body: { ok: true } }));
+  await api.resolvePrintIssue(7);
+  assert.strictEqual(rec.url, 'http://x/print/issues/7/resolve');
+  assert.strictEqual(rec.opts.method, 'POST');
+});

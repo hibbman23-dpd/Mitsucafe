@@ -36,6 +36,9 @@ function OrderApi(baseUrl, fetchImpl) {
     cloudStatus: () => call('/cloud/status', 'GET'),
     health: () => call('/health', 'GET'),
     printCustomLabel: (name, modifiers, qty) => call('/print/custom_label', 'POST', { name, modifiers, qty }),
+    printIssues: () => call('/print/issues', 'GET'),
+    flagPrintIssue: (orderId, note) => call('/print/issues/flag', 'POST', { order_id: orderId, note }),
+    resolvePrintIssue: (issueId) => call('/print/issues/' + encodeURIComponent(issueId) + '/resolve', 'POST', {}),
   };
 }
 if (typeof module !== 'undefined' && module.exports) module.exports = { OrderApi };

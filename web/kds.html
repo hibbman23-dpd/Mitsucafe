@@ -100,6 +100,22 @@
     .tts-banner.hidden { display: none; }
     .btn-tts { background: var(--gold); color: var(--bg); border: none; border-radius: 20px; padding: 5px 14px; font-size: .78rem; font-weight: 700; cursor: pointer; }
 
+    /* ── PRINT ISSUES BANNER ── */
+    .issue-banner {
+      background: rgba(239,83,80,.12); border: 1px solid rgba(239,83,80,.4);
+      border-radius: var(--radius); margin: 10px 14px 0;
+      padding: 9px 14px; cursor: pointer;
+      font-size: .82rem; color: #ef5350; font-weight: 700;
+    }
+    .issue-banner.hidden { display: none; }
+    .issue-list { margin: 0 14px 10px; display: flex; flex-direction: column; gap: 8px; }
+    .issue-list.hidden { display: none; }
+    .issue-row {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; font-size: .8rem;
+    }
+
     /* ── FILTER BAR ── */
     .filter-bar { display: flex; gap: 8px; padding: 10px 14px 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .filter-pill {
@@ -481,6 +497,8 @@
 
 <!-- ════════ VIEW: ORDERS ════════ -->
 <div id="view-orders">
+  <div class="issue-banner hidden" id="issue-banner" onclick="toggleIssueBanner()"></div>
+  <div class="issue-list hidden" id="issue-list"></div>
   <div class="orders-mode-toggle" style="display:flex; gap:8px; margin-bottom:10px;">
     <button class="filter-pill active" id="mode-list" onclick="setOrdersMode('list')">📋 Danh sách</button>
     <button class="filter-pill" id="mode-map" onclick="setOrdersMode('map')">🗺️ Sơ đồ bàn</button>
@@ -1192,6 +1210,77 @@ function setPrinterBadge(body) {
 setInterval(pollCloud, 15000);
 setInterval(pollPrinters, 30000);
 
+// ─── PRINT ISSUES BANNER (in hỏng thật + nhân viên báo tem không ra) ──────────
+let printIssuesOpen = [];
+
+async function pollPrintIssues() {
+  let r;
+  try { r = await api().printIssues(); } catch (_) { return; }
+  if (r.status === 200 && r.body && r.body.ok) {
+    printIssuesOpen = r.body.issues || [];
+    renderIssueBanner();
+  }
+}
+
+function renderIssueBanner() {
+  const bEl = document.getElementById('issue-banner');
+  const lEl = document.getElementById('issue-list');
+  if (!bEl || !lEl) return;
+  if (!printIssuesOpen.length) {
+    bEl.classList.add('hidden');
+    lEl.classList.add('hidden');
+    lEl.innerHTML = '';
+    return;
+  }
+  bEl.classList.remove('hidden');
+  bEl.textContent = `⚠️ ${printIssuesOpen.length} vấn đề in cần xử lý — bấm để xem`;
+  lEl.innerHTML = printIssuesOpen.map(is => `
+    <div class="issue-row">
+      <div>#${esc(is.order_id)} · ${is.kind === 'label' ? 'tem' : 'hoá đơn'}${is.issue_type === 'auto_failed' ? ' (lỗi in thật)' : ' (nhân viên báo)'} · ${esc(is.note || '')}</div>
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <button class="btn-sm" onclick="reprintIssue(${is.id}, '${esc(is.order_id)}', '${is.kind}', ${is.cup_index == null ? 'null' : is.cup_index})">🏷️ In lại</button>
+        <button class="btn-sm" onclick="resolveIssueOnly(${is.id})">✓ Đã xử lý</button>
+      </div>
+    </div>`).join('');
+}
+
+function toggleIssueBanner() {
+  const lEl = document.getElementById('issue-list');
+  if (lEl) lEl.classList.toggle('hidden');
+}
+
+async function resolveIssueOnly(id) {
+  await api().resolvePrintIssue(id);
+  pollPrintIssues();
+}
+
+async function reprintIssue(id, orderId, kind, cupIndex) {
+  if (kind === 'receipt') {
+    await reprintBill(orderId);
+  } else {
+    const o = allOrders.find(x => x.order_id === orderId);
+    if (!o) { toast('Đơn không còn trong danh sách hôm nay — không thể in lại.'); return; }
+    const itemsList = cupItemsOf(o);
+    if (cupIndex != null && itemsList[cupIndex - 1]) {
+      await reprintCupLabelExecute(orderId, cupIndex - 1, null);
+    } else {
+      for (let i = 0; i < itemsList.length; i++) await reprintCupLabelExecute(orderId, i, null);
+    }
+  }
+  await api().resolvePrintIssue(id);
+  pollPrintIssues();
+}
+
+function flagPrintIssuePrompt(orderId) {
+  if (!confirm('Xác nhận: tem đơn này không ra dù đã gửi lệnh in?')) return;
+  api().flagPrintIssue(orderId, 'Nhân viên báo tem không ra').then(() => {
+    toast('Đã báo quản lý — sẽ hiện trên banner.');
+    pollPrintIssues();
+  });
+}
+
+setInterval(pollPrintIssues, 15000);
+
 // ─── VIEW SWITCH ─────────────────────────────────────────────────────────────
 function switchView(v) {
   activeView = v;
@@ -1887,7 +1976,8 @@ function renderOrders() {
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại bill" onclick="reprintBill('${esc(o.order_id)}')">🖨️ Bill</button>
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại phiếu pha chế (đơn bếp)" onclick="reprintPrepTicket('${esc(o.order_id)}')">🧾 Đơn bếp</button>
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại tem ly" onclick="reprintCupLabelPrompt('${esc(o.order_id)}')">↻ In lại tem</button>
-            ${o.table_id ? `<button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="Chuyển bàn" onclick="transferTablePrompt('${esc(o.table_id)}')">🔄 Bàn</button>` : ''}
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#ef5350;" title="Báo tem không ra dù đã gửi lệnh in" onclick="flagPrintIssuePrompt('${esc(o.order_id)}')">⚠️ Tem không ra</button>
+            ${o.table_id ?`<button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="Chuyển bàn" onclick="transferTablePrompt('${esc(o.table_id)}')">🔄 Bàn</button>` : ''}
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#2ec4b6;" title="Đổi món" onclick="swapItemPrompt('${esc(o.order_id)}')">🔀 Đổi món</button>
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#ef5350;" title="Hủy món" onclick="cancelItemPrompt('${esc(o.order_id)}')">❌ Hủy món</button>
           </div>
