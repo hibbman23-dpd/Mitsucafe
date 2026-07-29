@@ -3763,6 +3763,11 @@ async function submitStaffOrder(quickPay = false) {
 
     optimisticInsert(payload, minted);
 
+    // Xoá giỏ NGAY khi gửi thành công — không chờ bấm "Đóng" nữa (nếu chờ, bấm ra
+    // ngoài/đổi tab sẽ giữ nguyên giỏ cũ và gộp gửi trùng đơn ở lần gửi kế tiếp).
+    staffCart = [];
+    updateCartBar();
+
     pendingStaffSubmit = null;
     if (btn) { btn.disabled = false; btn.textContent = 'Đặt đơn'; }
     if (btnQuick) { btnQuick.disabled = false; btnQuick.textContent = '💳 Gửi & Thanh toán ngay'; }
