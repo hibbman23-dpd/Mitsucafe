@@ -105,6 +105,11 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    # Trang + script của app (kds.html/order.html/order-api.js/checkout.js/menu-data.js/mitsu.css)
+    # luôn revalidate với server -> tablet/điện thoại tự lấy bản mới khi ta cập nhật, hết kẹt cache.
+    ct = response.headers.get("Content-Type", "")
+    if "text/html" in ct or "javascript" in ct or "text/css" in ct:
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
 @app.route('/order', methods=['OPTIONS'])
