@@ -296,6 +296,22 @@
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 3px 8px rgba(46, 196, 182, 0.5);
     }
+    .num-badge {
+      position: absolute; top: 8px; left: 8px;
+      background: linear-gradient(135deg, #d8a94a, #b8863a); color: #1b140b;
+      font-size: 0.95rem; font-weight: 800;
+      min-width: 26px; height: 26px; padding: 0 4px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 8px rgba(216, 169, 74, 0.5);
+      z-index: 2;
+    }
+    .numnav-strip {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; margin-bottom: 12px;
+      background: linear-gradient(90deg, rgba(216,169,74,0.25), rgba(20,30,33,0.8));
+      border-left: 4px solid #d8a94a; border-radius: 0 10px 10px 0;
+      font-size: 0.95rem; font-weight: 700; color: #fff;
+    }
 
     /* ── CART BAR ── */
     .cart-bar {
@@ -859,6 +875,8 @@ const ROLE_BADGE = {
 let allOrders    = [];
 let activeFilter = 'all';
 let activeView   = 'orders';
+let numNavBucket = null;   // null = màn "Tất cả" bình thường; 1-8 = đang xem 1 bucket bàn phím
+const NUM_NAV_KEYS = ['1','2','3','4','5','6','7','8','9','0','-','='];
 let activeCat    = 'all';
 let ttsReady     = false;
 // #7: cảnh báo đơn trễ + chuông đơn mới
@@ -1287,6 +1305,7 @@ setInterval(pollPrintIssues, 15000);
 
 // ─── VIEW SWITCH ─────────────────────────────────────────────────────────────
 function switchView(v) {
+  if (activeView === 'menu' && v !== 'menu') numNavBucket = null;
   activeView = v;
   document.getElementById('view-orders').classList.toggle('hidden', v !== 'orders');
   document.getElementById('view-menu').classList.toggle('hidden',   v !== 'menu');
@@ -3013,7 +3032,90 @@ function clearMenuSearch() {
   renderMenuGrid();
 }
 
+// ─── KEYBOARD NUMBER NAV (chỉ màn "Gọi món") ───────────────────────────────
+// 8 bucket: 7 category thật (1-7) + 1 bucket ảo gom hết món có "CA CAO" (8) —
+// tách cacao ra để không category nào vượt quá 12 món (đủ 12 phím 1234567890-=).
+function computeNumNavBuckets() {
+  const out = {};
+  CATEGORIES.forEach((cat, i) => {
+    out[i + 1] = MENU_DATA
+      .filter(m => m.available && m.subcategory === cat.id && !m.name.toUpperCase().includes('CA CAO'))
+      .sort((a, b) => a.sort_order - b.sort_order);
+  });
+  out[8] = MENU_DATA
+    .filter(m => m.available && m.name.toUpperCase().includes('CA CAO'))
+    .sort((a, b) => a.sort_order - b.sort_order);
+  return out;
+}
+
+function enterNumNavBucket(n) {
+  if (n < 1 || n > 8) return;
+  numNavBucket = n;
+  const pills = document.getElementById('cat-pills');
+  if (pills) pills.classList.add('hidden');
+  renderMenuGrid();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function exitNumNavBucket() {
+  numNavBucket = null;
+  const pills = document.getElementById('cat-pills');
+  if (pills) pills.classList.remove('hidden');
+  renderMenuGrid();
+}
+
+function numNavBucketLabel(n) {
+  if (n === 8) return { emoji: '🍫', label: 'Cacao' };
+  const cat = CATEGORIES[n - 1];
+  return cat ? { emoji: cat.emoji, label: cat.label } : { emoji: '🍶', label: '' };
+}
+
+function renderNumNavItems() {
+  const items = computeNumNavBuckets()[numNavBucket] || [];
+  const inCart = {};
+  staffCart.forEach(c => { inCart[c.sku] = (inCart[c.sku] || 0) + c.qty; });
+  const { emoji, label } = numNavBucketLabel(numNavBucket);
+
+  const cardsHtml = items.map((item, idx) => {
+    const key = NUM_NAV_KEYS[idx];
+    const itemEmoji = CAT_EMOJI[item.subcategory] || '🍶';
+    const badge = ROLE_BADGE[item.role];
+    const qty = inCart[item.sku] || 0;
+    const priceText = item.price_l
+      ? `M: ${fmt(item.price_m)} · L: ${fmt(item.price_l)}`
+      : fmt(item.price_m);
+    const nameInfo = getShortNameInfo(item.name);
+
+    return `
+      <div class="menu-card${qty ? ' in-cart' : ''}" onclick="tapMenuItem('${item.sku}')">
+        ${key ? `<div class="num-badge">${key}</div>` : ''}
+        <div class="menu-card-top">
+          <div class="menu-emoji-wrap">${itemEmoji}</div>
+          ${badge ? `<div class="menu-badge ${badge.cls}">${badge.text}</div>` : ''}
+        </div>
+        <div>
+          ${nameInfo.prefix ? `<div class="menu-family-tag">${nameInfo.prefix}</div>` : ''}
+          <div class="menu-name">${nameInfo.shortName}</div>
+          ${item.name_jp ? `<div class="menu-jp">${item.name_jp}</div>` : ''}
+        </div>
+        <div class="menu-price">${priceText}</div>
+        ${qty ? `<div class="cart-qty-badge">${qty}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  document.getElementById('menu-grid').innerHTML = `
+    <div class="numnav-strip">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span>${emoji}</span><span>${label}</span>
+      </div>
+      <span class="menu-cat-count">${items.length} món · Backspace để quay lại</span>
+    </div>
+    <div class="menu-grid">${cardsHtml || '<div class="empty-state" style="grid-column:1/-1; padding:50px 20px;"><div class="icon">🌿</div>Không có món trong mục này.</div>'}</div>`;
+}
+
 function renderMenuGrid() {
+  if (numNavBucket) { renderNumNavItems(); return; }
+
   const inCart = {};
   staffCart.forEach(c => { inCart[c.sku] = (inCart[c.sku] || 0) + c.qty; });
 
@@ -3287,9 +3389,11 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
       e.preventDefault();
       confirmCustomOrder();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      closeSizeSheet();
+    } else if (e.key === 'Escape' || e.key === 'Backspace') {
+      if (!isInputFocused) {
+        e.preventDefault();
+        closeSizeSheet();
+      }
     } else if (!isInputFocused) {
       handleSizeOverlayShortcut(e);
     }
@@ -3318,6 +3422,28 @@ document.addEventListener('keydown', function(e) {
     if (staffCart && staffCart.length > 0) {
       e.preventDefault();
       openCartSheet(); // Phím M = Mở giỏ hàng & Gửi đơn từ màn hình chính!
+    }
+    return;
+  }
+
+  // 4. Gọi món — bàn phím số chọn category (1-8) rồi chọn món (1234567890-=)
+  if (activeView === 'menu' && !isInputFocused) {
+    if (e.key === 'Backspace') {
+      if (numNavBucket) { e.preventDefault(); exitNumNavBucket(); }
+      return;
+    }
+    if (/^[1-8]$/.test(e.key)) {
+      e.preventDefault();
+      enterNumNavBucket(Number(e.key));
+      return;
+    }
+    if (numNavBucket) {
+      const idx = NUM_NAV_KEYS.indexOf(e.key);
+      if (idx >= 0) {
+        const items = computeNumNavBuckets()[numNavBucket] || [];
+        const item = items[idx];
+        if (item) { e.preventDefault(); tapMenuItem(item.sku); }
+      }
     }
   }
 });
@@ -3696,7 +3822,9 @@ function addToStaffCart(item, modifiers, price) {
   if (ex) { ex.qty++; ex.subtotal = ex.qty * ex.price; }
   else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty:1, price, modifiers, subtotal:price });
   updateCartBar();
-  renderMenuGrid();
+  // Thêm giỏ xong (dù bấm số hay chạm tay) -> luôn về "Tất cả", đúng yêu cầu điều hướng bàn phím.
+  if (numNavBucket) exitNumNavBucket();
+  else renderMenuGrid();
 }
 
 function updateCartItemQty(key, delta) {
