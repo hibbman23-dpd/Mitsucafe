@@ -55,6 +55,7 @@ _SZ_SMALL   = 26
 _SZ_TOTAL   = 26
 _SZ_ITEM    = 44
 _SZ_MOD_PREP = 38   # tuỳ chọn (vừa/ngọt/ít đá/ghi chú) IN TO trên PHIẾU PHA CHẾ cho bếp dễ đọc; bill vẫn dùng _SZ_SMALL
+_SZ_TABLE    = 50   # số bàn — riêng 1 dòng, to gần bằng STT ĐƠN để bưng đúng bàn không cần nhìn kỹ
 
 
 def _get_daily_sequence(order: dict) -> str:
@@ -132,8 +133,8 @@ def _mods_line(modifiers: dict) -> str:
     if modifiers.get("sugar"):    parts.append(sugar_map.get(modifiers["sugar"], modifiers["sugar"]))
     if modifiers.get("ice"):      parts.append(ice_map.get(modifiers["ice"], modifiers["ice"]))
     if modifiers.get("toppings"): parts.append(modifiers["toppings"])
-    if modifiers.get("note"):     parts.append(f"📌 {modifiers['note']}")
-    if modifiers.get("swap_from"): parts.append(f"🔄 Thay cho: {modifiers['swap_from']}")
+    if modifiers.get("note"):     parts.append(f"Ghi chú: {modifiers['note']}")
+    if modifiers.get("swap_from"): parts.append(f"Thay cho: {modifiers['swap_from']}")
     return " / ".join(parts)
 
 
@@ -258,6 +259,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
     f_small  = _load_font(_SZ_SMALL)
     f_total  = _load_font(_SZ_TOTAL)
     f_item   = _load_font(_SZ_ITEM)
+    f_table  = _load_font(_SZ_TABLE)
     # Phiếu pha chế (show_total=False): modifier + ghi chú in TO cho bếp. Bill (show_total=True): giữ nhỏ.
     f_mod    = f_small if show_total else _load_font(_SZ_MOD_PREP)
 
@@ -315,16 +317,20 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
     daily_seq_str = _get_daily_sequence(order)
     table_label   = _loc_label(order)
 
-    # Logo Mitsu cách điệu (assets/receipt-logo.png) ở đầu — nổi bật cho HÓA ĐƠN.
-    add_logo()
-    add_gap(4)
-    add_text("=== PHIẾU PHA CHẾ ===", f_header, "center")
+    # Logo Mitsu cách điệu (assets/receipt-logo.png) ở đầu — chỉ HÓA ĐƠN (khách),
+    # PHIẾU PHA CHẾ bỏ logo cho gọn/nhanh (bếp chỉ cần thông tin món).
+    if show_total:
+        add_logo()
+        add_gap(4)
+    add_text("=== HÓA ĐƠN ===" if show_total else "=== PHIẾU PHA CHẾ ===", f_header, "center")
     add_text(f"STT ĐƠN: {daily_seq_str}", f_super, "center")
 
-    code_sub  = f"Mã: #{short_code}" if short_code else ""
-    meta_line = "  ·  ".join(filter(None, [code_sub, table_label]))
-    if meta_line:
-        add_text(meta_line, f_title, "center")
+    # Số bàn riêng 1 dòng, to — bưng đúng bàn không cần nhìn kỹ.
+    if table_label:
+        add_text(table_label.upper(), f_table, "center")
+
+    if short_code:
+        add_text(f"Mã: #{short_code}", f_title, "center")
 
     copy_num = order.get("copy_num", 0)
     if copy_num == 1:
@@ -388,7 +394,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
             {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}
         )
         if mods:
-            mod_words = f"👉 {mods}".split()
+            mod_words = f"→ {mods}".split()
             mod_lines, curr_m = [], ""
             for mw in mod_words:
                 test_m = (curr_m + " " + mw).strip()
@@ -398,7 +404,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
                     if curr_m: mod_lines.append(curr_m)
                     curr_m = mw
             if curr_m: mod_lines.append(curr_m)
-            for ml in (mod_lines or [f"👉 {mods}"]):
+            for ml in (mod_lines or [f"→ {mods}"]):
                 add_text(ml, f_mod, indent=8)
 
     notes = meta.get("notes", "")
