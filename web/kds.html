@@ -3872,7 +3872,8 @@ function resetStaffCart() {
   document.getElementById('submit-success').classList.add('hidden');
   document.getElementById('order-form').classList.remove('hidden');
   updateCartBar();
-  renderMenuGrid();
+  if (numNavBucket) exitNumNavBucket();
+  else renderMenuGrid();
 }
 
 // ─── CART SHEET ───────────────────────────────────────────────────────────────
