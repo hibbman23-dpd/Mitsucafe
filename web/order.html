@@ -139,7 +139,8 @@ function openItemSheet(sku) {
   sheetSel = {
     size: 'M',
     ice: (cz.ice && cz.ice.length) ? '' : null,     // '' = default (full) when ice offered; null = not applicable
-    sugar: (cz.sugar && cz.sugar.length) ? cz.sugar[0] : null,
+    // Mặc định 50% nếu món có mức đó; món chỉ có 1 mức cố định (vd chỉ '0%') thì giữ mức đó.
+    sugar: (cz.sugar && cz.sugar.length) ? (cz.sugar.find(s => s.includes('50')) || cz.sugar[0]) : null,
     toppings: [],
     qty: 1,
   };
