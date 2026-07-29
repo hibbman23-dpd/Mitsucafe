@@ -1305,7 +1305,11 @@ setInterval(pollPrintIssues, 15000);
 
 // ─── VIEW SWITCH ─────────────────────────────────────────────────────────────
 function switchView(v) {
-  if (activeView === 'menu' && v !== 'menu') numNavBucket = null;
+  if (activeView === 'menu' && v !== 'menu' && numNavBucket) {
+    numNavBucket = null;
+    const pills = document.getElementById('cat-pills');
+    if (pills) pills.classList.remove('hidden');
+  }
   activeView = v;
   document.getElementById('view-orders').classList.toggle('hidden', v !== 'orders');
   document.getElementById('view-menu').classList.toggle('hidden',   v !== 'menu');
@@ -3432,11 +3436,6 @@ document.addEventListener('keydown', function(e) {
       if (numNavBucket) { e.preventDefault(); exitNumNavBucket(); }
       return;
     }
-    if (/^[1-8]$/.test(e.key)) {
-      e.preventDefault();
-      enterNumNavBucket(Number(e.key));
-      return;
-    }
     if (numNavBucket) {
       const idx = NUM_NAV_KEYS.indexOf(e.key);
       if (idx >= 0) {
@@ -3444,6 +3443,11 @@ document.addEventListener('keydown', function(e) {
         const item = items[idx];
         if (item) { e.preventDefault(); tapMenuItem(item.sku); }
       }
+      return;
+    }
+    if (/^[1-8]$/.test(e.key)) {
+      e.preventDefault();
+      enterNumNavBucket(Number(e.key));
     }
   }
 });
