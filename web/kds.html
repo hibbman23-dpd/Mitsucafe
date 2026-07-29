@@ -3196,6 +3196,8 @@ document.addEventListener('keydown', function(e) {
     } else if (e.key === 'Escape') {
       e.preventDefault();
       closeSizeSheet();
+    } else if (!isInputFocused) {
+      handleSizeOverlayShortcut(e);
     }
     return;
   }
@@ -3226,10 +3228,47 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+// ─── Phím tắt chọn size/đá/đường/topping trong #size-overlay ──────────────
+// L/M = size · ↑/↓ = nhiều/ít đá · 1-5 = mức đường theo thứ tự · 8,9,0 = topping 1/2/3.
+// Chỉ hoạt động khi không có ô nhập text nào đang focus (guard ở nơi gọi).
+function handleSizeOverlayShortcut(e) {
+  if (!pendingItem) return;
+  const item = pendingItem;
+  const c = item.customizations || {};
+  const key = e.key;
+  const lower = key.toLowerCase();
+
+  if (item.price_l && (lower === 'l' || lower === 'm')) {
+    e.preventDefault();
+    selectPendingOpt('size', lower === 'l' ? 'L' : 'M');
+    return;
+  }
+  if (c.ice && c.ice.length && !c.ice.includes('blended') && (key === 'ArrowUp' || key === 'ArrowDown')) {
+    e.preventDefault();
+    const idx = c.ice.indexOf(pendingOpts.ice);
+    const cur = idx >= 0 ? idx : 0;
+    const next = key === 'ArrowUp' ? Math.max(0, cur - 1) : Math.min(c.ice.length - 1, cur + 1);
+    selectPendingOpt('ice', c.ice[next]);
+    return;
+  }
+  if (c.sugar && c.sugar.length && key >= '1' && key <= '5') {
+    e.preventDefault();
+    const idx = Number(key) - 1;
+    if (idx < c.sugar.length) selectPendingOpt('sugar', c.sugar[idx]);
+    return;
+  }
+  if (c.toppings && c.toppings.length && (key === '8' || key === '9' || key === '0')) {
+    e.preventDefault();
+    const idx = key === '8' ? 0 : key === '9' ? 1 : 2;
+    const t = c.toppings[idx];
+    if (t) togglePendingTopping(t.id, t.name, t.price);
+  }
+}
+
 function confirmCustomOrder() {
   if (!pendingItem) return;
   const item = pendingItem;
-  
+
   const basePrice = (pendingOpts.size === 'L' && item.price_l) ? item.price_l : item.price_m;
   const toppingsPrice = pendingOpts.toppings.reduce((sum, t) => sum + t.price, 0);
   const totalPrice = basePrice + toppingsPrice;
