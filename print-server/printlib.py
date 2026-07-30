@@ -423,6 +423,10 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
             cmds.append(("text", name_x, y, extra_l, f_item))
             y += lh(f_item)
 
+        # Bill (show_total): giá nhỏ từng món ngay dưới tên — tổng tiền chỉ hiện 1 lần ở cuối.
+        if show_total:
+            add_text(f"{_format_amount(qty * price)}đ", f_mod, "right")
+
         mods = _mods_line(
             {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"},
             it.get("sku"),
@@ -614,6 +618,11 @@ def build_receipt_text(order: dict, is_cash: bool = False, show_total: bool = Fa
             parts.append(enc("  " + extra_l + "\n"))
         parts.append(ESC + b"!\x00")
 
+        # Bill (show_total): giá nhỏ từng món ngay dưới tên — tổng tiền chỉ hiện 1 lần ở cuối.
+        if show_total:
+            price_str = _format_amount(int(it.get("qty", 1)) * it.get("price", 0)) + "d"
+            parts.append(enc(rjust(price_str, W) + "\n"))
+
         mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}, it.get("sku"))
         if mods:
             mod_lines = _wrap_text_to_lines("-> " + mods, W - 4)
@@ -756,6 +765,13 @@ def build_label_raster(order: dict, item: dict, cup_num: int, total_cups: int) -
         cmds.append(("text", max(PAD, (W - nw) // 2), y, nl, f_item))
         y += lh(f_item)
 
+    price = item.get("price")
+    if price is not None:
+        price_str = f"{_format_amount(price)}đ"
+        pw = tw(price_str, f_mod)
+        cmds.append(("text", max(PAD, (W - pw) // 2), y, price_str, f_mod))
+        y += lh(f_mod)
+
     mods = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"}, item.get("sku"))
     if mods:
         mods_lines = wrap_font_lines(mods, f_mod, max_w)
@@ -866,6 +882,10 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
             line_h = 20
         for nl in name_lines:
             middle_items.append((nl, font_choice, 1, 1 if font_choice == "2" else 2, line_h))
+
+    price = item.get("price")
+    if price is not None:
+        middle_items.append((f"{_format_amount(price)}đ", "3", 1, 1, 22))
 
     if mods:
         mods_lines = _wrap_text_to_lines(mods, 22)
