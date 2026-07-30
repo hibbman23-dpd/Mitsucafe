@@ -879,31 +879,30 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
 
     middle_items = []
 
-    # Có giá -> giá chiếm cột riêng bên phải (x=300+) cùng hàng với tên -> tên phải chừa chỗ
-    # (~75% bề ngang so với không giá) để chừa chiều cao còn lại cho tuỳ chọn/ghi chú.
-    # Tự chọn font to nhất mà tên vẫn gói gọn 1 dòng (14/22/30/44 ký tự @ font 4/3/2/1);
-    # chỉ khi tên vượt cả ngưỡng font nhỏ nhất mới bắt buộc xuống dòng (hiếm khi xảy ra
-    # với tên món thật, chỉ đề phòng "Tem lẻ" khách tự gõ tên rất dài).
+    # Giá tiền in NGANG bên phải tên từng gây đè chữ trên tem thật (font TSPL "1"/"2" trên
+    # máy in này rộng hơn hẳn so với ước lượng theo số ký tự — chưa có cách đo pixel thật
+    # qua TSPL để hiệu chỉnh đúng). Quay lại giá xuống dòng riêng ngay dưới tên — đã in ổn
+    # định trước đó, không rủi ro đè chữ dù tên dài cỡ nào.
     price = item.get("price")
-    has_price = price is not None
-    scale = 0.75 if has_price else 1.0
+
     name_stripped = _strip_viet(name)
-
-    _NAME_TIERS = [("4", 14, 2, 42), ("3", 22, 2, 34), ("2", 30, 2, 26), ("1", 44, 2, 20)]
-    chosen = None
-    for font, max_chars, sy, h in _NAME_TIERS:
-        if len(name_stripped) <= int(max_chars * scale):
-            chosen = (font, sy, h)
-            break
-
-    if chosen:
-        font, sy, h = chosen
-        middle_items.append((name, font, 1, sy, h))
+    if len(name_stripped) <= 14:
+        middle_items.append((name, "4", 1, 2, 42))
+    elif len(name_stripped) <= 22:
+        middle_items.append((name, "3", 1, 2, 34))
     else:
-        wrap_w = int(44 * scale)
-        name_lines = _wrap_text_to_lines(name, wrap_w)
+        name_lines = _wrap_text_to_lines(name, 22)
+        font_choice = "3"
+        line_h = 28
+        if len(name_lines) > 2 or any(len(_strip_viet(l)) > 22 for l in name_lines):
+            name_lines = _wrap_text_to_lines(name, 30)
+            font_choice = "2"
+            line_h = 20
         for nl in name_lines:
-            middle_items.append((nl, "1", 1, 1, 16))
+            middle_items.append((nl, font_choice, 1, 1 if font_choice == "2" else 2, line_h))
+
+    if price is not None:
+        middle_items.append((_format_amount_short(price), "3", 1, 1, 22))
 
     if mods:
         mods_lines = _wrap_text_to_lines(mods, 22)
@@ -957,14 +956,9 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
     gap = max(1, remaining // (len(middle_items) + 1))
 
     y_ptr = 40 + gap
-    name_row_y = y_ptr
     for text_str, font, sx, sy, h in middle_items:
         cmd.append(T(10, y_ptr, text_str, font=font, sx=sx, sy=sy))
         y_ptr += h + gap
-
-    # Giá tiền in ngang hàng, bên phải tên món (dòng đầu) — không chiếm thêm dòng riêng.
-    if price is not None:
-        cmd.append(T(300, name_row_y, _format_amount_short(price), font="3", sx=1, sy=1))
 
     cmd += [
         b"BAR 0,202,400,2\r\n",
