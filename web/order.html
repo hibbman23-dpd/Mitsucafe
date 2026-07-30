@@ -76,6 +76,14 @@ const TABLE_COUNT = 20;
 let table = '', cart = [], sheetItem = null, sheetSel = {};
 const fmt = n => Number(n).toLocaleString('vi-VN') + 'đ';
 const ICE_LBL = { full: 'Đá BT', less: 'Ít đá', none: 'Không đá', '': 'Đá BT' };
+// none-đá gọi "Nóng" cho món pha nóng được (cà phê/trà nóng/latte/trà sữa/trà trái cây);
+// coldbrew (pha lạnh) và sữa chua (uống lạnh) giữ nguyên "Không đá" — gọi "Nóng" sẽ sai nghĩa.
+const HOT_ELIGIBLE_SUBCATS = new Set(['coffee', 'hot_drinks', 'latte', 'milk_tea', 'fruit_tea']);
+function iceLabelForSku(value, sku) {
+  if (value !== 'none') return ICE_LBL[value] || value;
+  const m = (typeof MENU_DATA !== 'undefined') ? MENU_DATA.find(x => x.sku === sku) : null;
+  return HOT_ELIGIBLE_SUBCATS.has(m && m.subcategory) ? 'Nóng' : 'Không đá';
+}
 
 // Viết tắt HIỂN THỊ trên lưới điện thoại (chỉ để hiện nhiều món; đơn/bill/tem vẫn dùng tên đầy đủ).
 // Sửa/thêm cặp ở đây để hợp thói quen quán.
@@ -165,7 +173,7 @@ function renderItemSheet() {
     sizes.map(s => chip(s + (s === 'L' ? ' (' + fmt(m.price_l) + ')' : ''), sheetSel.size === s, "selSize('" + s + "')")).join('') + '</div>';
   // ice
   if (cz.ice && cz.ice.length) h += '<div class="row-lbl">Đá</div><div class="chips">' +
-    cz.ice.map(v => chip(ICE_LBL[v] || v, sheetSel.ice === (v === 'full' ? '' : v), "selIce('" + (v === 'full' ? '' : v) + "')")).join('') + '</div>';
+    cz.ice.map(v => chip(iceLabelForSku(v, m.sku), sheetSel.ice === (v === 'full' ? '' : v), "selIce('" + (v === 'full' ? '' : v) + "')")).join('') + '</div>';
   // sugar
   if (cz.sugar && cz.sugar.length) h += '<div class="row-lbl">Đường</div><div class="chips">' +
     cz.sugar.map(v => chip(v, sheetSel.sugar === v, "selSugar('" + v + "')")).join('') + '</div>';
@@ -201,10 +209,10 @@ function confirmAddItem() {
 }
 
 // ── cart ────────────────────────────────────────────────────────
-function modsText(mods) {
+function modsText(mods, sku) {
   const p = [];
   if (mods.size) p.push(mods.size);
-  if (mods.ice) p.push(ICE_LBL[mods.ice] || mods.ice);
+  if (mods.ice) p.push(iceLabelForSku(mods.ice, sku));
   if (mods.sugar) p.push('Đường ' + mods.sugar);
   if (mods.toppings) p.push(mods.toppings);
   return p.join(' · ');
@@ -219,7 +227,7 @@ function renderCartList() {
   const el = document.getElementById('cart-list');
   if (!cart.length) { el.innerHTML = '<div style="color:#ab9c85;padding:16px 0">Giỏ trống.</div>'; return; }
   el.innerHTML = cart.map((c, i) => {
-    const mt = modsText(c.modifiers);
+    const mt = modsText(c.modifiers, c.sku);
     return '<div class="cart-line"><div><div class="nm">' + c.name + ' × ' + c.qty + '</div>' +
       (mt ? '<div class="mods">' + mt + '</div>' : '') + '<div class="mods">' + fmt(c.price * c.qty) + '</div></div>' +
       '<button class="cl-x" onclick="removeLine(' + i + ')">Xoá</button></div>';

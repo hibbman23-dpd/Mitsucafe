@@ -1,6 +1,6 @@
 // menu-data.js — Auto-generated từ seed/menu_items.json
 // Đừng sửa tay. Dùng: python3 web/tools/gen_menu_data.py
-// Cập nhật: 2026-07-22 · 73 món
+// Cập nhật: 2026-07-30 · 73 món
 
 const CATEGORIES = [
   {
@@ -52,11 +52,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -80,11 +80,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -132,11 +132,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -160,11 +160,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -188,11 +188,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -216,11 +216,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -244,11 +244,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -272,11 +272,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -300,11 +300,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -328,11 +328,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -356,11 +356,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -384,11 +384,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -412,11 +412,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "none"
@@ -454,11 +454,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "none"
@@ -496,11 +496,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "none"
@@ -538,11 +538,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "none"
@@ -580,11 +580,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "none"
@@ -622,11 +622,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "none"
@@ -664,11 +664,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "none"
@@ -706,11 +706,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "none"
@@ -748,11 +748,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -792,11 +792,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -836,11 +836,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -880,11 +880,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -924,11 +924,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -968,11 +968,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1012,11 +1012,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1056,11 +1056,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1100,11 +1100,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1144,11 +1144,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1188,11 +1188,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1232,11 +1232,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1276,11 +1276,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1320,11 +1320,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1364,11 +1364,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1408,11 +1408,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1452,11 +1452,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1496,11 +1496,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1540,11 +1540,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1584,11 +1584,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1628,11 +1628,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1672,11 +1672,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1716,11 +1716,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1760,11 +1760,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1804,11 +1804,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1848,11 +1848,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1892,11 +1892,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1936,11 +1936,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -1980,11 +1980,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2024,11 +2024,11 @@ const MENU_DATA = [
   "price_l": 37000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2068,11 +2068,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2112,11 +2112,11 @@ const MENU_DATA = [
   "price_l": 37000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2156,11 +2156,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2200,11 +2200,11 @@ const MENU_DATA = [
   "price_l": 35000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2244,11 +2244,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2288,11 +2288,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2332,11 +2332,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2376,11 +2376,11 @@ const MENU_DATA = [
   "price_l": 32000,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2420,11 +2420,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2464,11 +2464,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2508,11 +2508,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2552,11 +2552,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2596,11 +2596,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2640,11 +2640,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2684,11 +2684,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2728,11 +2728,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2772,11 +2772,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2816,11 +2816,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2844,11 +2844,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2872,11 +2872,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2900,11 +2900,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",
@@ -2928,11 +2928,11 @@ const MENU_DATA = [
   "price_l": null,
   "customizations": {
     "sugar": [
-      "100%",
-      "70%",
-      "50%",
+      "0%",
       "30%",
-      "0%"
+      "50%",
+      "70%",
+      "100%"
     ],
     "ice": [
       "full",

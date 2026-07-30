@@ -801,7 +801,7 @@ function formatItemsSummary(items) {
     const mods = it.modifiers || {};
     const modParts = [];
     if (mods.size) modParts.push(mods.size);
-    if (mods.ice) modParts.push(ICE_LABEL[mods.ice] || mods.ice);
+    if (mods.ice) modParts.push(iceLabelForSku(mods.ice, it.sku));
     if (mods.sugar) modParts.push(SUGAR_LABEL[mods.sugar] || mods.sugar);
     if (mods.toppings) modParts.push(mods.toppings);
     const itemNote = it.note || mods.note || '';
@@ -911,6 +911,14 @@ let promoInterval = null;
 
 const ICE_LABEL   = { full: 'Nhiều đá', less: 'Ít đá', none: 'Không đá', blended: 'Xay' };
 const SUGAR_LABEL = { '0%':'Không ngọt','30%':'Ít ngọt','50%':'Vừa','70%':'Ngọt','100%':'Rất ngọt' };
+// none-đá gọi "Nóng" cho món pha nóng được (cà phê/trà nóng/latte/trà sữa/trà trái cây);
+// coldbrew (pha lạnh) và sữa chua (uống lạnh) giữ nguyên "Không đá" — gọi "Nóng" sẽ sai nghĩa.
+const HOT_ELIGIBLE_SUBCATS = new Set(['coffee', 'hot_drinks', 'latte', 'milk_tea', 'fruit_tea']);
+function iceLabelForSku(value, sku) {
+  if (value !== 'none') return ICE_LABEL[value] || value;
+  const m = (typeof MENU_DATA !== 'undefined') ? MENU_DATA.find(x => x.sku === sku) : null;
+  return HOT_ELIGIBLE_SUBCATS.has(m && m.subcategory) ? 'Nóng' : 'Không đá';
+}
 
 // ─── TEM LẺ (off-menu custom label) ────────────────────────────────────────
 let clState = { size: 'M', ice: '', sugar: '', qty: 1 };
@@ -2421,7 +2429,7 @@ function checkoutModsStr(it) {
   const mods = it.modifiers || {};
   const parts = [];
   if (mods.size) parts.push(mods.size);
-  if (mods.ice) parts.push(ICE_LABEL[mods.ice] || mods.ice);
+  if (mods.ice) parts.push(iceLabelForSku(mods.ice, it.sku));
   if (mods.sugar) parts.push(SUGAR_LABEL[mods.sugar] || mods.sugar);
   if (mods.toppings) parts.push(mods.toppings);
   return parts.join(', ');
@@ -3335,7 +3343,7 @@ function renderCustomOptions() {
         <div class="opt-chips">
           ${c.ice.map(val => `
             <button class="kds-chip${pendingOpts.ice === val ? ' active' : ''}" onclick="selectPendingOpt('ice', '${val}')">
-              ${ICE_LABEL[val] || val}
+              ${iceLabelForSku(val, item.sku)}
             </button>
           `).join('')}
         </div>
@@ -3979,7 +3987,7 @@ function renderCartItems() {
     const sizeStr = ci.modifiers?.size ? ` (${ci.modifiers.size})` : '';
     const modsList = [];
     if (ci.modifiers?.sugar) modsList.push(SUGAR_LABEL[ci.modifiers.sugar] || ci.modifiers.sugar);
-    if (ci.modifiers?.ice) modsList.push(ICE_LABEL[ci.modifiers.ice] || ci.modifiers.ice);
+    if (ci.modifiers?.ice) modsList.push(iceLabelForSku(ci.modifiers.ice, ci.sku));
     if (ci.modifiers?.toppings) modsList.push(ci.modifiers.toppings);
     const modsStr = modsList.length ? `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${modsList.join(', ')}</div>` : '';
     const currentNote = ci.note || ci.modifiers?.note || '';

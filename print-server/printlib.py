@@ -116,7 +116,44 @@ def _payment_label(method: str) -> str:
     }.get(method or "", "Thanh toán")
 
 
-def _mods_line(modifiers: dict) -> str:
+_SKU_SUBCAT_MAP = None
+
+def _load_sku_subcat_map() -> dict:
+    """sku -> subcategory, đọc từ seed/menu_items.json (giống _load_menu_map ở gateway.py)."""
+    global _SKU_SUBCAT_MAP
+    if _SKU_SUBCAT_MAP is not None:
+        return _SKU_SUBCAT_MAP
+    _SKU_SUBCAT_MAP = {}
+    menu_file = os.path.join(os.path.dirname(__file__), "..", "seed", "menu_items.json")
+    if os.path.exists(menu_file):
+        try:
+            import json
+            with open(menu_file, "r", encoding="utf-8") as f:
+                for it in json.load(f):
+                    if it.get("sku") and it.get("subcategory"):
+                        _SKU_SUBCAT_MAP[it["sku"]] = it["subcategory"]
+        except Exception:
+            pass
+    return _SKU_SUBCAT_MAP
+
+
+# Món pha nóng được (cà phê/trà nóng/latte/trà sữa/trà trái cây) -> "none" đá gọi là "Nóng".
+# Coldbrew (pha lạnh) và sữa chua (uống lạnh) giữ nguyên "Không đá" — gọi "Nóng" sẽ sai nghĩa.
+_HOT_ELIGIBLE_SUBCATS = {"coffee", "hot_drinks", "latte", "milk_tea", "fruit_tea"}
+
+
+def _ice_label_for(value: str, sku: str = None) -> str:
+    ice_map = {
+        "full": "Nhiều đá", "less": "Ít đá",
+        "none": "Không đá", "blended": "Xay",
+    }
+    if value != "none":
+        return ice_map.get(value, value)
+    subcat = _load_sku_subcat_map().get(sku)
+    return "Nóng" if subcat in _HOT_ELIGIBLE_SUBCATS else "Không đá"
+
+
+def _mods_line(modifiers: dict, sku: str = None) -> str:
     if not modifiers:
         return ""
     sugar_map = {
@@ -124,14 +161,10 @@ def _mods_line(modifiers: dict) -> str:
         "50%": "Vừa",       "70%": "Ngọt",
         "100%": "Rất ngọt",
     }
-    ice_map = {
-        "full": "Nhiều đá", "less": "Ít đá",
-        "none": "Không đá", "blended": "Xay",
-    }
     parts = []
     if modifiers.get("size"):     parts.append(modifiers["size"])
     if modifiers.get("sugar"):    parts.append(sugar_map.get(modifiers["sugar"], modifiers["sugar"]))
-    if modifiers.get("ice"):      parts.append(ice_map.get(modifiers["ice"], modifiers["ice"]))
+    if modifiers.get("ice"):      parts.append(_ice_label_for(modifiers["ice"], sku))
     if modifiers.get("toppings"): parts.append(modifiers["toppings"])
     if modifiers.get("note"):     parts.append(f"Ghi chú: {modifiers['note']}")
     if modifiers.get("swap_from"): parts.append(f"Thay cho: {modifiers['swap_from']}")
@@ -391,7 +424,8 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
             y += lh(f_item)
 
         mods = _mods_line(
-            {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}
+            {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"},
+            it.get("sku"),
         )
         if mods:
             mod_words = f"→ {mods}".split()
@@ -580,7 +614,7 @@ def build_receipt_text(order: dict, is_cash: bool = False, show_total: bool = Fa
             parts.append(enc("  " + extra_l + "\n"))
         parts.append(ESC + b"!\x00")
 
-        mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"})
+        mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}, it.get("sku"))
         if mods:
             mod_lines = _wrap_text_to_lines("-> " + mods, W - 4)
             # PHIẾU PHA CHẾ (show_total=False): tuỳ chọn IN TO (cao gấp đôi + đậm) cho bếp dễ đọc.
@@ -722,7 +756,7 @@ def build_label_raster(order: dict, item: dict, cup_num: int, total_cups: int) -
         cmds.append(("text", max(PAD, (W - nw) // 2), y, nl, f_item))
         y += lh(f_item)
 
-    mods = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"})
+    mods = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"}, item.get("sku"))
     if mods:
         mods_lines = wrap_font_lines(mods, f_mod, max_w)
         for ml in mods_lines:
@@ -794,7 +828,7 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
     size       = (item.get("modifiers") or {}).get("size", "")
     if size:
         name += f" ({size})"
-    mods     = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"})
+    mods     = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"}, item.get("sku"))
     notes    = str(meta.get("notes") or "").strip()
     time_str = _format_time_only(str(order.get("timestamp", "")))
 
