@@ -879,23 +879,29 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
 
     middle_items = []
 
+    # Có giá -> giá chiếm cột riêng bên phải (x=300+), tên phải chừa chỗ, không thì chồng lên nhau.
+    price = item.get("price")
+    has_price = price is not None
+    limit_big  = 10 if has_price else 14
+    limit_med  = 16 if has_price else 22
+    wrap_w1    = 16 if has_price else 22
+    wrap_w2    = 22 if has_price else 30
+
     name_stripped = _strip_viet(name)
-    if len(name_stripped) <= 14:
+    if len(name_stripped) <= limit_big:
         middle_items.append((name, "4", 1, 2, 42))
-    elif len(name_stripped) <= 22:
+    elif len(name_stripped) <= limit_med:
         middle_items.append((name, "3", 1, 2, 34))
     else:
-        name_lines = _wrap_text_to_lines(name, 22)
+        name_lines = _wrap_text_to_lines(name, wrap_w1)
         font_choice = "3"
         line_h = 28
-        if len(name_lines) > 2 or any(len(_strip_viet(l)) > 22 for l in name_lines):
-            name_lines = _wrap_text_to_lines(name, 30)
+        if len(name_lines) > 2 or any(len(_strip_viet(l)) > wrap_w1 for l in name_lines):
+            name_lines = _wrap_text_to_lines(name, wrap_w2)
             font_choice = "2"
             line_h = 20
         for nl in name_lines:
             middle_items.append((nl, font_choice, 1, 1 if font_choice == "2" else 2, line_h))
-
-    price = item.get("price")
 
     if mods:
         mods_lines = _wrap_text_to_lines(mods, 22)
