@@ -2931,7 +2931,8 @@ function checkoutSelectAddItem(sku) {
     sugar: item.customizations?.sugar?.length ? item.customizations.sugar[Math.floor(item.customizations.sugar.length / 2)] : null,
     ice: item.customizations?.ice?.length ? item.customizations.ice[0] : null,
     toppings: [],
-    note: ''
+    note: '',
+    qty: 1
   };
   const c = item.customizations || {};
   const hasOpts = item.price_l || (c.sugar && c.sugar.length) || (c.ice && c.ice.length) || (c.toppings && c.toppings.length);
@@ -2946,10 +2947,10 @@ function checkoutSelectAddItem(sku) {
   }
 }
 
-function confirmCheckoutAddItem(item, modifiers, price) {
+function confirmCheckoutAddItem(item, modifiers, price, qty = 1) {
   const o = allOrders.find(x => x.order_id === checkoutState.orderId);
   if (!o) return;
-  const newItem = { sku: item.sku, name: item.name, qty: 1, price, subtotal: price, modifiers, note: modifiers.note || '' };
+  const newItem = { sku: item.sku, name: item.name, qty, price, subtotal: price * qty, modifiers, note: modifiers.note || '' };
   const newItems = (o.items || []).map(checkout.cloneItem).concat([newItem]);
   closeCheckoutAddOverlay();
   checkoutPatchItems(o.order_id, newItems);
@@ -3259,7 +3260,8 @@ function tapMenuItem(sku) {
       size: item.price_l ? 'M' : null,
       sugar: c.sugar && c.sugar.length ? c.sugar[Math.floor(c.sugar.length / 2)] : null,
       ice: c.ice && c.ice.length ? c.ice[0] : null,
-      toppings: []
+      toppings: [],
+      qty: 1
     };
     
     document.getElementById('size-item-name').textContent = item.name;
@@ -3360,7 +3362,22 @@ function renderCustomOptions() {
     `;
   }
   
-  // 5. Item Note
+  // 5. Số lượng (ẩn khi đang Đổi món — swap luôn 1-đổi-1, không có khái niệm số lượng)
+  const showQty = !(pendingSwap && pendingSwap.isCustomizing);
+  if (showQty) {
+    html += `
+      <div class="opt-group">
+        <div class="opt-label">Số lượng</div>
+        <div class="stepper">
+          <button class="step-btn" onclick="adjustPendingQty(-1)">−</button>
+          <span class="qty-val">${pendingOpts.qty || 1}</span>
+          <button class="step-btn" onclick="adjustPendingQty(1)">＋</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // 6. Item Note
   html += `
     <div class="opt-group">
       <div class="opt-label">📝 Ghi chú riêng món này</div>
@@ -3374,12 +3391,21 @@ function renderCustomOptions() {
   `;
 
   document.getElementById('custom-sheet-body').innerHTML = html;
-  
+
   const basePrice = (pendingOpts.size === 'L' && item.price_l) ? item.price_l : item.price_m;
   const toppingsPrice = pendingOpts.toppings.reduce((sum, t) => sum + t.price, 0);
   const totalPrice = basePrice + toppingsPrice;
-  
-  document.getElementById('btn-add-custom-cart').textContent = `Thêm vào giỏ (Enter ↵) · ${fmt(totalPrice)}`;
+  const qty = showQty ? (pendingOpts.qty || 1) : 1;
+
+  document.getElementById('btn-add-custom-cart').textContent =
+    qty > 1
+      ? `Thêm vào giỏ (Enter ↵) · x${qty} · ${fmt(totalPrice * qty)}`
+      : `Thêm vào giỏ (Enter ↵) · ${fmt(totalPrice)}`;
+}
+
+function adjustPendingQty(d) {
+  pendingOpts.qty = Math.max(1, (pendingOpts.qty || 1) + d);
+  renderCustomOptions();
 }
 
 document.addEventListener('keydown', function(e) {
@@ -3486,6 +3512,11 @@ function handleSizeOverlayShortcut(e) {
     const idx = key === '8' ? 0 : key === '9' ? 1 : 2;
     const t = c.toppings[idx];
     if (t) togglePendingTopping(t.id, t.name, t.price);
+    return;
+  }
+  if (!(pendingSwap && pendingSwap.isCustomizing) && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+    e.preventDefault();
+    adjustPendingQty(key === 'ArrowRight' ? 1 : -1);
   }
 }
 
@@ -3515,14 +3546,16 @@ function confirmCustomOrder() {
     return;
   }
 
+  const qty = pendingOpts.qty || 1;
+
   if (pendingCheckoutAdd) {
     pendingCheckoutAdd = false;
     closeSizeSheet();
-    confirmCheckoutAddItem(item, modifiers, totalPrice);
+    confirmCheckoutAddItem(item, modifiers, totalPrice, qty);
     return;
   }
 
-  addToStaffCart(item, modifiers, totalPrice);
+  addToStaffCart(item, modifiers, totalPrice, qty);
   closeSizeSheet();
 }
 
@@ -3650,7 +3683,8 @@ function selectSwapNewItem(sku) {
     sugar: item.customizations?.sugar?.length ? item.customizations.sugar[Math.floor(item.customizations.sugar.length / 2)] : null,
     ice: item.customizations?.ice?.length ? item.customizations.ice[0] : null,
     toppings: [],
-    note: ''
+    note: '',
+    qty: 1
   };
 
   const c = item.customizations || {};
@@ -3820,11 +3854,11 @@ function makeCartKey(sku, modifiers) {
   return (String(sku) + '_' + parts.join('_')).replace(/[^a-zA-Z0-9_\-]/g, '');
 }
 
-function addToStaffCart(item, modifiers, price) {
+function addToStaffCart(item, modifiers, price, qty = 1) {
   const key = makeCartKey(item.sku, modifiers);
   const ex  = staffCart.find(c => c._key === key);
-  if (ex) { ex.qty++; ex.subtotal = ex.qty * ex.price; }
-  else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty:1, price, modifiers, subtotal:price });
+  if (ex) { ex.qty += qty; ex.subtotal = ex.qty * ex.price; }
+  else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty, price, modifiers, subtotal:price * qty });
   updateCartBar();
   // Thêm giỏ xong (dù bấm số hay chạm tay) -> luôn về "Tất cả", đúng yêu cầu điều hướng bàn phím.
   if (numNavBucket) exitNumNavBucket();
