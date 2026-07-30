@@ -771,17 +771,18 @@ def build_label_raster(order: dict, item: dict, cup_num: int, total_cups: int) -
         name += f" ({size})"
     max_w = W - 2 * PAD
     name_lines = wrap_font_lines(name, f_item, max_w)
+    name_row_y = y
     for nl in name_lines:
         nw = tw(nl, f_item)
         cmds.append(("text", max(PAD, (W - nw) // 2), y, nl, f_item))
         y += lh(f_item)
 
+    # Giá tiền in ngang hàng với dòng đầu tên món, sát lề phải — không chiếm thêm dòng riêng.
     price = item.get("price")
     if price is not None:
         price_str = _format_amount_short(price)
         pw = tw(price_str, f_mod)
-        cmds.append(("text", max(PAD, (W - pw) // 2), y, price_str, f_mod))
-        y += lh(f_mod)
+        cmds.append(("text", max(PAD, W - PAD - pw), name_row_y, price_str, f_mod))
 
     mods = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"}, item.get("sku"))
     if mods:
@@ -895,8 +896,6 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
             middle_items.append((nl, font_choice, 1, 1 if font_choice == "2" else 2, line_h))
 
     price = item.get("price")
-    if price is not None:
-        middle_items.append((_format_amount_short(price), "3", 1, 1, 22))
 
     if mods:
         mods_lines = _wrap_text_to_lines(mods, 22)
@@ -950,9 +949,14 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
     gap = max(1, remaining // (len(middle_items) + 1))
 
     y_ptr = 40 + gap
+    name_row_y = y_ptr
     for text_str, font, sx, sy, h in middle_items:
         cmd.append(T(10, y_ptr, text_str, font=font, sx=sx, sy=sy))
         y_ptr += h + gap
+
+    # Giá tiền in ngang hàng, bên phải tên món (dòng đầu) — không chiếm thêm dòng riêng.
+    if price is not None:
+        cmd.append(T(300, name_row_y, _format_amount_short(price), font="3", sx=1, sy=1))
 
     cmd += [
         b"BAR 0,202,400,2\r\n",
