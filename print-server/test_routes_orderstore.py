@@ -104,6 +104,43 @@ class TestEditRoutes(RouteTestBase):
             "version": 999, "items": []})
         self.assertEqual(r.status_code, 409)
 
+    def test_swap_item_replaces_line_and_recomputes_total(self):
+        r = self.c.post("/order/swap_item", json={
+            "order_id": self.oid, "item_index": 0,
+            "new_item": {"sku": "DR099", "name": "Matcha đá xay", "qty": 1, "price": 40000},
+            "manager_pin": "1234"})
+        self.assertEqual(r.status_code, 200)
+        d = r.get_json()
+        self.assertTrue(d["ok"])
+        items = d["order"]["items"]
+        self.assertEqual(items[0]["sku"], "DR099")
+        self.assertEqual(items[0]["modifiers"]["swap_from"], "Cà phê muối")
+        # old line (Cà phê muối x2 @30000) removed, Trà sữa oolong x1 @25000 untouched
+        self.assertEqual(d["order"]["total"], 40000 + 25000)
+        self.assertEqual(len(d["cancelled_lines"]), 1)
+        self.assertEqual(d["cancelled_lines"][0]["sku"], "DR005")
+
+    def test_swap_item_wrong_pin_400(self):
+        r = self.c.post("/order/swap_item", json={
+            "order_id": self.oid, "item_index": 0,
+            "new_item": {"sku": "DR099", "name": "X", "qty": 1, "price": 1000},
+            "manager_pin": "0000"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_swap_item_bad_index_400(self):
+        r = self.c.post("/order/swap_item", json={
+            "order_id": self.oid, "item_index": 99,
+            "new_item": {"sku": "DR099", "name": "X", "qty": 1, "price": 1000},
+            "manager_pin": "1234"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_swap_item_missing_order_404(self):
+        r = self.c.post("/order/swap_item", json={
+            "order_id": "ORD-NOPE", "item_index": 0,
+            "new_item": {"sku": "DR099", "name": "X", "qty": 1, "price": 1000},
+            "manager_pin": "1234"})
+        self.assertEqual(r.status_code, 404)
+
     def test_split_route(self):
         r = self.c.post(f"/order/{self.oid}/split", json={
             "version": self._ver(),

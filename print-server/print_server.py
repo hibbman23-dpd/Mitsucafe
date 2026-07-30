@@ -1083,6 +1083,12 @@ def order_mark_paid():
 
 @app.post("/order/swap_item")
 def order_swap_item():
+    """Đổi 1 dòng món trong đơn sang món khác — đi qua STORE/bill_engine local-first
+    (giống PATCH /order/<id>/items), KHÔNG còn tự tay UPDATE outbox.payload_json (cột
+    không tồn tại — outbox thật có cột `payload`, xem gateway.py _SCHEMA) và KHÔNG còn
+    enqueue action 'swap_order_item' lên GAS (GAS chưa từng cài hành động này ->
+    unknown_action). Local STORE là nguồn sự thật cho items/total — khớp đúng cách
+    /order/<id>/items PATCH đã làm cho hủy món."""
     payload = request.get_json(force=True, silent=True) or {}
     order_id = payload.get("order_id")
     item_index = payload.get("item_index")
@@ -1094,44 +1100,39 @@ def order_swap_item():
     if pin not in ("1234", "9999"):
         return jsonify({"ok": False, "error": "Mã PIN Quản lý không đúng!"}), 400
 
-    order_payload = None
-    with GATEWAY._lock:
-        row = GATEWAY._conn.execute(
-            "SELECT payload_json FROM outbox WHERE order_id = ? AND op = 'ingest_order'",
-            (order_id,)
-        ).fetchone()
-        if row:
-            p = json.loads(row[0])
-            items = p.get("items", [])
-            item_idx = int(item_index)
-            if 0 <= item_idx < len(items):
-                old_item = items[item_idx]
-                old_name = old_item.get("name") or old_item.get("sku") or "Món cũ"
-                if not new_item.get("modifiers"): new_item["modifiers"] = {}
-                new_item["modifiers"]["swap_from"] = old_name
-                items[item_idx] = new_item
-                p["items"] = items
-                p["total"] = sum((float(it.get("price") or 0)) * (int(it.get("qty") or 1)) for it in items)
-                GATEWAY._conn.execute(
-                    "UPDATE outbox SET payload_json = ? WHERE order_id = ? AND op = 'ingest_order'",
-                    (json.dumps(p), order_id)
-                )
-                GATEWAY._conn.commit()
-                order_payload = p
+    cur = STORE.get(order_id)
+    if cur is None:
+        return jsonify({"ok": False, "error": "Order not found"}), 404
+    items = cur.get("items", [])
+    item_idx = int(item_index)
+    if not (0 <= item_idx < len(items)):
+        return jsonify({"ok": False, "error": "Invalid item_index"}), 400
+
+    old_item = items[item_idx]
+    old_name = old_item.get("name") or old_item.get("sku") or "Món cũ"
+    if not new_item.get("modifiers"):
+        new_item["modifiers"] = {}
+    new_item["modifiers"]["swap_from"] = old_name
+
+    new_items = [dict(it) for it in items]
+    new_items[item_idx] = new_item
 
     try:
-        if _print_engine() == "spool" and order_payload:
-            items = order_payload.get("items", [])
-            item_idx = int(item_index)
-            SPOOL.enqueue_single_label(order_payload, new_item, item_idx + 1, len(items))
+        res = bill_engine.apply_items_edit(STORE, order_id, new_items, int(cur["version"]))
+    except VersionConflict:
+        return jsonify({"ok": False, "error": "version_conflict"}), 409
+    except KeyError:
+        return jsonify({"ok": False, "error": "Order not found"}), 404
+
+    _enqueue_cancel_ticket(res["order"], res["cancelled_lines"])
+
+    try:
+        if _print_engine() == "spool":
+            SPOOL.enqueue_single_label(res["order"], new_item, item_idx + 1, len(new_items))
     except Exception as exc:
         log.warning("swap_item single_label print failed: %s", exc)
 
-    swap_key = f"{order_id}:swap:{item_index}:{int(time.time() * 1000)}"
-    GATEWAY.enqueue("swap_order_item", order_id, swap_key,
-                    {"action": "swap_order_item", "order_id": order_id, "item_index": item_index, "new_item": new_item, "manager_pin": pin})
-
-    return jsonify({"ok": True, "order_id": order_id}), 200
+    return jsonify({"ok": True, "order": res["order"], "cancelled_lines": res["cancelled_lines"]}), 200
 
 
 
