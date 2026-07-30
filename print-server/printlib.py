@@ -95,6 +95,17 @@ def _format_amount(n) -> str:
         return str(n)
 
 
+def _format_amount_short(n) -> str:
+    """18000 -> '18k' — dùng cho giá nhỏ từng món trên tem/bill, KHÔNG dùng cho Tổng tiền."""
+    try:
+        k = float(n) / 1000
+    except Exception:
+        return str(n)
+    if k == int(k):
+        return f"{int(k)}k"
+    return f"{round(k, 1)}k"
+
+
 def _format_timestamp(ts_str: str) -> str:
     try:
         from datetime import datetime, timezone, timedelta
@@ -425,7 +436,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
 
         # Bill (show_total): giá nhỏ từng món ngay dưới tên — tổng tiền chỉ hiện 1 lần ở cuối.
         if show_total:
-            add_text(f"{_format_amount(qty * price)}đ", f_mod, "right")
+            add_text(_format_amount_short(qty * price), f_mod, "right")
 
         mods = _mods_line(
             {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"},
@@ -620,7 +631,7 @@ def build_receipt_text(order: dict, is_cash: bool = False, show_total: bool = Fa
 
         # Bill (show_total): giá nhỏ từng món ngay dưới tên — tổng tiền chỉ hiện 1 lần ở cuối.
         if show_total:
-            price_str = _format_amount(int(it.get("qty", 1)) * it.get("price", 0)) + "d"
+            price_str = _format_amount_short(int(it.get("qty", 1)) * it.get("price", 0))
             parts.append(enc(rjust(price_str, W) + "\n"))
 
         mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}, it.get("sku"))
@@ -767,7 +778,7 @@ def build_label_raster(order: dict, item: dict, cup_num: int, total_cups: int) -
 
     price = item.get("price")
     if price is not None:
-        price_str = f"{_format_amount(price)}đ"
+        price_str = _format_amount_short(price)
         pw = tw(price_str, f_mod)
         cmds.append(("text", max(PAD, (W - pw) // 2), y, price_str, f_mod))
         y += lh(f_mod)
@@ -885,7 +896,7 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
 
     price = item.get("price")
     if price is not None:
-        middle_items.append((f"{_format_amount(price)}đ", "3", 1, 1, 22))
+        middle_items.append((_format_amount_short(price), "3", 1, 1, 22))
 
     if mods:
         mods_lines = _wrap_text_to_lines(mods, 22)
