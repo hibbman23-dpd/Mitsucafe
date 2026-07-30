@@ -879,29 +879,31 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
 
     middle_items = []
 
-    # Có giá -> giá chiếm cột riêng bên phải (x=300+), tên phải chừa chỗ, không thì chồng lên nhau.
+    # Có giá -> giá chiếm cột riêng bên phải (x=300+) cùng hàng với tên -> tên phải chừa chỗ
+    # (~75% bề ngang so với không giá) để chừa chiều cao còn lại cho tuỳ chọn/ghi chú.
+    # Tự chọn font to nhất mà tên vẫn gói gọn 1 dòng (14/22/30/44 ký tự @ font 4/3/2/1);
+    # chỉ khi tên vượt cả ngưỡng font nhỏ nhất mới bắt buộc xuống dòng (hiếm khi xảy ra
+    # với tên món thật, chỉ đề phòng "Tem lẻ" khách tự gõ tên rất dài).
     price = item.get("price")
     has_price = price is not None
-    limit_big  = 10 if has_price else 14
-    limit_med  = 16 if has_price else 22
-    wrap_w1    = 16 if has_price else 22
-    wrap_w2    = 22 if has_price else 30
-
+    scale = 0.75 if has_price else 1.0
     name_stripped = _strip_viet(name)
-    if len(name_stripped) <= limit_big:
-        middle_items.append((name, "4", 1, 2, 42))
-    elif len(name_stripped) <= limit_med:
-        middle_items.append((name, "3", 1, 2, 34))
+
+    _NAME_TIERS = [("4", 14, 2, 42), ("3", 22, 2, 34), ("2", 30, 2, 26), ("1", 44, 2, 20)]
+    chosen = None
+    for font, max_chars, sy, h in _NAME_TIERS:
+        if len(name_stripped) <= int(max_chars * scale):
+            chosen = (font, sy, h)
+            break
+
+    if chosen:
+        font, sy, h = chosen
+        middle_items.append((name, font, 1, sy, h))
     else:
-        name_lines = _wrap_text_to_lines(name, wrap_w1)
-        font_choice = "3"
-        line_h = 28
-        if len(name_lines) > 2 or any(len(_strip_viet(l)) > wrap_w1 for l in name_lines):
-            name_lines = _wrap_text_to_lines(name, wrap_w2)
-            font_choice = "2"
-            line_h = 20
+        wrap_w = int(44 * scale)
+        name_lines = _wrap_text_to_lines(name, wrap_w)
         for nl in name_lines:
-            middle_items.append((nl, font_choice, 1, 1 if font_choice == "2" else 2, line_h))
+            middle_items.append((nl, "1", 1, 1, 16))
 
     if mods:
         mods_lines = _wrap_text_to_lines(mods, 22)

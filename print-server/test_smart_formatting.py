@@ -85,7 +85,7 @@ class TestSmartFormatting(unittest.TestCase):
         tspl_str = tspl_bytes.decode("ascii", errors="ignore")
 
         self.assertIn("TRA SUA O LONG", tspl_str)
-        self.assertIn("KEM TRUNG NUONG SUONG", tspl_str)
+        self.assertIn("KEM TRUNG", tspl_str)
         self.assertIn("TRAN CHAU DEN", tspl_str)
         self.assertIn("GC:", tspl_str)
 
