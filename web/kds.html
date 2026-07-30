@@ -647,7 +647,7 @@
         </div>
       </div>
       <div class="form-row" id="table-row">
-        <label class="form-label">Số bàn</label>
+        <label class="form-label">Số bàn <span id="table-key-hint" style="color:var(--gold); font-weight:700;"></span></label>
         <div class="table-grid" id="table-grid"></div>
       </div>
       <div class="form-row">
@@ -3443,6 +3443,9 @@ document.addEventListener('keydown', function(e) {
     } else if (e.key === 'Escape') {
       e.preventDefault();
       closeCartSheet();
+    } else if (orderMode === 'dine_in' && !isInputFocused && /^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      handleCartTableKey(e.key);
     }
     return;
   }
@@ -3920,11 +3923,43 @@ function openCartSheet() {
   renderTableGrid();
   document.getElementById('order-form-total').textContent = fmt(cartTotal());
   document.getElementById('cart-overlay').classList.remove('hidden');
+  resetCartTableKeyBuffer();
 }
 
 function closeCartSheet(e) {
   if (e && e.target !== document.getElementById('cart-overlay')) return;
   document.getElementById('cart-overlay').classList.add('hidden');
+  resetCartTableKeyBuffer();
+}
+
+// ─── Gõ số bàn bằng bàn phím trong giỏ hàng (2 chữ số, khớp nhãn "01".."20") ──
+let cartTableKeyBuffer = '';
+let cartTableKeyTimer = null;
+
+function resetCartTableKeyBuffer() {
+  cartTableKeyBuffer = '';
+  if (cartTableKeyTimer) { clearTimeout(cartTableKeyTimer); cartTableKeyTimer = null; }
+  const hint = document.getElementById('table-key-hint');
+  if (hint) hint.textContent = '';
+}
+
+function handleCartTableKey(digit) {
+  if (cartTableKeyTimer) clearTimeout(cartTableKeyTimer);
+  cartTableKeyBuffer = (cartTableKeyBuffer.length >= 2 ? '' : cartTableKeyBuffer) + digit;
+  const hint = document.getElementById('table-key-hint');
+
+  if (cartTableKeyBuffer.length === 2) {
+    const code = cartTableKeyBuffer;
+    cartTableKeyBuffer = '';
+    if (hint) hint.textContent = '';
+    if (code >= '01' && code <= String(TABLE_COUNT).padStart(2, '0')) {
+      selectTable(code);
+    }
+    return;
+  }
+
+  if (hint) hint.textContent = ` — gõ: ${cartTableKeyBuffer}_`;
+  cartTableKeyTimer = setTimeout(resetCartTableKeyBuffer, 1200);
 }
 
 function updateCartItemNote(key, noteVal) {
@@ -3985,6 +4020,7 @@ function setMode(mode) {
   document.getElementById('mode-dine').classList.toggle('active',   mode === 'dine_in');
   document.getElementById('mode-pickup').classList.toggle('active', mode === 'pickup');
   document.getElementById('table-row').style.display = mode === 'dine_in' ? '' : 'none';
+  resetCartTableKeyBuffer();
 }
 
 function renderTableGrid() {
