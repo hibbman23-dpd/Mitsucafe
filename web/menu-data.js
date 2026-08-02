@@ -1,6 +1,6 @@
 // menu-data.js — Auto-generated từ seed/menu_items.json
 // Đừng sửa tay. Dùng: python3 web/tools/gen_menu_data.py
-// Cập nhật: 2026-07-30 · 73 món
+// Cập nhật: 2026-08-02 · 73 món
 
 const CATEGORIES = [
   {
@@ -744,7 +744,7 @@ const MENU_DATA = [
   "subcategory": "latte",
   "bee_group": "so",
   "role": "signature",
-  "price_m": 40000,
+  "price_m": 35000,
   "price_l": null,
   "customizations": {
     "sugar": [

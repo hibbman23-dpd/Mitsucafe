@@ -827,7 +827,7 @@
     "category": "beverage",
     "subcategory": "latte",
     "role": "signature",
-    "price_m": 40000,
+    "price_m": 35000,
     "price_l": null,
     "cost_nl": 12000,
     "cost_packaging": 2500,
