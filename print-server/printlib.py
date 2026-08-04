@@ -45,17 +45,17 @@ _W   = RASTER_DOTS_WIDTH
 _PAD = 8
 _CW  = _W - 2 * _PAD
 
-_SZ_SUPER   = 56
-_SZ_HEADER  = 30
-_SZ_TITLE   = 34
+_SZ_SUPER   = 40
+_SZ_HEADER  = 26
+_SZ_TITLE   = 28
 _SZ_LOGO    = 22
-_SZ_ADDR    = 14
-_SZ_NORMAL  = 22
-_SZ_SMALL   = 26
-_SZ_TOTAL   = 26
-_SZ_ITEM    = 44
-_SZ_MOD_PREP = 38   # tuỳ chọn (vừa/ngọt/ít đá/ghi chú) IN TO trên PHIẾU PHA CHẾ cho bếp dễ đọc; bill vẫn dùng _SZ_SMALL
-_SZ_TABLE    = 50   # số bàn — riêng 1 dòng, to gần bằng STT ĐƠN để bưng đúng bàn không cần nhìn kỹ
+_SZ_ADDR    = 13
+_SZ_NORMAL  = 19
+_SZ_SMALL   = 21
+_SZ_TOTAL   = 24
+_SZ_ITEM    = 36
+_SZ_MOD_PREP = 32   # tuỳ chọn (vừa/ngọt/ít đá/ghi chú) IN TO trên PHIẾU PHA CHẾ cho bếp dễ đọc; bill vẫn dùng _SZ_SMALL
+_SZ_TABLE    = 40   # số bàn — riêng 1 dòng, to hơn hẳn phần còn lại để bưng đúng bàn không cần nhìn kỹ
 
 
 def _get_daily_sequence(order: dict) -> str:
@@ -311,12 +311,12 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
         bb = font.getbbox(text)
         return bb[2] - bb[0]
 
-    def lh(font, extra=4):
+    def lh(font, extra=2):
         bb = font.getbbox("Agypjq")
         return bb[3] - bb[1] + extra
 
     cmds = []
-    y = 6
+    y = 4
 
     def add_text(text, font, align="left", indent=0):
         nonlocal y
@@ -330,13 +330,13 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
         cmds.append(("text", x, y, text, font))
         y += lh(font)
 
-    def add_hline(thick=1, gap_before=2, gap_after=2):
+    def add_hline(thick=1, gap_before=1, gap_after=1):
         nonlocal y
         y += gap_before
         cmds.append(("hline", y, thick))
         y += thick + gap_after
 
-    def add_gap(px=4):
+    def add_gap(px=2):
         nonlocal y
         y += px
 
@@ -345,7 +345,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
         cmds.append(("bee", W // 2, y, scale))
         y += _bee_height(scale)
 
-    def add_logo(target_w=300):
+    def add_logo(target_w=260):
         nonlocal y
         logo = _get_logo(min(target_w, CW))
         if logo is None:
@@ -365,7 +365,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
     # PHIẾU PHA CHẾ bỏ logo cho gọn/nhanh (bếp chỉ cần thông tin món).
     if show_total:
         add_logo()
-        add_gap(4)
+        add_gap(2)
     add_text("=== HÓA ĐƠN ===" if show_total else "=== PHIẾU PHA CHẾ ===", f_header, "center")
     add_text(f"STT ĐƠN: {daily_seq_str}", f_super, "center")
 
@@ -394,7 +394,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
     elif customer_id and customer_id not in ("0000000000", ""):
         add_text(customer_id, f_norm)
 
-    add_hline(thick=2, gap_before=4, gap_after=4)
+    add_hline(thick=2, gap_before=2, gap_after=3)
 
     for idx, it in enumerate(order.get("items") or [], start=1):
         name = f"{idx}. " + it.get("name", "?")
@@ -473,16 +473,16 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
 
     # HÓA ĐƠN (show_total=True): tổng tiền + phương thức + cảm ơn. PHIẾU PHA CHẾ bỏ qua.
     if show_total:
-        add_hline(thick=1, gap_before=3, gap_after=3)
+        add_hline(thick=1, gap_before=2, gap_after=2)
         total_str = f"Tổng:  {_format_amount(order.get('total', 0))}đ"
         pmt_str   = f"TT:  {_payment_label((order.get('payment') or {}).get('method', ''))}"
         add_text(total_str, f_total, "right")
         add_text(pmt_str,   f_norm,  "right")
-        add_hline(thick=2, gap_before=4, gap_after=4)
+        add_hline(thick=2, gap_before=3, gap_after=3)
         add_text("Cảm ơn! Hẹn gặp lại nhé!", f_norm, "center")
         add_text("mitsu.cafe",               f_addr,  "center")
 
-    add_hline(thick=3, gap_before=6, gap_after=12)
+    add_hline(thick=3, gap_before=4, gap_after=8)
 
     height = y + 8
     img = Image.new("L", (W, height), 255)
