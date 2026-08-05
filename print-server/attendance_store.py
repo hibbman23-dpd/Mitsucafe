@@ -177,6 +177,23 @@ class AttendanceStore:
             "ORDER BY clock_in_at", (cutoff,)).fetchall()
         return [dict(r) for r in rows]
 
+    def staff_ids_with_open_shift(self, now=None):
+        """staff_id của những người còn ca đóng được — CÙNG tiêu chí với
+        _open_shift (OPEN hoặc UNCLOSED, trong cửa sổ 24h).
+
+        Khác today_open() một cách cố ý: today_open trả lời "ai đang trong ca"
+        cho header, nên chỉ tính OPEN. Hàm này trả lời "ai còn ca bấm ra được",
+        nên phải tính cả UNCLOSED — nếu không, người đã nghỉ việc có ca đã qua
+        đợt quét 04:00 sẽ không bao giờ tự đóng được ca của mình.
+        """
+        now = now or datetime.now(_VN)
+        cutoff = (now - timedelta(hours=REOPEN_WINDOW_HOURS)).isoformat()
+        rows = self.conn.execute(
+            "SELECT DISTINCT staff_id FROM attendance "
+            "WHERE status IN ('OPEN','UNCLOSED') AND clock_in_at >= ?",
+            (cutoff,)).fetchall()
+        return [r["staff_id"] for r in rows]
+
     def report(self, date_from, date_to):
         rows = [dict(r) for r in self.conn.execute(
             "SELECT * FROM attendance WHERE date BETWEEN ? AND ? ORDER BY date, clock_in_at",

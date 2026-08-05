@@ -218,5 +218,37 @@ class TestReportAndOwnerEdits(unittest.TestCase):
         self.assertEqual(names, ["Sương"])
 
 
+class TestStaffIdsWithOpenShift(unittest.TestCase):
+    """staff_ids_with_open_shift = 'ai còn ca bấm ra được', khác today_open
+    = 'ai đang trong ca'. Hai câu hỏi khác nhau, đừng gộp."""
+
+    def test_includes_open_shift(self):
+        s = _store()
+        s.punch("S001", "Sương", "a1", now=_at(2026, 8, 5, 7, 0))
+        self.assertEqual(s.staff_ids_with_open_shift(now=_at(2026, 8, 5, 13, 0)), ["S001"])
+
+    def test_includes_unclosed_while_today_open_does_not(self):
+        """Chốt khác biệt cố ý giữa hai hàm. Nếu gộp lại, người đã nghỉ có ca
+        qua đợt quét 04:00 sẽ không bao giờ tự đóng được ca của mình."""
+        s = _store()
+        s.punch("S001", "Sương", "a1", now=_at(2026, 8, 5, 20, 0))
+        s.sweep_unclosed(now=_at(2026, 8, 6, 4, 0))
+        later = _at(2026, 8, 6, 5, 0)
+        self.assertEqual(s.staff_ids_with_open_shift(now=later), ["S001"])
+        self.assertEqual(s.today_open(now=later), [])
+
+    def test_excludes_closed_shift(self):
+        s = _store()
+        s.punch("S001", "Sương", "a1", now=_at(2026, 8, 5, 7, 0))
+        s.punch("S001", "Sương", "a2", now=_at(2026, 8, 5, 12, 0))
+        self.assertEqual(s.staff_ids_with_open_shift(now=_at(2026, 8, 5, 13, 0)), [])
+
+    def test_excludes_unclosed_older_than_window(self):
+        s = _store()
+        s.punch("S001", "Sương", "a1", now=_at(2026, 7, 29, 7, 0))
+        s.sweep_unclosed(now=_at(2026, 7, 30, 4, 0))
+        self.assertEqual(s.staff_ids_with_open_shift(now=_at(2026, 8, 5, 7, 0)), [])
+
+
 if __name__ == "__main__":
     unittest.main()

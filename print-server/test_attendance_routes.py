@@ -124,6 +124,37 @@ class TestStaffListRoute(AttendanceRouteCase):
                         confirm_quick_out=True)
         self.assertEqual(r.get_json()["action"], "out")
 
+    def _departed_with_unclosed_shift(self):
+        """Nhân viên vào ca, ca qua đợt quét 04:00 thành UNCLOSED, rồi nghỉ việc."""
+        from datetime import datetime, timedelta, timezone
+        vn = timezone(timedelta(hours=7))
+        print_server.ATT_CACHE.replace(_ROWS + [
+            {"staff_id": "S009", "name": "Nghỉ", "role": "barista",
+             "active": True, "pin": "1111"}])
+        self._punch(staff_id="S009", pin="1111", nonce="u1")
+        print_server.ATT_STORE.sweep_unclosed(now=datetime.now(vn) + timedelta(days=1))
+        print_server.ATT_CACHE.replace(_ROWS + [
+            {"staff_id": "S009", "name": "Nghỉ", "role": "barista",
+             "active": False, "pin": "1111"}])
+
+    def test_departed_staff_with_unclosed_shift_still_listed(self):
+        """Hồi quy: /attendance/staff từng lọc bằng today_open (chỉ OPEN) nên
+        ca đã qua đợt quét biến mất khỏi lưới tên."""
+        self._departed_with_unclosed_shift()
+        ids = [s["staff_id"] for s in self.c.get("/attendance/staff").get_json()["staff"]]
+        self.assertIn("S009", ids)
+
+    def test_departed_staff_can_close_own_unclosed_shift(self):
+        """Hồi quy: PIN đúng từng bị trả 401 y hệt PIN sai, ca treo vĩnh viễn."""
+        self._departed_with_unclosed_shift()
+        r = self._punch(staff_id="S009", pin="1111", nonce="u2")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.get_json()["action"], "out")
+        rows = print_server.ATT_STORE.conn.execute(
+            "SELECT status FROM attendance WHERE staff_id='S009'").fetchall()
+        self.assertEqual(len(rows), 1)          # không đẻ ca rác thứ hai
+        self.assertEqual(rows[0]["status"], "CLOSED")
+
     def test_inactive_staff_without_open_shift_cannot_punch_in(self):
         print_server.ATT_CACHE.replace(_ROWS + [
             {"staff_id": "S009", "name": "Nghỉ", "role": "barista",

@@ -221,8 +221,10 @@ def serve_cham_cong_js():
 
 @app.get("/attendance/staff")
 def attendance_staff():
-    open_ids = [r["staff_id"] for r in ATT_STORE.today_open()]
-    return jsonify({"ok": True, "staff": ATT_CACHE.list_visible(open_ids)})
+    # staff_ids_with_open_shift, KHÔNG phải today_open: người đã nghỉ có ca đã
+    # qua đợt quét 04:00 (UNCLOSED) vẫn phải hiện trên lưới tên để tự bấm ra.
+    return jsonify({"ok": True,
+                    "staff": ATT_CACHE.list_visible(ATT_STORE.staff_ids_with_open_shift())})
 
 
 @app.post("/attendance/punch")
@@ -241,7 +243,9 @@ def attendance_punch():
     if who is None:
         # Người đã nghỉ (active=FALSE) vẫn phải đóng được ca đang treo.
         stale = ATT_CACHE.get(staff_id)
-        open_ids = {r["staff_id"] for r in ATT_STORE.today_open()}
+        # Cùng tiêu chí với _open_shift (OPEN + UNCLOSED trong 24h) — today_open
+        # chỉ có OPEN nên ca đã qua đợt quét 04:00 sẽ không bao giờ tự đóng được.
+        open_ids = set(ATT_STORE.staff_ids_with_open_shift())
         if not (stale and staff_id in open_ids
                 and secrets.compare_digest(
                     stale["pin_hash"], hash_pin(body.get("pin", ""), ATT_CACHE.salt))):
