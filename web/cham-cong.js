@@ -7,7 +7,8 @@ var POLL_MS = 20000;
 var RESULT_MS = 3000;
 var OWNER_IDLE_MS = 10 * 60 * 1000;
 
-var state = { staff: [], picking: null, pin: '', ownerMode: false, idleTimer: null };
+var state = { staff: [], picking: null, pin: '', ownerMode: false, idleTimer: null,
+              staffLoaded: false, gen: 0, busy: false };
 
 var $ = function (id) { return document.getElementById(id); };
 
@@ -23,15 +24,23 @@ function api(path, opts) {
   var tok = sessionStorage.getItem('ownerSession');
   if (tok) opts.headers['X-Owner-Session'] = tok;
   return fetch(path, opts).then(function (r) {
-    offline(false);
+    // Trong lúc grid tên NHÂN VIÊN chưa từng tải được lần nào, trang coi như
+    // hỏng — dù request khác (vd refreshToday) có thành công cũng KHÔNG được
+    // tắt banner đỏ, kẻo nhân viên tưởng máy đã hồi phục trong khi grid vẫn trống.
+    if (state.staffLoaded) { offline(false); }
     return r.json().then(function (b) { return { status: r.status, body: b }; });
   }).catch(function (e) { offline(true); throw e; });
 }
 
 /* ── màn nhân viên ─────────────────────────────────────────────── */
+var staffRetryTimer = null;
+
 function loadStaff() {
   api('/attendance/staff').then(function (r) {
     state.staff = r.body.staff || [];
+    state.staffLoaded = true;
+    offline(false);
+    if (staffRetryTimer) { clearTimeout(staffRetryTimer); staffRetryTimer = null; }
     var g = $('grid');
     g.innerHTML = '';
     state.staff.forEach(function (s) {
@@ -41,7 +50,15 @@ function loadStaff() {
       b.onclick = function () { pick(s); };
       g.appendChild(b);
     });
-  }).catch(function () {});
+  }).catch(function () {
+    // Wifi rớt ngay lúc load trang: KHÔNG được để grid trống mà im lặng.
+    // Bật banner đỏ + tự thử lại mỗi 5s tới khi thành công — nhân viên không
+    // có nút "thử lại" nào khác để bấm.
+    offline(true);
+    if (!staffRetryTimer) {
+      staffRetryTimer = setTimeout(function () { staffRetryTimer = null; loadStaff(); }, 5000);
+    }
+  });
 }
 
 function pick(s) {
@@ -65,6 +82,9 @@ function buildKeys() {
     b.textContent = d;
     if (!d) { b.style.visibility = 'hidden'; }
     b.onclick = function () {
+      // Mạng chậm: punch/owner-login trước còn bay giữa chừng thì chặn phím,
+      // tránh gõ đủ 4 số lần nữa bắn quả toggle thứ hai đè lên quả đầu.
+      if (state.busy) { return; }
       if (d === '⌫') { state.pin = state.pin.slice(0, -1); }
       else if (d) { state.pin += d; }
       drawDots();
@@ -78,6 +98,7 @@ function submitPin() {
   var pin = state.pin, who = state.picking;
   state.pin = '';
   drawDots();
+  state.busy = true;
   if (state.ownerMode) { return ownerLogin(who, pin); }
   doPunch(who, pin, randNonce(), false);
 }
@@ -87,19 +108,26 @@ function randNonce() {
 }
 
 function doPunch(who, pin, nonce, confirmed) {
+  var myGen = state.gen;   // "Huỷ"/idle-out tăng gen — phản hồi trễ tới sau phải bị bỏ
   api('/attendance/punch', {
     method: 'POST',
     body: JSON.stringify({ staff_id: who.staff_id, pin: pin, nonce: nonce,
                            confirm_quick_out: confirmed })
   }).then(function (r) {
-    if (r.status === 429) { return showResult('Nhập sai nhiều lần. Thử lại sau ' +
-                                              (r.body.retry_after || 60) + 's', false); }
-    if (r.status !== 200) { return showResult(r.body.error || 'Lỗi', false); }
+    if (myGen !== state.gen) { state.busy = false; return; }   // đã bị huỷ — không đụng UI/storage
+    if (r.status === 429) {
+      state.busy = false;
+      return showResult('Nhập sai nhiều lần. Thử lại sau ' +
+                        (r.body.retry_after || 60) + 's', false);
+    }
+    if (r.status !== 200) { state.busy = false; return showResult(r.body.error || 'Lỗi', false); }
     if (r.body.action === 'confirm_needed') {
+      // Vẫn coi là "busy" — còn chờ confirm() rồi gửi lại lượt nữa, chưa xong.
       if (confirm(r.body.message)) { doPunch(who, pin, randNonce(), true); }
-      else { reset(); }
+      else { state.busy = false; reset(); }
       return;
     }
+    state.busy = false;
     var row = r.body.row;
     if (r.body.action === 'in') {
       showResult('✅ Vào ca ' + hhmm(row.clock_in_at) + ' · chào ' + row.staff_name, true);
@@ -108,7 +136,11 @@ function doPunch(who, pin, nonce, confirmed) {
                  dur(row.minutes_worked), true);
     }
     refreshToday();
-  }).catch(function () { showResult('Mất kết nối máy quán', false); });
+  }).catch(function () {
+    state.busy = false;
+    if (myGen !== state.gen) { return; }
+    showResult('Mất kết nối máy quán', false);
+  });
 }
 
 function hhmm(iso) { return String(iso || '').slice(11, 16); }
@@ -125,6 +157,7 @@ function showResult(text, ok) {
 }
 
 function reset() {
+  state.gen++;   // vô hiệu hoá mọi response đang bay từ lượt trước (xem doPunch/ownerLogin)
   state.picking = null; state.pin = ''; state.ownerMode = false;
   $('result').className = '';
   $('pinpad').classList.remove('on');
@@ -155,16 +188,31 @@ $('ownerbtn').onclick = function () {
 };
 
 function ownerLogin(who, pin) {
+  var myGen = state.gen;   // "Huỷ"/idle-out tăng gen — phản hồi trễ tới sau phải bị bỏ
   api('/attendance/owner_login', {
     method: 'POST',
     body: JSON.stringify({ staff_id: who.staff_id, pin: pin })
   }).then(function (r) {
-    if (r.status !== 200) { return showResult(r.body.error || 'Không vào được', false); }
+    if (myGen !== state.gen) { state.busy = false; return; }   // đã bị huỷ — không đụng UI/storage
+    if (r.status === 429) {
+      state.busy = false;
+      return showResult('Nhập sai nhiều lần. Thử lại sau ' +
+                        (r.body.retry_after || 60) + 's', false);
+    }
+    if (r.status !== 200) {
+      state.busy = false;
+      return showResult(r.body.error || 'Không vào được', false);
+    }
+    state.busy = false;
     sessionStorage.setItem('ownerSession', r.body.session_token);
     $('pinpad').classList.remove('on');
     $('owner').classList.add('on');
     loadReport();
     bumpIdle();
+  }).catch(function () {
+    state.busy = false;
+    if (myGen !== state.gen) { return; }
+    showResult('Mất kết nối máy quán', false);
   });
 }
 
@@ -179,7 +227,15 @@ function ymd(d) {
 
 function range(period) {
   var now = new Date(), s = new Date(now), e = new Date(now);
-  if (period === 'week') { s.setDate(now.getDate() - now.getDay() + 1); }
+  if (period === 'week') {
+    // Tuần bắt đầu thứ Hai. getDay()===0 là CHỦ NHẬT — không đi theo quy luật
+    // "lùi (thứ tự trong tuần) trừ 1" như các ngày còn lại, mà phải lùi về
+    // thứ Hai của CHÍNH tuần đó, tức lùi 6 ngày. Bỏ case này (vd "đơn giản hoá"
+    // về công thức chung `getDay() - 1`) làm from > to và server trả rỗng cả
+    // tuần mà không báo lỗi gì — xem báo cáo review, verified 2026-08-02.
+    var day = now.getDay();
+    s.setDate(now.getDate() + (day === 0 ? -6 : 1 - day));
+  }
   else if (period === 'month') { s.setDate(1); }
   return { from: ymd(s), to: ymd(e) };
 }
@@ -202,6 +258,15 @@ function loadReport() {
              ' vào ' + hhmm(u.clock_in_at) + '</td><td><button class="linkbtn" ' +
              'onclick="fixShift(\'' + u.punch_id + '\')">Nhập giờ ra</button></td></tr>';
     }).join('') || '<tr><td>Không có ca hở</td></tr>';
+  }).catch(function () {
+    // Refresh lỗi: KHÔNG được để bảng cũ nằm im như thể là số mới — chủ có
+    // thể chốt lương nhầm trên số liệu cũ. Chèn cảnh báo, giữ nguyên bảng cũ.
+    offline(true);
+    if ($('reportbody').innerHTML.indexOf('stale-warn') === -1) {
+      $('reportbody').innerHTML = '<tr class="stale-warn"><td colspan="3">' +
+        '⚠️ Không tải được số mới — bảng dưới có thể đã cũ</td></tr>' +
+        $('reportbody').innerHTML;
+    }
   });
 }
 
@@ -216,12 +281,19 @@ window.fixShift = function (punchId) {
     body: JSON.stringify({ punch_id: punchId, note: note,
                            clock_out_at: day + 'T' + t + ':00+07:00' })
   }).then(function (r) {
+    // Phiên hết hạn giữa lúc sửa giờ: bật lại PIN pad như loadReport, đừng để
+    // chủ đứng hình trên dashboard không còn dùng được.
+    if (r.status === 401) { return ownerOut(true); }
     if (r.status !== 200) { return alert(r.body.error || 'Không sửa được'); }
     loadReport();
+  }).catch(function () {
+    offline(true);
+    alert('Mất kết nối máy quán — chưa lưu được sửa giờ, thử lại.');
   });
 };
 
 function ownerOut(expired) {
+  state.gen++;   // vô hiệu hoá response đang bay (vd ownerLogin trễ) — xem reset()
   sessionStorage.removeItem('ownerSession');
   $('owner').classList.remove('on');
   reset();
@@ -242,7 +314,13 @@ function bumpIdle() {
 });
 
 window.addEventListener('offline', function () { offline(true); });
-window.addEventListener('online', function () { offline(false); refreshToday(); });
+window.addEventListener('online', function () {
+  // KHÔNG tắt banner trực tiếp ở đây — 'online' chỉ nghĩa là card mạng lên,
+  // không nghĩa là server /attendance đã trả lời được. Để api() tự tắt banner
+  // khi có phản hồi thật (và chỉ khi staffLoaded, xem api()).
+  refreshToday();
+  loadStaff();
+});
 $('cancel').onclick = reset;
 
 buildKeys();
