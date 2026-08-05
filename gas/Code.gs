@@ -736,6 +736,18 @@ var POST_ROUTES = {
         return swapOrderItem(payload);
       } finally { lock.releaseLock(); }
     }
+  },
+  'attendance_upsert': {
+    auth: AUTH.STAFF,
+    handler: function(p) { return attendanceUpsert(p.payload || p); }
+  },
+  'attendance_alert': {
+    auth: AUTH.STAFF,
+    handler: function(p) { return attendanceAlert(p.payload || p); }
+  },
+  'attendance_staff': {
+    auth: AUTH.STAFF,
+    handler: function(p) { return attendanceStaff(); }
   }
 };
 
