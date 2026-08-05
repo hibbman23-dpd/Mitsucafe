@@ -50,6 +50,7 @@ import os
 import socket
 import threading
 import time
+from datetime import datetime, timezone, timedelta
 
 from flask import Flask, jsonify, request, send_from_directory
 
@@ -328,6 +329,32 @@ def attendance_create_manual():
     except (ValueError, TypeError) as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     return jsonify({"ok": True, "row": row})
+
+
+from attendance_sync import AttendanceSync
+
+ATT_SYNC = AttendanceSync(ATT_STORE, ATT_CACHE, lambda p: _gas_post(p, timeout=15))
+
+
+def _attendance_loop():
+    """Đẩy dòng chưa sync mỗi 30s · làm mới STAFF mỗi 10 phút ·
+    chạy job ngày một lần khi đồng hồ qua 04:00."""
+    import time
+    last_daily = None
+    last_staff = 0.0
+    while True:
+        try:
+            ATT_SYNC.push_once()
+            if time.time() - last_staff > 600:
+                ATT_SYNC.refresh_staff()
+                last_staff = time.time()
+            now = datetime.now(timezone(timedelta(hours=7)))
+            if now.hour >= 4 and last_daily != now.strftime("%Y-%m-%d"):
+                ATT_SYNC.run_daily(now=now)
+                last_daily = now.strftime("%Y-%m-%d")
+        except Exception as exc:
+            log.error("attendance loop error: %s", exc)
+        time.sleep(30)
 
 # ── Online-order inbox (Task 8) ────────────────────────────────────────────────
 from online_inbox import OnlineInbox
@@ -2137,6 +2164,7 @@ def _start_background_workers():
 
     threading.Thread(target=_poll_loop, daemon=True).start()
     threading.Thread(target=_snapshot_loop, daemon=True).start()
+    threading.Thread(target=_attendance_loop, daemon=True, name="attendance").start()
 
 
 def run_eod_sync():
