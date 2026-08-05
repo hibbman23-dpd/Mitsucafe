@@ -101,6 +101,16 @@ class TestNightShiftAndSweep(unittest.TestCase):
         self.assertEqual(s.conn.execute(
             "SELECT status FROM attendance").fetchone()["status"], "CLOSED")
 
+    def test_evening_sweep_does_not_flag_shift_still_in_progress(self):
+        """Canh công thức cutoff: sweep chạy nhầm vào buổi tối cũng KHÔNG được
+        đánh dấu ca tối đang làm dở. Đây là nửa thứ nhất của bản vá ca đêm."""
+        s = _store()
+        s.punch("S001", "Sương", "n1", now=_at(2026, 8, 5, 18, 0))
+        marked = s.sweep_unclosed(now=_at(2026, 8, 5, 22, 0))
+        self.assertEqual(marked, 0)
+        self.assertEqual(s.conn.execute(
+            "SELECT status FROM attendance").fetchone()["status"], "OPEN")
+
     def test_sweep_marks_shift_from_previous_day(self):
         s = _store()
         s.punch("S001", "Sương", "n1", now=_at(2026, 8, 5, 7, 0))
