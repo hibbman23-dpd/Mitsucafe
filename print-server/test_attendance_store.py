@@ -250,5 +250,25 @@ class TestStaffIdsWithOpenShift(unittest.TestCase):
         self.assertEqual(s.staff_ids_with_open_shift(now=_at(2026, 8, 5, 7, 0)), [])
 
 
+class TestMeta(unittest.TestCase):
+    def test_missing_key_returns_none(self):
+        s = _store()
+        self.assertIsNone(s.get_meta("last_daily_run"))
+
+    def test_set_then_get_round_trips(self):
+        s = _store()
+        s.set_meta("last_daily_run", "2026-08-05")
+        self.assertEqual(s.get_meta("last_daily_run"), "2026-08-05")
+
+    def test_setting_same_key_twice_overwrites(self):
+        s = _store()
+        s.set_meta("last_daily_run", "2026-08-05")
+        s.set_meta("last_daily_run", "2026-08-06")
+        self.assertEqual(s.get_meta("last_daily_run"), "2026-08-06")
+        rows = s.conn.execute(
+            "SELECT COUNT(*) c FROM attendance_meta WHERE key='last_daily_run'").fetchone()
+        self.assertEqual(rows["c"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

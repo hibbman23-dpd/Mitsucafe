@@ -60,6 +60,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_att_in_nonce
   ON attendance(punch_in_nonce) WHERE punch_in_nonce IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_att_out_nonce
   ON attendance(punch_out_nonce) WHERE punch_out_nonce IS NOT NULL;
+CREATE TABLE IF NOT EXISTS attendance_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT
+);
 """
 
 
@@ -101,6 +105,19 @@ class AttendanceStore:
             "AND clock_in_at >= ? ORDER BY clock_in_at DESC LIMIT 1",
             (staff_id, cutoff)).fetchone()
         return dict(r) if r else None
+
+    # ── metadata (marker bền vững qua restart) ──────────────────────────
+    def get_meta(self, key):
+        r = self.conn.execute(
+            "SELECT value FROM attendance_meta WHERE key=?", (key,)).fetchone()
+        return r["value"] if r else None
+
+    def set_meta(self, key, value):
+        with self.lock:
+            self.conn.execute(
+                "INSERT INTO attendance_meta(key, value) VALUES(?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+            self.conn.commit()
 
     # ── nghiệp vụ ────────────────────────────────────────────────────────
     def punch(self, staff_id, staff_name, nonce, confirm_quick_out=False, now=None):

@@ -340,7 +340,6 @@ def _attendance_loop():
     """Đẩy dòng chưa sync mỗi 30s · làm mới STAFF mỗi 10 phút ·
     chạy job ngày một lần khi đồng hồ qua 04:00."""
     import time
-    last_daily = None
     last_staff = 0.0
     while True:
         try:
@@ -349,9 +348,8 @@ def _attendance_loop():
                 ATT_SYNC.refresh_staff()
                 last_staff = time.time()
             now = datetime.now(timezone(timedelta(hours=7)))
-            if now.hour >= 4 and last_daily != now.strftime("%Y-%m-%d"):
+            if now.hour >= 4:
                 ATT_SYNC.run_daily(now=now)
-                last_daily = now.strftime("%Y-%m-%d")
         except Exception as exc:
             log.error("attendance loop error: %s", exc)
         time.sleep(30)

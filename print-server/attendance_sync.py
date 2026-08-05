@@ -78,9 +78,22 @@ class AttendanceSync:
             log.warning("eod alert failed: %s", exc)
             return False
 
+    _DAILY_MARKER_KEY = "last_daily_run"
+
     def run_daily(self, now=None):
-        """Job 04:00: quét ca hở của ngày hôm trước rồi bắn cảnh báo."""
+        """Job 04:00: quét ca hở của ngày hôm trước rồi bắn cảnh báo.
+
+        Marker `last_daily_run` ghi vào SQLite (không phải biến in-memory):
+        print_server.py restart thường xuyên (mỗi lần deploy cần
+        `launchctl kickstart -k`), nếu chỉ giữ trong RAM thì restart sau 04:00
+        sẽ làm job chạy lại → cảnh báo Telegram cuối ngày gửi trùng lần 2 tới
+        điện thoại chủ."""
         now = now or datetime.now(_VN)
+        today = now.strftime("%Y-%m-%d")
+        if self.store.get_meta(self._DAILY_MARKER_KEY) == today:
+            return {"swept": 0, "alerted": False, "skipped": True}
         swept = self.store.sweep_unclosed(now=now)
         yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
-        return {"swept": swept, "alerted": self.send_eod(yesterday)}
+        alerted = self.send_eod(yesterday)
+        self.store.set_meta(self._DAILY_MARKER_KEY, today)
+        return {"swept": swept, "alerted": alerted, "skipped": False}

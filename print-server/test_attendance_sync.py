@@ -114,6 +114,56 @@ class TestEod(unittest.TestCase):
         out = sync.run_daily(now=_at(2026, 8, 6, 4, 0))
         self.assertEqual(out["swept"], 1)
         self.assertTrue(out["alerted"])
+        self.assertFalse(out["skipped"])
+
+
+class TestRunDailyOncePerDay(unittest.TestCase):
+    """Marker phải sống trong SQLite, không phải biến in-memory: print_server
+    restart thường xuyên (mỗi lần deploy) và một restart sau 04:00 KHÔNG được
+    làm job 04:00 chạy lại — nếu không, cảnh báo Telegram cuối ngày gửi trùng
+    lần 2 tới điện thoại chủ."""
+
+    def test_second_call_same_day_is_skipped_no_double_alert(self):
+        store, _, gas, sync = _rig()
+        store.punch("S001", "Sương", "a", now=_at(2026, 8, 5, 7, 0))
+        now = _at(2026, 8, 6, 4, 0)
+        first = sync.run_daily(now=now)
+        second = sync.run_daily(now=now)
+        self.assertFalse(first["skipped"])
+        self.assertTrue(second["skipped"])
+        self.assertEqual(second["swept"], 0)
+        alerts = [c for c in gas.calls if c["action"] == "attendance_alert"]
+        self.assertEqual(len(alerts), 1)
+
+    def test_restart_with_fresh_sync_over_same_store_still_skips(self):
+        """Hồi quy đúng bug thật: quá trình restart mất biến in-memory
+        `last_daily`, nhưng store (SQLite) sống sót — dựng AttendanceSync MỚI
+        trên CÙNG connection để mô phỏng restart, gọi lại run_daily cùng
+        `now` và phải bị skip."""
+        store, cache, gas, sync = _rig()
+        store.punch("S001", "Sương", "a", now=_at(2026, 8, 5, 7, 0))
+        now = _at(2026, 8, 6, 4, 0)
+        sync.run_daily(now=now)
+
+        restarted_sync = AttendanceSync(store, cache, gas)   # process "restart"
+        out = restarted_sync.run_daily(now=now)
+
+        self.assertTrue(out["skipped"])
+        alerts = [c for c in gas.calls if c["action"] == "attendance_alert"]
+        self.assertEqual(len(alerts), 1)
+
+    def test_next_day_is_not_skipped_and_alerts_again(self):
+        store, _, gas, sync = _rig()
+        store.punch("S001", "Sương", "a", now=_at(2026, 8, 5, 7, 0))
+        sync.run_daily(now=_at(2026, 8, 6, 4, 0))
+
+        store.punch("S001", "Sương", "b", now=_at(2026, 8, 6, 7, 0))
+        out = sync.run_daily(now=_at(2026, 8, 7, 4, 0))
+
+        self.assertFalse(out["skipped"])
+        self.assertTrue(out["alerted"])
+        alerts = [c for c in gas.calls if c["action"] == "attendance_alert"]
+        self.assertEqual(len(alerts), 2)
 
 
 if __name__ == "__main__":
