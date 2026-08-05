@@ -26,6 +26,10 @@ class QuickPunchConfirm(Exception):
         self.row = row
 
 
+class NotFound(Exception):
+    """Không có ca nào mang punch_id đó."""
+
+
 def new_punch_id(now):
     return "ATT-%s-%s" % (now.strftime("%Y%m%d-%H%M%S"), secrets.token_hex(4))
 
@@ -145,3 +149,95 @@ class AttendanceStore:
             (now.isoformat(), minutes, nonce, note, shift["punch_id"]))
         self.conn.commit()
         return self._row(shift["punch_id"])
+
+    # ── job quét ca hở ───────────────────────────────────────────────────
+    def sweep_unclosed(self, now=None):
+        """Đánh dấu UNCLOSED cho ca OPEN vào trước 04:00 hôm nay.
+
+        Chạy 04:00 sáng hôm sau, KHÔNG chạy buổi tối: job tối sẽ cắt nhầm ca
+        tối/ca đêm còn đang làm, nhân viên bấm ra sau đó lại mở ca mới (§5.1.1).
+        """
+        now = now or datetime.now(_VN)
+        cutoff = now.replace(hour=4, minute=0, second=0, microsecond=0)
+        if now < cutoff:
+            cutoff -= timedelta(days=1)
+        with self.lock:
+            cur = self.conn.execute(
+                "UPDATE attendance SET status='UNCLOSED', synced_at=NULL "
+                "WHERE status='OPEN' AND clock_in_at < ?", (cutoff.isoformat(),))
+            self.conn.commit()
+            return cur.rowcount
+
+    # ── báo cáo ──────────────────────────────────────────────────────────
+    def today_open(self, now=None):
+        now = now or datetime.now(_VN)
+        cutoff = (now - timedelta(hours=REOPEN_WINDOW_HOURS)).isoformat()
+        rows = self.conn.execute(
+            "SELECT * FROM attendance WHERE status='OPEN' AND clock_in_at >= ? "
+            "ORDER BY clock_in_at", (cutoff,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def report(self, date_from, date_to):
+        rows = [dict(r) for r in self.conn.execute(
+            "SELECT * FROM attendance WHERE date BETWEEN ? AND ? ORDER BY date, clock_in_at",
+            (date_from, date_to)).fetchall()]
+        by = {}
+        for r in rows:
+            if r["status"] != "CLOSED":
+                continue
+            agg = by.setdefault(r["staff_id"], {
+                "staff_id": r["staff_id"], "staff_name": r["staff_name"],
+                "shifts": 0, "minutes": 0})
+            agg["shifts"] += 1
+            agg["minutes"] += r["minutes_worked"] or 0
+        return {
+            "rows": rows,
+            "by_staff": sorted(by.values(), key=lambda a: a["staff_name"] or ""),
+            "unclosed": [r for r in rows if r["status"] == "UNCLOSED"],
+        }
+
+    # ── chủ sửa ──────────────────────────────────────────────────────────
+    def fix(self, punch_id, owner_id, note, clock_in_at=None, clock_out_at=None):
+        with self.lock:
+            row = self._row(punch_id)
+            if row is None:
+                raise NotFound(punch_id)
+            started = datetime.fromisoformat(clock_in_at or row["clock_in_at"])
+            ended = clock_out_at or row["clock_out_at"]
+            ended_dt = datetime.fromisoformat(ended) if ended else None
+            if ended_dt and ended_dt <= started:
+                raise ValueError("clock_out_at phải sau clock_in_at")
+            now = _now_iso()
+            self.conn.execute(
+                "UPDATE attendance SET clock_in_at=?, clock_out_at=?, date=?, status=?, "
+                "minutes_worked=?, edited_by=?, edited_at=?, edit_note=?, synced_at=NULL "
+                "WHERE punch_id=?",
+                (started.isoformat(),
+                 ended_dt.isoformat() if ended_dt else None,
+                 started.strftime("%Y-%m-%d"),
+                 "CLOSED" if ended_dt else row["status"],
+                 int(round((ended_dt - started).total_seconds() / 60)) if ended_dt else None,
+                 owner_id, now, note, punch_id))
+            self.conn.commit()
+            return self._row(punch_id)
+
+    def create_manual(self, staff_id, staff_name, clock_in_at, clock_out_at,
+                      owner_id, note):
+        started = datetime.fromisoformat(clock_in_at)
+        ended = datetime.fromisoformat(clock_out_at)
+        if ended <= started:
+            raise ValueError("clock_out_at phải sau clock_in_at")
+        now = _now_iso()
+        punch_id = new_punch_id(started)
+        with self.lock:
+            self.conn.execute(
+                "INSERT INTO attendance(punch_id, staff_id, staff_name, date, clock_in_at, "
+                "clock_out_at, status, minutes_worked, source, edited_by, edited_at, "
+                "edit_note, created_at) "
+                "VALUES(?,?,?,?,?,?,'CLOSED',?,'owner_manual',?,?,?,?)",
+                (punch_id, staff_id, staff_name, started.strftime("%Y-%m-%d"),
+                 started.isoformat(), ended.isoformat(),
+                 int(round((ended - started).total_seconds() / 60)),
+                 owner_id, now, note, now))
+            self.conn.commit()
+            return self._row(punch_id)
