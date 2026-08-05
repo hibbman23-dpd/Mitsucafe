@@ -17,6 +17,7 @@ def load_or_create_salt(path):
             return f.read().strip()
     salt = secrets.token_hex(16)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.chmod(path, 0o600)  # O_TRUNC on a pre-existing file keeps its old mode; force it
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(salt)
     return salt
@@ -28,8 +29,25 @@ def hash_pin(pin, salt):
 
 def _write_600(path, text):
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.chmod(path, 0o600)  # O_TRUNC on a pre-existing file keeps its old mode; force it
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(text)
+
+
+def _is_active(value):
+    """Chuẩn hoá cột `active` từ Sheets — không tin string tuỳ tiện.
+
+    Chỉ coi là active khi: True (bool), số khác 0, hoặc string upper() == "TRUE".
+    Mọi thứ khác (False, "FALSE", "false", "", None, 0, thiếu key) đều inactive.
+    Không được dựa vào tầng Apps Script chuẩn hoá trước — module này phải tự vệ.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().upper() == "TRUE"
+    if isinstance(value, (int, float)):
+        return value != 0
+    return False
 
 
 class StaffCache:
@@ -49,12 +67,20 @@ class StaffCache:
             "staff_id": str(r.get("staff_id", "")),
             "name": r.get("name", ""),
             "role": (r.get("role") or "").lower(),
-            "active": bool(r.get("active")),
+            "active": _is_active(r.get("active")),
             "pin_hash": hash_pin(r.get("pin", ""), self.salt),
         } for r in staff_rows if r.get("staff_id")]
         _write_600(self.path, json.dumps(self._rows, ensure_ascii=False))
 
     def get(self, staff_id):
+        """Trả về row nội bộ NGUYÊN VẸN, gồm cả `pin_hash` — chỉ dùng trong server.
+
+        Lý do `pin_hash` không bị lược bỏ: nhân viên đã nghỉ (active=False) mà
+        còn ca chưa đóng vẫn phải bấm PIN để clock out, và `verify()` đã tự
+        chặn active=False đúng chỗ cần chặn. Kết quả của `get()` KHÔNG BAO GIỜ
+        được serialize thẳng vào response HTTP — dùng `verify()` hoặc
+        `list_visible()` cho bất kỳ thứ gì trả về client.
+        """
         for r in self._rows:
             if r["staff_id"] == staff_id:
                 return r

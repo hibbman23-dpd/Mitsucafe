@@ -1,7 +1,7 @@
 import os, stat, tempfile, unittest
 
 from attendance_auth import (StaffCache, RateLimiter, OwnerSessions,
-                             hash_pin, load_or_create_salt)
+                             hash_pin, load_or_create_salt, _write_600)
 
 _ROWS = [
     {"staff_id": "S001", "name": "Sương", "role": "barista", "active": True, "pin": "1234"},
@@ -28,6 +28,11 @@ class TestStaffCache(unittest.TestCase):
             blob = f.read()
         self.assertNotIn("1234", blob)
         self.assertNotIn("9999", blob)
+        stored = c.get("S001")["pin_hash"]
+        self.assertEqual(stored, hash_pin("1234", c.salt))
+        self.assertEqual(len(stored), 64)
+        self.assertEqual(stored, stored.lower())
+        self.assertTrue(all(ch in "0123456789abcdef" for ch in stored))
 
     def test_verify_accepts_right_pin(self):
         c = _cache()
@@ -71,6 +76,85 @@ class TestStaffCache(unittest.TestCase):
         self.assertEqual(load_or_create_salt(p), first)
 
 
+class TestActiveNormalization(unittest.TestCase):
+    """Finding 1: string/number `active` values từ Sheets phải được chuẩn hoá
+    trong replace() — không được dựa vào Apps Script chuẩn hoá trước."""
+
+    def _row(self, active_value):
+        return [{"staff_id": "S001", "name": "Sương", "role": "barista",
+                  "active": active_value, "pin": "1234"}]
+
+    def test_string_TRUE_is_active(self):
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace(self._row("TRUE"))
+        self.assertTrue(c.get("S001")["active"])
+        self.assertIsNotNone(c.verify("S001", "1234"))
+
+    def test_string_true_lowercase_is_active(self):
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace(self._row("true"))
+        self.assertTrue(c.get("S001")["active"])
+        self.assertIsNotNone(c.verify("S001", "1234"))
+
+    def test_string_FALSE_is_inactive(self):
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace(self._row("FALSE"))
+        self.assertFalse(c.get("S001")["active"])
+        self.assertIsNone(c.verify("S001", "1234"))
+
+    def test_string_false_lowercase_is_inactive(self):
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace(self._row("false"))
+        self.assertFalse(c.get("S001")["active"])
+        self.assertIsNone(c.verify("S001", "1234"))
+
+    def test_empty_string_is_inactive(self):
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace(self._row(""))
+        self.assertFalse(c.get("S001")["active"])
+        self.assertIsNone(c.verify("S001", "1234"))
+
+    def test_none_is_inactive(self):
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace(self._row(None))
+        self.assertFalse(c.get("S001")["active"])
+        self.assertIsNone(c.verify("S001", "1234"))
+
+    def test_missing_key_is_inactive(self):
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace([{"staff_id": "S001", "name": "Sương", "role": "barista",
+                     "pin": "1234"}])
+        self.assertFalse(c.get("S001")["active"])
+        self.assertIsNone(c.verify("S001", "1234"))
+
+
+class TestModeEnforcedOnExistingFile(unittest.TestCase):
+    """Finding 4: os.open's mode argument is ignored by the kernel when the
+    path already exists (O_TRUNC reopen keeps the old mode) — both helpers
+    must chmod explicitly after opening, not rely on the os.open mode arg."""
+
+    def test_write_600_fixes_loose_preexisting_file(self):
+        p = tempfile.mktemp(suffix=".json")
+        with open(p, "w", encoding="utf-8") as f:
+            f.write("stale")
+        os.chmod(p, 0o644)
+        self.assertEqual(stat.S_IMODE(os.stat(p).st_mode), 0o644)
+        _write_600(p, "fresh")
+        self.assertEqual(stat.S_IMODE(os.stat(p).st_mode), 0o600)
+        with open(p, encoding="utf-8") as f:
+            self.assertEqual(f.read(), "fresh")
+
+    def test_load_or_create_salt_new_file_is_0600(self):
+        # load_or_create_salt only takes the write branch when the path does
+        # not yet exist, so there is no "pre-existing loose file" case to
+        # reopen for this helper — the branch we're guarding is still fixed
+        # defensively (matches _write_600's pattern), verified here on the
+        # normal create path.
+        p = tempfile.mktemp()
+        load_or_create_salt(p)
+        self.assertEqual(stat.S_IMODE(os.stat(p).st_mode), 0o600)
+
+
 class TestRateLimiter(unittest.TestCase):
     def test_allows_up_to_limit(self):
         rl = RateLimiter(5, 60)
@@ -102,6 +186,31 @@ class TestRateLimiter(unittest.TestCase):
         for i in range(15):
             rl.hit("192.168.1.77", now=1000 + i)
         self.assertFalse(rl.hit("192.168.1.77", now=1016))
+
+    def test_blocked_zero_under_limit(self):
+        rl = RateLimiter(5, 60)
+        for i in range(3):
+            rl.hit("S001", now=1000 + i)
+        self.assertEqual(rl.blocked("S001", now=1003), 0)
+
+    def test_blocked_positive_once_limit_reached(self):
+        rl = RateLimiter(5, 60)
+        for i in range(5):
+            rl.hit("S001", now=1000 + i)
+        self.assertGreater(rl.blocked("S001", now=1006), 0)
+
+    def test_blocked_zero_after_window_expires(self):
+        rl = RateLimiter(5, 60)
+        for i in range(5):
+            rl.hit("S001", now=1000 + i)
+        self.assertEqual(rl.blocked("S001", now=1200), 0)
+
+    def test_blocked_agrees_with_hit(self):
+        rl = RateLimiter(5, 60)
+        for i in range(5):
+            rl.hit("S001", now=1000 + i)
+        self.assertGreater(rl.blocked("S001", now=1006), 0)
+        self.assertFalse(rl.hit("S001", now=1006))
 
 
 class TestOwnerSessions(unittest.TestCase):
