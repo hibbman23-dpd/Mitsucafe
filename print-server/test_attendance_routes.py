@@ -1,0 +1,229 @@
+import os, sqlite3, tempfile, threading, unittest
+import print_server
+from attendance_store import AttendanceStore
+from attendance_auth import StaffCache, RateLimiter, OwnerSessions
+
+_ROWS = [
+    {"staff_id": "S001", "name": "Sương", "role": "barista", "active": True, "pin": "1234"},
+    {"staff_id": "S000", "name": "Chủ",   "role": "owner",   "active": True, "pin": "9999"},
+]
+
+
+class AttendanceRouteCase(unittest.TestCase):
+    def setUp(self):
+        print_server.app.config["TESTING"] = True
+        self.c = print_server.app.test_client()
+        self._db = tempfile.mktemp(suffix=".db")
+        conn = sqlite3.connect(self._db, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        # Rebind sang store tạm — nếu không, test sẽ ghi vào attendance.db thật.
+        print_server.ATT_STORE = AttendanceStore(conn, threading.Lock())
+        print_server.ATT_CACHE = StaffCache(tempfile.mktemp(suffix=".json"))
+        print_server.ATT_CACHE.replace(_ROWS)
+        print_server.ATT_SESSIONS = OwnerSessions(ttl_seconds=900)
+        print_server.ATT_RL_STAFF = RateLimiter(5, 60)
+        print_server.ATT_RL_IP = RateLimiter(15, 60)
+
+    def tearDown(self):
+        if os.path.exists(self._db):
+            os.remove(self._db)
+
+    def _punch(self, staff_id="S001", pin="1234", nonce="n1", **extra):
+        return self.c.post("/attendance/punch",
+                           json={"staff_id": staff_id, "pin": pin, "nonce": nonce, **extra})
+
+    def _owner_token(self):
+        return self.c.post("/attendance/owner_login",
+                           json={"staff_id": "S000", "pin": "9999"}).get_json()["session_token"]
+
+
+class TestPunchRoute(AttendanceRouteCase):
+    def test_punch_in_then_out(self):
+        self.assertEqual(self._punch(nonce="a").get_json()["action"], "in")
+        # Hai lần bấm cách nhau vài ms nên rơi vào cửa sổ quick-out -> phải xác nhận.
+        d = self._punch(nonce="b", confirm_quick_out=True).get_json()
+        self.assertEqual(d["action"], "out")
+        self.assertEqual(d["row"]["status"], "CLOSED")
+
+    def test_wrong_pin_gives_generic_error(self):
+        r = self._punch(pin="0000")
+        self.assertEqual(r.status_code, 401)
+        body = r.get_json()
+        self.assertEqual(body["error"], "PIN không đúng")
+        self.assertNotIn("Sương", str(body))
+
+    def test_unknown_staff_gives_same_error_as_wrong_pin(self):
+        wrong = self._punch(pin="0000").get_json()
+        unknown = self._punch(staff_id="S404").get_json()
+        self.assertEqual(wrong["error"], unknown["error"])
+
+    def test_staff_rate_limit_kicks_in(self):
+        for _ in range(5):
+            self._punch(pin="0000")
+        r = self._punch(pin="0000")
+        self.assertEqual(r.status_code, 429)
+
+    def test_ip_rate_limit_catches_rotating_staff_ids(self):
+        print_server.ATT_CACHE.replace(_ROWS + [
+            {"staff_id": "S%03d" % i, "name": "N%d" % i, "role": "barista",
+             "active": True, "pin": "5555"} for i in range(10, 20)])
+        for i in range(10, 20):
+            self._punch(staff_id="S%03d" % i, pin="0000")
+        for _ in range(5):
+            self._punch(staff_id="S001", pin="0000")
+        r = self._punch(staff_id="S000", pin="0000")
+        self.assertEqual(r.status_code, 429)
+
+    def test_replayed_nonce_does_not_double_punch(self):
+        self._punch(nonce="same")
+        again = self._punch(nonce="same").get_json()
+        self.assertTrue(again["replay"])
+        self.assertEqual(again["action"], "in")
+
+    def test_quick_out_asks_for_confirm_then_closes(self):
+        self._punch(nonce="a")
+        r = self._punch(nonce="b").get_json()
+        self.assertEqual(r["action"], "confirm_needed")
+        r2 = self._punch(nonce="c", confirm_quick_out=True).get_json()
+        self.assertEqual(r2["action"], "out")
+
+    def test_client_supplied_timestamp_is_ignored(self):
+        """Điện thoại chỉnh giờ không được ảnh hưởng bảng công."""
+        self._punch(nonce="a", clock_in_at="2020-01-01T00:00:00+07:00")
+        rows = print_server.ATT_STORE.conn.execute(
+            "SELECT clock_in_at FROM attendance").fetchall()
+        self.assertFalse(rows[0]["clock_in_at"].startswith("2020"))
+
+
+class TestStaffListRoute(AttendanceRouteCase):
+    def test_staff_list_has_no_pin_or_hash(self):
+        body = self.c.get("/attendance/staff").get_json()
+        self.assertNotIn("pin", str(body))
+        self.assertNotIn("hash", str(body))
+
+    def test_inactive_staff_with_open_shift_still_listed(self):
+        print_server.ATT_CACHE.replace(_ROWS + [
+            {"staff_id": "S009", "name": "Nghỉ", "role": "barista",
+             "active": True, "pin": "1111"}])
+        self._punch(staff_id="S009", pin="1111", nonce="z")
+        print_server.ATT_CACHE.replace(_ROWS + [
+            {"staff_id": "S009", "name": "Nghỉ", "role": "barista",
+             "active": False, "pin": "1111"}])
+        ids = [s["staff_id"] for s in self.c.get("/attendance/staff").get_json()["staff"]]
+        self.assertIn("S009", ids)
+
+    def test_inactive_staff_with_open_shift_can_punch_out(self):
+        print_server.ATT_CACHE.replace(_ROWS + [
+            {"staff_id": "S009", "name": "Nghỉ", "role": "barista",
+             "active": True, "pin": "1111"}])
+        self._punch(staff_id="S009", pin="1111", nonce="z")
+        print_server.ATT_CACHE.replace(_ROWS + [
+            {"staff_id": "S009", "name": "Nghỉ", "role": "barista",
+             "active": False, "pin": "1111"}])
+        r = self._punch(staff_id="S009", pin="1111", nonce="z2",
+                        confirm_quick_out=True)
+        self.assertEqual(r.get_json()["action"], "out")
+
+    def test_inactive_staff_without_open_shift_cannot_punch_in(self):
+        print_server.ATT_CACHE.replace(_ROWS + [
+            {"staff_id": "S009", "name": "Nghỉ", "role": "barista",
+             "active": False, "pin": "1111"}])
+        r = self._punch(staff_id="S009", pin="1111", nonce="z3")
+        self.assertEqual(r.status_code, 401)
+
+
+class TestOwnerRoutes(AttendanceRouteCase):
+    def test_owner_login_returns_token(self):
+        d = self.c.post("/attendance/owner_login",
+                        json={"staff_id": "S000", "pin": "9999"}).get_json()
+        self.assertTrue(d["session_token"])
+
+    def test_staff_pin_cannot_get_owner_token(self):
+        r = self.c.post("/attendance/owner_login",
+                        json={"staff_id": "S001", "pin": "1234"})
+        self.assertEqual(r.status_code, 403)
+
+    def test_report_requires_session_header(self):
+        r = self.c.get("/attendance/report?from=2026-08-01&to=2026-08-31")
+        self.assertEqual(r.status_code, 401)
+
+    def test_report_works_with_session_header(self):
+        r = self.c.get("/attendance/report?from=2026-08-01&to=2026-08-31",
+                       headers={"X-Owner-Session": self._owner_token()})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("by_staff", r.get_json())
+
+    def test_expired_session_gives_401(self):
+        print_server.ATT_SESSIONS = OwnerSessions(ttl_seconds=-1)
+        token, _ = print_server.ATT_SESSIONS.issue("S000")
+        r = self.c.get("/attendance/report?from=2026-08-01&to=2026-08-31",
+                       headers={"X-Owner-Session": token})
+        self.assertEqual(r.status_code, 401)
+
+    def test_create_manual_then_shows_in_report(self):
+        tok = self._owner_token()
+        self.c.post("/attendance/create_manual",
+                    headers={"X-Owner-Session": tok},
+                    json={"staff_id": "S001",
+                          "clock_in_at": "2026-08-05T07:00:00+07:00",
+                          "clock_out_at": "2026-08-05T15:00:00+07:00",
+                          "note": "quên bấm cả hai"})
+        rep = self.c.get("/attendance/report?from=2026-08-05&to=2026-08-05",
+                         headers={"X-Owner-Session": tok}).get_json()
+        self.assertEqual(rep["by_staff"][0]["minutes"], 480)
+
+    def test_create_manual_response_has_no_pin_hash(self):
+        """staff = ATT_CACHE.get(...) trả nguyên row nội bộ (gồm pin_hash) —
+        route không được serialize thẳng cái đó vào response."""
+        tok = self._owner_token()
+        r = self.c.post("/attendance/create_manual",
+                        headers={"X-Owner-Session": tok},
+                        json={"staff_id": "S001",
+                              "clock_in_at": "2026-08-05T07:00:00+07:00",
+                              "clock_out_at": "2026-08-05T15:00:00+07:00",
+                              "note": "quên bấm cả hai"})
+        self.assertNotIn("pin_hash", str(r.get_json()))
+        self.assertNotIn("pin", str(r.get_json()))
+
+    def test_fix_rejects_out_before_in(self):
+        tok = self._owner_token()
+        self._punch(nonce="a")
+        pid = print_server.ATT_STORE.conn.execute(
+            "SELECT punch_id FROM attendance").fetchone()["punch_id"]
+        r = self.c.post("/attendance/fix", headers={"X-Owner-Session": tok},
+                        json={"punch_id": pid, "note": "sai",
+                              "clock_out_at": "2020-01-01T00:00:00+07:00"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_fix_rejects_naive_timestamp_with_400_not_500(self):
+        """clock_in_at của ca (do server sinh) luôn có offset +07:00 -> aware.
+        Nếu chủ gõ clock_out_at KHÔNG offset, so sánh aware-vs-naive ném
+        TypeError chứ không phải ValueError — route phải bắt cả hai, trả 400."""
+        tok = self._owner_token()
+        self._punch(nonce="a")
+        pid = print_server.ATT_STORE.conn.execute(
+            "SELECT punch_id FROM attendance").fetchone()["punch_id"]
+        r = self.c.post("/attendance/fix", headers={"X-Owner-Session": tok},
+                        json={"punch_id": pid, "note": "sai",
+                              "clock_out_at": "2026-08-05T15:00:00"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_create_manual_rejects_naive_timestamp_with_400_not_500(self):
+        tok = self._owner_token()
+        r = self.c.post("/attendance/create_manual",
+                        headers={"X-Owner-Session": tok},
+                        json={"staff_id": "S001",
+                              "clock_in_at": "2026-08-05T07:00:00+07:00",
+                              "clock_out_at": "2026-08-05T15:00:00",
+                              "note": "thiếu offset"})
+        self.assertEqual(r.status_code, 400)
+
+    def test_today_route_lists_open_shifts(self):
+        self._punch(nonce="a")
+        d = self.c.get("/attendance/today").get_json()
+        self.assertEqual(len(d["open"]), 1)
+        self.assertEqual(d["open"][0]["staff_name"], "Sương")
+
+
+if __name__ == "__main__":
+    unittest.main()

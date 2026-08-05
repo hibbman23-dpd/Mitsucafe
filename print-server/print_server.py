@@ -160,6 +160,171 @@ import bill_engine
 import eod_sync
 STORE = OrderStore(GATEWAY._conn, GATEWAY._lock)
 
+# ── Chấm công (attendance) ────────────────────────────────────────────────────
+# DB RIÊNG, KHÔNG dùng GATEWAY._conn: outbox.db có purge_synced(days=7) còn bảng
+# công là căn cứ trả lương, phải giữ nhiều tháng. Đừng gộp lại.
+import secrets
+import sqlite3 as _sqlite3
+from attendance_store import AttendanceStore, QuickPunchConfirm, NotFound
+from attendance_auth import StaffCache, RateLimiter, OwnerSessions, hash_pin
+
+_ATT_DB = os.getenv("ATTENDANCE_DB",
+                    os.path.join(os.path.dirname(__file__), "attendance.db"))
+_att_conn = _sqlite3.connect(_ATT_DB, check_same_thread=False)
+_att_conn.row_factory = _sqlite3.Row
+ATT_STORE = AttendanceStore(_att_conn, threading.Lock())
+ATT_CACHE = StaffCache(os.getenv("ATTENDANCE_STAFF_CACHE",
+                       os.path.join(os.path.dirname(__file__), "staff_cache.json")))
+ATT_SESSIONS = OwnerSessions(ttl_seconds=900)
+ATT_RL_STAFF = RateLimiter(5, 60)     # 5 lần sai / phút / nhân viên
+ATT_RL_IP = RateLimiter(15, 60)       # 15 lần sai / phút / IP — chặn script xoay staff_id
+ATT_RL_GLOBAL = RateLimiter(30, 60)   # 30 lần sai / phút toàn hệ thống -> báo chủ
+
+
+def _att_bad_pin(staff_id):
+    """Một câu trả lời duy nhất cho mọi kiểu sai — không tiết lộ tên có tồn tại hay không."""
+    ip = request.remote_addr or "?"
+    ATT_RL_STAFF.hit(staff_id or "?")
+    ATT_RL_IP.hit(ip)
+    if not ATT_RL_GLOBAL.hit("*"):
+        try:
+            _gas_post({"action": "attendance_alert",
+                       "text": "⚠️ Chấm công: >30 lần nhập sai PIN trong 1 phút."})
+        except Exception:
+            pass
+    return jsonify({"ok": False, "error": "PIN không đúng"}), 401
+
+
+def _att_throttled(staff_id):
+    ip = request.remote_addr or "?"
+    wait = max(ATT_RL_STAFF.blocked(staff_id or "?"), ATT_RL_IP.blocked(ip))
+    if wait <= 0:
+        return None
+    return jsonify({"ok": False, "error": "Nhập sai nhiều lần, thử lại sau",
+                    "retry_after": int(wait)}), 429
+
+
+def _att_owner(req):
+    """staff_id của chủ nếu header phiên còn hạn, None nếu không."""
+    return ATT_SESSIONS.resolve(req.headers.get("X-Owner-Session", ""))
+
+
+@app.get("/cham-cong.html")
+def serve_cham_cong():
+    return send_from_directory(WEB_DIR, "cham-cong.html")
+
+
+@app.get("/cham-cong.js")
+def serve_cham_cong_js():
+    return send_from_directory(WEB_DIR, "cham-cong.js")
+
+
+@app.get("/attendance/staff")
+def attendance_staff():
+    open_ids = [r["staff_id"] for r in ATT_STORE.today_open()]
+    return jsonify({"ok": True, "staff": ATT_CACHE.list_visible(open_ids)})
+
+
+@app.post("/attendance/punch")
+def attendance_punch():
+    body = request.get_json(silent=True) or {}
+    staff_id = body.get("staff_id", "")
+    nonce = body.get("nonce", "")
+    if not nonce:
+        return jsonify({"ok": False, "error": "thiếu nonce"}), 400
+
+    throttled = _att_throttled(staff_id)
+    if throttled:
+        return throttled
+
+    who = ATT_CACHE.verify(staff_id, body.get("pin", ""))
+    if who is None:
+        # Người đã nghỉ (active=FALSE) vẫn phải đóng được ca đang treo.
+        stale = ATT_CACHE.get(staff_id)
+        open_ids = {r["staff_id"] for r in ATT_STORE.today_open()}
+        if not (stale and staff_id in open_ids
+                and secrets.compare_digest(
+                    stale["pin_hash"], hash_pin(body.get("pin", ""), ATT_CACHE.salt))):
+            return _att_bad_pin(staff_id)
+        who = {"staff_id": staff_id, "name": stale["name"], "role": stale["role"]}
+
+    try:
+        # `now` KHÔNG lấy từ body — mốc giờ luôn do server sinh.
+        res = ATT_STORE.punch(staff_id, who["name"], nonce,
+                              confirm_quick_out=bool(body.get("confirm_quick_out")))
+    except QuickPunchConfirm as exc:
+        return jsonify({"ok": True, "action": "confirm_needed",
+                        "message": "Mới vào ca vài phút trước. Ra ca luôn?",
+                        "row": exc.row}), 200
+
+    return jsonify({"ok": True, **res})
+
+
+@app.get("/attendance/today")
+def attendance_today():
+    return jsonify({"ok": True, "open": ATT_STORE.today_open()})
+
+
+@app.post("/attendance/owner_login")
+def attendance_owner_login():
+    body = request.get_json(silent=True) or {}
+    staff_id = body.get("staff_id", "")
+    throttled = _att_throttled(staff_id)
+    if throttled:
+        return throttled
+    who = ATT_CACHE.verify(staff_id, body.get("pin", ""))
+    if who is None:
+        return _att_bad_pin(staff_id)
+    if who.get("role") != "owner":
+        return jsonify({"ok": False, "error": "Không có quyền"}), 403
+    token, expires = ATT_SESSIONS.issue(staff_id)
+    return jsonify({"ok": True, "session_token": token, "expires_at": expires})
+
+
+@app.get("/attendance/report")
+def attendance_report():
+    if _att_owner(request) is None:
+        return jsonify({"ok": False, "error": "Phiên hết hạn"}), 401
+    rep = ATT_STORE.report(request.args.get("from", ""), request.args.get("to", ""))
+    return jsonify({"ok": True, **rep})
+
+
+@app.post("/attendance/fix")
+def attendance_fix():
+    owner_id = _att_owner(request)
+    if owner_id is None:
+        return jsonify({"ok": False, "error": "Phiên hết hạn"}), 401
+    body = request.get_json(silent=True) or {}
+    try:
+        row = ATT_STORE.fix(body.get("punch_id", ""), owner_id,
+                            body.get("note", ""),
+                            clock_in_at=body.get("clock_in_at"),
+                            clock_out_at=body.get("clock_out_at"))
+    except NotFound:
+        return jsonify({"ok": False, "error": "Không tìm thấy ca"}), 404
+    except (ValueError, TypeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, "row": row})
+
+
+@app.post("/attendance/create_manual")
+def attendance_create_manual():
+    owner_id = _att_owner(request)
+    if owner_id is None:
+        return jsonify({"ok": False, "error": "Phiên hết hạn"}), 401
+    body = request.get_json(silent=True) or {}
+    staff = ATT_CACHE.get(body.get("staff_id", ""))
+    if staff is None:
+        return jsonify({"ok": False, "error": "Không có nhân viên này"}), 404
+    try:
+        row = ATT_STORE.create_manual(
+            staff["staff_id"], staff["name"],
+            body.get("clock_in_at", ""), body.get("clock_out_at", ""),
+            owner_id, body.get("note", ""))
+    except (ValueError, TypeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, "row": row})
+
 # ── Online-order inbox (Task 8) ────────────────────────────────────────────────
 from online_inbox import OnlineInbox
 
