@@ -148,9 +148,14 @@ Sửa hai vế, phải có đủ cả hai:
 
 1. **Job quét chạy 04:00 sáng hôm sau**, đánh dấu `UNCLOSED` cho các ca `OPEN` có `clock_in_at`
    trước 04:00 hôm nay. Ca đêm 21:00–02:00 không bị đụng tới.
-2. **Bấm ra ca khớp cả ca `UNCLOSED`**, không chỉ `OPEN` — miễn là cùng `date`. Chỉ dời giờ job
-   thôi không đủ: ca nào chạy qua mốc 04:00 vẫn dính đúng cái bẫy trên. Ca `UNCLOSED` được nhân
-   viên tự đóng thì ghi `edit_note = 'nhân viên bấm ra muộn'`, giữ nguyên `source = staff`.
+2. **Bấm ra ca khớp cả ca `UNCLOSED`**, không chỉ `OPEN`. Chỉ dời giờ job thôi không đủ: ca nào
+   chạy qua mốc 04:00 vẫn dính đúng cái bẫy trên. Ca `UNCLOSED` được nhân viên tự đóng thì ghi
+   `edit_note = 'nhân viên bấm ra muộn'`, giữ nguyên `source = staff`.
+
+Phạm vi tìm ca để đóng là **24 giờ gần nhất tính theo `clock_in_at`**, không phải "cùng `date`".
+Ca đêm vào 21:00 ngày 05 ra 02:00 ngày 06 mang `date = 05` trong khi hôm nay đã là 06 — lọc theo
+`date = hôm nay` sẽ không thấy nó và lại mở ca mới, đúng cái bẫy đang chữa. Cửa sổ 24 giờ cũng
+chặn việc một ca `UNCLOSED` từ tuần trước bị đóng nhầm bởi lần bấm hôm nay.
 
 `SHOP_CLOSE_TIME` không còn dùng cho việc này. Bỏ khỏi thiết kế — không thêm CONFIG key thừa.
 
@@ -247,11 +252,8 @@ mới nằm ở query.
 
 ### 7.1 `/attendance/punch` quyết vào hay ra
 
-Thứ tự xét, dừng ở điều kiện khớp đầu tiên:
-
-1. Có ca `OPEN` hôm nay → **ra ca**.
-2. Có ca `UNCLOSED` hôm nay → **ra ca muộn** (§5.1.1).
-3. Còn lại → **vào ca**.
+Lấy ca gần nhất của `staff_id` có `status IN (OPEN, UNCLOSED)` và `clock_in_at` trong **24 giờ
+gần nhất** (§5.1.1). Có thì **ra ca** (`UNCLOSED` thì ghi thêm `edit_note`), không có thì **vào ca**.
 
 ### 7.2 Chống bấm trùng
 
