@@ -116,7 +116,7 @@ Một dòng cho một ca:
 
 | cột | kiểu | ghi chú |
 |---|---|---|
-| `punch_id` | TEXT PK | `ATT-YYYYMMDD-HHMMSS-XXXX`, `XXXX` = 4 hex ngẫu nhiên. Không dùng số thứ tự tăng dần — hai request cùng giây sẽ tranh nhau cùng một số. |
+| `punch_id` | TEXT PK | `ATT-YYYYMMDD-HHMMSS-XXXXXXXX`, 8 hex ngẫu nhiên. 4 hex chỉ có 65.536 giá trị nên trùng rất sớm. Không dùng số thứ tự tăng dần — hai request cùng giây sẽ tranh nhau cùng một số. |
 | `staff_id` | TEXT | khoá sang STAFF |
 | `staff_name` | TEXT | snapshot lúc chấm, để đổi tên không làm sai lịch sử |
 | `date` | TEXT | `YYYY-MM-DD` theo +07 |
