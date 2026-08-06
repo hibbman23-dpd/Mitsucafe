@@ -2172,6 +2172,56 @@
     "sort_order": 59
   },
   {
+    "sku": "DR095",
+    "name": "TRÀ CHANH DÂY",
+    "category": "beverage",
+    "subcategory": "fruit_tea",
+    "role": "hero",
+    "price_m": 32000,
+    "price_l": 35000,
+    "cost_nl": 9600,
+    "cost_packaging": 2500,
+    "cogs_percent": 0.35,
+    "base_id": "base_01",
+    "recipe_id": "R_DR095",
+    "recipe_json": {},
+    "allergens": [],
+    "customizations": {
+      "sugar": [
+        "0%",
+        "30%",
+        "50%",
+        "70%",
+        "100%"
+      ],
+      "ice": [
+        "full",
+        "less",
+        "none"
+      ],
+      "toppings": [
+        {
+          "id": "thach_them",
+          "name": "Thạch thêm",
+          "price": 5000
+        },
+        {
+          "id": "tran_chau_them",
+          "name": "Trân châu thêm",
+          "price": 5000
+        },
+        {
+          "id": "banh_flan_them",
+          "name": "Bánh flan thêm",
+          "price": 7000
+        }
+      ]
+    },
+    "prep_time_sec": 180,
+    "available": true,
+    "sort_order": 59.5
+  },
+  {
     "sku": "DR060",
     "name": "TRÀ SỮA MITSU",
     "category": "beverage",

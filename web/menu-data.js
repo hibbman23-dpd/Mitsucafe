@@ -1,6 +1,6 @@
 // menu-data.js — Auto-generated từ seed/menu_items.json
 // Đừng sửa tay. Dùng: python3 web/tools/gen_menu_data.py
-// Cập nhật: 2026-08-02 · 73 món
+// Cập nhật: 2026-08-06 · 74 món
 
 const CATEGORIES = [
   {
@@ -39,6 +39,9 @@ const CATEGORIES = [
     "emoji": "🧊"
   }
 ];
+
+// Món tạm hết — order.js dùng để hiện banner thông báo trên trang đặt online.
+const MENU_UNAVAILABLE = [];
 
 const MENU_DATA = [
   {
@@ -1924,6 +1927,50 @@ const MENU_DATA = [
   "allergens": [],
   "available": true,
   "sort_order": 59
+},
+  {
+  "sku": "DR095",
+  "name": "TRÀ CHANH DÂY",
+  "name_jp": null,
+  "subcategory": "fruit_tea",
+  "bee_group": "ritsu",
+  "role": "hero",
+  "price_m": 32000,
+  "price_l": 35000,
+  "customizations": {
+    "sugar": [
+      "0%",
+      "30%",
+      "50%",
+      "70%",
+      "100%"
+    ],
+    "ice": [
+      "full",
+      "less",
+      "none"
+    ],
+    "toppings": [
+      {
+        "id": "thach_them",
+        "name": "Thạch thêm",
+        "price": 5000
+      },
+      {
+        "id": "tran_chau_them",
+        "name": "Trân châu thêm",
+        "price": 5000
+      },
+      {
+        "id": "banh_flan_them",
+        "name": "Bánh flan thêm",
+        "price": 7000
+      }
+    ]
+  },
+  "allergens": [],
+  "available": true,
+  "sort_order": 59.5
 },
   {
   "sku": "DR060",
