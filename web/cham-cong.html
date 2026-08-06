@@ -30,12 +30,24 @@
   #result { display:none; text-align:center; padding:44px 12px; font-size:26px; font-weight:700; }
   #result.on { display:block; }
   #result.ok { color:var(--ok); }
+  #unclosedChoice { display:none; }
+  #unclosedChoice.on { display:block; }
+  .choicebtn { background:var(--card); border:0; color:var(--fg); font-size:17px; font-weight:600;
+               padding:18px 14px; border-radius:14px; margin:4px; width:100%; }
   #owner { display:none; }
   #owner.on { display:block; }
   table { width:100%; border-collapse:collapse; font-size:15px; }
   th,td { padding:9px 6px; text-align:left; border-bottom:1px solid #2a2521; }
   tr.unclosed td { color:#ff8a7a; }
   .linkbtn { background:none; border:0; color:var(--dim); text-decoration:underline; font-size:13px; }
+  .form-card { background:var(--card); padding:12px; border-radius:10px; margin-top:10px; }
+  .form-card p { margin:0 0 8px; }
+  .form-card label { display:inline-block; margin-right:10px; font-size:14px; color:var(--dim); }
+  .form-card input, .form-card select {
+    background:var(--bg); border:1px solid #2a2521; color:var(--fg); border-radius:8px;
+    padding:7px 8px; font-size:15px; margin-top:3px;
+  }
+  .form-err { color:#ff8a7a; min-height:1.2em; font-size:14px; }
 </style>
 </head>
 <body>
@@ -55,6 +67,15 @@
     <p style="text-align:center"><button class="linkbtn" id="cancel">Huỷ</button></p>
   </div>
 
+  <div id="unclosedChoice">
+    <p id="unclosedMsg" style="text-align:center;color:var(--dim)"></p>
+    <p style="text-align:center">
+      <button class="choicebtn" id="unclosedCloseLate">Ra ca hôm qua</button>
+      <button class="choicebtn" id="unclosedNewShift">Vào ca mới</button>
+    </p>
+    <p style="text-align:center"><button class="linkbtn" id="unclosedCancel">Huỷ</button></p>
+  </div>
+
   <div id="result"></div>
 
   <div id="owner">
@@ -70,6 +91,27 @@
       <tbody id="reportbody"></tbody></table>
     <h4>Ca chưa đóng</h4>
     <table><tbody id="unclosedbody"></tbody></table>
+
+    <div id="fixForm" class="form-card" style="display:none">
+      <p><b>Sửa ca:</b> <span id="fixWho"></span></p>
+      <p><label>Ngày ra<br><input type="date" id="fixDate"></label>
+         <label>Giờ ra<br><input type="time" id="fixTime"></label></p>
+      <p><label>Lý do<br><input type="text" id="fixNote" placeholder="vd: quên bấm ra"></label></p>
+      <p class="form-err" id="fixError"></p>
+      <p><button class="linkbtn" id="fixSave">Lưu</button>
+         <button class="linkbtn" id="fixCancel">Huỷ</button></p>
+    </div>
+
+    <h4>Thêm ca tay</h4>
+    <div id="manualForm" class="form-card">
+      <p><label>Nhân viên<br><select id="manualStaff"></select></label></p>
+      <p><label>Ngày<br><input type="date" id="manualDate"></label></p>
+      <p><label>Giờ vào<br><input type="time" id="manualIn"></label>
+         <label>Giờ ra<br><input type="time" id="manualOut"></label></p>
+      <p><label>Ghi chú<br><input type="text" id="manualNote" placeholder="vd: mất mạng, chấm công tay"></label></p>
+      <p class="form-err" id="manualError"></p>
+      <p><button class="linkbtn" id="manualSave">Thêm ca</button></p>
+    </div>
   </div>
 
 <script src="/cham-cong.js"></script>

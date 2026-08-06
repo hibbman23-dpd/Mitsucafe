@@ -43,6 +43,19 @@ function loadStaff() {
     if (staffRetryTimer) { clearTimeout(staffRetryTimer); staffRetryTimer = null; }
     var g = $('grid');
     g.innerHTML = '';
+    if (state.staff.length === 0) {
+      // {ok:true, staff:[]} xảy ra khi cache STAFF chưa đồng bộ lần nào (mới
+      // cài) hoặc token GAS sai cấu hình — request THÀNH CÔNG nhưng không có
+      // nghĩa là trang đã sẵn sàng. Lưới trống im lặng khiến nhân viên đứng
+      // trước "Đang trong ca: 0" không biết bấm vào đâu. Phải nói rõ + tự thử
+      // lại nền, KHÔNG có nút "thử lại" nào khác cho họ.
+      g.innerHTML = '<p style="text-align:center;color:var(--dim);padding:20px 8px">' +
+        'Danh sách nhân viên chưa đồng bộ — báo chủ quán kiểm tra.</p>';
+      if (!staffRetryTimer) {
+        staffRetryTimer = setTimeout(function () { staffRetryTimer = null; loadStaff(); }, 5000);
+      }
+      return;
+    }
     state.staff.forEach(function (s) {
       var b = document.createElement('button');
       b.className = 'who';
@@ -50,6 +63,7 @@ function loadStaff() {
       b.onclick = function () { pick(s); };
       g.appendChild(b);
     });
+    populateManualStaffSelect();
   }).catch(function () {
     // Wifi rớt ngay lúc load trang: KHÔNG được để grid trống mà im lặng.
     // Bật banner đỏ + tự thử lại mỗi 5s tới khi thành công — nhân viên không
@@ -107,12 +121,12 @@ function randNonce() {
   return 'p' + Date.now() + '-' + Math.random().toString(16).slice(2, 8);
 }
 
-function doPunch(who, pin, nonce, confirmed) {
+function doPunch(who, pin, nonce, confirmed, intent) {
   var myGen = state.gen;   // "Huỷ"/idle-out tăng gen — phản hồi trễ tới sau phải bị bỏ
   api('/attendance/punch', {
     method: 'POST',
     body: JSON.stringify({ staff_id: who.staff_id, pin: pin, nonce: nonce,
-                           confirm_quick_out: confirmed })
+                           confirm_quick_out: confirmed, intent: intent || null })
   }).then(function (r) {
     if (myGen !== state.gen) { state.busy = false; return; }   // đã bị huỷ — không đụng UI/storage
     if (r.status === 429) {
@@ -127,10 +141,19 @@ function doPunch(who, pin, nonce, confirmed) {
       else { state.busy = false; reset(); }
       return;
     }
+    if (r.body.action === 'choose_unclosed') {
+      // Vẫn "busy" — màn chọn 2 nút tính là còn dở dang, chờ intent rồi gửi
+      // lại lượt punch nữa (§U1: server không tự đoán close_late/new_shift).
+      return showUnclosedChoice(who, pin, r.body.row, myGen);
+    }
     state.busy = false;
     var row = r.body.row;
     if (r.body.action === 'in') {
       showResult('✅ Vào ca ' + hhmm(row.clock_in_at) + ' · chào ' + row.staff_name, true);
+    } else if (r.body.action === 'close_late') {
+      // KHÔNG được nói "đã ghi giờ ra" — server cố ý không bịa clock_out_at,
+      // ca vẫn nằm trong danh sách unclosed chờ chủ nhập giờ thật (§U1).
+      showResult('Đã ghi nhận. Chủ sẽ nhập giờ ra.', true);
     } else {
       showResult('✅ Ra ca ' + hhmm(row.clock_out_at) + ' · hôm nay ' +
                  dur(row.minutes_worked), true);
@@ -141,6 +164,31 @@ function doPunch(who, pin, nonce, confirmed) {
     if (myGen !== state.gen) { return; }
     showResult('Mất kết nối máy quán', false);
   });
+}
+
+/* Ca gần nhất của người này là UNCLOSED (bị đợt quét 04:00 đánh dấu) — server
+   từ chối đoán hộ, phải hỏi lại bằng 2 nút thật (không dùng confirm(): đây là
+   lựa chọn ảnh hưởng trực tiếp tới lương, OK/Cancel không đủ rõ nghĩa). */
+function showUnclosedChoice(who, pin, row, myGen) {
+  $('unclosedMsg').innerHTML = 'Ca ngày ' + esc(row.date) + ' lúc ' + hhmm(row.clock_in_at) +
+    ' của ' + esc(who.name) + ' chưa đóng. Bạn muốn?';
+  $('pinpad').classList.remove('on');
+  $('unclosedChoice').classList.add('on');
+  $('unclosedCloseLate').onclick = function () {
+    if (myGen !== state.gen) { return; }   // huỷ/idle-out xảy ra trong lúc màn hình còn mở
+    $('unclosedChoice').classList.remove('on');
+    doPunch(who, pin, randNonce(), false, 'close_late');
+  };
+  $('unclosedNewShift').onclick = function () {
+    if (myGen !== state.gen) { return; }
+    $('unclosedChoice').classList.remove('on');
+    doPunch(who, pin, randNonce(), false, 'new_shift');
+  };
+  $('unclosedCancel').onclick = function () {
+    state.busy = false;
+    $('unclosedChoice').classList.remove('on');
+    reset();
+  };
 }
 
 function hhmm(iso) { return String(iso || '').slice(11, 16); }
@@ -161,6 +209,7 @@ function reset() {
   state.picking = null; state.pin = ''; state.ownerMode = false;
   $('result').className = '';
   $('pinpad').classList.remove('on');
+  $('unclosedChoice').classList.remove('on');
   $('grid').style.display = '';
 }
 
@@ -270,25 +319,107 @@ function loadReport() {
   });
 }
 
+/* Ca qua đêm (vào 21:00 hôm trước, ra 02:00 hôm sau) trước đây luôn ghép giờ
+   ra với NGÀY BẮT ĐẦU ca (prompt chỉ hỏi giờ) — chủ gõ "02:00" thì client gửi
+   <ngày_vào>T02:00, server thấy giờ ra trước giờ vào nên từ chối, và không có
+   đường nào khác để chủ sửa ngày. Form dưới cho nhập rõ NGÀY ra, mặc định =
+   ngày bắt đầu ca (trường hợp cùng ngày là phổ biến nhất, vẫn 1 bước). */
+var _fixPunchId = null;
+
 window.fixShift = function (punchId) {
-  var t = prompt('Giờ ra thật (HH:MM)');
-  if (!t) { return; }
-  var note = prompt('Lý do') || '';
   var row = (window._lastUnclosed || {})[punchId];
-  var day = (row && row.date) || ymd(new Date());
+  _fixPunchId = punchId;
+  $('fixWho').textContent = row ? row.staff_name : '';   // textContent — không cần esc()
+  $('fixDate').value = (row && row.date) || ymd(new Date());
+  $('fixTime').value = '';
+  $('fixNote').value = '';
+  $('fixError').textContent = '';
+  $('fixForm').style.display = 'block';
+};
+
+$('fixCancel').onclick = function () {
+  $('fixForm').style.display = 'none';
+  _fixPunchId = null;
+};
+
+$('fixSave').onclick = function () {
+  var day = $('fixDate').value, t = $('fixTime').value;
+  if (!day || !t) { $('fixError').textContent = 'Cần nhập đủ ngày và giờ ra'; return; }
+  var note = $('fixNote').value || '';
+  $('fixError').textContent = '';
   api('/attendance/fix', {
     method: 'POST',
-    body: JSON.stringify({ punch_id: punchId, note: note,
+    body: JSON.stringify({ punch_id: _fixPunchId, note: note,
                            clock_out_at: day + 'T' + t + ':00+07:00' })
   }).then(function (r) {
     // Phiên hết hạn giữa lúc sửa giờ: bật lại PIN pad như loadReport, đừng để
     // chủ đứng hình trên dashboard không còn dùng được.
     if (r.status === 401) { return ownerOut(true); }
-    if (r.status !== 200) { return alert(r.body.error || 'Không sửa được'); }
+    if (r.status !== 200) {
+      $('fixError').textContent = r.body.error || 'Không sửa được';
+      return;
+    }
+    $('fixForm').style.display = 'none';
+    _fixPunchId = null;
     loadReport();
   }).catch(function () {
     offline(true);
-    alert('Mất kết nối máy quán — chưa lưu được sửa giờ, thử lại.');
+    $('fixError').textContent = 'Mất kết nối máy quán — chưa lưu được sửa giờ, thử lại.';
+  });
+};
+
+/* ── Thêm ca tay (§U3) ─────────────────────────────────────────────
+   docs/system/attendance.md + offline-failover.md đã hứa nút này để chủ tự
+   cứu bảng công khi Mac Mini/mạng sập, nhưng UI chưa từng có — chỉ backend
+   /attendance/create_manual tồn tại. */
+function populateManualStaffSelect() {
+  var sel = $('manualStaff');
+  if (!sel) { return; }
+  sel.innerHTML = '';
+  state.staff.forEach(function (s) {
+    var o = document.createElement('option');
+    o.value = s.staff_id;
+    o.textContent = s.name;   // textContent — không cần esc()
+    sel.appendChild(o);
+  });
+}
+
+// Nonce sinh MỘT LẦN cho lượt nhập đang dở, chỉ đổi sang cái mới SAU khi tạo
+// thành công (§F8 phía server). Double-tap hay bấm lại sau lỗi mạng đều dùng
+// lại đúng nonce này — server thấy nonce cũ sẽ trả về ca đã tạo, không đẻ
+// thêm ca thứ hai cho cùng một lượt nhập.
+var manualNonce = randNonce();
+
+$('manualSave').onclick = function () {
+  var staffId = $('manualStaff').value;
+  var day = $('manualDate').value, tin = $('manualIn').value, tout = $('manualOut').value;
+  var note = $('manualNote').value || '';
+  if (!staffId) { $('manualError').textContent = 'Chưa chọn nhân viên'; return; }
+  if (!day || !tin || !tout) {
+    $('manualError').textContent = 'Cần nhập đủ ngày, giờ vào và giờ ra';
+    return;
+  }
+  $('manualError').textContent = '';
+  $('manualSave').disabled = true;
+  api('/attendance/create_manual', {
+    method: 'POST',
+    body: JSON.stringify({ staff_id: staffId, note: note, nonce: manualNonce,
+                           clock_in_at: day + 'T' + tin + ':00+07:00',
+                           clock_out_at: day + 'T' + tout + ':00+07:00' })
+  }).then(function (r) {
+    $('manualSave').disabled = false;
+    if (r.status === 401) { return ownerOut(true); }
+    if (r.status !== 200) {
+      $('manualError').textContent = r.body.error || 'Không thêm được ca';
+      return;
+    }
+    manualNonce = randNonce();   // lượt nhập này đã xong — lượt sau cần nonce mới
+    $('manualIn').value = ''; $('manualOut').value = ''; $('manualNote').value = '';
+    loadReport();
+  }).catch(function () {
+    $('manualSave').disabled = false;
+    offline(true);
+    $('manualError').textContent = 'Mất kết nối máy quán — chưa lưu được, thử lại (không tạo trùng ca).';
   });
 };
 
@@ -296,6 +427,8 @@ function ownerOut(expired) {
   state.gen++;   // vô hiệu hoá response đang bay (vd ownerLogin trễ) — xem reset()
   sessionStorage.removeItem('ownerSession');
   $('owner').classList.remove('on');
+  $('fixForm').style.display = 'none';   // đừng để form sửa ca cũ hiện lại lần đăng nhập sau
+  _fixPunchId = null;
   reset();
   if (expired) { alert('Phiên hết hạn, nhập lại PIN'); }
 }
