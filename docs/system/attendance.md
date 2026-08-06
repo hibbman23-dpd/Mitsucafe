@@ -22,12 +22,44 @@ IP phải là DHCP reservation trên router; router cấp lại IP là QR chết
 
 ## Trạng thái ca
 
+Bốn trạng thái, không phải ba:
+
+| trạng thái | nghĩa |
+|---|---|
+| `OPEN` | đang trong ca |
+| `CLOSED` | xong, đã biết số giờ |
+| `UNCLOSED` | job quét 04:00 gắn cờ, nhân viên **chưa** nói gì |
+| `AWAIT_OWNER` | nhân viên **đã** xác nhận ca đó kết thúc, chờ chủ nhập giờ |
+
 | từ | sang | ai |
 |---|---|---|
 | — | `OPEN` | nhân viên bấm vào ca |
 | `OPEN` | `CLOSED` | nhân viên bấm ra ca |
 | `OPEN` | `UNCLOSED` | job quét 04:00 |
-| `UNCLOSED` | `CLOSED` | nhân viên bấm ra muộn, hoặc chủ nhập giờ ra |
+| `UNCLOSED` | `AWAIT_OWNER` | nhân viên chọn "Ra ca hôm qua" |
+| `UNCLOSED` / `AWAIT_OWNER` | `CLOSED` | chủ nhập giờ ra |
+
+### Vì sao cần `AWAIT_OWNER` — đừng gộp lại thành ba
+
+Khi ca hôm trước bị gắn cờ `UNCLOSED`, nhân viên chạm tên thì server **không đoán**: nó hỏi
+"Ra ca hôm qua" hay "Vào ca mới". Chọn "Ra ca hôm qua" thì server ghi nhận nhưng **không bịa
+giờ ra** — chủ nhập.
+
+Bản đầu để nguyên `UNCLOSED` sau khi xác nhận. Hỏng hai đường, cả hai đều làm trả lương sai:
+
+1. Ca đó vẫn bị truy vấn tìm-ca khớp lại, nên chiều hôm đó nhân viên tới làm ca mới thì **bị hỏi
+   lại y hệt câu cũ**; xác nhận lần nữa là không có ca nào mở, họ làm nguyên ca chiều mà hệ
+   thống không ghi gì.
+2. Xác nhận sau khi ca đã quá cửa sổ 24 giờ thì rơi xuống nhánh mở ca mới — server **mở một ca
+   lúc đó**, màn hình báo "✅ Vào ca". Sáng sau job quét gắn cờ ca ma đó, chủ nhập giờ và trả
+   tiền cho việc không ai làm.
+
+`AWAIT_OWNER` cắt cả hai: truy vấn tìm-ca không khớp nó nữa (nhân viên vào ca mới bình thường),
+job quét không đụng nó, nhưng nó **vẫn nằm trong danh sách "ca chưa đóng"** của chủ vì tiền
+công đó vẫn còn nợ. Tổng giờ (`by_staff`) chỉ đếm `CLOSED`, nên không bao giờ có giờ ma.
+
+Đồng hồ máy bị chỉnh lùi cũng cho ra `AWAIT_OWNER` chứ không phải `CLOSED` 0 phút — cùng
+nguyên tắc: máy không đoán, đưa chủ quyết.
 
 ## Job quét chạy 04:00 sáng — đừng đổi về buổi tối
 

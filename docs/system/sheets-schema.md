@@ -44,7 +44,7 @@ staff_id | name | role | pin | active | hourly_rate | shift_start | shift_end
 ## Tab: ATTENDANCE
 ```
 punch_id | staff_id | staff_name | date |
-clock_in_at | clock_out_at | status (OPEN|CLOSED|UNCLOSED) | minutes_worked |
+clock_in_at | clock_out_at | status (OPEN|CLOSED|UNCLOSED|AWAIT_OWNER) | minutes_worked |
 source (staff|owner_manual) | edited_by | edited_at | edit_note | created_at
 ```
 > Nguồn ghi là `print-server/attendance.db` (SQLite) trên Mac Mini; tab này là bản sao,
