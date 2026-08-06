@@ -169,22 +169,60 @@ function doPunch(who, pin, nonce, confirmed, intent) {
 /* Ca gần nhất của người này là UNCLOSED (bị đợt quét 04:00 đánh dấu) — server
    từ chối đoán hộ, phải hỏi lại bằng 2 nút thật (không dùng confirm(): đây là
    lựa chọn ảnh hưởng trực tiếp tới lương, OK/Cancel không đủ rõ nghĩa). */
+var UNCLOSED_CHOICE_MS = 30000;
+var unclosedTimeoutTimer = null;
+
+function clearUnclosedTimeout() {
+  if (unclosedTimeoutTimer) { clearInterval(unclosedTimeoutTimer); unclosedTimeoutTimer = null; }
+}
+
+function updateUnclosedCountdown(sec) {
+  var el = $('unclosedCountdown');
+  if (el) { el.textContent = 'Màn hình tự đóng sau ' + sec + 's nếu không bấm gì'; }
+}
+
+/* Màn này (không như pinpad/result) trước đây chờ vô thời hạn với state.busy
+   = true, tên+pin của người vừa bấm còn giữ nguyên trong closure của 2 nút.
+   Trên máy tính bảng dùng chung của quán, người kế tiếp bước tới, thấy 2 nút,
+   bấm "Vào ca mới" — mở ca dưới DANH TÍNH người trước. Phải tự đóng như mọi
+   màn khác + hiện rõ đếm ngược cho người đọc biết màn sắp biến mất. */
+function startUnclosedTimeout() {
+  clearUnclosedTimeout();
+  var remaining = UNCLOSED_CHOICE_MS / 1000;
+  updateUnclosedCountdown(remaining);
+  unclosedTimeoutTimer = setInterval(function () {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearUnclosedTimeout();
+      state.busy = false;
+      $('unclosedChoice').classList.remove('on');
+      reset();
+      return;
+    }
+    updateUnclosedCountdown(remaining);
+  }, 1000);
+}
+
 function showUnclosedChoice(who, pin, row, myGen) {
   $('unclosedMsg').innerHTML = 'Ca ngày ' + esc(row.date) + ' lúc ' + hhmm(row.clock_in_at) +
     ' của ' + esc(who.name) + ' chưa đóng. Bạn muốn?';
   $('pinpad').classList.remove('on');
   $('unclosedChoice').classList.add('on');
+  startUnclosedTimeout();
   $('unclosedCloseLate').onclick = function () {
     if (myGen !== state.gen) { return; }   // huỷ/idle-out xảy ra trong lúc màn hình còn mở
+    clearUnclosedTimeout();
     $('unclosedChoice').classList.remove('on');
     doPunch(who, pin, randNonce(), false, 'close_late');
   };
   $('unclosedNewShift').onclick = function () {
     if (myGen !== state.gen) { return; }
+    clearUnclosedTimeout();
     $('unclosedChoice').classList.remove('on');
     doPunch(who, pin, randNonce(), false, 'new_shift');
   };
   $('unclosedCancel').onclick = function () {
+    clearUnclosedTimeout();
     state.busy = false;
     $('unclosedChoice').classList.remove('on');
     reset();
@@ -206,6 +244,7 @@ function showResult(text, ok) {
 
 function reset() {
   state.gen++;   // vô hiệu hoá mọi response đang bay từ lượt trước (xem doPunch/ownerLogin)
+  clearUnclosedTimeout();
   state.picking = null; state.pin = ''; state.ownerMode = false;
   $('result').className = '';
   $('pinpad').classList.remove('on');
@@ -303,8 +342,12 @@ function loadReport() {
     // attendance_store.new_punch_id) — không phải chuỗi người dùng nhập, an
     // toàn để nhét thẳng vào attribute onclick. staff_name thì luôn esc().
     $('unclosedbody').innerHTML = (res.body.unclosed || []).map(function (u) {
+      // edit_note phân biệt UNCLOSED thô (quét 04:00, chưa ai đụng vào) với
+      // AWAIT_OWNER (nhân viên đã xác nhận "Ra ca hôm qua") — chuỗi này đến
+      // từ Sheet/DB, không phải hằng số client, nên luôn esc() trước innerHTML.
       return '<tr class="unclosed"><td>' + esc(u.staff_name) + '</td><td>' + u.date +
-             ' vào ' + hhmm(u.clock_in_at) + '</td><td><button class="linkbtn" ' +
+             ' vào ' + hhmm(u.clock_in_at) + '</td><td>' + esc(u.edit_note || '') +
+             '</td><td><button class="linkbtn" ' +
              'onclick="fixShift(\'' + u.punch_id + '\')">Nhập giờ ra</button></td></tr>';
     }).join('') || '<tr><td>Không có ca hở</td></tr>';
   }).catch(function () {
@@ -390,13 +433,31 @@ function populateManualStaffSelect() {
 // thêm ca thứ hai cho cùng một lượt nhập.
 var manualNonce = randNonce();
 
+/* Ngày RA mặc định = ngày VÀO (trường hợp phổ biến, vẫn 1 bước) nhưng chủ có
+   thể tự sửa cho ca qua đêm (§P2a: 21:00 hôm nay -> 02:00 hôm sau). Trước đây
+   chỉ có 1 ô ngày dùng chung cho cả vào lẫn ra — ca qua đêm luôn bị server từ
+   chối 400 vì giờ ra hoá ra "trước" giờ vào cùng ngày, và form này không có
+   đường nào khác để sửa NGÀY ra, chỉ có giờ. Đây là đường DUY NHẤT phục hồi ca
+   sau khi mất mạng/máy in, tức đúng lúc cần ghi ca đêm nhất. Chỉ tự đồng bộ
+   khi chủ CHƯA tự tay sửa ô ngày ra — sửa rồi thì tôn trọng lựa chọn đó. */
+var manualDateOutTouched = false;
+if ($('manualDateOut')) {
+  $('manualDateOut').addEventListener('input', function () { manualDateOutTouched = true; });
+}
+if ($('manualDateIn')) {
+  $('manualDateIn').addEventListener('input', function () {
+    if (!manualDateOutTouched) { $('manualDateOut').value = $('manualDateIn').value; }
+  });
+}
+
 $('manualSave').onclick = function () {
   var staffId = $('manualStaff').value;
-  var day = $('manualDate').value, tin = $('manualIn').value, tout = $('manualOut').value;
+  var dayIn = $('manualDateIn').value, dayOut = $('manualDateOut').value || dayIn;
+  var tin = $('manualIn').value, tout = $('manualOut').value;
   var note = $('manualNote').value || '';
   if (!staffId) { $('manualError').textContent = 'Chưa chọn nhân viên'; return; }
-  if (!day || !tin || !tout) {
-    $('manualError').textContent = 'Cần nhập đủ ngày, giờ vào và giờ ra';
+  if (!dayIn || !dayOut || !tin || !tout) {
+    $('manualError').textContent = 'Cần nhập đủ ngày vào, ngày ra, giờ vào và giờ ra';
     return;
   }
   $('manualError').textContent = '';
@@ -404,16 +465,29 @@ $('manualSave').onclick = function () {
   api('/attendance/create_manual', {
     method: 'POST',
     body: JSON.stringify({ staff_id: staffId, note: note, nonce: manualNonce,
-                           clock_in_at: day + 'T' + tin + ':00+07:00',
-                           clock_out_at: day + 'T' + tout + ':00+07:00' })
+                           clock_in_at: dayIn + 'T' + tin + ':00+07:00',
+                           clock_out_at: dayOut + 'T' + tout + ':00+07:00' })
   }).then(function (r) {
     $('manualSave').disabled = false;
     if (r.status === 401) { return ownerOut(true); }
+    if (r.status === 409) {
+      // §P2c: nonce lặp lại nhưng lần này giờ/ghi chú KHÁC lần lưu trước —
+      // KHÔNG được coi là thành công (server đã từ chối). Đổi nonce mới để
+      // lần bấm kế tiếp (sau khi chủ đã xem lại) không tiếp tục kẹt xung đột
+      // với ca đã lưu, nhưng giữ nguyên form để chủ tự đối chiếu giờ đã lưu.
+      manualNonce = randNonce();
+      var old = r.body.row || {};
+      $('manualError').textContent = (r.body.error || 'Dữ liệu xung đột với ca đã lưu') +
+        (old.clock_in_at ? (' (ca đã lưu: ' + hhmm(old.clock_in_at) + '–' +
+                            hhmm(old.clock_out_at) + ')') : '');
+      return;
+    }
     if (r.status !== 200) {
       $('manualError').textContent = r.body.error || 'Không thêm được ca';
       return;
     }
     manualNonce = randNonce();   // lượt nhập này đã xong — lượt sau cần nonce mới
+    manualDateOutTouched = false;
     $('manualIn').value = ''; $('manualOut').value = ''; $('manualNote').value = '';
     loadReport();
   }).catch(function () {

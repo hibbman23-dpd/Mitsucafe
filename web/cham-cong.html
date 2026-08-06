@@ -74,6 +74,7 @@
       <button class="choicebtn" id="unclosedNewShift">Vào ca mới</button>
     </p>
     <p style="text-align:center"><button class="linkbtn" id="unclosedCancel">Huỷ</button></p>
+    <p id="unclosedCountdown" style="text-align:center;color:var(--dim);font-size:13px"></p>
   </div>
 
   <div id="result"></div>
@@ -105,7 +106,8 @@
     <h4>Thêm ca tay</h4>
     <div id="manualForm" class="form-card">
       <p><label>Nhân viên<br><select id="manualStaff"></select></label></p>
-      <p><label>Ngày<br><input type="date" id="manualDate"></label></p>
+      <p><label>Ngày vào<br><input type="date" id="manualDateIn"></label>
+         <label>Ngày ra<br><input type="date" id="manualDateOut"></label></p>
       <p><label>Giờ vào<br><input type="time" id="manualIn"></label>
          <label>Giờ ra<br><input type="time" id="manualOut"></label></p>
       <p><label>Ghi chú<br><input type="text" id="manualNote" placeholder="vd: mất mạng, chấm công tay"></label></p>
