@@ -2334,10 +2334,14 @@ async function finishOrder(orderId, btn) {
   btn.disabled = true; const old = btn.textContent; btn.textContent = 'Đang lưu...';
   const method = (o && o.payment_method) || (o && o.payment && o.payment.method) || 'cash';
   try {
-    if (method === 'cash' && o && o.payment_status !== 'PAID') {
+    // isCheckoutOrderPaid, KHÔNG phải `payment_status !== 'PAID'`: endpoint /orders
+    // nội bộ trả cột `paid` (số) và KHÔNG trả `payment_status`. Canh mỗi
+    // payment_status thì đơn đã thu tiền + đã in bill ở màn thu ngân vẫn lọt vào
+    // đây, gọi gwMarkPaid mặc định skipReceipt=false -> IN RA TỜ BILL THỨ HAI.
+    if (method === 'cash' && o && !isCheckoutOrderPaid(o)) {
       const d = await gwMarkPaid(orderId, o);
-      o.payment_status = 'PAID';
-      setLocalOverride(orderId, { payment_status: 'PAID' });
+      o.payment_status = 'PAID'; o.paid = 1;
+      setLocalOverride(orderId, { payment_status: 'PAID', paid: 1 });
       if (!d.already_paid) speak(`Nhận tiền ${fmtSpeak(o.total)} đồng, đơn ${o.short_code || orderId}`);
     }
     await gwStatus(orderId, 'DELIVERED');
