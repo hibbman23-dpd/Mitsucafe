@@ -166,7 +166,7 @@ STORE = OrderStore(GATEWAY._conn, GATEWAY._lock)
 # công là căn cứ trả lương, phải giữ nhiều tháng. Đừng gộp lại.
 import secrets
 import sqlite3 as _sqlite3
-from attendance_store import AttendanceStore, QuickPunchConfirm, NotFound
+from attendance_store import AttendanceStore, QuickPunchConfirm, UnclosedChoice, NotFound
 from attendance_auth import StaffCache, RateLimiter, OwnerSessions, hash_pin
 
 _ATT_DB = os.getenv("ATTENDANCE_DB",
@@ -182,17 +182,42 @@ ATT_RL_IP = RateLimiter(15, 60)       # 15 lần sai / phút / IP — chặn scr
 ATT_RL_GLOBAL = RateLimiter(30, 60)   # 30 lần sai / phút toàn hệ thống -> báo chủ
 
 
+_ATT_ALERT_STATE = {"last_sent": 0.0}
+_ATT_ALERT_LOCK = threading.Lock()
+
+
+def _att_maybe_alert_brute_force():
+    """Cảnh báo vượt ngưỡng sai PIN toàn hệ thống (§F7).
+
+    Debounce còn lại 1 lần/cửa sổ (ATT_RL_GLOBAL.window): một khi ngưỡng đã
+    vượt, MỌI lần thử sai tiếp theo trong cửa sổ cũng khiến ATT_RL_GLOBAL.hit
+    trả False — nếu không debounce, mỗi lần thử sai lại gọi thêm 1 request ra
+    ngoài. Đồng thời gửi trên thread nền: _gas_post đồng bộ có thể mất tới 8s,
+    cùng process này còn đang phục vụ KDS + máy in, không được để 1 script dò
+    PIN treo cả hai."""
+    now = time.time()
+    with _ATT_ALERT_LOCK:
+        if now - _ATT_ALERT_STATE["last_sent"] < ATT_RL_GLOBAL.window:
+            return
+        _ATT_ALERT_STATE["last_sent"] = now
+
+    def _send():
+        try:
+            _gas_post({"action": "attendance_alert",
+                       "text": "⚠️ Chấm công: >30 lần nhập sai PIN trong 1 phút."})
+        except Exception:
+            pass
+
+    threading.Thread(target=_send, daemon=True, name="att-brute-alert").start()
+
+
 def _att_bad_pin(staff_id):
     """Một câu trả lời duy nhất cho mọi kiểu sai — không tiết lộ tên có tồn tại hay không."""
     ip = request.remote_addr or "?"
     ATT_RL_STAFF.hit(staff_id or "?")
     ATT_RL_IP.hit(ip)
     if not ATT_RL_GLOBAL.hit("*"):
-        try:
-            _gas_post({"action": "attendance_alert",
-                       "text": "⚠️ Chấm công: >30 lần nhập sai PIN trong 1 phút."})
-        except Exception:
-            pass
+        _att_maybe_alert_brute_force()
     return jsonify({"ok": False, "error": "PIN không đúng"}), 401
 
 
@@ -228,6 +253,9 @@ def attendance_staff():
                     "staff": ATT_CACHE.list_visible(ATT_STORE.staff_ids_with_open_shift())})
 
 
+_ATT_PUNCH_INTENTS = ("close_late", "new_shift")
+
+
 @app.post("/attendance/punch")
 def attendance_punch():
     body = request.get_json(silent=True) or {}
@@ -235,6 +263,10 @@ def attendance_punch():
     nonce = body.get("nonce", "")
     if not nonce:
         return jsonify({"ok": False, "error": "thiếu nonce"}), 400
+
+    intent = body.get("intent")
+    if intent is not None and intent not in _ATT_PUNCH_INTENTS:
+        return jsonify({"ok": False, "error": "intent không hợp lệ"}), 400
 
     throttled = _att_throttled(staff_id)
     if throttled:
@@ -256,10 +288,18 @@ def attendance_punch():
     try:
         # `now` KHÔNG lấy từ body — mốc giờ luôn do server sinh.
         res = ATT_STORE.punch(staff_id, who["name"], nonce,
-                              confirm_quick_out=bool(body.get("confirm_quick_out")))
+                              confirm_quick_out=bool(body.get("confirm_quick_out")),
+                              intent=intent)
     except QuickPunchConfirm as exc:
         return jsonify({"ok": True, "action": "confirm_needed",
                         "message": "Mới vào ca vài phút trước. Ra ca luôn?",
+                        "row": exc.row}), 200
+    except UnclosedChoice as exc:
+        # Ca gần nhất là UNCLOSED và client chưa nói rõ ý định — hỏi lại chứ
+        # KHÔNG tự đoán (§F2): "close_late" hay "new_shift" ra hai kết quả
+        # lương hoàn toàn khác nhau.
+        return jsonify({"ok": True, "action": "choose_unclosed",
+                        "message": "Ca hôm trước chưa đóng. Bạn muốn?",
                         "row": exc.row}), 200
 
     return jsonify({"ok": True, **res})
@@ -325,7 +365,7 @@ def attendance_create_manual():
         row = ATT_STORE.create_manual(
             staff["staff_id"], staff["name"],
             body.get("clock_in_at", ""), body.get("clock_out_at", ""),
-            owner_id, body.get("note", ""))
+            owner_id, body.get("note", ""), nonce=body.get("nonce"))
     except (ValueError, TypeError) as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     return jsonify({"ok": True, "row": row})

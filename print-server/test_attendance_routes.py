@@ -1,7 +1,10 @@
-import os, sqlite3, tempfile, threading, unittest
+import os, sqlite3, tempfile, threading, time, unittest
+from datetime import datetime, timedelta, timezone
 import print_server
 from attendance_store import AttendanceStore
 from attendance_auth import StaffCache, RateLimiter, OwnerSessions
+
+_VN = timezone(timedelta(hours=7))
 
 _ROWS = [
     {"staff_id": "S001", "name": "Sương", "role": "barista", "active": True, "pin": "1234"},
@@ -23,6 +26,14 @@ class AttendanceRouteCase(unittest.TestCase):
         print_server.ATT_SESSIONS = OwnerSessions(ttl_seconds=900)
         print_server.ATT_RL_STAFF = RateLimiter(5, 60)
         print_server.ATT_RL_IP = RateLimiter(15, 60)
+        # ATT_RL_GLOBAL trước đây KHÔNG được reset ở đây (chỉ STAFF/IP) — hits
+        # sai PIN cộng dồn xuyên suốt cả file test. Từ F7, vượt ngưỡng này gọi
+        # một thread nền thật (_att_maybe_alert_brute_force); nếu để cộng dồn
+        # tới >30 lần giữa các test khác nhau, một test không liên quan có thể
+        # bất ngờ khởi một thread nền đúng lúc TestBruteForceAlertDebounce
+        # đang monkeypatch print_server._gas_post — hai bên đua nhau ghi/đọc
+        # cùng một hàm module-level. Reset mỗi test để cách ly hoàn toàn.
+        print_server.ATT_RL_GLOBAL = RateLimiter(30, 60)
 
     def tearDown(self):
         if os.path.exists(self._db):
@@ -145,15 +156,23 @@ class TestStaffListRoute(AttendanceRouteCase):
         self.assertIn("S009", ids)
 
     def test_departed_staff_can_close_own_unclosed_shift(self):
-        """Hồi quy: PIN đúng từng bị trả 401 y hệt PIN sai, ca treo vĩnh viễn."""
+        """Hồi quy: PIN đúng từng bị trả 401 y hệt PIN sai, ca treo vĩnh viễn.
+
+        F2: trước fix, bấm ra trên một ca UNCLOSED sẽ ÂM THẦM đóng ngay theo
+        giờ tường — đúng hành vi lỗi mà báo cáo review yêu cầu xoá (ca 5 tiếng
+        có thể bị tính thành 19 tiếng). Sau fix, client phải nói rõ ý định;
+        ở đây intent="close_late" vì người này đã nghỉ việc — xác nhận đã ra
+        ca chứ không mở ca mới cho một người không còn đi làm."""
         self._departed_with_unclosed_shift()
-        r = self._punch(staff_id="S009", pin="1111", nonce="u2")
+        r = self._punch(staff_id="S009", pin="1111", nonce="u2", intent="close_late")
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.get_json()["action"], "out")
+        body = r.get_json()
+        self.assertEqual(body["action"], "close_late")
+        self.assertIsNone(body["row"]["minutes_worked"])
         rows = print_server.ATT_STORE.conn.execute(
             "SELECT status FROM attendance WHERE staff_id='S009'").fetchall()
         self.assertEqual(len(rows), 1)          # không đẻ ca rác thứ hai
-        self.assertEqual(rows[0]["status"], "CLOSED")
+        self.assertEqual(rows[0]["status"], "UNCLOSED")  # chờ chủ nhập giờ ra thật
 
     def test_inactive_staff_without_open_shift_cannot_punch_in(self):
         print_server.ATT_CACHE.replace(_ROWS + [
@@ -254,6 +273,107 @@ class TestOwnerRoutes(AttendanceRouteCase):
         d = self.c.get("/attendance/today").get_json()
         self.assertEqual(len(d["open"]), 1)
         self.assertEqual(d["open"][0]["staff_name"], "Sương")
+
+    def test_create_manual_nonce_replay_returns_same_row(self):
+        """F8 qua HTTP: form chủ double-submit không được đẻ hai ca."""
+        tok = self._owner_token()
+        body = {"staff_id": "S001",
+                "clock_in_at": "2026-08-05T07:00:00+07:00",
+                "clock_out_at": "2026-08-05T15:00:00+07:00",
+                "note": "quên bấm cả hai", "nonce": "manual-1"}
+        r1 = self.c.post("/attendance/create_manual",
+                         headers={"X-Owner-Session": tok}, json=body).get_json()
+        r2 = self.c.post("/attendance/create_manual",
+                         headers={"X-Owner-Session": tok}, json=body).get_json()
+        self.assertEqual(r1["row"]["punch_id"], r2["row"]["punch_id"])
+        rows = print_server.ATT_STORE.conn.execute(
+            "SELECT COUNT(*) c FROM attendance").fetchone()
+        self.assertEqual(rows["c"], 1)
+
+
+class TestUnclosedChoiceRoute(AttendanceRouteCase):
+    """F2 qua HTTP: ca gần nhất UNCLOSED mà client chưa nói ý định phải được
+    hỏi lại, không tự đóng/tự mở ca."""
+
+    def _make_unclosed(self):
+        self._punch(nonce="u1")
+        self.assertIsNotNone(print_server.ATT_STORE.sweep_unclosed(
+            now=datetime.now(_VN) + timedelta(days=1)))
+
+    def test_punch_without_intent_on_unclosed_returns_choose_unclosed(self):
+        self._make_unclosed()
+        r = self._punch(nonce="u2")
+        self.assertEqual(r.status_code, 200)
+        body = r.get_json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["action"], "choose_unclosed")
+        self.assertEqual(body["row"]["status"], "UNCLOSED")
+        self.assertIn("message", body)
+
+    def test_intent_close_late_leaves_minutes_null(self):
+        self._make_unclosed()
+        body = self._punch(nonce="u2", intent="close_late").get_json()
+        self.assertEqual(body["action"], "close_late")
+        self.assertIsNone(body["row"]["minutes_worked"])
+        self.assertEqual(body["row"]["status"], "UNCLOSED")
+        tok = self._owner_token()
+        rep = self.c.get("/attendance/report?from=2026-08-01&to=2026-12-31",
+                        headers={"X-Owner-Session": tok}).get_json()
+        self.assertEqual(len(rep["unclosed"]), 1)
+
+    def test_intent_new_shift_opens_second_row(self):
+        self._make_unclosed()
+        body = self._punch(nonce="u2", intent="new_shift").get_json()
+        self.assertEqual(body["action"], "in")
+        rows = print_server.ATT_STORE.conn.execute(
+            "SELECT status FROM attendance WHERE staff_id='S001'").fetchall()
+        self.assertEqual(sorted(row["status"] for row in rows), ["OPEN", "UNCLOSED"])
+
+    def test_invalid_intent_rejected_with_400(self):
+        self._make_unclosed()
+        r = self._punch(nonce="u2", intent="do_something_else")
+        self.assertEqual(r.status_code, 400)
+
+    def test_intent_ignored_for_normal_open_shift(self):
+        """Truyền intent trên một ca OPEN bình thường (không phải UNCLOSED)
+        không được phá đường đóng ca hiện có."""
+        self._punch(nonce="a")
+        r = self._punch(nonce="b", confirm_quick_out=True,
+                        intent="close_late").get_json()
+        self.assertEqual(r["action"], "out")
+        self.assertEqual(r["row"]["status"], "CLOSED")
+
+
+class TestBruteForceAlertDebounce(AttendanceRouteCase):
+    """F7: một khi ngưỡng sai PIN toàn hệ thống bị vượt, cảnh báo phải debounce
+    còn 1 lần/cửa sổ và KHÔNG được chặn request thread (_gas_post đồng bộ có
+    thể mất tới 8s, cùng process còn phục vụ KDS + máy in)."""
+
+    def test_alert_debounced_and_nonblocking(self):
+        calls = []
+        released = threading.Event()
+
+        def slow_gas(payload, timeout=8):
+            calls.append(payload)
+            released.wait(2)   # nếu bị gọi đồng bộ trên request thread, test sẽ treo lâu
+            return {"ok": True}
+
+        orig_gas_post = print_server._gas_post
+        orig_last_sent = print_server._ATT_ALERT_STATE["last_sent"]
+        print_server._gas_post = slow_gas
+        print_server._ATT_ALERT_STATE["last_sent"] = 0.0
+        try:
+            start = time.time()
+            for _ in range(5):
+                print_server._att_maybe_alert_brute_force()
+            elapsed = time.time() - start
+        finally:
+            print_server._gas_post = orig_gas_post
+            print_server._ATT_ALERT_STATE["last_sent"] = orig_last_sent
+            released.set()
+            time.sleep(0.05)   # để thread nền thoát trước khi test kế tiếp chạy
+        self.assertLess(elapsed, 1.0)
+        self.assertEqual(len(calls), 1)
 
 
 if __name__ == "__main__":

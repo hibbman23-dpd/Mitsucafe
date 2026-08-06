@@ -6,9 +6,24 @@ Không ghi PIN thô xuống đĩa, vào log, hay vào response — bất kỳ đ
 import hashlib
 import json
 import os
+import re
 import secrets
 import time
 from collections import defaultdict, deque
+
+_PIN_RE = re.compile(r"^\d{4}$")
+
+
+def _looks_like_pin(pin):
+    """4 chữ số, không rỗng, không None — kiểm tra TRƯỚC khi băm (§F1).
+
+    Nếu không có bước này, một PIN rỗng gửi lên ("") sẽ được băm và so với
+    pin_hash rỗng — nếu pin_hash rỗng từng lỡ lọt vào cache (staff mới thêm,
+    chưa ai gõ PIN), verify() sẽ coi đó là khớp và trả về danh tính đầy đủ.
+    """
+    if pin is None or pin == "":
+        return False
+    return bool(_PIN_RE.match(str(pin)))
 
 
 def load_or_create_salt(path):
@@ -62,14 +77,20 @@ class StaffCache:
                 self._rows = json.load(f)
 
     def replace(self, staff_rows):
-        """Ghi đè cache từ STAFF sheet. `pin` bị băm ngay, không bao giờ lưu thô."""
+        """Ghi đè cache từ STAFF sheet. `pin` bị băm ngay, không bao giờ lưu thô.
+
+        Row có `pin` rỗng bị BỎ QUA hoàn toàn (§F1): dòng STAFF mới thêm luôn
+        rỗng PIN cho tới khi ai đó gõ vào — không cache nghĩa là staff đó
+        không thể chấm công được cho tới khi có PIN thật, đúng trạng thái an
+        toàn cần có (thay vì cache hash("") rồi verify("") lỡ khớp).
+        """
         self._rows = [{
             "staff_id": str(r.get("staff_id", "")),
             "name": r.get("name", ""),
             "role": (r.get("role") or "").lower(),
             "active": _is_active(r.get("active")),
             "pin_hash": hash_pin(r.get("pin", ""), self.salt),
-        } for r in staff_rows if r.get("staff_id")]
+        } for r in staff_rows if r.get("staff_id") and r.get("pin")]
         _write_600(self.path, json.dumps(self._rows, ensure_ascii=False))
 
     def get(self, staff_id):
@@ -87,6 +108,10 @@ class StaffCache:
         return None
 
     def verify(self, staff_id, pin):
+        # Chặn PIN rỗng/không đúng định dạng TRƯỚC khi băm (§F1) — không cho
+        # nó có cơ hội khớp với một pin_hash rỗng nào đó lỡ lọt vào cache.
+        if not _looks_like_pin(pin):
+            return None
         r = self.get(staff_id)
         if r is None or not r["active"]:
             return None

@@ -1,4 +1,4 @@
-import os, stat, tempfile, unittest
+import json, os, stat, tempfile, unittest
 
 from attendance_auth import (StaffCache, RateLimiter, OwnerSessions,
                              hash_pin, load_or_create_salt, _write_600)
@@ -74,6 +74,54 @@ class TestStaffCache(unittest.TestCase):
         first = load_or_create_salt(p)
         self.assertEqual(stat.S_IMODE(os.stat(p).st_mode), 0o600)
         self.assertEqual(load_or_create_salt(p), first)
+
+
+class TestEmptyPinNeverAuthenticates(unittest.TestCase):
+    """F1: một PIN rỗng không bao giờ được coi là khớp — dù ở nguồn nào."""
+
+    def test_replace_skips_rows_with_empty_pin(self):
+        """Dòng STAFF mới thêm luôn rỗng PIN cho tới khi ai đó gõ vào — không
+        cache nghĩa là nhân viên đó CHƯA chấm công được, đúng trạng thái an
+        toàn cần có."""
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace([{"staff_id": "S010", "name": "Mới", "role": "barista",
+                    "active": True, "pin": ""}])
+        self.assertIsNone(c.get("S010"))
+        self.assertIsNone(c.verify("S010", ""))
+
+    def test_replace_skips_rows_with_missing_pin_key(self):
+        c = StaffCache(tempfile.mktemp(suffix=".json"))
+        c.replace([{"staff_id": "S011", "name": "Mới2", "role": "barista",
+                    "active": True}])
+        self.assertIsNone(c.get("S011"))
+
+    def test_verify_rejects_empty_pin_against_real_staff(self):
+        self.assertIsNone(_cache().verify("S001", ""))
+
+    def test_verify_rejects_non_4digit_pin(self):
+        c = _cache()
+        self.assertIsNone(c.verify("S001", "12"))
+        self.assertIsNone(c.verify("S001", "12345"))
+        self.assertIsNone(c.verify("S001", "abcd"))
+        self.assertIsNone(c.verify("S001", None))
+
+    def test_verify_still_accepts_real_pin(self):
+        """Guard mới không được chặn nhầm PIN thật hợp lệ."""
+        self.assertEqual(_cache().verify("S001", "1234")["name"], "Sương")
+
+    def test_verify_rejects_empty_pin_even_against_empty_stored_hash(self):
+        """Tái hiện đúng bug gốc trong báo cáo review: nếu một pin_hash rỗng
+        LỠ lọt vào cache (bỏ qua bước skip ở replace(), ví dụ dữ liệu cũ từ
+        trước khi có fix), verify("") vẫn phải bị chặn ở bước kiểm định dạng
+        TRƯỚC KHI so hash — không được để nó khớp hash("") == hash("")."""
+        p = tempfile.mktemp(suffix=".json")
+        salt_path = p + ".salt"
+        salt = load_or_create_salt(salt_path)
+        rows = [{"staff_id": "S010", "name": "Mới", "role": "barista",
+                 "active": True, "pin_hash": hash_pin("", salt)}]
+        _write_600(p, json.dumps(rows, ensure_ascii=False))
+        c = StaffCache(p, salt_path=salt_path)
+        self.assertIsNone(c.verify("S010", ""))
 
 
 class TestActiveNormalization(unittest.TestCase):

@@ -31,10 +31,19 @@ class AttendanceSync:
             payload = {k: row[k] for k in row.keys()
                        if k not in ("punch_in_nonce", "punch_out_nonce", "synced_at")}
             try:
-                self.poster({"action": "attendance_upsert", "row": payload})
+                res = self.poster({"action": "attendance_upsert", "row": payload})
             except Exception as exc:
                 log.warning("attendance push failed %s: %s", row["punch_id"], exc)
                 break          # để nguyên, lần sau retry
+            # Apps Script trả HTTP 200 kèm {"ok": false} cho script-lock timeout,
+            # unknown_action, unauthorized... (§F3) — KHÔNG phải exception, nên
+            # phải tự kiểm tra "ok", coi falsy y hệt lỗi: không đánh dấu synced,
+            # log lại lỗi, để nguyên cho vòng sau retry. Cùng quy ước với
+            # gateway.py sync_once().
+            if not (res or {}).get("ok"):
+                log.warning("attendance push rejected %s: %s",
+                            row["punch_id"], (res or {}).get("error"))
+                break
             with self.store.lock:
                 self.store.conn.execute(
                     "UPDATE attendance SET synced_at=? WHERE punch_id=?",
@@ -50,6 +59,9 @@ class AttendanceSync:
             res = self.poster({"action": "attendance_staff"})
         except Exception as exc:
             log.warning("staff refresh failed: %s", exc)
+            return 0
+        if not (res or {}).get("ok"):
+            log.warning("staff refresh rejected: %s", (res or {}).get("error"))
             return 0
         rows = (res or {}).get("staff") or []
         if not rows:
@@ -72,11 +84,14 @@ class AttendanceSync:
 
     def send_eod(self, date):
         try:
-            self.poster({"action": "attendance_alert", "text": self.eod_text(date)})
-            return True
+            res = self.poster({"action": "attendance_alert", "text": self.eod_text(date)})
         except Exception as exc:
             log.warning("eod alert failed: %s", exc)
             return False
+        if not (res or {}).get("ok"):
+            log.warning("eod alert rejected: %s", (res or {}).get("error"))
+            return False
+        return True
 
     _DAILY_MARKER_KEY = "last_daily_run"
 
@@ -92,8 +107,12 @@ class AttendanceSync:
         today = now.strftime("%Y-%m-%d")
         if self.store.get_meta(self._DAILY_MARKER_KEY) == today:
             return {"swept": 0, "alerted": False, "skipped": True}
-        swept = self.store.sweep_unclosed(now=now)
+        swept = self.store.sweep_unclosed(now=now)   # idempotent, luôn chạy
         yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
         alerted = self.send_eod(yesterday)
-        self.store.set_meta(self._DAILY_MARKER_KEY, today)
+        # Chỉ đốt marker khi cảnh báo THẬT SỰ gửi được (§F4): nếu GAS đang ở
+        # cửa sổ 403 (xem project_gas_oauth_7day), đốt marker vô điều kiện sẽ
+        # làm mất luôn cơ hội retry — chủ không bao giờ biết có ca UNCLOSED.
+        if alerted:
+            self.store.set_meta(self._DAILY_MARKER_KEY, today)
         return {"swept": swept, "alerted": alerted, "skipped": False}

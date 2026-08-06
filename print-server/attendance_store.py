@@ -26,6 +26,20 @@ class QuickPunchConfirm(Exception):
         self.row = row
 
 
+class UnclosedChoice(Exception):
+    """Bấm vào lúc ca gần nhất đang UNCLOSED mà caller chưa nói rõ ý định.
+
+    Server KHÔNG được tự đoán (§F2): ca UNCLOSED có thể là ca hôm qua bị quên
+    bấm ra (người này đang MUỐN xác nhận đã ra ca) hoặc người đang bắt đầu ca
+    MỚI hôm nay — hai ý hoàn toàn khác nhau về số giờ tính lương. Caller phải
+    hỏi lại rồi gọi lại punch() với `intent="close_late"` hoặc `intent="new_shift"`.
+    """
+
+    def __init__(self, row):
+        super().__init__("unclosed shift needs intent")
+        self.row = row
+
+
 class NotFound(Exception):
     """Không có ca nào mang punch_id đó."""
 
@@ -56,14 +70,20 @@ CREATE TABLE IF NOT EXISTS attendance (
 CREATE INDEX IF NOT EXISTS ix_att_staff_date ON attendance(staff_id, date);
 CREATE INDEX IF NOT EXISTS ix_att_status ON attendance(status);
 CREATE INDEX IF NOT EXISTS ix_att_sync ON attendance(synced_at);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_att_in_nonce
-  ON attendance(punch_in_nonce) WHERE punch_in_nonce IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS ux_att_out_nonce
-  ON attendance(punch_out_nonce) WHERE punch_out_nonce IS NOT NULL;
 CREATE TABLE IF NOT EXISTS attendance_meta (
   key   TEXT PRIMARY KEY,
   value TEXT
 );
+"""
+
+# Nonce phải unique THEO staff_id, không phải toàn bảng (§F6): hai máy khách
+# của hai nhân viên khác nhau lỡ sinh trùng chuỗi nonce vẫn phải mở/đóng được
+# ca riêng của từng người, không được đụng độ ràng buộc UNIQUE của người kia.
+_NONCE_INDEX_SCHEMA = """
+CREATE UNIQUE INDEX IF NOT EXISTS ux_att_in_nonce
+  ON attendance(staff_id, punch_in_nonce) WHERE punch_in_nonce IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_att_out_nonce
+  ON attendance(staff_id, punch_out_nonce) WHERE punch_out_nonce IS NOT NULL;
 """
 
 
@@ -75,6 +95,13 @@ class AttendanceStore:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA busy_timeout=5000;")
             conn.executescript(ATTENDANCE_SCHEMA)
+            # Migration: một DB đã có từ trước fix F6 sẽ mang index CŨ (unique
+            # toàn bảng) dưới cùng tên — "IF NOT EXISTS" sẽ KHÔNG đổi định
+            # nghĩa index đã tồn tại, nên phải DROP rồi tạo lại. Index không
+            # giữ dữ liệu, drop/recreate an toàn tuyệt đối với các dòng đã có.
+            conn.execute("DROP INDEX IF EXISTS ux_att_in_nonce")
+            conn.execute("DROP INDEX IF EXISTS ux_att_out_nonce")
+            conn.executescript(_NONCE_INDEX_SCHEMA)
             conn.commit()
 
     # ── helpers ──────────────────────────────────────────────────────────
@@ -83,12 +110,21 @@ class AttendanceStore:
             "SELECT * FROM attendance WHERE punch_id=?", (punch_id,)).fetchone()
         return dict(r) if r else None
 
-    def _by_nonce(self, nonce):
+    def _by_nonce(self, staff_id, nonce):
+        """Tra nonce ĐÃ dùng, giới hạn theo staff_id (F6).
+
+        Trước đây tra toàn bảng không lọc staff_id: nếu hai máy khách của hai
+        nhân viên khác nhau lỡ sinh trùng chuỗi nonce, người bấm sau nhận về
+        ca của người bấm trước — thấy "thành công" nhưng không hề có ca nào
+        được mở/đóng cho chính mình.
+        """
         r = self.conn.execute(
-            "SELECT *, 'in' AS which FROM attendance WHERE punch_in_nonce=? "
+            "SELECT *, 'in' AS which FROM attendance "
+            "WHERE staff_id=? AND punch_in_nonce=? "
             "UNION ALL "
-            "SELECT *, 'out' AS which FROM attendance WHERE punch_out_nonce=? "
-            "LIMIT 1", (nonce, nonce)).fetchone()
+            "SELECT *, 'out' AS which FROM attendance "
+            "WHERE staff_id=? AND punch_out_nonce=? "
+            "LIMIT 1", (staff_id, nonce, staff_id, nonce)).fetchone()
         return dict(r) if r else None
 
     def _open_shift(self, staff_id, now):
@@ -120,12 +156,21 @@ class AttendanceStore:
             self.conn.commit()
 
     # ── nghiệp vụ ────────────────────────────────────────────────────────
-    def punch(self, staff_id, staff_name, nonce, confirm_quick_out=False, now=None):
+    def punch(self, staff_id, staff_name, nonce, confirm_quick_out=False,
+              intent=None, now=None):
+        """`intent` chỉ có ý nghĩa khi ca gần nhất là UNCLOSED (§F2):
+        "close_late" = nhân viên xác nhận đã ra ca hôm đó, không đoán giờ ra;
+        "new_shift"  = mở ca mới hôm nay, để nguyên ca UNCLOSED cũ chờ chủ sửa.
+        """
         now = now or datetime.now(_VN)
         with self.lock:
-            prior = self._by_nonce(nonce)
+            prior = self._by_nonce(staff_id, nonce)
             if prior:
                 which = prior.pop("which")
+                # close_late dùng chung cột punch_out_nonce với close thật, nhưng
+                # không set clock_out_at — dùng đó để trả lại đúng action khi replay.
+                if which == "out" and prior["clock_out_at"] is None:
+                    which = "close_late"
                 return {"action": which, "row": prior, "replay": True}
 
             shift = self._open_shift(staff_id, now)
@@ -134,9 +179,19 @@ class AttendanceStore:
                         "row": self._insert_open(staff_id, staff_name, nonce, now),
                         "replay": False}
 
+            if shift["status"] == "UNCLOSED":
+                if intent == "close_late":
+                    return {"action": "close_late",
+                            "row": self._close_late(shift, nonce, now),
+                            "replay": False}
+                if intent == "new_shift":
+                    return {"action": "in",
+                            "row": self._insert_open(staff_id, staff_name, nonce, now),
+                            "replay": False}
+                raise UnclosedChoice(shift)
+
             started = datetime.fromisoformat(shift["clock_in_at"])
-            if (shift["status"] == "OPEN"
-                    and (now - started).total_seconds() < QUICK_OUT_SECONDS
+            if ((now - started).total_seconds() < QUICK_OUT_SECONDS
                     and not confirm_quick_out):
                 raise QuickPunchConfirm(shift)
 
@@ -156,14 +211,36 @@ class AttendanceStore:
         return self._row(punch_id)
 
     def _close(self, shift, nonce, now):
+        """Đóng ca OPEN cùng ngày — đường bình thường, không đụng tới ca UNCLOSED
+        (những ca đó đi qua _close_late hoặc mở ca mới, xem punch())."""
         started = datetime.fromisoformat(shift["clock_in_at"])
-        minutes = int(round((now - started).total_seconds() / 60))
-        note = "nhân viên bấm ra muộn" if shift["status"] == "UNCLOSED" else None
+        delta_seconds = (now - started).total_seconds()
+        minutes = int(round(delta_seconds / 60))
+        note = None
+        if minutes < 0:
+            # Đồng hồ máy chạy lùi (NTP sửa giờ sau mất điện) → KHÔNG được ghi
+            # giờ âm vào lương (§F5): kẹp về 0, cờ lại cho chủ tự kiểm tra.
+            minutes = 0
+            note = "đồng hồ hệ thống chạy lùi — giờ ra trước giờ vào, cần chủ kiểm tra lại"
         self.conn.execute(
             "UPDATE attendance SET clock_out_at=?, status='CLOSED', minutes_worked=?, "
             "punch_out_nonce=?, edit_note=COALESCE(?, edit_note), synced_at=NULL "
             "WHERE punch_id=?",
             (now.isoformat(), minutes, nonce, note, shift["punch_id"]))
+        self.conn.commit()
+        return self._row(shift["punch_id"])
+
+    def _close_late(self, shift, nonce, now):
+        """intent="close_late": nhân viên xác nhận ĐÃ ra ca từ ca UNCLOSED cũ,
+        nhưng KHÔNG bịa giờ ra — để clock_out_at/minutes_worked NULL, giữ
+        status UNCLOSED để nó còn nằm trong report()["unclosed"] chờ chủ nhập
+        giờ thật (§F2). `now` không dùng để tính gì cả, chỉ giữ chữ ký thống
+        nhất với _close/_insert_open."""
+        self.conn.execute(
+            "UPDATE attendance SET punch_out_nonce=?, "
+            "edit_note='nhân viên xác nhận đã ra ca — chờ chủ nhập giờ', "
+            "synced_at=NULL WHERE punch_id=?",
+            (nonce, shift["punch_id"]))
         self.conn.commit()
         return self._row(shift["punch_id"])
 
@@ -256,22 +333,31 @@ class AttendanceStore:
             return self._row(punch_id)
 
     def create_manual(self, staff_id, staff_name, clock_in_at, clock_out_at,
-                      owner_id, note):
+                      owner_id, note, nonce=None):
+        """`nonce` optional (§F8): form chủ nhập tay dễ double-submit (double
+        tap, mạng chậm bấm lại) — hai lần gọi giống hệt nhau trước đây tạo hai
+        ca. Truyền nonce thì lần gọi lặp lại trả về đúng row cũ, không đẻ ca
+        thứ hai. Không truyền nonce (caller cũ) thì giữ nguyên hành vi trước."""
         started = datetime.fromisoformat(clock_in_at)
         ended = datetime.fromisoformat(clock_out_at)
         if ended <= started:
             raise ValueError("clock_out_at phải sau clock_in_at")
         now = _now_iso()
-        punch_id = new_punch_id(started)
         with self.lock:
+            if nonce:
+                prior = self._by_nonce(staff_id, nonce)
+                if prior:
+                    prior.pop("which", None)
+                    return prior
+            punch_id = new_punch_id(started)
             self.conn.execute(
                 "INSERT INTO attendance(punch_id, staff_id, staff_name, date, clock_in_at, "
                 "clock_out_at, status, minutes_worked, source, edited_by, edited_at, "
-                "edit_note, created_at) "
-                "VALUES(?,?,?,?,?,?,'CLOSED',?,'owner_manual',?,?,?,?)",
+                "edit_note, punch_in_nonce, created_at) "
+                "VALUES(?,?,?,?,?,?,'CLOSED',?,'owner_manual',?,?,?,?,?)",
                 (punch_id, staff_id, staff_name, started.strftime("%Y-%m-%d"),
                  started.isoformat(), ended.isoformat(),
                  int(round((ended - started).total_seconds() / 60)),
-                 owner_id, now, note, now))
+                 owner_id, now, note, nonce, now))
             self.conn.commit()
             return self._row(punch_id)
