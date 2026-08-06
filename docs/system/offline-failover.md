@@ -63,7 +63,7 @@ Lưu ý:   Lần fix 2026-07-03 làm bằng redeploy trong editor — redeploy c
 ## L6 — Mac Mini chết trong lúc chấm công (attendance)
 
 ```
-Trigger: Máy chấm công (192.168.1.19:5001) không vào được — Mac Mini crash/mất điện
+Trigger: Máy chấm công (192.168.50.125:5001) không vào được — Mac Mini crash/mất điện
 Action:  Nhân viên ghi giờ vào/ra ra GIẤY (giờ:phút, tên) như bình thường
 Fix:     Máy sống lại → chủ mở tab Bảng công trên trang chấm công → Thêm ca tay
          (POST /attendance/create_manual) → nhập từng ca từ giấy → ghi

@@ -45,14 +45,14 @@ Hai hướng đã loại:
 
 ## 3. Điều kiện tiên quyết
 
-**IP tĩnh cho Mac Mini.** Hiện đang `192.168.1.19` nhưng chưa reserve trên router.
+**IP tĩnh cho Mac Mini.** Hiện đang `192.168.50.125` nhưng chưa reserve trên router.
 Phải đặt DHCP reservation **trước khi in QR sticker** — router cấp lại IP là QR chết,
 cả quán mất đường chấm công.
 
 Không dùng mDNS (`kissaten.local`) vì Android hỗ trợ không đồng đều.
 
 **QR sticker phải in kèm dòng chữ nổi bật: "Bật Wifi quán trước khi quét".**
-Quét bằng 4G thì `192.168.1.19` không tồn tại — trình duyệt xoay vô tận rồi báo lỗi khó hiểu,
+Quét bằng 4G thì `192.168.50.125` không tồn tại — trình duyệt xoay vô tận rồi báo lỗi khó hiểu,
 nhân viên tưởng app hỏng. Dòng chữ này rẻ hơn mọi cách chữa phía phần mềm.
 
 ---
@@ -63,7 +63,7 @@ Một trang duy nhất: `web/cham-cong.html` + `web/cham-cong.js`, do `print_ser
 theo đúng pattern `kds.html` (đọc live từ đĩa, header `Cache-Control: no-cache, must-revalidate`
 để điện thoại luôn lấy bản mới).
 
-**Vào app:** QR sticker dán quầy → `http://192.168.1.19:5001/cham-cong.html`.
+**Vào app:** QR sticker dán quầy → `http://192.168.50.125:5001/cham-cong.html`.
 Bookmark hoặc "Thêm vào màn hình chính" nếu muốn icon — vẫn không phải cài đặt.
 
 ### 4.1 Màn nhân viên

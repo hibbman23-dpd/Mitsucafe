@@ -17,7 +17,7 @@ không được gộp chung). Sheet ATTENDANCE là bản sao để báo cáo. M�
 
 ## Vào app
 
-`http://192.168.1.19:5001/cham-cong.html` — QR sticker dán quầy.
+`http://192.168.50.125:5001/cham-cong.html` — QR sticker dán quầy.
 IP phải là DHCP reservation trên router; router cấp lại IP là QR chết.
 
 ## Trạng thái ca

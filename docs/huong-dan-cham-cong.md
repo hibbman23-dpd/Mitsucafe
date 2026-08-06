@@ -10,7 +10,7 @@ Dành cho nhân viên và chủ quán. Không cần cài app.
 ## Mở app
 
 1. **Bật Wifi quán trước.** Dùng 4G sẽ không vào được, trình duyệt quay vòng rồi báo lỗi.
-2. Quét QR dán ở quầy, hoặc mở trình duyệt gõ: `192.168.1.19:5001/cham-cong.html`
+2. Quét QR dán ở quầy, hoặc mở trình duyệt gõ: `192.168.50.125:5001/cham-cong.html`
 3. Muốn có icon ngoài màn hình chính: bấm Chia sẻ → "Thêm vào màn hình chính". Vẫn không phải cài app.
 
 ## Chấm công
@@ -107,7 +107,7 @@ Bốn việc phải xong trước khi nhân viên dùng được:
 
 ### 1. Đặt IP tĩnh cho Mac Mini
 
-Vào router, đặt DHCP reservation giữ `192.168.1.19` cho Mac Mini.
+Vào router, đặt DHCP reservation giữ `192.168.50.125` cho Mac Mini.
 
 **Làm việc này TRƯỚC khi in QR.** Router cấp lại IP khác là QR chết, cả quán mất đường chấm công.
 
@@ -133,7 +133,7 @@ Chạy deploy, rồi chạy `ensureAttendanceSheet()` một lần trong GAS edit
 
 ### In QR sticker
 
-Link: `http://192.168.1.19:5001/cham-cong.html`
+Link: `http://192.168.50.125:5001/cham-cong.html`
 
 In kèm dòng chữ to: **"Bật Wifi quán trước khi quét"**
 
