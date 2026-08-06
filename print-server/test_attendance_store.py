@@ -2,7 +2,7 @@ import sqlite3, tempfile, threading, unittest
 from datetime import datetime, timedelta, timezone
 
 from attendance_store import (AttendanceStore, QuickPunchConfirm, UnclosedChoice,
-                              NotFound, new_punch_id)
+                              NotFound, NoShiftToClose, NonceConflict, new_punch_id)
 
 _VN = timezone(timedelta(hours=7))
 
@@ -92,18 +92,27 @@ class TestPunch(unittest.TestCase):
         ids = {new_punch_id(now) for _ in range(1000)}
         self.assertEqual(len(ids), 1000)
 
-    def test_backward_clock_step_clamps_minutes_to_zero(self):
-        """F5: đồng hồ máy chạy lùi (NTP sửa giờ sau mất điện) không được ghi
-        phút âm vào lương. Delta âm cũng rơi vào cửa sổ quick-out (âm <
-        QUICK_OUT_SECONDS) nên phải confirm_quick_out=True để tái hiện đúng
-        đường đi thật của bug: nhân viên tưởng xác nhận ra ca bình thường."""
+    def test_backward_clock_step_leaves_await_owner_not_zero_minute_closed(self):
+        """P1 (3/3): thay thế test_backward_clock_step_clamps_minutes_to_zero
+        cũ — test cũ khẳng định đồng hồ chạy lùi được ghi CLOSED/0 phút, đúng
+        cái lỗi review yêu cầu xoá: một ca ĐẦY ĐỦ bị trả lương bằng không, và
+        vì status=CLOSED nên nó rơi khỏi hẳn report()["unclosed"], chủ không
+        bao giờ biết mà sửa. Hành vi ĐÚNG: để AWAIT_OWNER, giữ
+        clock_out_at/minutes_worked NULL, ghi edit_note giải thích, và phải
+        còn nằm trong report()["unclosed"] chờ chủ nhập giờ tay. Delta âm cũng
+        rơi vào cửa sổ quick-out (âm < QUICK_OUT_SECONDS) nên phải
+        confirm_quick_out=True để tái hiện đúng đường đi thật của bug."""
         s = _store()
         s.punch("S001", "Sương", "n1", now=_at(2026, 8, 5, 10, 0))
         r = s.punch("S001", "Sương", "n2", confirm_quick_out=True,
                     now=_at(2026, 8, 5, 9, 30))
-        self.assertEqual(r["row"]["status"], "CLOSED")
-        self.assertEqual(r["row"]["minutes_worked"], 0)
+        self.assertEqual(r["row"]["status"], "AWAIT_OWNER")
+        self.assertIsNone(r["row"]["clock_out_at"])
+        self.assertIsNone(r["row"]["minutes_worked"])
         self.assertIn("chạy lùi", r["row"]["edit_note"])
+        rep = s.report("2026-08-01", "2026-08-31")
+        self.assertEqual(len(rep["unclosed"]), 1)
+        self.assertEqual(rep["unclosed"][0]["punch_id"], r["row"]["punch_id"])
 
 
 class TestNightShiftAndSweep(unittest.TestCase):
@@ -183,17 +192,21 @@ class TestNightShiftAndSweep(unittest.TestCase):
         self.assertEqual(len(rep["unclosed"]), 1)
         self.assertEqual(rep["unclosed"][0]["minutes_worked"], None)
 
-    def test_unclosed_intent_close_late_leaves_minutes_null_and_stays_unclosed(self):
-        """intent="close_late": nhân viên xác nhận đã ra ca hôm đó, nhưng
-        server KHÔNG được bịa giờ ra — clock_out_at/minutes_worked phải NULL,
-        status vẫn UNCLOSED để còn nằm trong report()["unclosed"] chờ chủ sửa."""
+    def test_unclosed_intent_close_late_leaves_minutes_null_and_moves_to_await_owner(self):
+        """P1 (thay thế bản cũ "...and_stays_unclosed"): intent="close_late"
+        vẫn không bịa giờ ra — clock_out_at/minutes_worked phải NULL — nhưng
+        status giờ chuyển AWAIT_OWNER thay vì giữ nguyên UNCLOSED. Test cũ
+        khẳng định status ở lại UNCLOSED, đúng cái lỗi review yêu cầu xoá: giữ
+        UNCLOSED khiến _open_shift tiếp tục khớp ca này, nên lượt bấm TIẾP
+        THEO của chính người đó (ví dụ vào ca tối) lại nhận đúng câu hỏi
+        UNCLOSED một lần nữa thay vì mở ca mới bình thường."""
         s = _store()
         s.punch("S001", "Sương", "n1", now=_at(2026, 8, 5, 21, 0))
         s.sweep_unclosed(now=_at(2026, 8, 6, 4, 0))
         r = s.punch("S001", "Sương", "n2", intent="close_late",
                     now=_at(2026, 8, 6, 16, 0))
         self.assertEqual(r["action"], "close_late")
-        self.assertEqual(r["row"]["status"], "UNCLOSED")
+        self.assertEqual(r["row"]["status"], "AWAIT_OWNER")
         self.assertIsNone(r["row"]["clock_out_at"])
         self.assertIsNone(r["row"]["minutes_worked"])
         self.assertEqual(r["row"]["edit_note"],
@@ -201,6 +214,78 @@ class TestNightShiftAndSweep(unittest.TestCase):
         self.assertIsNone(r["row"]["synced_at"])
         rep = s.report("2026-08-01", "2026-08-31")
         self.assertEqual(len(rep["unclosed"]), 1)
+
+    def test_after_close_late_next_tap_opens_evening_shift_normally(self):
+        """P1 (1/3): tái hiện đúng kịch bản trong báo cáo review — nhân viên
+        acknowledge lúc 10:00 ("Ra ca hôm qua"), rồi quay lại ca tối 17:00 bấm
+        tên mình. Trước fix: _close_late giữ status UNCLOSED nên _open_shift
+        vẫn khớp ca đó, người này nhận LẠI y hệt câu hỏi UNCLOSED, bấm "Ra ca
+        hôm qua" lần nữa thì KHÔNG còn ca OPEN nào — làm việc cả buổi tối mà
+        không có ca nào được ghi nhận. Sau fix: lượt bấm 17:00 phải mở ca mới
+        bình thường, và ca đã acknowledge phải còn nguyên AWAIT_OWNER."""
+        s = _store()
+        s.punch("S001", "Sương", "n1", now=_at(2026, 8, 5, 21, 0))
+        s.sweep_unclosed(now=_at(2026, 8, 6, 4, 0))
+        acked = s.punch("S001", "Sương", "n2", intent="close_late",
+                        now=_at(2026, 8, 6, 10, 0))
+        evening = s.punch("S001", "Sương", "n3", now=_at(2026, 8, 6, 17, 0))
+        self.assertEqual(evening["action"], "in")
+        self.assertEqual(evening["row"]["status"], "OPEN")
+        # Ca đã acknowledge không bị đụng vào — vẫn AWAIT_OWNER, vẫn của người đó.
+        acked_row = s.conn.execute(
+            "SELECT status FROM attendance WHERE punch_id=?",
+            (acked["row"]["punch_id"],)).fetchone()
+        self.assertEqual(acked_row["status"], "AWAIT_OWNER")
+        rows = s.conn.execute(
+            "SELECT COUNT(*) c FROM attendance WHERE staff_id='S001'").fetchone()
+        self.assertEqual(rows["c"], 2)   # ca cũ (acknowledge) + ca tối mới, không có ca ma
+
+    def test_close_late_past_24h_window_raises_and_creates_no_row(self):
+        """P1 (2/3): trước fix, acknowledge một ca đã rơi khỏi cửa sổ 24h
+        (không còn khớp _open_shift) rơi qua nhánh `shift is None` và ÂM THẦM
+        mở một ca clock-in MỚI ngay tại thời điểm acknowledge — một ca ma mà
+        không ai làm việc thật. Verified trong báo cáo review: bấm "Ra ca hôm
+        qua" lúc 21:10 tạo ra một dòng OPEN lúc 21:10. Sau fix: intent
+        close_late không tìm thấy ca nào để đóng phải raise, tuyệt đối không
+        được tạo dòng nào."""
+        s = _store()
+        s.punch("S001", "Sương", "n1", now=_at(2026, 7, 29, 7, 0))
+        s.sweep_unclosed(now=_at(2026, 7, 30, 4, 0))
+        with self.assertRaises(NoShiftToClose):
+            s.punch("S001", "Sương", "n2", intent="close_late",
+                    now=_at(2026, 8, 6, 21, 10))
+        rows = s.conn.execute(
+            "SELECT COUNT(*) c FROM attendance WHERE staff_id='S001'").fetchone()
+        self.assertEqual(rows["c"], 1)   # chỉ ca UNCLOSED cũ, không có ca ma nào mới
+
+    def test_fix_closes_an_await_owner_row(self):
+        """P1: chủ phải sửa được ca AWAIT_OWNER y hệt UNCLOSED — fix() không
+        được gate theo status hiện tại, chỉ cần chủ cung cấp clock_out_at."""
+        s = _store()
+        s.punch("S001", "Sương", "n1", now=_at(2026, 8, 5, 21, 0))
+        s.sweep_unclosed(now=_at(2026, 8, 6, 4, 0))
+        acked = s.punch("S001", "Sương", "n2", intent="close_late",
+                        now=_at(2026, 8, 6, 10, 0))
+        self.assertEqual(acked["row"]["status"], "AWAIT_OWNER")
+        row = s.fix(acked["row"]["punch_id"], owner_id="S000", note="chủ nhập tay",
+                    clock_out_at="2026-08-06T02:00:00+07:00")
+        self.assertEqual(row["status"], "CLOSED")
+        self.assertEqual(row["minutes_worked"], 300)
+
+    def test_sweep_and_staff_ids_with_open_shift_ignore_await_owner(self):
+        """P1: AWAIT_OWNER không phải "ca treo cho nhân viên tự xử lý" nữa —
+        sweep_unclosed không được đụng vào (không có gì để quét thêm), và
+        staff_ids_with_open_shift không được liệt kê người này vào lưới tên
+        chờ tự bấm ra (không còn gì cho họ làm với ca đó)."""
+        s = _store()
+        s.punch("S001", "Sương", "n1", now=_at(2026, 8, 5, 21, 0))
+        s.sweep_unclosed(now=_at(2026, 8, 6, 4, 0))
+        s.punch("S001", "Sương", "n2", intent="close_late", now=_at(2026, 8, 6, 10, 0))
+        swept = s.sweep_unclosed(now=_at(2026, 8, 7, 4, 0))
+        self.assertEqual(swept, 0)
+        self.assertEqual(s.staff_ids_with_open_shift(now=_at(2026, 8, 6, 11, 0)), [])
+        row = s.conn.execute("SELECT status FROM attendance").fetchone()
+        self.assertEqual(row["status"], "AWAIT_OWNER")   # sweep không đụng vào
 
     def test_unclosed_intent_close_late_nonce_replay(self):
         s = _store()
@@ -343,6 +428,25 @@ class TestReportAndOwnerEdits(unittest.TestCase):
         self.assertEqual(first["punch_id"], again["punch_id"])
         rows = s.conn.execute("SELECT COUNT(*) c FROM attendance").fetchone()
         self.assertEqual(rows["c"], 1)
+
+    def test_create_manual_nonce_replay_with_different_values_raises_conflict(self):
+        """P2c: chủ sửa giờ sau một phản hồi mạng bị rớt (server đã lưu thành
+        công lần đầu) rồi gửi lại với CÙNG nonce cũ (client chỉ đổi nonce SAU
+        khi thấy phản hồi thành công, nên vẫn giữ nonce cũ khi tưởng lần đầu
+        thất bại). Trả thẳng row CŨ với ok:True (hành vi trước fix) sẽ khiến
+        chủ tưởng giờ MỚI đã lưu trong khi ca vẫn giữ giờ CŨ — không có gì báo
+        hiệu sai lệch. Phải raise để route trả conflict rõ ràng."""
+        s = _store()
+        s.create_manual("S001", "Sương",
+                        "2026-08-05T07:00:00+07:00", "2026-08-05T15:00:00+07:00",
+                        owner_id="S000", note="lần đầu", nonce="m1")
+        with self.assertRaises(NonceConflict) as ctx:
+            s.create_manual("S001", "Sương",
+                            "2026-08-05T07:00:00+07:00", "2026-08-05T16:00:00+07:00",
+                            owner_id="S000", note="lần đầu", nonce="m1")
+        self.assertEqual(ctx.exception.row["clock_out_at"], "2026-08-05T15:00:00+07:00")
+        rows = s.conn.execute("SELECT COUNT(*) c FROM attendance").fetchone()
+        self.assertEqual(rows["c"], 1)   # không đẻ ca thứ hai, cũng không âm thầm giữ ca cũ
 
     def test_create_manual_without_nonce_is_not_deduped(self):
         """Không truyền nonce (caller cũ) giữ nguyên hành vi trước — không có

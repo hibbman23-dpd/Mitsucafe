@@ -148,6 +148,22 @@ class TestStaffListRoute(AttendanceRouteCase):
             {"staff_id": "S009", "name": "Nghỉ", "role": "barista",
              "active": False, "pin": "1111"}])
 
+    def test_departed_staff_stale_empty_pin_hash_rejected(self):
+        """P2d: đường vòng "nhân viên đã nghỉ vẫn đóng được ca treo" tự so
+        compare_digest, KHÔNG đi qua StaffCache.verify() nên thiếu guard định
+        dạng của verify() (§F1). Một staff_cache.json ghi từ TRƯỚC khi guard
+        đó tồn tại (hoặc từ chính __init__ load thẳng file cũ, không qua
+        replace()) vẫn có thể còn giữ hash("") — nếu refresh_staff() đang lỗi
+        giữa cửa sổ GAS 403 (không viết đè cache), PIN rỗng phải vẫn bị từ
+        chối qua đường vòng này, không được khớp ngay hash("") đó."""
+        self._departed_with_unclosed_shift()
+        from attendance_auth import hash_pin
+        stale_row = print_server.ATT_CACHE.get("S009")
+        stale_row["pin_hash"] = hash_pin("", print_server.ATT_CACHE.salt)
+        r = self._punch(staff_id="S009", pin="", nonce="u3")
+        self.assertEqual(r.status_code, 401)
+        self.assertEqual(r.get_json()["error"], "PIN không đúng")
+
     def test_departed_staff_with_unclosed_shift_still_listed(self):
         """Hồi quy: /attendance/staff từng lọc bằng today_open (chỉ OPEN) nên
         ca đã qua đợt quét biến mất khỏi lưới tên."""
@@ -172,7 +188,10 @@ class TestStaffListRoute(AttendanceRouteCase):
         rows = print_server.ATT_STORE.conn.execute(
             "SELECT status FROM attendance WHERE staff_id='S009'").fetchall()
         self.assertEqual(len(rows), 1)          # không đẻ ca rác thứ hai
-        self.assertEqual(rows[0]["status"], "UNCLOSED")  # chờ chủ nhập giờ ra thật
+        # P1: chuyển AWAIT_OWNER (không còn giữ UNCLOSED) — nếu không, lượt
+        # bấm TIẾP THEO của chính người này lại nhận đúng câu hỏi UNCLOSED
+        # một lần nữa thay vì mở ca mới bình thường.
+        self.assertEqual(rows[0]["status"], "AWAIT_OWNER")  # chờ chủ nhập giờ ra thật
 
     def test_inactive_staff_without_open_shift_cannot_punch_in(self):
         print_server.ATT_CACHE.replace(_ROWS + [
@@ -290,6 +309,27 @@ class TestOwnerRoutes(AttendanceRouteCase):
             "SELECT COUNT(*) c FROM attendance").fetchone()
         self.assertEqual(rows["c"], 1)
 
+    def test_create_manual_nonce_replay_with_different_times_returns_409(self):
+        """P2c qua HTTP: phản hồi lần đầu bị rớt mạng (server đã lưu), chủ sửa
+        giờ rồi gửi lại CÙNG nonce cũ — không được trả ok:True kèm row CŨ,
+        phải báo xung đột rõ ràng."""
+        tok = self._owner_token()
+        first = {"staff_id": "S001",
+                 "clock_in_at": "2026-08-05T07:00:00+07:00",
+                 "clock_out_at": "2026-08-05T15:00:00+07:00",
+                 "note": "lần đầu", "nonce": "manual-conflict"}
+        r1 = self.c.post("/attendance/create_manual",
+                         headers={"X-Owner-Session": tok}, json=first)
+        self.assertEqual(r1.status_code, 200)
+        second = dict(first, clock_out_at="2026-08-05T16:00:00+07:00")
+        r2 = self.c.post("/attendance/create_manual",
+                         headers={"X-Owner-Session": tok}, json=second)
+        self.assertEqual(r2.status_code, 409)
+        self.assertFalse(r2.get_json()["ok"])
+        rows = print_server.ATT_STORE.conn.execute(
+            "SELECT COUNT(*) c FROM attendance").fetchone()
+        self.assertEqual(rows["c"], 1)   # không đẻ ca thứ hai, cũng không âm thầm giữ ca cũ
+
 
 class TestUnclosedChoiceRoute(AttendanceRouteCase):
     """F2 qua HTTP: ca gần nhất UNCLOSED mà client chưa nói ý định phải được
@@ -315,11 +355,40 @@ class TestUnclosedChoiceRoute(AttendanceRouteCase):
         body = self._punch(nonce="u2", intent="close_late").get_json()
         self.assertEqual(body["action"], "close_late")
         self.assertIsNone(body["row"]["minutes_worked"])
-        self.assertEqual(body["row"]["status"], "UNCLOSED")
+        # P1: AWAIT_OWNER (không phải UNCLOSED) — vẫn phải hiện trong danh
+        # sách ca chưa đóng của chủ (report()["unclosed"]) bên dưới.
+        self.assertEqual(body["row"]["status"], "AWAIT_OWNER")
         tok = self._owner_token()
         rep = self.c.get("/attendance/report?from=2026-08-01&to=2026-12-31",
                         headers={"X-Owner-Session": tok}).get_json()
         self.assertEqual(len(rep["unclosed"]), 1)
+
+    def test_intent_close_late_then_evening_punch_opens_normally(self):
+        """P1 qua HTTP: sau khi acknowledge (close_late), lượt bấm TIẾP THEO
+        của chính người đó phải mở ca mới bình thường, không nhận lại câu hỏi
+        UNCLOSED (hồi quy đúng ca 2 trong 3 lỗi báo cáo review)."""
+        self._make_unclosed()
+        acked = self._punch(nonce="u2", intent="close_late").get_json()
+        self.assertEqual(acked["action"], "close_late")
+        evening = self._punch(nonce="u3").get_json()
+        self.assertEqual(evening["action"], "in")
+        self.assertEqual(evening["row"]["status"], "OPEN")
+
+    def test_close_late_with_no_matching_shift_returns_409_not_new_shift(self):
+        """P1: intent=close_late khi server không còn ca nào khớp (ví dụ đã
+        acknowledge từ trước, hoặc rơi khỏi cửa sổ 24h) không được âm thầm mở
+        ca mới thay thế — đây chính là cách ca ma được tạo ra (bấm "Ra ca hôm
+        qua" ngoài cửa sổ tạo một dòng OPEN ngay lúc đó, verified trong báo
+        cáo review). Phải trả lỗi rõ ràng."""
+        self._make_unclosed()
+        acked = self._punch(nonce="u2", intent="close_late").get_json()
+        self.assertEqual(acked["action"], "close_late")
+        r = self._punch(nonce="u4", intent="close_late")
+        self.assertEqual(r.status_code, 409)
+        self.assertFalse(r.get_json()["ok"])
+        rows = print_server.ATT_STORE.conn.execute(
+            "SELECT COUNT(*) c FROM attendance WHERE staff_id='S001'").fetchone()
+        self.assertEqual(rows["c"], 1)   # không đẻ ca mới nào
 
     def test_intent_new_shift_opens_second_row(self):
         self._make_unclosed()

@@ -44,6 +44,32 @@ class NotFound(Exception):
     """Không có ca nào mang punch_id đó."""
 
 
+class NoShiftToClose(Exception):
+    """intent="close_late" nhưng không còn ca OPEN/UNCLOSED nào trong cửa sổ
+    24h để đóng (§P1 — thứ hai trong ba lỗi chung gốc rễ).
+
+    Xảy ra khi: ca UNCLOSED đã được close_late lần trước (nay AWAIT_OWNER,
+    không còn khớp _open_shift) mà client vẫn gửi lại close_late lần nữa; hoặc
+    ca đã rơi khỏi cửa sổ 24h. Server TUYỆT ĐỐI không được lặng lẽ coi đây là
+    "vào ca mới" — client đang tin có một ca cần đóng, tự làm chuyện khác
+    (mở ca mới lúc 21:10 chẳng hạn) chính là cách ca ma được tạo ra và không
+    ai ghi nhận là đã làm việc."""
+
+
+class NonceConflict(Exception):
+    """Nonce đã dùng nhưng lần gọi lại mang dữ liệu KHÁC lần đầu (§P2c).
+
+    Xảy ra khi: chủ gửi create_manual, phản hồi bị rớt mạng giữa chừng (server
+    đã lưu thành công), chủ tưởng gửi thất bại nên sửa giờ/ghi chú rồi bấm gửi
+    lại — vẫn với cùng nonce cũ (client chỉ đổi nonce SAU khi thấy phản hồi
+    thành công). Trả thẳng row cũ với ok:True sẽ khiến chủ tưởng giờ MỚI đã
+    được lưu trong khi ca vẫn giữ giờ CŨ, không có gì báo hiệu sai lệch."""
+
+    def __init__(self, row):
+        super().__init__("nonce replay carries different values")
+        self.row = row
+
+
 def new_punch_id(now):
     return "ATT-%s-%s" % (now.strftime("%Y%m%d-%H%M%S"), secrets.token_hex(4))
 
@@ -175,6 +201,13 @@ class AttendanceStore:
 
             shift = self._open_shift(staff_id, now)
             if shift is None:
+                if intent == "close_late":
+                    # Client tin có một ca cần đóng nhưng không còn ca nào
+                    # khớp — KHÔNG được âm thầm mở ca mới thay vào đó (đó
+                    # chính là cách ca ma 21:10 bị tạo ra, xem NoShiftToClose).
+                    # intent="new_shift" thì không cần chặn: không tìm thấy gì
+                    # để đóng và người này chỉ đơn giản đang mở ca mới.
+                    raise NoShiftToClose()
                 return {"action": "in",
                         "row": self._insert_open(staff_id, staff_name, nonce, now),
                         "replay": False}
@@ -215,29 +248,42 @@ class AttendanceStore:
         (những ca đó đi qua _close_late hoặc mở ca mới, xem punch())."""
         started = datetime.fromisoformat(shift["clock_in_at"])
         delta_seconds = (now - started).total_seconds()
+        if delta_seconds < 0:
+            # Đồng hồ máy chạy lùi (NTP sửa giờ sau mất điện) → trước đây kẹp
+            # phút về 0 và vẫn ghi CLOSED (§F5 bản cũ): một ca ĐẦY ĐỦ bị trả
+            # lương bằng KHÔNG, và vì status=CLOSED nên nó rơi khỏi hẳn
+            # report()["unclosed"] — chủ không bao giờ biết mà sửa. Đúng
+            # hướng xử lý phải giống _close_late: để AWAIT_OWNER, giữ
+            # clock_out_at/minutes_worked NULL, chờ chủ nhập giờ tay.
+            note = "đồng hồ hệ thống chạy lùi — giờ ra trước giờ vào, cần chủ nhập giờ tay"
+            self.conn.execute(
+                "UPDATE attendance SET status='AWAIT_OWNER', punch_out_nonce=?, "
+                "edit_note=?, synced_at=NULL WHERE punch_id=?",
+                (nonce, note, shift["punch_id"]))
+            self.conn.commit()
+            return self._row(shift["punch_id"])
         minutes = int(round(delta_seconds / 60))
-        note = None
-        if minutes < 0:
-            # Đồng hồ máy chạy lùi (NTP sửa giờ sau mất điện) → KHÔNG được ghi
-            # giờ âm vào lương (§F5): kẹp về 0, cờ lại cho chủ tự kiểm tra.
-            minutes = 0
-            note = "đồng hồ hệ thống chạy lùi — giờ ra trước giờ vào, cần chủ kiểm tra lại"
         self.conn.execute(
             "UPDATE attendance SET clock_out_at=?, status='CLOSED', minutes_worked=?, "
-            "punch_out_nonce=?, edit_note=COALESCE(?, edit_note), synced_at=NULL "
-            "WHERE punch_id=?",
-            (now.isoformat(), minutes, nonce, note, shift["punch_id"]))
+            "punch_out_nonce=?, synced_at=NULL WHERE punch_id=?",
+            (now.isoformat(), minutes, nonce, shift["punch_id"]))
         self.conn.commit()
         return self._row(shift["punch_id"])
 
     def _close_late(self, shift, nonce, now):
         """intent="close_late": nhân viên xác nhận ĐÃ ra ca từ ca UNCLOSED cũ,
-        nhưng KHÔNG bịa giờ ra — để clock_out_at/minutes_worked NULL, giữ
-        status UNCLOSED để nó còn nằm trong report()["unclosed"] chờ chủ nhập
-        giờ thật (§F2). `now` không dùng để tính gì cả, chỉ giữ chữ ký thống
-        nhất với _close/_insert_open."""
+        nhưng KHÔNG bịa giờ ra — để clock_out_at/minutes_worked NULL, chuyển
+        status sang AWAIT_OWNER (§P1 — trước đây giữ nguyên UNCLOSED, khiến
+        _open_shift tiếp tục khớp ca này và lượt bấm TIẾP THEO của chính người
+        đó — ví dụ vào ca tối — lại nhận đúng câu hỏi UNCLOSED một lần nữa,
+        hoặc nếu chờ quá 24h thì mở nhầm một ca clock-in ma ngay tại thời điểm
+        acknowledge). AWAIT_OWNER vẫn nằm trong report()["unclosed"] chờ chủ
+        nhập giờ thật, nhưng KHÔNG còn bị _open_shift/staff_ids_with_open_shift
+        coi là "còn ca treo cho nhân viên tự xử lý" nữa — chỉ chủ mới sửa được.
+        `now` không dùng để tính gì cả, chỉ giữ chữ ký thống nhất với
+        _close/_insert_open."""
         self.conn.execute(
-            "UPDATE attendance SET punch_out_nonce=?, "
+            "UPDATE attendance SET status='AWAIT_OWNER', punch_out_nonce=?, "
             "edit_note='nhân viên xác nhận đã ra ca — chờ chủ nhập giờ', "
             "synced_at=NULL WHERE punch_id=?",
             (nonce, shift["punch_id"]))
@@ -304,7 +350,10 @@ class AttendanceStore:
         return {
             "rows": rows,
             "by_staff": sorted(by.values(), key=lambda a: a["staff_name"] or ""),
-            "unclosed": [r for r in rows if r["status"] == "UNCLOSED"],
+            # UNCLOSED (quét 04:00, chưa ai đụng vào) VÀ AWAIT_OWNER (nhân
+            # viên đã acknowledge nhưng chủ chưa nhập giờ) đều cần chủ nhập
+            # giờ — mất AWAIT_OWNER khỏi danh sách này là chính lỗi §P1.
+            "unclosed": [r for r in rows if r["status"] in ("UNCLOSED", "AWAIT_OWNER")],
         }
 
     # ── chủ sửa ──────────────────────────────────────────────────────────
@@ -348,6 +397,17 @@ class AttendanceStore:
                 prior = self._by_nonce(staff_id, nonce)
                 if prior:
                     prior.pop("which", None)
+                    # §P2c: nonce đã dùng nhưng lần gọi lại mang GIỜ/GHI CHÚ
+                    # khác lần đầu — chủ sửa giờ sau một phản hồi mạng bị rớt
+                    # rồi gửi lại với cùng nonce cũ (client chỉ đổi nonce SAU
+                    # khi thấy phản hồi thành công). Trả thẳng row CŨ với
+                    # ok:True sẽ khiến chủ tưởng giờ MỚI đã lưu trong khi ca
+                    # vẫn giữ giờ CŨ — không có gì báo hiệu sai lệch. Phải từ
+                    # chối rõ ràng thay vì âm thầm giữ dữ liệu cũ.
+                    if (prior["clock_in_at"] != started.isoformat()
+                            or prior["clock_out_at"] != ended.isoformat()
+                            or (prior["edit_note"] or "") != (note or "")):
+                        raise NonceConflict(prior)
                     return prior
             punch_id = new_punch_id(started)
             self.conn.execute(

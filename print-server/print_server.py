@@ -166,8 +166,9 @@ STORE = OrderStore(GATEWAY._conn, GATEWAY._lock)
 # công là căn cứ trả lương, phải giữ nhiều tháng. Đừng gộp lại.
 import secrets
 import sqlite3 as _sqlite3
-from attendance_store import AttendanceStore, QuickPunchConfirm, UnclosedChoice, NotFound
-from attendance_auth import StaffCache, RateLimiter, OwnerSessions, hash_pin
+from attendance_store import (AttendanceStore, QuickPunchConfirm, UnclosedChoice,
+                              NotFound, NoShiftToClose, NonceConflict)
+from attendance_auth import StaffCache, RateLimiter, OwnerSessions, hash_pin, _looks_like_pin
 
 _ATT_DB = os.getenv("ATTENDANCE_DB",
                     os.path.join(os.path.dirname(__file__), "attendance.db"))
@@ -272,16 +273,24 @@ def attendance_punch():
     if throttled:
         return throttled
 
-    who = ATT_CACHE.verify(staff_id, body.get("pin", ""))
+    pin = body.get("pin", "")
+    who = ATT_CACHE.verify(staff_id, pin)
     if who is None:
         # Người đã nghỉ (active=FALSE) vẫn phải đóng được ca đang treo.
         stale = ATT_CACHE.get(staff_id)
         # Cùng tiêu chí với _open_shift (OPEN + UNCLOSED trong 24h) — today_open
         # chỉ có OPEN nên ca đã qua đợt quét 04:00 sẽ không bao giờ tự đóng được.
         open_ids = set(ATT_STORE.staff_ids_with_open_shift())
-        if not (stale and staff_id in open_ids
+        # §P2d: đường vòng này tự so compare_digest, KHÔNG đi qua
+        # StaffCache.verify() nên thiếu luôn guard định dạng của verify() (§F1)
+        # — một staff_cache.json ghi từ TRƯỚC khi guard đó tồn tại vẫn có thể
+        # còn giữ hash("") (staff mới thêm, chưa ai gõ PIN). Nếu refresh_staff()
+        # đang lỗi giữa cửa sổ GAS 403 (không viết đè cache), PIN rỗng sẽ khớp
+        # ngay hash("") đó và xác thực trót lọt. Phải tự chặn định dạng ở đây
+        # y hệt verify() làm, TRƯỚC khi băm so sánh.
+        if not (stale and staff_id in open_ids and _looks_like_pin(pin)
                 and secrets.compare_digest(
-                    stale["pin_hash"], hash_pin(body.get("pin", ""), ATT_CACHE.salt))):
+                    stale["pin_hash"], hash_pin(pin, ATT_CACHE.salt))):
             return _att_bad_pin(staff_id)
         who = {"staff_id": staff_id, "name": stale["name"], "role": stale["role"]}
 
@@ -301,6 +310,16 @@ def attendance_punch():
         return jsonify({"ok": True, "action": "choose_unclosed",
                         "message": "Ca hôm trước chưa đóng. Bạn muốn?",
                         "row": exc.row}), 200
+    except NoShiftToClose:
+        # Client tin có một ca cần đóng (đang hiện màn hình "Ra ca hôm qua")
+        # nhưng server không còn ca nào khớp — thường vì ca đó đã được
+        # acknowledge từ trước (nay AWAIT_OWNER) hoặc đã rơi khỏi cửa sổ 24h.
+        # KHÔNG được âm thầm mở ca mới thay thế (§P1) — trả lỗi rõ ràng để
+        # client biết mà tự bấm lại đúng ý (vào ca mới nếu thực sự đang bắt
+        # đầu ca hôm nay).
+        return jsonify({"ok": False, "error":
+                        "Không tìm thấy ca cần đóng — có thể đã ghi nhận rồi. "
+                        "Nếu bạn mới bắt đầu ca hôm nay, hãy bấm lại tên."}), 409
 
     return jsonify({"ok": True, **res})
 
@@ -366,6 +385,15 @@ def attendance_create_manual():
             staff["staff_id"], staff["name"],
             body.get("clock_in_at", ""), body.get("clock_out_at", ""),
             owner_id, body.get("note", ""), nonce=body.get("nonce"))
+    except NonceConflict as exc:
+        # §P2c: nonce đã dùng nhưng lần gửi này mang giờ/ghi chú KHÁC lần lưu
+        # trước — trả thẳng row cũ với ok:True (hành vi cũ) sẽ khiến chủ
+        # tưởng giờ MỚI đã lưu trong khi ca vẫn giữ giờ CŨ. Trả về row đang
+        # lưu kèm lỗi rõ ràng để UI báo xung đột thay vì âm thầm chấp nhận.
+        return jsonify({"ok": False,
+                        "error": "Nonce này đã lưu một ca với giờ/ghi chú khác — "
+                                 "kiểm tra lại ca đã lưu trước khi gửi lại.",
+                        "row": exc.row}), 409
     except (ValueError, TypeError) as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
     return jsonify({"ok": True, "row": row})

@@ -78,8 +78,13 @@ class AttendanceSync:
             lines.append("· %s: %s (%d ca)"
                          % (a["staff_name"], _hhmm(a["minutes"]), a["shifts"]))
         for u in rep["unclosed"]:
-            lines.append("⚠️ %s: ca %s chưa đóng — cần chủ nhập giờ ra"
-                         % (u["staff_name"], u["clock_in_at"][11:16]))
+            # edit_note phân biệt UNCLOSED thô (quét 04:00, chưa ai đụng vào)
+            # với AWAIT_OWNER (nhân viên đã xác nhận ra ca) — trước đây
+            # trường này tồn tại trong DB nhưng không hiện ở đâu cả, chủ không
+            # cách nào biết dòng nào đã được acknowledge, dòng nào chưa.
+            note = (" — %s" % u["edit_note"]) if u.get("edit_note") else ""
+            lines.append("⚠️ %s: ca %s chưa đóng — cần chủ nhập giờ ra%s"
+                         % (u["staff_name"], u["clock_in_at"][11:16], note))
         return "\n".join(lines)
 
     def send_eod(self, date):

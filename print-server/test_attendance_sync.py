@@ -128,6 +128,18 @@ class TestEod(unittest.TestCase):
         store.sweep_unclosed(now=_at(2026, 8, 6, 4, 0))
         self.assertIn("chưa đóng", sync.eod_text("2026-08-05"))
 
+    def test_eod_text_surfaces_edit_note_for_acknowledged_shift(self):
+        """P1: acknowledge (AWAIT_OWNER) trước đây vô hình với chủ — edit_note
+        tồn tại trong DB nhưng không hiện ở đâu cả, chủ không cách nào phân
+        biệt dòng nào nhân viên đã confirm với dòng UNCLOSED thô chưa ai đụng
+        vào. eod_text phải in ra edit_note để chủ biết vì sao/ai đã xác nhận."""
+        store, _, _, sync = _rig()
+        store.punch("S001", "Sương", "a", now=_at(2026, 8, 5, 21, 0))
+        store.sweep_unclosed(now=_at(2026, 8, 6, 4, 0))
+        store.punch("S001", "Sương", "b", intent="close_late", now=_at(2026, 8, 6, 10, 0))
+        text = sync.eod_text("2026-08-05")
+        self.assertIn("xác nhận đã ra ca", text)
+
     def test_send_eod_goes_through_gas_relay(self):
         store, _, gas, sync = _rig()
         store.punch("S001", "Sương", "a", now=_at(2026, 8, 5, 7, 0))
