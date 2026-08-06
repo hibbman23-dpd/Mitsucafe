@@ -91,7 +91,11 @@ log = logging.getLogger("print-server")
 
 import urllib.request
 import ssl
-from gateway import Gateway
+# _ssl_ctx: _gas_post() dùng nó nhưng trước đây KHÔNG import -> NameError mỗi lần
+# gọi. Lỗi im lặng vì mọi caller đều bọc try/except: notify_admin nuốt luôn,
+# refresh_staff chỉ log WARNING rồi giữ cache cũ (cache rỗng = cả quán không
+# chấm công được, không ai biết vì sao).
+from gateway import Gateway, _ssl_ctx
 from printlib import build_label_tspl, build_order_labels_tspl, build_receipt
 
 app = Flask(__name__)
