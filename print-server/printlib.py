@@ -116,6 +116,18 @@ def _format_timestamp(ts_str: str) -> str:
         return ts_str
 
 
+def _order_pay_method(order: dict) -> str:
+    """Phương thức thanh toán của đơn, chấp nhận cả hai hình dạng payload.
+
+    Route in bill gửi phẳng `payment_method`; payload cũ kiểu GAS lồng trong
+    `payment.method`. Chỉ đọc một dạng thì bill MoMo in ra chữ "Thanh toán"
+    chung chung thay vì "MoMo".
+    """
+    return (order.get("payment_method")
+            or (order.get("payment") or {}).get("method", "")
+            or "")
+
+
 def _payment_label(method: str) -> str:
     return {
         "bank_transfer": "Chuyển khoản",
@@ -530,7 +542,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
     if show_total:
         add_hline(thick=1, gap_before=2, gap_after=2)
         total_str = f"Tổng:  {_format_amount(order.get('total', 0))}đ"
-        pmt_str   = f"TT:  {_payment_label((order.get('payment') or {}).get('method', ''))}"
+        pmt_str   = f"TT:  {_payment_label(_order_pay_method(order))}"
         add_text(total_str, f_total, "right")
         add_text(pmt_str,   f_norm,  "right")
 
@@ -733,7 +745,7 @@ def build_receipt_text(order: dict, is_cash: bool = False, show_total: bool = Fa
         parts.append(ESC + b"!\x08")
         parts.append(enc(rjust("Tong: " + _format_amount(order.get("total", 0)) + "d", W) + "\n"))
         parts.append(ESC + b"!\x00")
-        pmt = (order.get("payment") or {}).get("method", "")
+        pmt = _order_pay_method(order)
         parts.append(enc(rjust("TT: " + _payment_label(pmt), W) + "\n"))
         parts.append(enc("=" * W + "\n"))
         parts.append(ESC + b"a\x01")
