@@ -748,6 +748,10 @@ var POST_ROUTES = {
   'attendance_staff': {
     auth: AUTH.STAFF,
     handler: function(p) { return attendanceStaff(); }
+  },
+  'menu_sync': {
+    auth: AUTH.ADMIN,
+    handler: function(p) { return menuSyncFromRepo(p.payload || p); }
   }
 };
 

@@ -82,9 +82,35 @@ function validateOrderPayload(p) {
     var mods = it.modifiers || {};
     var unit = 0;
 
-    if (it.price && Number(it.price) > 0) {
-      // Nếu client đã gửi giá đơn vị (ví dụ KDS POS đã tính đúng promo/size), giữ nguyên giá client
-      unit = Number(it.price);
+    // STRICT_MENU_PRICING (CONFIG, mặc định 'off'):
+    //   off → giữ giá client như cũ, chỉ GHI LOG khi lệch giá MENU.
+    //   on  → giá MENU thắng, giá client bị bỏ qua.
+    //
+    // Comment cũ ở đầu hàm nói "KHÔNG bao giờ tin it.price từ client (DevTools
+    // sửa payload = mua giá 1đ)", nhưng nhánh đầu tiên lại tin giá client vô
+    // điều kiện — lỗ đó vẫn mở. Trang đặt món là link công khai qua QR.
+    //
+    // Không bật thẳng được: sheet MENU từng lệch số hiệu SKU so với menu web
+    // (repo DR050 = Trà Mitsu, sheet DR050 = Trà sữa truyền thống), bật lúc
+    // sheet còn lệch = tính sai giá hàng loạt ngay lập tức. Trình tự bắt buộc:
+    // chạy ops/push_menu_to_sheet.py --write TRƯỚC, đối chiếu log lệch giá,
+    // rồi mới đặt STRICT_MENU_PRICING = on.
+    var _strict = String(getConfig('STRICT_MENU_PRICING') || '').trim().toLowerCase() === 'on';
+    var _clientPrice = Number(it.price) || 0;
+
+    if (_clientPrice > 0 && !_strict) {
+      unit = _clientPrice;
+      if (menuItem) {
+        var _base = (mods.size === 'L' && menuItem.price_l)
+          ? Number(menuItem.price_l) : Number(menuItem.price_m);
+        // Chỉ soi khi giá client THẤP hơn — cao hơn thường là do topping cộng thêm.
+        if (_base > 0 && _clientPrice < _base) {
+          _logAudit('CLIENT_PRICE_BELOW_MENU',
+                    'SKU ' + it.sku + ' (' + (it.name || '') + '): client gửi ' +
+                    _clientPrice + ' < giá MENU ' + _base +
+                    '. Đang nhận giá client vì STRICT_MENU_PRICING chưa bật.');
+        }
+      }
     } else if (menuItem) {
       unit = (mods.size === 'L' && menuItem.price_l) ? Number(menuItem.price_l) : Number(menuItem.price_m);
 
@@ -104,8 +130,13 @@ function validateOrderPayload(p) {
         });
       }
     } else {
-      // Fallback: Nếu SKU không có trong MENU sheet (hoặc là SKU mới chưa sync), dùng giá client gửi
-      unit = Number(it.price) || 0;
+      // SKU không có trong MENU sheet (món mới chưa sync, hoặc payload bịa).
+      if (_strict) {
+        // Bật strict mà vẫn nhận giá client cho SKU lạ thì lỗ giá 1đ vẫn mở
+        // nguyên: kẻ tấn công chỉ cần bịa một mã không tồn tại. Từ chối đơn.
+        throw new Error('SKU không có trong MENU: ' + it.sku);
+      }
+      unit = _clientPrice;
       _logAudit('UNRESOLVED_SKU_FALLBACK', 'Món ' + it.sku + ' (' + (it.name || '') + ') không có trong MENU tab. Dùng giá fallback: ' + unit);
     }
 
