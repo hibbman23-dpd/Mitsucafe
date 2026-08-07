@@ -255,6 +255,44 @@ def _get_logo(target_w: int):
     return img
 
 
+# ── Mã QR thanh toán ─────────────────────────────────────────────────────────
+# Đọc từ BIẾN MÔI TRƯỜNG, không đọc CONFIG trên GAS: đường in phải chạy được
+# khi GAS chết (GAS ở quán có tiền sử 403 theo chu kỳ 7 ngày).
+# MOMO_STATIC_PAYLOAD = chuỗi trong mã QR trên tấm mica ở quầy. Không đưa vào
+# repo — nó chứa số tài khoản ngân hàng của quán.
+MOMO_STATIC_PAYLOAD = os.getenv("MOMO_STATIC_PAYLOAD", "")
+MOMO_QR_DOTS        = int(os.getenv("MOMO_QR_DOTS", "270"))
+
+
+def build_momo_qr(amount, order_ref=""):
+    """Ảnh QR động để dán lên bill. None nếu thiếu cấu hình hoặc sinh lỗi.
+
+    KHÔNG BAO GIỜ ném lỗi: mất mã QR là phiền, mất tờ bill là mất khách.
+    """
+    if not MOMO_STATIC_PAYLOAD:
+        return None
+    try:
+        import qrcode
+        import emvqr
+        from PIL import Image
+
+        payload = emvqr.to_dynamic(MOMO_STATIC_PAYLOAD, amount, order_ref)
+        qr = qrcode.QRCode(
+            error_correction=qrcode.constants.ERROR_CORRECT_M,  # chịu giấy nhiệt mờ
+            box_size=1, border=2,
+        )
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white").convert("L")
+        # Phóng bằng NEAREST: mọi phép nội suy khác làm nhoè ô vuông, in ra
+        # ở 203dpi là điện thoại không bắt được mã.
+        side = max(120, min(int(MOMO_QR_DOTS), _CW))
+        scale = max(1, side // img.width)
+        return img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+    except Exception:
+        return None
+
+
 def _bee_height(s: float = 1.1) -> int:
     def S(v):
         return int(round(v * s))
