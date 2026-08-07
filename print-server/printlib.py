@@ -393,6 +393,23 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
         cmds.append(("logo", x, y, logo))
         y += logo.height
 
+    def add_momo_qr(amount, ref):
+        """Chèn QR MoMo. Trả True nếu có in, False nếu bỏ qua.
+
+        Bọc try/except toàn bộ: lỗi ở đây KHÔNG được làm hỏng tờ bill.
+        """
+        nonlocal y
+        try:
+            qimg = build_momo_qr(amount, ref)
+        except Exception:
+            qimg = None
+        if qimg is None:
+            return False
+        qx = max(0, (W - qimg.width) // 2)
+        cmds.append(("logo", qx, y, qimg))   # dùng lại lệnh dán ảnh sẵn có
+        y += qimg.height
+        return True
+
     meta          = order.get("metadata") or {}
     ts            = _format_timestamp(str(order.get("timestamp", "")))
     short_code    = str(meta.get("short_code") or order.get("short_code") or "").replace("#", "").strip()
@@ -516,6 +533,23 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
         pmt_str   = f"TT:  {_payment_label((order.get('payment') or {}).get('method', ''))}"
         add_text(total_str, f_total, "right")
         add_text(pmt_str,   f_norm,  "right")
+
+        # QR MoMo: chỉ HÓA ĐƠN (show_total), chỉ đơn CHƯA trả, chỉ phương thức momo.
+        # - phiếu pha chế: không liên quan thanh toán
+        # - đơn đã trả:    in QR lên bill đã thu tiền = mời khách trả lần hai
+        _paid = bool(order.get("paid")) or str(order.get("payment_status", "")).upper() == "PAID"
+        _method = str(order.get("payment_method") or "").lower()
+        if not _paid and _method == "momo":
+            _amt = order.get("total")
+            _ref = str((order.get("metadata") or {}).get("short_code")
+                       or order.get("order_id") or "")
+            add_gap(4)
+            if add_momo_qr(_amt, _ref):
+                # In số tiền bằng chữ cạnh mã: giấy nhiệt mờ hoặc đầu in mòn thì
+                # mã khó quét, có số bằng chữ là nhân viên đọc và xử lý tay được.
+                add_text("Quét MoMo trả " + _format_amount(_amt), f_norm, "center")
+                add_gap(3)
+
         add_hline(thick=2, gap_before=3, gap_after=3)
         add_text("Cảm ơn! Hẹn gặp lại nhé!", f_norm, "center")
         add_text("mitsu.cafe",               f_addr,  "center")
