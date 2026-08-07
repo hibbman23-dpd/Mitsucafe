@@ -538,26 +538,206 @@ git commit -m "feat(print): in QR MoMo lên hóa đơn chưa trả, chặn phi�
 
 ---
 
-## Task 3 — Nút chọn MoMo trên KDS
+## Task 3 — Đưa phương thức thanh toán tới chỗ in
 
 **Files:**
-- Modify: `web/kds.html`
+- Modify: `print-server/print_server.py` (2 route in bill), `web/kds.html`
+- Test: `print-server/test_routes_billqr.py`
 
-Hiện KDS chỉ có hai lựa chọn (`kds.html:2592-2593`): **Tiền mặt** và **VietQR**. Không có đường nào đặt `payment_method = 'momo'`, nên toàn bộ Task 2 sẽ không bao giờ chạy nếu thiếu bước này.
+### Vì sao cần task này — Task 2 hiện KHÔNG chạy trên máy thật
 
-- [ ] **Bước 1: Thêm nút**
+Task 2 chỉ in QR khi `payment_method == "momo"` và đơn chưa trả. Nhưng đã kiểm:
 
-Cạnh hai nút sẵn có, theo đúng khuôn `mode-btn`:
+1. Hai route in bill (`print_server.py`, `/bill/<order_id>/print` và
+   `/bill/group/<group_id>/print`) dựng `recp` **không có** `payment_method`, cũng không có
+   `paid`. Cổng chặn không bao giờ mở → QR không bao giờ in.
+2. Bảng `orders` ở máy quán **không có cột `payment_method`** (kiểm bằng
+   `PRAGMA table_info(orders)`). Nên không tra ngược từ kho ra được.
+3. KDS chỉ có hai nút thanh toán (`kds.html`, khoảng dòng 2592): Tiền mặt và VietQR. Không có
+   đường nào đặt `momo`.
+
+Phương thức thanh toán là **quyết định của thu ngân lúc tính tiền**, không phải thuộc tính lưu
+sẵn của đơn. Nên nó phải đi kèm lệnh in, không tra ngược.
+
+- [ ] **Bước 1: Viết test trượt**
+
+Tạo `print-server/test_routes_billqr.py`:
+
+```python
+import json, os, sqlite3, tempfile, threading, unittest
+import print_server
+from order_store import OrderStore
+
+
+class BillQrRouteCase(unittest.TestCase):
+    def setUp(self):
+        print_server.app.config["TESTING"] = True
+        self.c = print_server.app.test_client()
+        self._db = tempfile.mktemp(suffix=".db")
+        conn = sqlite3.connect(self._db, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        print_server.STORE = OrderStore(conn, threading.Lock())
+        self.sent = []
+        # Chặn ở tầng dựng ảnh: không đụng máy in, chỉ xem recp mang gì.
+        self._orig = print_server.build_receipt
+        def spy(order, **kw):
+            self.sent.append((order, kw))
+            return b"FAKE"
+        print_server.build_receipt = spy
+        print_server._print_receipt_bytes = lambda data, open_drawer=False: len(data)
+
+    def tearDown(self):
+        print_server.build_receipt = self._orig
+        if os.path.exists(self._db):
+            os.remove(self._db)
+
+    def _order(self, oid="ORD-T-1", **over):
+        o = {"order_id": oid, "short_code": "QX1", "delivery_type": "dine_in",
+             "table_id": "B1", "source": "staff",
+             "items": [{"sku": "DR001", "name": "CF MITSU", "qty": 1, "price": 35000}],
+             "customer_note": "", "bill_meta": {}}
+        o.update(over)
+        print_server.STORE.upsert_create(o)
+        return o
+
+
+class TestBillPrintCarriesPayment(BillQrRouteCase):
+    def test_method_from_request_body_reaches_receipt(self):
+        self._order()
+        self.c.post("/bill/ORD-T-1/print", json={"payment_method": "momo"})
+        recp = self.sent[0][0]
+        self.assertEqual(recp["payment_method"], "momo")
+
+    def test_defaults_to_cash_when_body_omits_method(self):
+        """Không gửi gì thì KHÔNG được đoán là momo — mặc định tiền mặt, không in QR."""
+        self._order()
+        self.c.post("/bill/ORD-T-1/print", json={})
+        self.assertEqual(self.sent[0][0].get("payment_method"), "cash")
+
+    def test_paid_state_passed_through(self):
+        self._order()
+        print_server.STORE.apply_paid("ORD-T-1", True)
+        self.c.post("/bill/ORD-T-1/print", json={"payment_method": "momo"})
+        self.assertTrue(self.sent[0][0]["paid"])
+
+    def test_unpaid_order_marked_unpaid(self):
+        self._order()
+        self.c.post("/bill/ORD-T-1/print", json={"payment_method": "momo"})
+        self.assertFalse(self.sent[0][0]["paid"])
+
+    def test_rejects_unknown_method(self):
+        """Chuỗi lạ từ client không được lọt vào bill."""
+        self._order()
+        r = self.c.post("/bill/ORD-T-1/print", json={"payment_method": "<script>"})
+        self.assertEqual(r.status_code, 400)
+
+
+class TestGroupBillCarriesPayment(BillQrRouteCase):
+    def _group(self):
+        self._order("ORD-T-1")
+        self._order("ORD-T-2")
+        gid = "BG-TEST-1"
+        print_server.STORE.set_bill_group(["ORD-T-1", "ORD-T-2"], gid)
+        return gid
+
+    def test_group_method_and_total(self):
+        gid = self._group()
+        self.c.post(f"/bill/group/{gid}/print", json={"payment_method": "momo"})
+        recp = self.sent[0][0]
+        self.assertEqual(recp["payment_method"], "momo")
+        self.assertEqual(recp["total"], 70000)      # tổng CẢ BÀN, không phải 1 đơn
+
+    def test_group_paid_only_when_every_order_paid(self):
+        """Một đơn trong bàn đã trả, đơn kia chưa -> bàn CHƯA trả xong, vẫn cần QR."""
+        gid = self._group()
+        print_server.STORE.apply_paid("ORD-T-1", True)
+        self.c.post(f"/bill/group/{gid}/print", json={"payment_method": "momo"})
+        self.assertFalse(self.sent[0][0]["paid"])
+
+    def test_group_paid_when_all_paid(self):
+        gid = self._group()
+        for oid in ("ORD-T-1", "ORD-T-2"):
+            print_server.STORE.apply_paid(oid, True)
+        self.c.post(f"/bill/group/{gid}/print", json={"payment_method": "momo"})
+        self.assertTrue(self.sent[0][0]["paid"])
+
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+Chữ ký hai hàm dùng ở trên đã đối chiếu với `order_store.py`:
+`apply_paid(order_id, paid=True)` và `set_bill_group(order_ids, group_id)` — `set_bill_group`
+nhận **hai** tham số, mã nhóm do người gọi đặt chứ hàm không tự sinh.
+
+- [ ] **Bước 2: Chạy cho chắc là trượt**
+
+```
+PRINT_ENGINE=legacy python3 -m unittest test_routes_billqr -v
+```
+Kỳ vọng: FAIL — `recp` chưa có `payment_method`.
+
+(Dùng `legacy` chứ không `noop` vì `noop` thoát sớm trước khi dựng `recp`; `_print_receipt_bytes`
+đã bị thay bằng hàm giả trong `setUp` nên không có gì chạm máy in.)
+
+- [ ] **Bước 3: Sửa hai route**
+
+Thêm hằng số gần đầu khối route:
+
+```python
+# Chỉ nhận đúng các phương thức đã biết. Chuỗi lạ từ client không được lọt vào
+# bill — recp đi thẳng vào hàm dựng ảnh và vào spool.
+_BILL_PAY_METHODS = ("cash", "momo", "vietqr", "bank_transfer")
+```
+
+Trong `bill_print`, sau khi lấy `o` và trước khi dựng `recp`:
+
+```python
+    _m = str((request.get_json(silent=True) or {}).get("payment_method") or "cash").lower()
+    if _m not in _BILL_PAY_METHODS:
+        return jsonify({"ok": False, "error": f"payment_method lạ: {_m}"}), 400
+```
+
+rồi thêm hai khoá vào `recp`:
+
+```python
+            "payment_method": _m, "paid": bool(o.get("paid")),
+```
+
+Trong `bill_group_print`, tương tự, nhưng `paid` phải tính trên **toàn bộ** đơn của bàn:
+
+```python
+    # Bàn coi như đã trả xong CHỈ KHI mọi đơn trong bàn đều đã trả. Còn một đơn
+    # chưa trả thì bill vẫn cần QR, nếu không khách không có gì để quét.
+    _orders = [STORE.get(oid) for oid in bill["order_ids"]]
+    _all_paid = bool(_orders) and all(bool(x and x.get("paid")) for x in _orders)
+```
+
+và thêm vào `recp`: `"payment_method": _m, "paid": _all_paid,`
+
+- [ ] **Bước 4: Chạy cho chắc là xanh**
+
+```
+PRINT_ENGINE=legacy python3 -m unittest test_routes_billqr -v
+```
+Kỳ vọng: `Ran 8 tests` … `OK`
+
+- [ ] **Bước 5: Thêm nút MoMo trên KDS và gửi phương thức khi in**
+
+Trong `web/kds.html`, cạnh hai nút sẵn có (khoảng dòng 2592):
 
 ```html
 <div class="mode-btn ${checkoutState.paymentMethod === 'momo' ? 'active' : ''}" onclick="checkoutSetPayMethod('momo')">💗 MoMo</div>
 ```
 
-- [ ] **Bước 2: Kiểm `checkoutSetPayMethod` nhận giá trị mới**
+Rồi sửa hai lời gọi in để **gửi kèm phương thức** — đây là mấu chốt, thiếu bước này thì mọi
+thứ trên vô nghĩa. Tìm `printGroup(` và `printBill(` trong `web/order-api.js` và ở chỗ gọi
+trong `kds.html`, cho chúng nhận và gửi `{payment_method}` theo `checkoutState.paymentMethod`.
 
-Đọc hàm đó. Nếu nó so sánh cứng với `'vietqr'`/`'cash'` ở đâu thì sửa cho nhận `'momo'`. Đặc biệt kiểm nhánh trong `finishOrder` (`kds.html:2337`) — `momo` **không** phải tiền mặt nên không được rơi vào nhánh mở két.
+Kiểm thêm: `finishOrder` (`kds.html`, khoảng dòng 2337) chỉ mở két và thu tiền mặt khi
+`method === 'cash'`. `momo` **không** được rơi vào nhánh đó.
 
-- [ ] **Bước 3: Kiểm bằng trình duyệt, cổng 5002, KHÔNG phải 5001**
+- [ ] **Bước 6: Kiểm bằng trình duyệt — cổng 5002, KHÔNG phải 5001**
 
 ```bash
 cd print-server && PRINT_ENGINE=noop GATEWAY_SYNC=0 SERVER_PORT=5002 \
@@ -565,13 +745,14 @@ cd print-server && PRINT_ENGINE=noop GATEWAY_SYNC=0 SERVER_PORT=5002 \
   ATTENDANCE_STAFF_CACHE=/tmp/momo_staff.json python3 print_server.py
 ```
 
-Mở `http://localhost:5002/kds.html`, mở màn thanh toán, kiểm: chọn MoMo thì nút sáng, `checkoutState.paymentMethod === 'momo'`, và bấm thu tiền **không** mở két tiền.
+Mở `http://localhost:5002/kds.html`. Kiểm: chọn MoMo thì nút sáng; bấm in bill thì request
+`/bill/.../print` mang `payment_method: "momo"` (xem tab Network); bấm thu tiền **không** mở két.
 
-- [ ] **Bước 4: Commit**
+- [ ] **Bước 7: Commit**
 
 ```bash
-git add web/kds.html
-git commit -m "feat(kds): thêm phương thức thanh toán MoMo"
+git add print-server/print_server.py print-server/test_routes_billqr.py web/kds.html
+git commit -m "feat(bill): truyền phương thức thanh toán và trạng thái đã trả vào lệnh in bill"
 ```
 
 ---
