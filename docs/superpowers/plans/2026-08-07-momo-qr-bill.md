@@ -98,19 +98,22 @@ STATIC = STATIC + emvqr.crc16(STATIC)
 
 class TestCrc(unittest.TestCase):
     def test_crc_is_ccitt_false_4_hex_upper(self):
-        c = emvqr.crc16("00020101021126220007vn.momo0207354941638630010A0000007270133"
-                        "00069710250119PMC26151188000000340208QRIBFTTA53037045802VN6304")
+        c = emvqr.crc16(STATIC[:-4])
         self.assertEqual(len(c), 4)
         self.assertEqual(c, c.upper())
+        self.assertEqual(c, STATIC[-4:])
 
     def test_known_good_vector(self):
-        """Chốt thuật toán CRC. Vector này lấy từ mã thật trên tấm mica của quán,
-        đã đối chiếu: mã kiểm tra trong chuỗi gốc là C4F6 và hàm phải tính ra đúng
-        vậy. CRC sai thì QR sinh ra nhìn y như thật nhưng app từ chối — mắt thường
-        không phát hiện được, nên phải có test này."""
-        body = ("00020101021126220007vn.momo0207354941638630010A000000727013300069710"
-                "250119PMC26151188000000340208QRIBFTTA53037045802VN6304")
-        self.assertEqual(emvqr.crc16(body), "C4F6")
+        """Chốt thuật toán là CRC-16/CCITT-FALSE (init FFFF, poly 1021, không đảo).
+
+        Vector chuẩn của chuẩn này: crc16("123456789") == "29B1". Dùng vector công
+        khai thay vì mã thật của quán — mã thật chứa số tài khoản, không đưa vào repo.
+
+        Thuật toán đã được đối chiếu MỘT LẦN với mã trên tấm mica ngoài repo
+        (2026-08-07): tính lại mã kiểm tra của chuỗi gốc ra đúng giá trị in trong
+        chuỗi đó. CRC sai thì QR sinh ra nhìn y như thật nhưng app từ chối, mắt
+        thường không phát hiện được — nên phải có test chốt."""
+        self.assertEqual(emvqr.crc16("123456789"), "29B1")
 
 
 class TestParse(unittest.TestCase):
