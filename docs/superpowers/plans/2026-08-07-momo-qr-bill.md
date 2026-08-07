@@ -19,124 +19,169 @@
 
 ---
 
-## Task 0 — Kiểm định dạng URL MoMo TRƯỚC KHI VIẾT CODE
+## Task 0 — ĐÃ XONG (2026-08-07): chốt cách sinh mã
 
-**Đây là việc của chủ quán, không phải của người code. Không bắt đầu Task 1 khi chưa xong.**
+Không dùng `nhantien.momo.vn` như bản Antigravity đề xuất. Mã trên tấm mica của quán là
+**mã EMVCo/VietQR chuẩn**, và dựng mã động từ chính nó được — không cần đăng ký gì với MoMo,
+không cần API, không cần đổi tài khoản.
 
-Toàn bộ giá trị của tính năng nằm ở chỗ MoMo có **tự điền số tiền** hay không. Chưa ai kiểm. Sai giả định này thì mọi task sau đều vứt.
+### Đọc được gì từ mã tĩnh của quán
 
-- [ ] **Bước 1: Tự tay dựng URL thử**
+| Trường | Giá trị | Nghĩa |
+|---|---|---|
+| `00` | `01` | phiên bản EMVCo |
+| `01` | `11` | **mã tĩnh** — không có ô số tiền, khách phải tự gõ |
+| `26` | `vn.momo` + `3549416` | ví MoMo (mã AIO trên tấm mica) |
+| `38` | `A000000727` … `QRIBFTTA` | chuyển khoản ngân hàng qua napas |
+| `53` | `704` | VND |
+| `58` | `VN` | Việt Nam |
+| `63` | `C4F6` | mã kiểm tra CRC |
 
-Thay `<ID>` bằng mã MoMo hoặc số điện thoại ví của quán:
+Mã mang **hai** đường nhận tiền cùng lúc: ví MoMo **và** chuyển khoản ngân hàng. Nên khách trả
+bằng app ngân hàng nào cũng được, không bắt buộc phải có ví MoMo — rộng hơn hẳn hướng ban đầu.
 
-```
-https://nhantien.momo.vn/<ID>/35000
-```
+### Cách biến mã tĩnh thành mã động
 
-- [ ] **Bước 2: Mở trên điện thoại và quét**
+Ba bước, không hơn:
 
-Mở link trên một máy, dùng máy khác quét mã QR mà trang đó hiện ra (hoặc tạo QR từ URL bằng bất kỳ trang tạo QR nào rồi quét).
+1. Đổi trường `01` từ `11` (tĩnh) sang `12` (động, dùng một lần).
+2. Chèn trường `54` = số tiền, và `62`→`08` = nội dung chuyển khoản (mã đơn).
+3. **Tính lại CRC** ở trường `63`.
 
-- [ ] **Bước 3: Ghi lại kết quả thật**
+### Đã kiểm thật
 
-Trả lời đúng ba câu, ghi vào `docs/system/momo-qr.md`:
+- Thuật toán CRC được kiểm bằng cách tính lại mã kiểm tra của **chính mã tĩnh của quán** — ra
+  đúng `C4F6`. Đây là phép thử bắt buộc: CRC sai thì mã sinh ra trông vẫn giống thật nhưng app
+  từ chối, mà nhìn mắt thường không phát hiện được.
+- Sinh mã động 1.000đ và 35.000đ (kèm nội dung `QX1`), chủ quán quét thật bằng điện thoại:
+  **số tiền tự điền đúng**. Xác nhận 2026-08-07.
 
-1. App MoMo có tự mở màn hình chuyển tiền không?
-2. Số tiền có tự điền **35.000đ** không, hay khách vẫn phải gõ?
-3. Có chỗ nào mang được nội dung (mã đơn) không? Nếu có thì tham số tên gì?
+### Cấu hình cần đặt ở máy quán
 
-**Nếu số tiền KHÔNG tự điền:** dừng, báo lại. Khi đó QR động không hơn gì tấm mica đang dán sẵn, và plan này phải viết lại theo hướng khác — đừng xây một nửa tính năng hỏng.
-
-**Nếu mã `3549416` không dùng được trong đường dẫn:** thử lại bằng **số điện thoại ví**. Ghi rõ cái nào chạy.
+Chuỗi mã tĩnh **không đưa vào repo** — nó chứa số tài khoản ngân hàng của quán. Đặt trong biến
+môi trường `MOMO_STATIC_PAYLOAD` ở plist (Task 4). Lấy lại bất cứ lúc nào bằng cách quét tấm
+mica ở quầy.
 
 ---
 
-## Task 1 — Sinh mã QR (thuần logic, chưa đụng máy in)
+## Task 1 — Sinh mã QR động (thuần logic, chưa đụng máy in)
 
 **Files:**
-- Modify: `print-server/printlib.py`
-- Modify: `print-server/requirements.txt`
-- Test: `print-server/test_printlib_qr.py`
+- Create: `print-server/emvqr.py`
+- Modify: `print-server/printlib.py`, `print-server/requirements.txt`
+- Test: `print-server/test_emvqr.py`
 
 **Interfaces:**
-- Produces: `build_momo_qr(amount, order_ref) -> PIL.Image | None`, `momo_qr_url(amount, order_ref) -> str | None`
+- Produces: `emvqr.crc16(s) -> str` · `emvqr.parse(s) -> list[(tag, value)]` ·
+  `emvqr.to_dynamic(static_payload, amount, ref=None) -> str` ·
+  `printlib.build_momo_qr(amount, ref) -> PIL.Image | None`
+
+Tách `emvqr.py` thành file riêng thay vì nhét vào `printlib.py`: đây là logic chuỗi thuần,
+không dính gì tới in ấn, và test được mà không cần PIL hay máy in.
 
 - [ ] **Bước 1: Viết test trượt**
 
-Tạo `print-server/test_printlib_qr.py`:
+Tạo `print-server/test_emvqr.py`:
 
 ```python
-import os, unittest
-import printlib
+import unittest
+import emvqr
+
+# Mã tĩnh dựng theo đúng cấu trúc mã của quán nhưng SỐ TÀI KHOẢN LÀ GIẢ.
+# Không đưa mã thật vào repo — nó chứa số tài khoản ngân hàng của quán.
+STATIC = ("000201010211"
+          "26220007vn.momo02079999999"
+          "38630010A000000727013300069710250119PMC00000000000000000208QRIBFTTA"
+          "53037045802VN6304")
+STATIC = STATIC + emvqr.crc16(STATIC)
 
 
-class TestMomoQrUrl(unittest.TestCase):
-    def setUp(self):
-        self._saved = {k: os.environ.get(k) for k in
-                       ("MOMO_QR_TEMPLATE", "MOMO_RECEIVER_ID")}
-        os.environ["MOMO_QR_TEMPLATE"] = "https://nhantien.momo.vn/{id}/{amount}"
-        os.environ["MOMO_RECEIVER_ID"] = "0900000000"
+class TestCrc(unittest.TestCase):
+    def test_crc_is_ccitt_false_4_hex_upper(self):
+        c = emvqr.crc16("00020101021126220007vn.momo0207354941638630010A0000007270133"
+                        "00069710250119PMC26151188000000340208QRIBFTTA53037045802VN6304")
+        self.assertEqual(len(c), 4)
+        self.assertEqual(c, c.upper())
 
-    def tearDown(self):
-        for k, v in self._saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
-
-    def test_url_has_amount_and_id(self):
-        u = printlib.momo_qr_url(35000, "QX1")
-        self.assertEqual(u, "https://nhantien.momo.vn/0900000000/35000")
-
-    def test_amount_is_integer_dong_no_decimals(self):
-        """35000.0 phải ra '35000'. '35000.0' trong URL là MoMo từ chối."""
-        self.assertIn("/35000", printlib.momo_qr_url(35000.0, "QX1"))
-        self.assertNotIn(".", printlib.momo_qr_url(35000.0, "QX1").rsplit("/", 1)[-1])
-
-    def test_no_config_returns_none(self):
-        os.environ.pop("MOMO_RECEIVER_ID", None)
-        self.assertIsNone(printlib.momo_qr_url(35000, "QX1"))
-
-    def test_zero_or_negative_amount_returns_none(self):
-        """Không bao giờ in QR số tiền 0 — khách quét vào màn hình vô nghĩa."""
-        self.assertIsNone(printlib.momo_qr_url(0, "QX1"))
-        self.assertIsNone(printlib.momo_qr_url(-5000, "QX1"))
-
-    def test_template_supports_ref_placeholder(self):
-        os.environ["MOMO_QR_TEMPLATE"] = "https://x.vn/{id}/{amount}?c={ref}"
-        self.assertEqual(printlib.momo_qr_url(35000, "QX1"),
-                         "https://x.vn/0900000000/35000?c=QX1")
-
-    def test_ref_is_url_encoded(self):
-        os.environ["MOMO_QR_TEMPLATE"] = "https://x.vn/{id}/{amount}?c={ref}"
-        self.assertIn("c=BG%20A%2F1", printlib.momo_qr_url(35000, "BG A/1"))
+    def test_known_good_vector(self):
+        """Chốt thuật toán CRC. Vector này lấy từ mã thật trên tấm mica của quán,
+        đã đối chiếu: mã kiểm tra trong chuỗi gốc là C4F6 và hàm phải tính ra đúng
+        vậy. CRC sai thì QR sinh ra nhìn y như thật nhưng app từ chối — mắt thường
+        không phát hiện được, nên phải có test này."""
+        body = ("00020101021126220007vn.momo0207354941638630010A000000727013300069710"
+                "250119PMC26151188000000340208QRIBFTTA53037045802VN6304")
+        self.assertEqual(emvqr.crc16(body), "C4F6")
 
 
-class TestMomoQrImage(unittest.TestCase):
-    def setUp(self):
-        os.environ["MOMO_QR_TEMPLATE"] = "https://nhantien.momo.vn/{id}/{amount}"
-        os.environ["MOMO_RECEIVER_ID"] = "0900000000"
+class TestParse(unittest.TestCase):
+    def test_reads_top_level_fields(self):
+        d = dict(emvqr.parse(STATIC))
+        self.assertEqual(d["00"], "01")
+        self.assertEqual(d["01"], "11")
+        self.assertEqual(d["53"], "704")
+        self.assertEqual(d["58"], "VN")
 
-    def test_returns_image_sized_for_58mm_paper(self):
-        img = printlib.build_momo_qr(35000, "QX1")
-        self.assertIsNotNone(img)
-        # Giấy 58mm = 384 dot. QR phải lọt trong vùng in và vuông.
-        self.assertEqual(img.width, img.height)
-        self.assertLessEqual(img.width, printlib._CW)
-        self.assertGreaterEqual(img.width, 180)   # nhỏ hơn nữa là điện thoại khó bắt
+    def test_roundtrip_unchanged(self):
+        rebuilt = "".join(f"{t}{len(v):02d}{v}" for t, v in emvqr.parse(STATIC))
+        self.assertEqual(rebuilt, STATIC)
 
-    def test_image_is_1bit_or_grayscale_for_thermal(self):
-        img = printlib.build_momo_qr(35000, "QX1")
-        self.assertIn(img.mode, ("1", "L"))
 
-    def test_no_config_returns_none_not_raise(self):
-        os.environ.pop("MOMO_RECEIVER_ID", None)
-        self.assertIsNone(printlib.build_momo_qr(35000, "QX1"))
+class TestToDynamic(unittest.TestCase):
+    def test_marks_payload_dynamic(self):
+        d = dict(emvqr.parse(emvqr.to_dynamic(STATIC, 35000)))
+        self.assertEqual(d["01"], "12")     # 12 = dùng một lần
 
-    def test_bad_input_returns_none_not_raise(self):
-        """Bill phải in được kể cả khi QR hỏng — không bao giờ ném lỗi lên trên."""
-        self.assertIsNone(printlib.build_momo_qr(None, "QX1"))
-        self.assertIsNone(printlib.build_momo_qr("abc", "QX1"))
+    def test_inserts_amount(self):
+        d = dict(emvqr.parse(emvqr.to_dynamic(STATIC, 35000)))
+        self.assertEqual(d["54"], "35000")
+
+    def test_amount_has_no_decimals(self):
+        """'35000.0' là app từ chối."""
+        d = dict(emvqr.parse(emvqr.to_dynamic(STATIC, 35000.0)))
+        self.assertEqual(d["54"], "35000")
+
+    def test_keeps_both_payment_rails(self):
+        """Mã của quán mang CẢ ví MoMo (26) LẪN chuyển khoản ngân hàng (38).
+        Mất một cái là khách dùng app kia không trả được."""
+        d = dict(emvqr.parse(emvqr.to_dynamic(STATIC, 35000)))
+        self.assertIn("vn.momo", d["26"])
+        self.assertIn("QRIBFTTA", d["38"])
+
+    def test_ref_goes_into_62_08(self):
+        d = dict(emvqr.parse(emvqr.to_dynamic(STATIC, 35000, "QX1")))
+        self.assertEqual(dict(emvqr.parse(d["62"]))["08"], "QX1")
+
+    def test_no_62_when_no_ref(self):
+        self.assertNotIn("62", dict(emvqr.parse(emvqr.to_dynamic(STATIC, 35000))))
+
+    def test_crc_recomputed_and_valid(self):
+        out = emvqr.to_dynamic(STATIC, 35000, "QX1")
+        self.assertEqual(emvqr.crc16(out[:-4]), out[-4:])
+        self.assertNotEqual(out[-4:], STATIC[-4:])   # phải khác CRC mã tĩnh
+
+    def test_ref_too_long_is_trimmed(self):
+        d = dict(emvqr.parse(emvqr.to_dynamic(STATIC, 35000, "X" * 60)))
+        self.assertLessEqual(len(dict(emvqr.parse(d["62"]))["08"]), 25)
+
+    def test_ref_strips_chars_outside_ascii(self):
+        """Nội dung chuyển khoản chỉ nên là ASCII — dấu tiếng Việt làm lệch
+        độ dài trường và app đọc sai."""
+        d = dict(emvqr.parse(emvqr.to_dynamic(STATIC, 35000, "Bàn 4")))
+        v = dict(emvqr.parse(d["62"]))["08"]
+        self.assertTrue(all(ord(c) < 128 for c in v))
+
+    def test_zero_and_negative_rejected(self):
+        for bad in (0, -1000):
+            with self.assertRaises(ValueError):
+                emvqr.to_dynamic(STATIC, bad)
+
+    def test_non_numeric_rejected(self):
+        with self.assertRaises(ValueError):
+            emvqr.to_dynamic(STATIC, "abc")
+
+    def test_garbage_static_rejected(self):
+        with self.assertRaises(ValueError):
+            emvqr.to_dynamic("khong-phai-emv", 35000)
 
 
 if __name__ == "__main__":
@@ -146,97 +191,167 @@ if __name__ == "__main__":
 - [ ] **Bước 2: Chạy cho chắc là trượt**
 
 ```
-PRINT_ENGINE=noop python3 -m unittest test_printlib_qr -v
+python3 -m unittest test_emvqr -v
 ```
-Kỳ vọng: FAIL — `module 'printlib' has no attribute 'momo_qr_url'`
+Kỳ vọng: FAIL — `No module named 'emvqr'`
 
-- [ ] **Bước 3: Viết implementation**
-
-Thêm vào `print-server/printlib.py`, đặt gần `_get_logo` (cùng nhóm hàm dựng ảnh):
+- [ ] **Bước 3: Viết `print-server/emvqr.py`**
 
 ```python
-# ── Mã QR MoMo ────────────────────────────────────────────────────────────────
-# Cấu hình đọc từ BIẾN MÔI TRƯỜNG, không đọc CONFIG trên GAS: đường in phải
-# chạy được khi GAS chết (GAS ở quán có tiền sử 403 theo chu kỳ 7 ngày).
-#
-# MOMO_QR_TEMPLATE để dạng khuôn thay vì hardcode URL, vì định dạng link nhận
-# tiền của MoMo chưa được kiểm chứng chắc chắn (xem Task 0). Đổi khuôn là đổi
-# biến môi trường, không phải sửa code rồi deploy lại.
-MOMO_QR_TEMPLATE = os.getenv("MOMO_QR_TEMPLATE", "https://nhantien.momo.vn/{id}/{amount}")
-MOMO_RECEIVER_ID = os.getenv("MOMO_RECEIVER_ID", "")
-MOMO_QR_DOTS     = int(os.getenv("MOMO_QR_DOTS", "240"))   # cạnh QR, tính bằng dot
+"""emvqr.py — biến mã VietQR/EMVCo tĩnh thành mã động có sẵn số tiền.
+
+Mã trên tấm mica của quán là mã TĨNH (trường 01 = 11): không có ô số tiền nên
+khách phải tự gõ. Chuẩn EMVCo có sẵn ô đó, nên chỉ cần chèn thêm và tính lại
+mã kiểm tra là ra mã động — không cần API, không cần đăng ký gì với MoMo.
+
+Mã của quán mang HAI đường nhận tiền cùng lúc: ví MoMo (trường 26) và chuyển
+khoản ngân hàng qua napas (trường 38). Giữ nguyên cả hai thì khách trả bằng
+app ngân hàng nào cũng được.
+"""
+
+MAX_REF_LEN = 25
 
 
-def momo_qr_url(amount, order_ref=""):
-    """URL nhận tiền MoMo đã điền sẵn số tiền. None nếu không đủ điều kiện in."""
-    import urllib.parse
-    if not MOMO_RECEIVER_ID:
-        return None
+def crc16(s: str) -> str:
+    """CRC-16/CCITT-FALSE, 4 ký tự hex hoa — đúng chuẩn EMVCo dùng ở trường 63.
+
+    Đã đối chiếu với mã thật trên tấm mica của quán (ra đúng C4F6). Sai hàm này
+    thì mã sinh ra nhìn y như thật nhưng app từ chối, mắt thường không thấy.
+    """
+    crc = 0xFFFF
+    for ch in s.encode("utf-8"):
+        crc ^= ch << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
+    return f"{crc:04X}"
+
+
+def parse(s: str):
+    """Tách chuỗi TLV thành [(tag, value), ...]. Không đệ quy — trường lồng thì
+    gọi parse() lần nữa trên value."""
+    out, i = [], 0
+    while i + 4 <= len(s):
+        tag = s[i:i + 2]
+        try:
+            ln = int(s[i + 2:i + 4])
+        except ValueError:
+            raise ValueError(f"độ dài không phải số ở vị trí {i + 2}")
+        val = s[i + 4:i + 4 + ln]
+        if len(val) < ln:
+            raise ValueError(f"trường {tag} thiếu dữ liệu")
+        out.append((tag, val))
+        i += 4 + ln
+    return out
+
+
+def _tlv(tag: str, val: str) -> str:
+    return f"{tag}{len(val):02d}{val}"
+
+
+def _clean_ref(ref) -> str:
+    """Nội dung chuyển khoản: chỉ ASCII, bỏ dấu tiếng Việt, cắt còn MAX_REF_LEN.
+
+    Dấu tiếng Việt là ký tự nhiều byte — lọt vào đây làm lệch độ dài trường và
+    app đọc sai cả phần sau."""
+    s = "".join(c for c in str(ref or "") if 32 <= ord(c) < 127)
+    return s.strip()[:MAX_REF_LEN]
+
+
+def to_dynamic(static_payload: str, amount, ref=None) -> str:
+    """Mã tĩnh -> mã động có số tiền. Ném ValueError nếu đầu vào không dùng được."""
+    try:
+        fields = dict(parse(static_payload))
+    except ValueError as exc:
+        raise ValueError(f"mã tĩnh không đọc được: {exc}")
+    if "00" not in fields or "53" not in fields:
+        raise ValueError("mã tĩnh thiếu trường bắt buộc (00/53) — không phải mã EMVCo")
+
     try:
         amt = int(round(float(amount)))
     except (TypeError, ValueError):
-        return None
+        raise ValueError(f"số tiền không hợp lệ: {amount!r}")
     if amt <= 0:
-        return None          # QR 0đ chỉ làm khách bối rối
-    return (MOMO_QR_TEMPLATE
-            .replace("{id}", str(MOMO_RECEIVER_ID))
-            .replace("{amount}", str(amt))
-            .replace("{ref}", urllib.parse.quote(str(order_ref or ""), safe="")))
+        raise ValueError(f"số tiền phải lớn hơn 0, nhận {amt}")
 
+    fields.pop("63", None)          # CRC cũ vứt đi, tính lại ở dưới
+    fields["01"] = "12"             # 12 = mã động, dùng một lần
+    fields["54"] = str(amt)
+    cleaned = _clean_ref(ref)
+    if cleaned:
+        fields["62"] = _tlv("08", cleaned)
 
-def build_momo_qr(amount, order_ref=""):
-    """Ảnh QR để dán lên bill. None nếu thiếu cấu hình hoặc sinh lỗi.
-
-    KHÔNG BAO GIỜ ném lỗi: mất mã QR là phiền, mất tờ bill là mất khách.
-    """
-    url = momo_qr_url(amount, order_ref)
-    if not url:
-        return None
-    try:
-        import qrcode
-        side = max(120, min(int(MOMO_QR_DOTS), _CW))
-        qr = qrcode.QRCode(
-            version=None,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,   # chịu được giấy nhiệt mờ
-            box_size=1,
-            border=2,
-        )
-        qr.add_data(url)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white").convert("L")
-        # Phóng bằng NEAREST: mọi phép nội suy khác làm nhoè ô vuông, máy in
-        # nhiệt 203dpi in ra là điện thoại không bắt được mã.
-        from PIL import Image
-        modules = img.width
-        scale = max(1, side // modules)
-        return img.resize((modules * scale, modules * scale), Image.NEAREST)
-    except Exception:
-        return None
+    # EMVCo yêu cầu trường xếp theo thứ tự tag tăng dần.
+    body = "".join(_tlv(t, fields[t]) for t in sorted(fields)) + "6304"
+    return body + crc16(body)
 ```
-
-Thêm `import os` nếu file chưa có (kiểm tra đầu file — `RASTER_DOTS_WIDTH` đã dùng `os.getenv` nên chắc chắn đã có).
 
 - [ ] **Bước 4: Chạy cho chắc là xanh**
 
 ```
-PRINT_ENGINE=noop python3 -m unittest test_printlib_qr -v
+python3 -m unittest test_emvqr -v
 ```
-Kỳ vọng: `Ran 11 tests` … `OK`
+Kỳ vọng: `Ran 16 tests` … `OK`
 
-- [ ] **Bước 5: Khai báo phụ thuộc**
+- [ ] **Bước 5: Nối vào printlib**
+
+Thêm vào `print-server/printlib.py`, gần `_get_logo`:
+
+```python
+# ── Mã QR thanh toán ─────────────────────────────────────────────────────────
+# Đọc từ BIẾN MÔI TRƯỜNG, không đọc CONFIG trên GAS: đường in phải chạy được
+# khi GAS chết (GAS ở quán có tiền sử 403 theo chu kỳ 7 ngày).
+# MOMO_STATIC_PAYLOAD = chuỗi trong mã QR trên tấm mica ở quầy. Không đưa vào
+# repo — nó chứa số tài khoản ngân hàng của quán.
+MOMO_STATIC_PAYLOAD = os.getenv("MOMO_STATIC_PAYLOAD", "")
+MOMO_QR_DOTS        = int(os.getenv("MOMO_QR_DOTS", "270"))
+
+
+def build_momo_qr(amount, order_ref=""):
+    """Ảnh QR động để dán lên bill. None nếu thiếu cấu hình hoặc sinh lỗi.
+
+    KHÔNG BAO GIỜ ném lỗi: mất mã QR là phiền, mất tờ bill là mất khách.
+    """
+    if not MOMO_STATIC_PAYLOAD:
+        return None
+    try:
+        import qrcode
+        import emvqr
+        from PIL import Image
+
+        payload = emvqr.to_dynamic(MOMO_STATIC_PAYLOAD, amount, order_ref)
+        qr = qrcode.QRCode(
+            error_correction=qrcode.constants.ERROR_CORRECT_M,  # chịu giấy nhiệt mờ
+            box_size=1, border=2,
+        )
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white").convert("L")
+        # Phóng bằng NEAREST: mọi phép nội suy khác làm nhoè ô vuông, in ra
+        # ở 203dpi là điện thoại không bắt được mã.
+        side = max(120, min(int(MOMO_QR_DOTS), _CW))
+        scale = max(1, side // img.width)
+        return img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+    except Exception:
+        return None
+```
+
+Đo thật trên giấy của quán: mã 35.000đ kèm nội dung ra **41 module**, phóng 6 lần thành
+**246 dot**, vùng in tối đa là **368 dot** (`_CW`) — vừa, và đủ to để điện thoại bắt.
+
+- [ ] **Bước 6: Khai báo phụ thuộc**
 
 Thêm vào `print-server/requirements.txt`:
 
 ```
-qrcode>=7.4     # QR MoMo trên bill
+qrcode>=7.4     # QR thanh toán trên bill
 Pillow>=10.0    # dựng ảnh bill/tem (printlib) — trước đây dùng mà không khai báo
 ```
 
-- [ ] **Bước 6: Commit**
+- [ ] **Bước 7: Commit**
 
 ```bash
-git add print-server/printlib.py print-server/test_printlib_qr.py print-server/requirements.txt
-git commit -m "feat(print): sinh mã QR MoMo điền sẵn số tiền, khuôn URL qua env"
+git add print-server/emvqr.py print-server/test_emvqr.py print-server/printlib.py print-server/requirements.txt
+git commit -m "feat(print): sinh mã VietQR/MoMo động có sẵn số tiền từ mã tĩnh của quán"
 ```
 
 ---
@@ -268,8 +383,14 @@ class TestReceiptQrPlacement(unittest.TestCase):
     """QR chỉ được xuất hiện trên HÓA ĐƠN CHƯA TRẢ của đơn MoMo."""
 
     def setUp(self):
-        os.environ["MOMO_QR_TEMPLATE"] = "https://nhantien.momo.vn/{id}/{amount}"
-        os.environ["MOMO_RECEIVER_ID"] = "0900000000"
+        # Mã tĩnh GIẢ theo đúng cấu trúc mã của quán — không đưa mã thật vào repo.
+        import emvqr
+        base = ("000201010211"
+                "26220007vn.momo02079999999"
+                "38630010A000000727013300069710250119PMC00000000000000000208QRIBFTTA"
+                "53037045802VN6304")
+        os.environ["MOMO_STATIC_PAYLOAD"] = base + emvqr.crc16(base)
+        printlib.MOMO_STATIC_PAYLOAD = os.environ["MOMO_STATIC_PAYLOAD"]
         self.calls = []
         self._orig = printlib.build_momo_qr
 
@@ -334,7 +455,7 @@ class TestReceiptQrPlacement(unittest.TestCase):
         self.assertGreater(len(data), 100)
 
     def test_receipt_still_builds_without_config(self):
-        os.environ.pop("MOMO_RECEIVER_ID", None)
+        printlib.MOMO_STATIC_PAYLOAD = ""
         data = printlib.build_receipt_raster(self._order(), show_total=True)
         self.assertTrue(data)
 ```
@@ -463,10 +584,8 @@ git commit -m "feat(kds): thêm phương thức thanh toán MoMo"
 Trong `EnvironmentVariables` của `com.lamha.kissaten.printserver.plist`:
 
 ```xml
-<key>MOMO_RECEIVER_ID</key>
-<string>ĐIỀN_MÃ_HOẶC_SĐT_ĐÃ_KIỂM_Ở_TASK_0</string>
-<key>MOMO_QR_TEMPLATE</key>
-<string>KHUÔN_URL_ĐÃ_KIỂM_Ở_TASK_0</string>
+<key>MOMO_STATIC_PAYLOAD</key>
+<string>DÁN_NGUYÊN_CHUỖI_QUÉT_ĐƯỢC_TỪ_TẤM_MICA_Ở_QUẦY</string>
 ```
 
 - [ ] **Bước 2: In thử trên server test, KHÔNG phải máy quán**
@@ -474,7 +593,7 @@ Trong `EnvironmentVariables` của `com.lamha.kissaten.printserver.plist`:
 Chạy server cổng 5002 như Task 3 nhưng đặt `PRINT_ENGINE=noop`, gọi in bill mẫu, và **lưu ảnh ra file** thay vì in:
 
 ```bash
-cd print-server && MOMO_RECEIVER_ID=0900000000 python3 -c "
+cd print-server && MOMO_STATIC_PAYLOAD="<chuỗi từ tấm mica>" python3 -c "
 import printlib
 from PIL import Image
 o = {'order_id':'ORD-TEST','total':35000,'payment_method':'momo','paid':0,
