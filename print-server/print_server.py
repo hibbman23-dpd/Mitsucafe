@@ -1196,16 +1196,39 @@ def bill_merge():
     return jsonify({"ok": True, **res}), 200
 
 
+# Chỉ nhận đúng các phương thức đã biết. Chuỗi lạ từ client không được lọt vào
+# recp — dict đó đi thẳng vào hàm dựng ảnh và vào print spool.
+_BILL_PAY_METHODS = ("cash", "momo", "vietqr", "bank_transfer")
+
+
+def _bill_pay_method():
+    """Phương thức thanh toán kèm theo lệnh in.
+
+    Bảng `orders` ở máy quán KHÔNG có cột payment_method (kiểm bằng
+    PRAGMA table_info) nên không tra ngược từ kho ra được. Phương thức là quyết
+    định của thu ngân lúc tính tiền, nên nó đi kèm request.
+
+    Thiếu thì mặc định 'cash' — tuyệt đối không đoán 'momo', kẻo bill tiền mặt
+    mọc mã QR thanh toán.
+    """
+    m = str((request.get_json(silent=True) or {}).get("payment_method") or "cash").lower()
+    return m if m in _BILL_PAY_METHODS else None
+
+
 @app.post("/bill/<order_id>/print")
 def bill_print(order_id):
     o = STORE.get(order_id)
     if not o:
         return jsonify({"ok": False, "error": "not found"}), 404
+    _m = _bill_pay_method()
+    if _m is None:
+        return jsonify({"ok": False, "error": "payment_method lạ"}), 400
     if _print_engine() == "noop":
         return jsonify({"ok": True, "printed": False, "engine": "noop"}), 200
     recp = {"order_id": o["order_id"], "items": o["items"], "total": o["total"],
             "metadata": {"short_code": o["short_code"], "notes": o["customer_note"]},
-            "table_id": o["table_id"], "bill_meta": o["bill_meta"]}
+            "table_id": o["table_id"], "bill_meta": o["bill_meta"],
+            "payment_method": _m, "paid": bool(o.get("paid"))}
     if _print_engine() == "spool":
         SPOOL.enqueue_receipt(recp, is_cash=False, tag="bill")
     else:  # legacy
@@ -1222,10 +1245,18 @@ def bill_group_print(group_id):
         bill = bill_engine.build_group_bill(STORE, group_id)
     except KeyError:
         return jsonify({"ok": False, "error": "group not found"}), 404
+    _m = _bill_pay_method()
+    if _m is None:
+        return jsonify({"ok": False, "error": "payment_method lạ"}), 400
     if _print_engine() == "noop":
         return jsonify({"ok": True, "printed": False, "order_ids": bill["order_ids"]}), 200
+    # Bàn coi như đã trả xong CHỈ KHI mọi đơn trong bàn đều đã trả. Còn một đơn
+    # chưa trả mà coi cả bàn là xong thì bill không có QR, khách không có gì để quét.
+    _orders = [STORE.get(oid) for oid in bill["order_ids"]]
+    _all_paid = bool(_orders) and all(bool(x and x.get("paid")) for x in _orders)
     recp = {"order_id": group_id, "items": bill["items"], "total": bill["total"],
-            "metadata": {"short_code": group_id, "notes": ""}}
+            "metadata": {"short_code": group_id, "notes": ""},
+            "payment_method": _m, "paid": _all_paid}
     if _print_engine() == "spool":
         SPOOL.enqueue_receipt(recp, is_cash=False, tag="bill")
     else:  # legacy

@@ -2589,8 +2589,9 @@ function renderCheckout() {
       <div class="form-row">
         <label class="form-label">Phương thức thanh toán</label>
         <div class="mode-btns">
-          <div class="mode-btn ${checkoutState.paymentMethod !== 'vietqr' ? 'active' : ''}" onclick="checkoutSetPayMethod('cash')">💵 Tiền mặt</div>
+          <div class="mode-btn ${!['vietqr','momo'].includes(checkoutState.paymentMethod) ? 'active' : ''}" onclick="checkoutSetPayMethod('cash')">💵 Tiền mặt</div>
           <div class="mode-btn ${checkoutState.paymentMethod === 'vietqr' ? 'active' : ''}" onclick="checkoutSetPayMethod('vietqr')">📱 VietQR</div>
+          <div class="mode-btn ${checkoutState.paymentMethod === 'momo' ? 'active' : ''}" onclick="checkoutSetPayMethod('momo')">💗 MoMo</div>
         </div>
       </div>
       <div style="display:flex; gap:10px; margin-top:12px;">
@@ -2713,7 +2714,7 @@ async function checkoutSplit(e) {
 }
 
 async function checkoutPrintOnly(orderId) {
-  const r = await api().printBill(orderId);
+  const r = await api().printBill(orderId, checkoutState && checkoutState.paymentMethod);
   toast(r.body && r.body.printed ? 'Đã in bill' : 'Đã gửi lệnh in (chế độ test không in thật)');
 }
 
@@ -2784,8 +2785,9 @@ async function checkoutPrintAndPay(e) {
         groupId = mres.body.group_id;
       }
     }
-    if (groupId) await api().printGroup(groupId);
-    else await api().printBill(o.order_id);
+    // Gửi kèm phương thức thu ngân vừa chọn — server cần nó để quyết in mã QR.
+    if (groupId) await api().printGroup(groupId, method);
+    else await api().printBill(o.order_id, method);
     const failed = [];
     for (const so of settleSet) {
       const rPaid = await api().markPaid(so.order_id, { payment_method: method, skip_receipt: true });

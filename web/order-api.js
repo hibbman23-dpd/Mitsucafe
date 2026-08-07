@@ -27,8 +27,12 @@ function OrderApi(baseUrl, fetchImpl) {
     voidOrder: (id, reason, staff, managerPin) =>
       call('/order/' + encodeURIComponent(id) + '/void', 'POST', { reason, staff, manager_pin: managerPin }),
     mergeBill: (orderIds) => call('/bill/merge', 'POST', { order_ids: orderIds }),
-    printBill: (id) => call('/bill/' + encodeURIComponent(id) + '/print', 'POST', {}),
-    printGroup: (gid) => call('/bill/group/' + encodeURIComponent(gid) + '/print', 'POST', {}),
+    // payment_method đi kèm lệnh in: bảng orders ở máy quán không có cột đó nên
+    // server không tra ngược được, mà bill cần biết để quyết in mã QR hay không.
+    printBill: (id, method) => call('/bill/' + encodeURIComponent(id) + '/print', 'POST',
+                                    { payment_method: method || 'cash' }),
+    printGroup: (gid, method) => call('/bill/group/' + encodeURIComponent(gid) + '/print', 'POST',
+                                      { payment_method: method || 'cash' }),
     setStatus: (id, status) => call('/order/status', 'POST', { order_id: id, status }),
     markPaid: (id, extra) => call('/order/mark_paid', 'POST', Object.assign({ order_id: id }, extra || {})),
     inbox: () => call('/inbox', 'GET'),
