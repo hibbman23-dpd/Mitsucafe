@@ -280,11 +280,24 @@ function computeDailyMetrics(dateStr) {
   var menuData = menuSheet ? menuSheet.getDataRange().getValues() : [];
   var menuCosts = {};
   
-  // Index tương ứng với MENU: sku (0), cost_nl (8), cost_packaging (9)
+  // Tra cột theo TÊN HEADER, không theo số thứ tự. Bản cũ hardcode cost_nl(8),
+  // cost_packaging(9) — nhưng sheet thật ở vị trí đó là on_promo(8)/promo_price(9),
+  // nên parseFloat(false)||0 cho ra giá vốn = 0 với MỌI món, và báo cáo lãi gộp
+  // lấy nguyên doanh thu làm lãi. Thêm/bớt một cột là lệch lại y như vậy.
+  var _mHead = menuData.length ? menuData[0].map(function (h) { return String(h).trim(); }) : [];
+  var _iSku = _mHead.indexOf('sku');
+  var _iNl = _mHead.indexOf('cost_nl');
+  var _iPkg = _mHead.indexOf('cost_packaging');
+  if (_iSku < 0 || _iNl < 0 || _iPkg < 0) {
+    logError('computeDailyMetrics.menuCost',
+             'MENU thiếu cột giá vốn (sku=' + _iSku + ', cost_nl=' + _iNl +
+             ', cost_packaging=' + _iPkg + ') — COGS sẽ = 0, lãi gộp báo SAI.');
+  }
   for (var m = 1; m < menuData.length; m++) {
-    var sku = String(menuData[m][0]).toUpperCase();
-    var costNl = parseFloat(menuData[m][8]) || 0;
-    var costPkg = parseFloat(menuData[m][9]) || 0;
+    if (_iSku < 0) break;
+    var sku = String(menuData[m][_iSku]).toUpperCase();
+    var costNl = _iNl >= 0 ? (parseFloat(menuData[m][_iNl]) || 0) : 0;
+    var costPkg = _iPkg >= 0 ? (parseFloat(menuData[m][_iPkg]) || 0) : 0;
     menuCosts[sku] = costNl + costPkg;
   }
   
@@ -368,7 +381,15 @@ function computeDailyMetrics(dateStr) {
   }
   
   Logger.log('Daily metrics computed for ' + dateStr + ': Rev: ' + dailyRevenue + ' | COGS: ' + dailyCogs);
-  return { date: dateStr, revenue: dailyRevenue, cogs: dailyCogs, orders: dailyOrdersCount, aov: aov };
+  return {
+    date: dateStr,
+    revenue: Math.round(dailyRevenue),
+    cogs: Math.round(dailyCogs),
+    orders_count: dailyOrdersCount,
+    average_order_value: aov,
+    orders: dailyOrdersCount,
+    aov: aov
+  };
 }
 
 /**
