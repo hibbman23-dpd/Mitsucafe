@@ -29,6 +29,10 @@
     <dict>
         <key>GAS_WEBAPP_URL</key><string>https://script.google.com/macros/s/AKfycbynDqbg-Xn9hEbUyhsZl_MF0dGsCqLpfTgJ-Us3QHiGqkrKV3hwZD__-fKW2kFJZzC7/exec</string>
         <key>REPORT_API_TOKEN</key><string>REPLACE_WITH_REPORT_API_TOKEN</string>
+        <!-- Chuỗi trong mã QR trên tấm mica ở quầy. Quét lại tấm đó là có.
+             Giá trị THẬT chỉ điền ở bản đang chạy ~/Library/LaunchAgents/ —
+             KHÔNG commit, vì chuỗi này chứa số tài khoản ngân hàng của quán. -->
+        <key>MOMO_STATIC_PAYLOAD</key><string>REPLACE_WITH_MOMO_STATIC_PAYLOAD</string>
         <key>GATEWAY_DB</key><string>/Users/dpd/Projects/lamha-kissaten/print-server/outbox.db</string>
         <key>SYNC_INTERVAL</key><string>3</string>
         <key>SERVER_PORT</key><string>5001</string>
