@@ -87,3 +87,52 @@ class TestReceiptQrPlacement(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPrepPaidStamp(unittest.TestCase):
+    """Phiếu pha chế của đơn ĐÃ THANH TOÁN phải có dấu ĐTT to ở cuối,
+    để bếp nhìn là biết khỏi phải hỏi thu ngân."""
+
+    def _prep(self, **over):
+        o = {"order_id": "ORD-P-1", "total": 35000,
+             "items": [{"sku": "DR001", "name": "CF MITSU", "qty": 1,
+                        "price": 35000, "modifiers": {}}],
+             "metadata": {"short_code": "QX1"}}
+        o.update(over)
+        return o
+
+    def _texts(self, order, show_total):
+        """Gom mọi chuỗi được vẽ lên phiếu."""
+        seen = []
+        orig = printlib._img_to_raster_bytes
+        printlib._img_to_raster_bytes = orig  # giữ nguyên, chỉ chặn ở tầng draw
+        from PIL import ImageDraw
+        _od = ImageDraw.ImageDraw.text
+
+        def spy(self, xy, text, *a, **k):
+            seen.append(str(text))
+            return _od(self, xy, text, *a, **k)
+
+        ImageDraw.ImageDraw.text = spy
+        try:
+            printlib.build_receipt_raster(order, show_total=show_total)
+        finally:
+            ImageDraw.ImageDraw.text = _od
+        return seen
+
+    def test_prep_of_paid_order_has_dtt(self):
+        t = self._texts(self._prep(paid=1), show_total=False)
+        self.assertTrue(any("ĐTT" in s for s in t), t)
+
+    def test_prep_of_unpaid_order_has_no_dtt(self):
+        t = self._texts(self._prep(paid=0), show_total=False)
+        self.assertFalse(any("ĐTT" in s for s in t), t)
+
+    def test_payment_status_paid_also_counts(self):
+        t = self._texts(self._prep(payment_status="PAID"), show_total=False)
+        self.assertTrue(any("ĐTT" in s for s in t), t)
+
+    def test_bill_never_shows_dtt(self):
+        """ĐTT là dấu cho BẾP. Hóa đơn khách đã có dòng 'TT:' riêng."""
+        t = self._texts(self._prep(paid=1, payment_method="cash"), show_total=True)
+        self.assertFalse(any("ĐTT" in s for s in t), t)

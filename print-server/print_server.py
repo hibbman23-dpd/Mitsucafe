@@ -1047,6 +1047,11 @@ def order_create():
     # PHIẾU PHA CHẾ (tag=prep) in MỌI đơn lúc tạo — vé cho bar pha, KHÔNG mở két.
     # HÓA ĐƠN (tag=bill) chỉ in khi đơn đã thanh toán ngay (quickPay) — mở két nếu tiền mặt.
     # 2 tag khác nhau => key idempotency khác => KHÔNG bị dedup nuốt, cả hai đều ra.
+    # printlib đóng dấu ĐTT lên phiếu bếp dựa vào cờ này. `order` là payload đã
+    # validate, chưa mang trạng thái thanh toán — không gán thì bar không bao giờ
+    # thấy dấu, dù đơn gửi qua "Gửi & Thanh toán ngay".
+    order["paid"] = is_paid
+
     if _print_engine() == "noop":
         pass  # tests: skip physical enqueue entirely (no hardware, no spool)
     elif _print_engine() == "spool":

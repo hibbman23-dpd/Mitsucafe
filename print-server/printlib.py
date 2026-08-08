@@ -565,6 +565,13 @@ def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = 
         add_hline(thick=2, gap_before=3, gap_after=3)
         add_text("Cảm ơn! Hẹn gặp lại nhé!", f_norm, "center")
         add_text("mitsu.cafe",               f_addr,  "center")
+    else:
+        # PHIẾU PHA CHẾ của đơn ĐÃ THU TIỀN: đóng dấu ĐTT thật to ở cuối, để bar
+        # nhìn phát biết khỏi chạy đi hỏi thu ngân. Chỉ trên phiếu bếp — hóa đơn
+        # khách đã có dòng "TT:" riêng, in thêm ĐTT ở đó là thừa và rối.
+        if bool(order.get("paid")) or str(order.get("payment_status", "")).upper() == "PAID":
+            add_hline(thick=2, gap_before=4, gap_after=4)
+            add_text("ĐTT", _load_font(_SZ_SUPER), "center")
 
     add_hline(thick=3, gap_before=4, gap_after=8)
 

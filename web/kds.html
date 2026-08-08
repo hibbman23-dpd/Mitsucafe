@@ -670,6 +670,11 @@
           💳 Gửi & Thanh toán ngay (Enter ↵)
         </button>
       </div>
+      <div style="display:flex; margin-top:10px;">
+        <button class="btn-submit-order" id="btn-momo-order" style="flex:1; padding:16px; font-size:1.05rem; font-weight:800; border-radius:12px; border:none; cursor:pointer; background:#d82d8b; color:#fff;" onclick="submitStaffOrderMomo()">
+          💗 Gửi & In bill QR MoMo (Phím O)
+        </button>
+      </div>
     </div>
 
     <!-- Success state (shown after submit) -->
@@ -3454,6 +3459,11 @@ document.addEventListener('keydown', function(e) {
         e.preventDefault();
         submitStaffOrder(false); // Phím M = 🚀 Đặt đơn / Gửi đơn
       }
+    } else if (e.key && e.key.toLowerCase() === 'o') {
+      if (!isInputFocused) {
+        e.preventDefault();
+        submitStaffOrderMomo(); // Phím O = 💗 Gửi & In bill QR MoMo
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       closeCartSheet();
@@ -4050,12 +4060,19 @@ function selectTable(n) {
   renderTableGrid();
 }
 
-async function submitStaffOrder(quickPay = false) {
+// Phím O / nút 💗: gửi đơn ở trạng thái CHƯA TRẢ rồi in bill kèm QR MoMo cho
+// khách quét. Không đánh dấu đã trả — đánh dấu thì cổng chặn QR đóng lại và bill
+// in ra không có mã, khách không có gì để quét.
+async function submitStaffOrderMomo() { return submitStaffOrder(false, true); }
+
+async function submitStaffOrder(quickPay = false, momoBill = false) {
   if (!staffCart.length) return;
   const btn = document.getElementById('btn-submit-order');
   const btnQuick = document.getElementById('btn-quick-pay-order');
   if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi...'; }
   if (btnQuick) { btnQuick.disabled = true; btnQuick.textContent = 'Đang gửi...'; }
+  const btnMomo = document.getElementById('btn-momo-order');
+  if (btnMomo) { btnMomo.disabled = true; btnMomo.textContent = 'Đang gửi...'; }
 
   if (!pendingStaffSubmit) {
     const phone = document.getElementById('staff-phone').value.trim().replace(/\D/g,'');
@@ -4115,6 +4132,18 @@ async function submitStaffOrder(quickPay = false) {
       setLocalOverride(minted.order_id || payload.order_id, { payment_status: 'PAID' });
     }
 
+    if (momoBill) {
+      const oid = minted.order_id || payload.order_id;
+      try {
+        const rb = await api().printBill(oid, 'momo');
+        toast(rb.body && rb.body.printed ? 'Đã in bill QR MoMo' : 'Đã gửi lệnh in bill');
+      } catch (err) {
+        // Đơn ĐÃ gửi thành công rồi — in hỏng không được làm mất đơn. Báo để
+        // nhân viên in lại bằng nút 🖨️ Bill trên thẻ đơn.
+        alert('Đơn đã gửi nhưng CHƯA in được bill QR — dùng nút 🖨️ Bill để in lại.');
+      }
+    }
+
     optimisticInsert(payload, minted);
 
     // Xoá giỏ NGAY khi gửi thành công — không chờ bấm "Đóng" nữa (nếu chờ, bấm ra
@@ -4125,6 +4154,7 @@ async function submitStaffOrder(quickPay = false) {
     pendingStaffSubmit = null;
     if (btn) { btn.disabled = false; btn.textContent = 'Đặt đơn'; }
     if (btnQuick) { btnQuick.disabled = false; btnQuick.textContent = '💳 Gửi & Thanh toán ngay'; }
+    if (btnMomo) { btnMomo.disabled = false; btnMomo.textContent = '💗 Gửi & In bill QR MoMo (Phím O)'; }
     document.getElementById('order-form').classList.add('hidden');
     document.getElementById('submit-success').classList.remove('hidden');
     document.getElementById('submit-success-msg').textContent =
@@ -4132,6 +4162,7 @@ async function submitStaffOrder(quickPay = false) {
   } catch(err) {
     if (btn) { btn.disabled = false; btn.textContent = 'Đặt đơn'; }
     if (btnQuick) { btnQuick.disabled = false; btnQuick.textContent = '💳 Gửi & Thanh toán ngay'; }
+    if (btnMomo) { btnMomo.disabled = false; btnMomo.textContent = '💗 Gửi & In bill QR MoMo (Phím O)'; }
     alert('Đơn CHƯA gửi được (' + ((err && err.message) || 'mất kết nối') + ') — giỏ hàng vẫn giữ nguyên, thử lại.');
   }
 }
