@@ -752,6 +752,10 @@ var POST_ROUTES = {
   'menu_sync': {
     auth: AUTH.ADMIN,
     handler: function(p) { return menuSyncFromRepo(p.payload || p); }
+  },
+  'so_ban_hang': {
+    auth: AUTH.ADMIN,
+    handler: function(p) { return buildSoBanHang(p.payload || p); }
   }
 };
 
