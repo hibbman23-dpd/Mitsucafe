@@ -1416,6 +1416,19 @@ def order_swap_item():
         new_item["modifiers"] = {}
     new_item["modifiers"]["swap_from"] = old_name
 
+    # Đổi món = thay SẢN PHẨM của một dòng, KHÔNG phải đổi số lượng. Giữ nguyên
+    # qty của dòng cũ và tính lại subtotal theo giá món mới.
+    #
+    # Sự cố thật 2026-08-08: KDS gửi món mới với qty cứng bằng 1. Đơn 2× SỮA CHUA
+    # 30k + 1× MATCHA 35k = 95.000đ, đổi dòng 2 ly xong tổng tụt còn 65.000đ —
+    # thu thiếu 30.000đ, không cảnh báo gì. Client đã được vá, nhưng chốt luôn ở
+    # đây: server giữ tiền, không tin số lượng client gửi trong luồng đổi món.
+    # Muốn đổi số lượng thì dùng PATCH /order/<id>/items.
+    _kept_qty = int(old_item.get("qty", 1) or 1)
+    new_item["qty"] = _kept_qty
+    _unit = int(new_item.get("price", 0) or 0)
+    new_item["subtotal"] = _unit * _kept_qty
+
     new_items = [dict(it) for it in items]
     new_items[item_idx] = new_item
 

@@ -3729,12 +3729,16 @@ function selectSwapNewItem(sku) {
 }
 
 function confirmSwapNewItem(item, modifiers, price) {
+  // GIỮ số lượng của dòng đang đổi. Đổi món = thay sản phẩm, không phải đổi
+  // số lượng. Bản cũ đặt cứng qty:1 — đơn 2 ly 30k đổi món xong tụt mất 30.000đ
+  // khỏi tổng, thu thiếu mà không cảnh báo gì (sự cố thật 2026-08-08).
+  const keptQty = Number(pendingSwap.oldItem && pendingSwap.oldItem.qty) || 1;
   const newItemObj = {
     sku: item.sku,
     name: item.name,
-    qty: 1,
+    qty: keptQty,
     price: price,
-    subtotal: price,
+    subtotal: price * keptQty,
     modifiers: { ...modifiers, swap_from: pendingSwap.oldItem.name || 'Món cũ' },
     note: modifiers.note || ''
   };
