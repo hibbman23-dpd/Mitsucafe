@@ -1187,12 +1187,22 @@ def order_reject(order_id):
     reason = str(p.get("reason") or "")
     if reason not in _REJECT_REASONS:
         return jsonify({"ok": False, "error": "bad_reason"}), 400
-    o = STORE.reject_order(order_id, reason, p.get("staff", "kds"))
-    if o is None:
+    if STORE.get(order_id) is None:
         return jsonify({"ok": False, "error": "not found"}), 404
+    # Ghi outbox TRƯỚC khi đổi trạng thái local: nếu enqueue lỗi (khoá SQLite,
+    # IO), route trả 500 nhưng đơn vẫn NEW ở local — card còn trên KDS, thu
+    # ngân bấm lại là xong. Đảo ngược thứ tự (như cũ) từng khiến đơn CANCELLED
+    # cục bộ mà outbox trống — Sheets không bao giờ biết đơn bị huỷ, và không
+    # còn nút nào để bấm lại vì KDS đã ẩn card theo trạng thái local.
+    # enqueue là idempotent (INSERT OR IGNORE trên key order_id:CANCELLED cố
+    # định) nên bấm lại lần 2 sau khi reject_order lỡ lỗi cũng không tạo dòng
+    # outbox thừa.
     GATEWAY.enqueue("status", order_id, f"{order_id}:CANCELLED",
                     {"action": "update_status", "order_id": order_id,
                      "status": "CANCELLED", "reject_reason": reason})
+    o = STORE.reject_order(order_id, reason, p.get("staff", "kds"))
+    if o is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
     return jsonify({"ok": True, "order": o}), 200
 
 

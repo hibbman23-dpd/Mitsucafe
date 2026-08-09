@@ -1,4 +1,4 @@
-import json, os, tempfile, unittest
+import json, os, sqlite3, tempfile, unittest
 os.environ["PRINT_ENGINE"] = "noop"  # avoid real printer I/O; see Step 3 note
 import print_server
 from gateway import Gateway
@@ -258,6 +258,33 @@ class TestOnlineOrderRoutes(RouteTestBase):
     def test_reject_missing_order_404(self):
         r = self.c.post("/order/ORD-NOPE/reject", json={"reason": "fake"})
         self.assertEqual(r.status_code, 404)
+
+    def test_reject_missing_order_404_leaves_no_outbox_row(self):
+        # 404 trên order lạ không được để lại rác trong outbox — nếu route lỡ
+        # enqueue trước khi biết order có tồn tại hay không thì Sheets sẽ nhận
+        # một lệnh huỷ cho order_id không hề có trong hệ thống.
+        r = self.c.post("/order/ORD-NOPE/reject", json={"reason": "fake"})
+        self.assertEqual(r.status_code, 404)
+        ops = print_server.GATEWAY.unsynced()
+        self.assertFalse(any(o["order_id"] == "ORD-NOPE" for o in ops))
+
+    def test_reject_leaves_order_new_when_gateway_enqueue_fails(self):
+        # Nếu enqueue outbox lỗi (khoá SQLite, IO...), đơn cục bộ KHÔNG được
+        # phép rơi vào CANCELLED một mình — sẽ không còn nút nào để bấm lại,
+        # và Sheets sẽ không bao giờ biết đơn bị huỷ.
+        self._seed_online("ORD-12", "M12")
+        original_enqueue = print_server.GATEWAY.enqueue
+
+        def _boom(*a, **kw):
+            raise sqlite3.OperationalError("database is locked")
+
+        print_server.GATEWAY.enqueue = _boom
+        try:
+            with self.assertRaises(Exception):
+                self.c.post("/order/ORD-12/reject", json={"reason": "out_of_stock"})
+        finally:
+            print_server.GATEWAY.enqueue = original_enqueue
+        self.assertEqual(print_server.STORE.get("ORD-12")["status"], "NEW")
 
     def test_inbox_routes_are_gone(self):
         self.assertEqual(self.c.get("/inbox").status_code, 404)
