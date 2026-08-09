@@ -1044,7 +1044,11 @@ function _getPendingOnlineOrders() {
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
     if (!row[0]) continue;
-    if (String(row[3]) === 'staff') continue;   // col D = channel
+    // Denylist có chủ đích, KHÔNG đổi thành allowlist kênh online: allowlist thì một
+    // kênh mới ai đó quên thêm sẽ tự động rớt khỏi KDS mà không ai biết — nguy hiểm hơn
+    // lỗ hổng đang vá. 'pos' = quầy tự order (normalize_order_payload trong gateway.py),
+    // 'kds' = ghi nội bộ từ bếp; cả hai không phải đơn khách online, phải loại khỏi mailbox.
+    if (['staff', 'pos', 'kds'].indexOf(String(row[3])) !== -1) continue;  // col D = channel
     if (String(row[12]) !== 'NEW') continue;    // col M = status
     if (row[13]) continue;                      // col N = confirmed_at
     var ts = row[2];                            // col C = timestamp
