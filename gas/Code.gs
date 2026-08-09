@@ -715,6 +715,7 @@ var POST_ROUTES = {
       lock.waitLock(15000);
       try {
         updateOrderStatus(p.order_id, p.status);
+        if (p.reject_reason) _appendRejectReasonToNotes(p.order_id, p.reject_reason);
         return { ok: true, order_id: p.order_id, status: p.status };
       } finally { lock.releaseLock(); }
     }

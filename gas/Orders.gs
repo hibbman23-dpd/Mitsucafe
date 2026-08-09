@@ -1249,3 +1249,23 @@ function swapOrderItem(payload) {
 
   return { ok: false, error: 'Không tìm thấy đơn hàng: ' + orderId };
 }
+
+var REJECT_REASON_VI = {
+  out_of_stock: 'hết món',
+  after_hours:  'ngoài giờ',
+  fake:         'đơn ảo'
+};
+
+/**
+ * Nối lý do từ chối vào cột notes (index 23 → col 24). updateOrderStatus chỉ đổi
+ * cột status, chủ quán mở Sheets sẽ thấy CANCELLED mà không biết vì sao.
+ * Idempotent: gọi lại cùng lý do không nối thêm lần nữa (syncer có thể retry).
+ */
+function _appendRejectReasonToNotes(orderId, reason) {
+  var row = _findOrderRow(orderId);
+  if (!row) return;
+  var tag = '[Từ chối: ' + (REJECT_REASON_VI[reason] || reason) + ']';
+  var cur = String(row.data[23] || '');
+  if (cur.indexOf(tag) !== -1) return;
+  _ordersSheet().getRange(row.rowIndex, 24).setValue(cur ? cur + ' ' + tag : tag);
+}
