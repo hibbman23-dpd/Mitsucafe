@@ -1176,12 +1176,24 @@ async function reprintOnlineLabel(orderId, btn) {
   if (!o) return;
   btn.disabled = true; btn.textContent = 'Đang in...';
   try {
+    // Route /enqueue/labels đọc đơn từ khóa lồng "order" (order.get("order")),
+    // rồi tự suy cups từ order.items — gửi phẳng thì server thấy order rỗng,
+    // enqueue 0 tem mà vẫn trả ok:true (xem print_server.py enqueue_labels_route).
     const r = await api().reprintLabels({
-      order_id: o.order_id, items: o.items || [],
-      metadata: { short_code: o.short_code, delivery_type: o.delivery_type },
+      order: {
+        order_id: o.order_id, items: o.items || [],
+        metadata: { short_code: o.short_code, delivery_type: o.delivery_type },
+      },
     });
-    btn.textContent = (r.status === 200 && r.body && r.body.ok) ? '✅ Đã gửi máy in' : '❌ Lỗi — bấm lại';
-    if (!(r.status === 200 && r.body && r.body.ok)) btn.disabled = false;
+    // ok:true không đủ — enqueued:0 nghĩa là không có tem nào được xếp hàng in,
+    // phải coi là thất bại và cho bấm lại.
+    const enqueued = r.status === 200 && r.body && r.body.ok ? (r.body.enqueued || 0) : 0;
+    if (enqueued > 0) {
+      btn.textContent = '✅ Đã gửi máy in';
+    } else {
+      btn.textContent = '❌ Lỗi — bấm lại';
+      btn.disabled = false;
+    }
   } catch (_) {
     btn.textContent = '❌ Lỗi — bấm lại'; btn.disabled = false;
   }
@@ -1209,9 +1221,9 @@ function openRejectSheet(orderId) {
           <div class="sheet-title">✕ Từ chối đơn ${esc(orderId)}</div>
           <button class="btn-close" onclick="closeRejectSheet()">✕</button>
         </div>
-        <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+        <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;" id="reject-sheet-btns">
           ${REJECT_CHOICES.map(c => `
-            <button class="btn-mark-paid" style="background:#B71C1C;color:#fff;padding:14px;font-size:1.05rem;"
+            <button class="btn-mark-paid reject-choice-btn" style="background:#B71C1C;color:#fff;padding:14px;font-size:1.05rem;"
                     onclick="rejectOnlineOrder('${esc(orderId)}','${c.reason}',this)">${c.label}</button>`).join('')}
         </div>
       </div>
@@ -1225,7 +1237,14 @@ function closeRejectSheet(e) {
 }
 
 async function rejectOnlineOrder(orderId, reason, btn) {
-  if (btn) { btn.disabled = true; btn.textContent = 'Đang huỷ...'; }
+  // Khoá HẾT nút trong sheet ngay khi bấm 1 nút — không chỉ nút vừa bấm.
+  // Nếu chỉ khoá 1 nút, tay nhanh có thể bấm nút lý do thứ 2 trước khi request
+  // đầu resolve, bắn 2 request reject cùng lúc; response thứ 2 có thể báo lỗi
+  // giả đè lên 1 lần từ chối đã thành công, khiến nhân viên không biết đơn đã
+  // bị huỷ hay chưa.
+  const sheetBtns = document.querySelectorAll('#reject-sheet-btns .reject-choice-btn');
+  sheetBtns.forEach(b => b.disabled = true);
+  if (btn) { btn.textContent = 'Đang huỷ...'; }
   try {
     const r = await api().rejectOrder(orderId, reason);
     if (r.status === 200 && r.body && r.body.ok) {
@@ -1238,11 +1257,13 @@ async function rejectOnlineOrder(orderId, reason, btn) {
       toast('Đã từ chối đơn ' + orderId);
     } else {
       alert('Không từ chối được: ' + ((r.body && r.body.error) || 'mất kết nối'));
-      if (btn) { btn.disabled = false; btn.textContent = 'Thử lại'; }
+      sheetBtns.forEach(b => b.disabled = false);
+      if (btn) { btn.textContent = 'Thử lại'; }
     }
   } catch (err) {
     alert('Không từ chối được: ' + ((err && err.message) || 'mất kết nối'));
-    if (btn) { btn.disabled = false; btn.textContent = 'Thử lại'; }
+    sheetBtns.forEach(b => b.disabled = false);
+    if (btn) { btn.textContent = 'Thử lại'; }
   }
 }
 
