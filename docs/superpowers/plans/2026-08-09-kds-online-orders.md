@@ -858,14 +858,49 @@ async function reprintOnlineLabel(orderId, btn) {
   }
 }
 
-async function rejectOnlineOrder(orderId) {
-  const map = { '1': 'out_of_stock', '2': 'after_hours', '3': 'fake' };
-  const pick = prompt('Lý do từ chối đơn ' + orderId + ':\n1 = Hết món\n2 = Ngoài giờ\n3 = Đơn ảo');
-  const reason = map[String(pick || '').trim()];
-  if (!reason) return;
+// Spec §4.5: 3 nút nhanh, KHÔNG dùng prompt(). KDS chạy màn cảm ứng ở quầy —
+// gõ số vào hộp thoại hệ điều hành là chậm và dễ bấm nhầm.
+const REJECT_CHOICES = [
+  { reason: 'out_of_stock', label: 'Hết món' },
+  { reason: 'after_hours',  label: 'Ngoài giờ' },
+  { reason: 'fake',         label: 'Đơn ảo' },
+];
+
+function openRejectSheet(orderId) {
+  let el = document.getElementById('reject-sheet-container');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reject-sheet-container';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `
+    <div class="overlay-bg" id="reject-overlay" onclick="closeRejectSheet(event)">
+      <div class="bottom-sheet" style="max-width:420px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">✕ Từ chối đơn ${esc(orderId)}</div>
+          <button class="btn-close" onclick="closeRejectSheet()">✕</button>
+        </div>
+        <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+          ${REJECT_CHOICES.map(c => `
+            <button class="btn-mark-paid" style="background:#B71C1C;color:#fff;padding:14px;font-size:1.05rem;"
+                    onclick="rejectOnlineOrder('${esc(orderId)}','${c.reason}',this)">${c.label}</button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function closeRejectSheet(e) {
+  if (e && e.target && e.target.id !== 'reject-overlay') return;
+  const el = document.getElementById('reject-sheet-container');
+  if (el) el.innerHTML = '';
+}
+
+async function rejectOnlineOrder(orderId, reason, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Đang huỷ...'; }
   try {
     const r = await api().rejectOrder(orderId, reason);
     if (r.status === 200 && r.body && r.body.ok) {
+      closeRejectSheet();
       dismissOnlineBanner(orderId);
       const o = allOrders.find(x => x.order_id === orderId);
       if (o) o.status = 'CANCELLED';
@@ -874,9 +909,11 @@ async function rejectOnlineOrder(orderId) {
       toast('Đã từ chối đơn ' + orderId);
     } else {
       alert('Không từ chối được: ' + ((r.body && r.body.error) || 'mất kết nối'));
+      if (btn) { btn.disabled = false; btn.textContent = 'Thử lại'; }
     }
   } catch (err) {
     alert('Không từ chối được: ' + ((err && err.message) || 'mất kết nối'));
+    if (btn) { btn.disabled = false; btn.textContent = 'Thử lại'; }
   }
 }
 ```
@@ -903,7 +940,7 @@ Trong hàm dựng nút hành động của thẻ đơn (cạnh nút `💳 Đã t
 
 ```javascript
         ${o.source === 'online' && o.payment_status !== 'PAID' && !['CANCELLED','VOIDED','DELIVERED'].includes(o.status)
-          ? `<button class="btn-mark-paid" style="background:#B71C1C;color:#fff;flex:0 0 auto;" onclick="rejectOnlineOrder('${esc(o.order_id)}')">✕ Từ chối</button>` : ''}
+          ? `<button class="btn-mark-paid" style="background:#B71C1C;color:#fff;flex:0 0 auto;" onclick="openRejectSheet('${esc(o.order_id)}')">✕ Từ chối</button>` : ''}
 ```
 
 - [ ] **Step 7: Kiểm cú pháp**
