@@ -241,6 +241,14 @@ class OrderStore:
     def void_order(self, order_id, reason, staff):
         return self._apply(order_id, "status='VOIDED', void_reason=?, voided_by=?", (reason, staff))
 
+    def reject_order(self, order_id, reason, staff="kds"):
+        """Từ chối đơn online. Dùng CANCELLED chứ KHÔNG dùng void_order():
+        void_order set status='VOIDED', mà VOIDED nằm ngoài VALID_STATUS của GAS
+        lẫn bộ lọc unsynced_finalized (paid=1 OR status='CANCELLED') — đơn sẽ kẹt
+        lại local, không lên Sheets. Hai cột void_reason/voided_by thì tái dùng được."""
+        return self._apply(order_id, "status='CANCELLED', void_reason=?, voided_by=?",
+                           (reason, staff))
+
     def unsynced_finalized(self):
         """Return finalized-but-unsynced orders (paid=1 or CANCELLED, synced_at IS NULL),
         ordered by created_at ascending."""

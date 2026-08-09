@@ -132,5 +132,27 @@ class TestVoid(unittest.TestCase):
         self.assertIsNone(self.s.void_order("NOPE", "x", "y"))
 
 
+class TestRejectOrder(unittest.TestCase):
+    def setUp(self):
+        self.s = _store()
+        self.s.upsert_create(_order("ORD-20260809-4821", short_code="M07"))
+
+    def test_reject_order_sets_cancelled_not_voided(self):
+        o = self.s.reject_order("ORD-20260809-4821", "out_of_stock", "kds")
+        self.assertEqual(o["status"], "CANCELLED")   # KHÔNG phải VOIDED
+        self.assertEqual(o["void_reason"], "out_of_stock")
+        self.assertEqual(o["voided_by"], "kds")
+
+    def test_rejected_order_reaches_unsynced_finalized(self):
+        # unsynced_finalized lọc `paid=1 OR status='CANCELLED'` — VOIDED sẽ rớt,
+        # đơn từ chối kẹt local, đối soát cuối ngày lệch.
+        self.s.reject_order("ORD-20260809-4821", "fake", "kds")
+        ids = [o["order_id"] for o in self.s.unsynced_finalized()]
+        self.assertIn("ORD-20260809-4821", ids)
+
+    def test_reject_order_missing_returns_none(self):
+        self.assertIsNone(self.s.reject_order("ORD-NOPE", "fake", "kds"))
+
+
 if __name__ == "__main__":
     unittest.main()
