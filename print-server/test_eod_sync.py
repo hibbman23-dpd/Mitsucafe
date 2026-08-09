@@ -19,6 +19,18 @@ def _finalized(s, oid, status="PAID"):
         s.apply_status(oid, status)
 
 
+def _finalized_online(s, oid, status="PAID"):
+    """Đơn website nhập vào local store — id/short_code do cloud cấp, đã có sẵn dòng
+    trên Sheets, synced_at NULL cho tới khi finalize local."""
+    s.upsert_create({"order_id": oid, "short_code": "Q01", "delivery_type": "dine_in",
+                     "table_id": "B1", "source": "online",
+                     "items": [{"sku": "DR005", "name": "X", "qty": 1, "price": 30000}]})
+    if status == "PAID":
+        s.apply_paid(oid, True)
+    else:
+        s.apply_status(oid, status)
+
+
 class TestEodSync(unittest.TestCase):
     def test_unsynced_finalized_excludes_open_orders(self):
         s = _store()
@@ -100,3 +112,40 @@ class TestTwoOpSync(unittest.TestCase):
         p = eod_sync.build_mark_paid_payload({"order_id": "ORD-1"})
         self.assertEqual(p["action"], "mark_paid")
         self.assertTrue(p["receipt_printed_local"])
+
+
+class TestTwoOpSyncOnlineOrders(unittest.TestCase):
+    """Đơn online (source='online') đã có sẵn dòng trên Sheets do chính website tạo ra —
+    KHÔNG được gửi ingest_order cho chúng ở EOD archive, nếu không idempotency_key lệch
+    với dòng gốc, GAS ingestPreMintedOrder() sẽ mint order_id mới -> ra dòng thứ hai trùng
+    tiền + trùng tem loyalty (double revenue)."""
+
+    def test_paid_online_order_sends_only_mark_paid(self):
+        s = _store(); _finalized_online(s, "ORD-ON-1", "PAID")
+        seen = []
+        res = eod_sync.sync_finalized_2op(
+            s, post_fn=lambda p: (seen.append(p["action"]) or {"ok": True}))
+        self.assertEqual(seen, ["mark_paid"])
+        self.assertNotIn("ingest_order", seen)
+        self.assertEqual(res["pushed"], 1)
+        self.assertEqual(s.unsynced_finalized(), [])
+
+    def test_cancelled_online_order_sends_only_status_update(self):
+        s = _store(); _finalized_online(s, "ORD-ON-2", "CANCELLED")
+        seen = []
+        res = eod_sync.sync_finalized_2op(
+            s, post_fn=lambda p: (seen.append(p["action"]) or {"ok": True}))
+        self.assertEqual(seen, ["update_status"])
+        self.assertNotIn("ingest_order", seen)
+        self.assertEqual(res["pushed"], 1)
+        self.assertEqual(s.unsynced_finalized(), [])
+
+    def test_staff_order_still_sends_both_ops_in_order(self):
+        """Guard chống vá quá tay: nếu skip ingest_order bị áp dụng luôn cho source='staff'
+        (vd điều kiện != 'online' bị đảo ngược sai), test này phải đỏ."""
+        s = _store(); _finalized(s, "ORD-1", "PAID")
+        seen = []
+        res = eod_sync.sync_finalized_2op(
+            s, post_fn=lambda p: (seen.append(p["action"]) or {"ok": True}))
+        self.assertEqual(seen, ["ingest_order", "mark_paid"])
+        self.assertEqual(res["pushed"], 1)

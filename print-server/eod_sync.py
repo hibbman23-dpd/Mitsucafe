@@ -44,7 +44,16 @@ def sync_finalized_2op(store, post_fn):
     or update_status CANCELLED. Mark synced only when every required op succeeds."""
     pushed, failed = 0, 0
     for order in store.unsynced_finalized():
-        ops = [build_gas_payload(order)]
+        ops = []
+        # Đơn online (website) đã có sẵn dòng trên Sheets do chính website tạo ra khi
+        # đặt hàng — KHÔNG được gửi ingest_order ở đây. idempotency_key gửi đi là
+        # order_id local, không khớp key của dòng gốc, nên ingestPreMintedOrder() bên
+        # GAS coi như id đã bị chiếm và mint order_id MỚI -> ra dòng thứ hai trùng
+        # tiền + trùng tem loyalty (double revenue). Chỉ gửi mark_paid/update_status
+        # để cập nhật đúng dòng đã có, không tạo dòng mới. .get() để order thiếu field
+        # source không làm crash (coi như không phải online -> vẫn ingest như cũ).
+        if order.get("source") != "online":
+            ops.append(build_gas_payload(order))
         if order.get("paid"):
             ops.append(build_mark_paid_payload(order))
         elif order.get("status") == "CANCELLED":
