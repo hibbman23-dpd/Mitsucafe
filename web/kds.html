@@ -2049,11 +2049,17 @@ function renderOrders() {
       ? '<span class="pay-badge paid">✅ Đã TT</span>'
       : '<span class="pay-badge pending">⚠️ Chờ TT</span>';
     // Tuổi đơn + cảnh báo trễ (chỉ cho đơn đang xử lý)
+    // Đơn website nhập từ local store không có created_iso (chỉ GAS gán field này) —
+    // fallback sang bill_meta.created_at (onlineField) để vẫn tính được tuổi đơn/hiển thị giờ.
+    const createdIsoAny = o.created_iso || onlineField(o, 'created_at') || null;
     const isActive  = ['NEW','CONFIRMED','MAKING','READY'].includes(o.status);
-    const ageMin    = o.created_iso ? Math.floor((Date.now() - new Date(o.created_iso).getTime()) / 60000) : null;
+    const ageMin    = createdIsoAny ? Math.floor((Date.now() - new Date(createdIsoAny).getTime()) / 60000) : null;
     const isOverdue = isActive && ageMin !== null && ageMin >= OVERDUE_MIN;
     const ageChip   = (isActive && ageMin !== null)
       ? `<span class="age-chip${isOverdue?' overdue':''}">⏱ ${ageMin}′</span>` : '';
+    const displayTime = o.timestamp || (onlineField(o, 'created_at')
+      ? new Date(onlineField(o, 'created_at')).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})
+      : '');
     const isPaid2 = o.payment_status === 'PAID';
     const acts = actionButtons(o);
     // Nút thanh toán riêng CHỈ khi chưa PAID và KHÔNG phải [Xong]-cash-flow (dine_in/pickup đã gộp vào Xong).
@@ -2084,7 +2090,7 @@ function renderOrders() {
               : `<strong>${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong>`}<br>
             ${onlineField(o,'customer_name') ? esc(onlineField(o,'customer_name'))+' · ' : ''}${esc(onlineField(o,'customer_id')) || 'Khách vãng lai'}<br>
             ${o.customer_stamps ? `<span style="color: var(--gold); font-weight: bold; font-size: 0.72rem;">${esc(o.customer_stamps)}</span><br>` : ''}
-            ${esc(o.timestamp)} ${ageChip}<span class="status-chip s-${esc(o.status)}">${esc(statusVi(o.status))}</span>
+            ${esc(displayTime)} ${ageChip}<span class="status-chip s-${esc(o.status)}">${esc(statusVi(o.status))}</span>
           </div>
         </div>
         <div class="card-body">
