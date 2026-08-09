@@ -64,6 +64,37 @@ class TestOnlineInboxImport(unittest.TestCase):
         self.assertEqual(store.get(oid)["source"], "staff")
         self.assertEqual(seen, [])
 
+    def test_race_losing_insert_against_concurrent_staff_row_is_not_confirmed(self):
+        # Mô phỏng cửa sổ đua SỐNG (khác bug đã vá ở test phía trên, nơi đơn
+        # staff đã nằm sẵn TRƯỚC khi poll chạy): ở đây existing=None lúc bước 1
+        # (store.get chưa thấy gì), nhưng NGAY TRONG cửa sổ giữa bước 1 và bước
+        # 2, một luồng khác (print_server.py tạo đơn tại quầy qua
+        # STORE.upsert_create trực tiếp, không qua lock của module này) ghi
+        # trúng cùng order_id. INSERT OR IGNORE ở bước 2 no-op vì row đã có —
+        # phải đọc lại sau bước 2 và thấy source != "online" thì dừng, không
+        # được chạy on_import/apply_status lên đơn không phải của mình.
+        store = _store()
+        oid = "ORD-20260809-4821"
+        real_upsert_create = store.upsert_create
+
+        def racing_upsert_create(order):
+            # Giả lập luồng khác thắng cửa sổ: chèn đơn tại quầy ngay trước khi
+            # module kịp insert đơn online của chính nó.
+            real_upsert_create({
+                "order_id": oid, "short_code": "S01", "delivery_type": "dine_in",
+                "table_id": "T3", "source": "staff", "items": [], "total": 0,
+            })
+            return real_upsert_create(order)
+
+        store.upsert_create = racing_upsert_create
+        seen = []
+        inbox = OnlineInbox(store, fetch_fn=lambda: [_order(oid)], on_import=seen.append)
+        inbox.poll()
+        row = store.get(oid)
+        self.assertEqual(row["source"], "staff")
+        self.assertEqual(row["status"], "NEW")
+        self.assertEqual(seen, [])
+
     def test_repoll_same_order_imports_once_and_calls_on_import_once(self):
         store = _store()
         seen = []

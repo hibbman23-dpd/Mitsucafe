@@ -78,7 +78,19 @@ class OnlineInbox:
         của khách bị đè trạng thái. Phải đúng CẢ status=="NEW" LẪN
         source=="online" (source do chính _import_one ghi khi upsert_create)
         mới coi là "nhập dở, tiếp tục nhập"; ngoài ra không phải đơn của
-        module này — bỏ qua hoàn toàn, không on_import, không apply_status."""
+        module này — bỏ qua hoàn toàn, không on_import, không apply_status.
+
+        Cửa sổ đua THỨ HAI (khác vụ ở trên, nơi đơn đối thủ đã nằm sẵn TRƯỚC
+        khi poll chạy): self._lock chỉ khoá các luồng đi qua instance này.
+        print_server.py tạo đơn tại quầy bằng STORE.upsert_create(...) thẳng
+        vào store dùng chung, không biết gì tới lock này. Nếu một đơn tại
+        quầy trùng order_id được ghi đúng NGAY TRONG khoảng giữa bước đọc
+        existing (existing=None, chưa có gì) và bước upsert_create ở dưới,
+        thì INSERT OR IGNORE ở dưới no-op vào row của đơn quầy — bước đọc đã
+        qua rồi nên không biết. Phải đọc lại store SAU KHI upsert_create và
+        xác nhận đúng source=="online" mới được đi tiếp; nếu không, đơn vừa
+        chạy vào là của luồng khác — dừng, không on_import, không
+        apply_status, chỉ log cảnh báo nêu order_id để lộ ra trong log."""
         oid = p.get("order_id")
         if not oid:
             return False
@@ -108,6 +120,17 @@ class OnlineInbox:
                         "payment_status":   p.get("payment_status", "PENDING"),
                     },
                 })
+                # Cửa sổ đua thứ hai: đọc lại ngay sau upsert_create để biết
+                # INSERT OR IGNORE vừa rồi có thật sự ghi được row của MÌNH
+                # hay đã no-op vào row một luồng khác vừa chèn trong lúc ta
+                # chưa kịp gọi upsert_create. .get() để row thiếu field không
+                # raise — coi như "không phải của mình", an toàn hơn KeyError.
+                after = self.store.get(oid)
+                if not after or after.get("source") != "online":
+                    log.warning(
+                        "inbox import collision: %s bị luồng khác chiếm mất "
+                        "trong cửa sổ đua — bỏ qua, không on_import/apply_status", oid)
+                    return False
             if self.on_import:
                 self.on_import(oid)
             self.store.apply_status(oid, "CONFIRMED")
