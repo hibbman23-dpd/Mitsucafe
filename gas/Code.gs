@@ -690,6 +690,12 @@ var POST_ROUTES = {
       } finally { lock.releaseLock(); }
     }
   },
+  'pending_online_orders': {
+    auth: AUTH.REPORT,
+    handler: function(p) {
+      return { ok: true, orders: _getPendingOnlineOrders() };
+    }
+  },
   'ingest_order': {
     auth: AUTH.REPORT,
     handler: function(p) {
@@ -996,6 +1002,56 @@ function _rowToOrderFull(row) {
       delivery_type: row[26] || '',
     },
   };
+}
+
+/**
+ * Order object cho KDS inbox. KHÔNG tái dùng _rowToOrderFull: hàm đó mặc định
+ * payment.status='PAID' khi ô trống — đúng cho receipt builder (chỉ chạy lúc
+ * DELIVERED) nhưng sai chết người cho đơn online chưa thu tiền.
+ */
+function _rowToOnlineOrder(row) {
+  return {
+    order_id:         row[0],
+    created_at:       row[2] ? new Date(row[2]).toISOString() : '',
+    channel:          row[3] || '',
+    table_id:         row[6] || '',
+    customer_id:      row[8] || '',
+    items:            row[9] ? JSON.parse(row[9]) : [],
+    total:            Number(row[11]) || 0,
+    payment_status:   row[19] || 'PENDING',
+    label_printed_at: row[20] || '',
+    notes:            row[23] || '',
+    customer_name:    row[24] || '',
+    short_code:       row[25] || '',
+    delivery_type:    row[26] || 'pickup'
+  };
+}
+
+/**
+ * Đơn online chưa vào KDS: channel != 'staff', status NEW, confirmed_at rỗng,
+ * tạo trong ngày hôm nay theo giờ ICT.
+ *
+ * Cutoff là NGÀY chứ không phải 4 giờ như _getPendingLabelOrders: khách đặt
+ * 5:30 sáng mà 9:45 nhân viên mới mở KDS thì mốc 4 giờ làm mất đơn vĩnh viễn.
+ */
+function _getPendingOnlineOrders() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ORDERS');
+  if (!sheet) return [];
+  var data = getLastRows(sheet, 300);
+  var todayIct = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0]) continue;
+    if (String(row[3]) === 'staff') continue;   // col D = channel
+    if (String(row[12]) !== 'NEW') continue;    // col M = status
+    if (row[13]) continue;                      // col N = confirmed_at
+    var ts = row[2];                            // col C = timestamp
+    if (!ts) continue;
+    if (Utilities.formatDate(new Date(ts), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd') !== todayIct) continue;
+    result.push(_rowToOnlineOrder(row));
+  }
+  return result;
 }
 
 function _safeJsonParse(s) {
