@@ -1955,6 +1955,12 @@ async function executeCancelItem(e) {
   }
 }
 
+// Bảng orders trong SQLite không có cột customer_id/customer_name — chúng nằm
+// trong bill_meta. GET /orders trả nguyên _row_to_dict, không qua mapper nào.
+function onlineField(o, key) {
+  return (o && o[key]) || (o && o.bill_meta && o.bill_meta[key]) || '';
+}
+
 function renderOrders() {
   renderTableFilterPills();
   const list     = document.getElementById('orders-list');
@@ -2004,7 +2010,7 @@ function renderOrders() {
             ${o.table_id
               ? `<strong style="cursor:pointer; text-decoration:underline dotted;" title="Mở thanh toán bàn" onclick="openCheckoutTable('${esc(o.table_id)}')">${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong>`
               : `<strong>${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong>`}<br>
-            ${o.customer_name ? esc(o.customer_name)+' · ' : ''}${esc(o.customer_id) || 'Khách vãng lai'}<br>
+            ${onlineField(o,'customer_name') ? esc(onlineField(o,'customer_name'))+' · ' : ''}${esc(onlineField(o,'customer_id')) || 'Khách vãng lai'}<br>
             ${o.customer_stamps ? `<span style="color: var(--gold); font-weight: bold; font-size: 0.72rem;">${esc(o.customer_stamps)}</span><br>` : ''}
             ${esc(o.timestamp)} ${ageChip}<span class="status-chip s-${esc(o.status)}">${esc(statusVi(o.status))}</span>
           </div>
