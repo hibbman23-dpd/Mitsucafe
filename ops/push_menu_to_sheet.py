@@ -15,6 +15,17 @@ Bản đồng bộ này thêm hai cột đó từ repo.
 
 Promo đang chạy (on_promo/promo_price) được giữ nguyên theo sku — đồng bộ menu
 không được làm chiến dịch khuyến mãi đang diễn ra biến mất.
+
+⚠️ CÁI NÀY CÓ THỂ BỊ ĐÈ MẤT SAU MỘT ĐÊM
+`gas/Branches.gs::snapshotMenuFromMaster` chạy 3h sáng, `clearContents()` tab MENU
+rồi chép đè từ sheet master. Nó tự thoát khi CONFIG `MENU_MASTER_SHEET_ID` để trống
+(quán một chi nhánh) — đã kiểm 2026-08-08: key trống VÀ trigger chưa cài, nên hiện
+tại an toàn.
+
+Nhưng ngày mở chi nhánh 2, ai đó set key này hoặc chạy `installMenuSnapshotTrigger()`
+thì kết quả đồng bộ ở đây bay sạch sau một đêm, KÈM hai cột giá vốn — và báo cáo lãi
+âm thầm quay lại sai. Lúc đó phải đưa cost_nl/cost_packaging vào sheet master trước,
+hoặc bỏ tab MENU khỏi phạm vi snapshot.
 """
 import argparse
 import json
