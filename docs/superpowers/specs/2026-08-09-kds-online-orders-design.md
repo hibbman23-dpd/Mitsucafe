@@ -63,7 +63,7 @@ An toàn về va chạm: GAS ghi đè `short_code` client gửi bằng `buildSho
 
 Không thêm cột mới vào ORDERS.
 
-- Mailbox trả đơn thỏa: `channel != 'staff'` **và** `status == 'NEW'` **và** `confirmed_at` rỗng **và** tạo trong 4 giờ.
+- Mailbox trả đơn thỏa: `channel != 'staff'` **và** `status == 'NEW'` **và** `confirmed_at` rỗng **và** tạo từ 00:00 hôm nay (ICT) trở đi.
 - Import xong → đẩy `update_status` → `CONFIRMED` → `confirmed_at` có giá trị → đơn rớt khỏi mailbox.
 
 Đúng state machine trong CLAUDE.md (`NEW → CONFIRMED`), không phá luật append-only (chỉ ghi thêm cột trạng thái).
@@ -86,6 +86,21 @@ Kịch bản xấu — import local xong, gọi GAS `CONFIRMED` thì rớt mạn
 
 Việc cần làm khi implement: đảm bảo object đơn từ `OrderStore` có đủ shape `build_receipt` cần — `items`, `total`, `metadata.short_code`, `payment.method`.
 
+### 3.6 Ánh xạ trường hiển thị — SĐT khách
+
+Bảng `orders` trong SQLite ([order_store.py:31](../../../print-server/order_store.py)) **không có** cột `customer_id` hay `customer_name`. Thẻ đơn KDS lại đọc thẳng `o.customer_name` / `o.customer_id` ([kds.html:2007](../../../web/kds.html)), mà `GET /orders` trả nguyên `_row_to_dict` không qua mapper nào ([print_server.py:1097](../../../print-server/print_server.py) → [kds.html:2252](../../../web/kds.html)).
+
+Hệ quả: mọi đơn local-first hiện nay đều hiện "Khách vãng lai". Với đơn tại quán thì không sao. Với đơn online thì hỏng thiết kế — mục 5 dựa vào việc nhân viên **gọi điện** cho khách khi từ chối, không có SĐT thì không gọi được.
+
+**Cách vá — không đổi schema.** `_row_to_dict` đã trả sẵn `bill_meta` (parse từ `bill_meta_json`, [order_store.py:64](../../../print-server/order_store.py)).
+
+- Lúc import: nhét `customer_name` + `customer_id` vào `bill_meta`.
+- Thẻ KDS: đọc `o.customer_name || o.bill_meta?.customer_name`, tương tự cho `customer_id`.
+
+Thêm cột vào SQLite sẽ đụng mọi đường ghi đơn; đọc `bill_meta` chỉ đụng một chỗ render.
+
+Trường khác cần lưu ý: `items_summary` KDS tự tính lấy khi thiếu ([kds.html:1973](../../../web/kds.html)) — không phải lo. `payment_status` `/orders` không trả, `normalizePaid` map từ cột `paid` — cũng không phải lo. `timestamp` thì thiếu thật; thẻ đơn online dùng `created_at`.
+
 ---
 
 ## 4. Thiết kế kỹ thuật
@@ -103,14 +118,16 @@ Thêm vào bảng route trong `Code.gs`, `auth: AUTH.REPORT` (cùng tầng với
 }
 ```
 
-`_getPendingOnlineOrders()` theo khuôn `_getPendingLabelOrders()` ([Code.gs:926](../../../gas/Code.gs)): quét 300 dòng cuối, cutoff 4 giờ.
+`_getPendingOnlineOrders()` theo khuôn `_getPendingLabelOrders()` ([Code.gs:926](../../../gas/Code.gs)): quét 300 dòng cuối.
+
+**Cutoff = 00:00 hôm nay theo giờ ICT**, không phải 4 giờ. Khách đặt 5:30 sáng, nhân viên mở KDS lúc 9:45 → mốc 4 giờ làm đơn biến mất vĩnh viễn. Rớt mạng quá 4 tiếng cũng mất đơn. Đơn trong ngày phải thấy được hết.
 
 Chỉ số cột (0-based, theo `ORDERS_HEADERS`):
 
 | Cột | Index | Dùng để |
 |---|---|---|
 | `order_id` | 0 | khoá |
-| `timestamp` | 2 | cutoff 4h |
+| `timestamp` | 2 | cutoff đầu ngày + `created_at` cho thẻ đơn |
 | `channel` | 3 | lọc `!== 'staff'` |
 | `table_id` | 6 | |
 | `customer_id` | 8 | SĐT để gọi khi từ chối |
@@ -119,38 +136,97 @@ Chỉ số cột (0-based, theo `ORDERS_HEADERS`):
 | `status` | 12 | lọc `=== 'NEW'` |
 | `confirmed_at` | 13 | lọc rỗng |
 | `payment_status` | 19 | |
+| `label_printed_at` | 20 | cờ ⚠️ CHƯA IN TEM (mục 4.1b) |
 | `notes` | 23 | |
 | `customer_name` | 24 | |
 | `short_code` | 25 | |
 | `delivery_type` | 26 | |
 
-**Không tái dùng `_rowToOrderFull`.** Hàm đó mặc định `payment.status = 'PAID'` khi ô trống ([Code.gs:989](../../../gas/Code.gs)) — hợp lý cho receipt builder (chỉ gọi khi đơn đã DELIVERED) nhưng sai chết người cho đơn online chưa thu tiền. Viết `_rowToOnlineOrder(row)` riêng, `payment_status` map thẳng, ô trống → `'PENDING'`.
+**Không tái dùng `_rowToOrderFull`.** Hàm đó mặc định `payment.status = 'PAID'` khi ô trống ([Code.gs:989](../../../gas/Code.gs)) — hợp lý cho receipt builder (chỉ gọi khi đơn đã DELIVERED) nhưng sai chết người cho đơn online chưa thu tiền.
+
+Viết `_rowToOnlineOrder(row)` riêng, trả đúng shape này:
+
+```json
+{
+  "order_id": "ORD-20260809-4821",
+  "short_code": "M07",
+  "created_at": "2026-08-09T09:12:33.000Z",
+  "channel": "web",
+  "customer_id": "0901234567",
+  "customer_name": "Nguyễn Văn A",
+  "delivery_type": "pickup",
+  "table_id": "",
+  "items": [{ "sku": "DR001", "name": "Cà phê sữa", "qty": 2, "price": 30000 }],
+  "total": 60000,
+  "payment_status": "PENDING",
+  "notes": "ít đường",
+  "label_printed_at": ""
+}
+```
+
+`payment_status` map thẳng từ cột 19, ô trống → `'PENDING'` (không bao giờ `'PAID'`).
+
+**`label_printed_at` phải có trong payload.** Lý do ở mục 4.1b.
+
+### 4.1b Đơn quá 4 giờ sẽ không có tem
+
+Nới cutoff của mailbox lên đầu ngày mở ra một trạng thái mới: đơn **hiện trên KDS nhưng chưa từng in tem**.
+
+`_getPendingLabelOrders()` vẫn giữ cutoff 4 giờ ([Code.gs:930](../../../gas/Code.gs)). Đơn quá 4 tiếng thì poller bỏ qua vĩnh viễn, tem không bao giờ ra. Trước đây không ai thấy nên không sao; giờ đơn hiện lên bảng mà không có tem trong khay là nhân viên pha xong không biết dán gì.
+
+Xử lý: `label_printed_at` rỗng → banner hiện cờ đỏ `⚠️ CHƯA IN TEM` kèm nút `🖨️ In tem`, gọi `POST /enqueue/labels` với chính order đó.
+
+**Không nới cutoff của `_getPendingLabelOrders`.** Nới là mở cửa cho đơn cũ bị in lại hàng loạt sau một lần Mac Mini nằm lâu. Để nhân viên bấm tay, có kiểm soát.
 
 ### 4.2 print_server — import thay vì mint
 
 **`OnlineInbox`** đổi vai: từ "hộp chờ người duyệt" thành "bộ nhập tự động". Sau khi `poll()` lấy được danh sách:
 
-1. Với mỗi đơn: `STORE.upsert_create({...})` với `order_id` + `short_code` GAS, `source="online"`.
-2. Import thành công → `GATEWAY.enqueue("status", order_id, f"{order_id}:CONFIRMED", {...})` để syncer đẩy `CONFIRMED` lên GAS.
-3. Đơn nào `upsert_create` báo đã tồn tại → bỏ qua bước 2 (đã enqueue lần trước).
+1. `STORE.get(order_id)` — đã có thì bỏ qua toàn bộ (đã import lần trước).
+2. `STORE.upsert_create({...})` với `order_id` + `short_code` GAS, `source="online"`, `bill_meta` chứa `customer_name` + `customer_id`.
+3. **`STORE.apply_status(order_id, "CONFIRMED")`.** `upsert_create` hardcode `status="NEW"` ([order_store.py:95](../../../print-server/order_store.py)) — thiếu bước này thì GAS đã `CONFIRMED` mà local vẫn `NEW`, hai bên lệch trạng thái.
+4. `GATEWAY.enqueue("status", order_id, f"{order_id}:CONFIRMED", {...})` để syncer đẩy `CONFIRMED` lên GAS.
+
+Bước 1 phải là `STORE.get` chứ không dựa vào `upsert_create` — hàm đó luôn trả `self.get(oid)`, không phân biệt được vừa chèn hay đã có sẵn ([order_store.py:100](../../../print-server/order_store.py)). Không kiểm trước thì mỗi vòng poll enqueue thêm một op `CONFIRMED` thừa.
 
 `_pending` / `_accepted` / `accept()` trong `online_inbox.py` không còn ý nghĩa → gỡ. Gỡ luôn cả hai route `GET /inbox` và `POST /inbox/<id>/accept`.
 
 Banner không cần API riêng. Đơn online sau khi import là đơn bình thường trong `OrderStore`, đã nằm sẵn trong danh sách `/orders` mà KDS poll. KDS nhận biết đơn mới bằng `source === 'online'` + `order_id` chưa có trong tập đã thấy phía client — đúng khuôn `__inboxSeen` sẵn có ([kds.html:1096](../../../web/kds.html)). Trạng thái "đã thấy" thuần client, không cần server nhớ.
 
-**Bật cờ:** `ONLINE_POLL=1` + `ONLINE_POLL_SEC=15` vào `~/Library/LaunchAgents/com.lamha.kissaten.printserver.plist`, rồi `launchctl kickstart -k`. Nhớ: `print_server.py` chạy code CŨ tới khi kickstart.
+**Bật cờ:** đổi mặc định trong code `os.getenv("ONLINE_POLL", "0")` → `"1"` ([print_server.py:2267](../../../print-server/print_server.py)). Action GAS deploy cùng đợt này nên lý do "on-by-default sẽ lỗi mỗi 15 giây" trong comment cũ không còn đúng. Đặt mặc định trong code thì `git pull` + restart là chạy, không phụ thuộc ai đó nhớ sửa plist. Nhánh `PRINT_ENGINE=noop` vẫn return sớm nên test không đẻ thread.
 
-**Bỏ nuốt lỗi:** `_gas_fetch_online` phải `log.error` kèm nội dung lỗi trước khi trả `[]`. Hỏng im lặng chính là lý do bug này sống lâu.
+`ONLINE_POLL_SEC` giữ mặc định, hạ xuống `15`.
+
+### 4.2b Tách hai tín hiệu: "GAS có sống" vs "action inbox có chạy"
+
+`_gas_fetch_online` hiện nuốt mọi lỗi và trả `[]`. `OnlineInbox.poll()` thấy không exception liền set `self._online = True` ([online_inbox.py:21](../../../print-server/online_inbox.py)) — token sai hay GAS 500 vẫn báo "đang kết nối".
+
+Nhưng vá bằng cách raise mọi lỗi thì hỏng kiểu khác: `_online` còn nuôi **badge cloud trên KDS** ([kds.html:1207](../../../web/kds.html) → `GET /cloud/status`). Action inbox lỗi mà badge nhảy `🟡 Offline (local)` là báo động giả — nhân viên tưởng mất mạng trong khi GAS vẫn thu tiền bình thường.
+
+Tách đôi:
+
+| Loại lỗi | `_online` | Hành vi |
+|---|---|---|
+| Transport (timeout, DNS, SSL, JSON hỏng) | `False` | GAS thật sự không với tới → badge đỏ đúng |
+| HTTP 200 nhưng `ok:false` (sai token, thiếu action) | `True` | GAS sống. `log.error` nội dung lỗi, coi như 0 đơn, thêm trường `inbox_error` vào `/cloud/status` |
+
+`_post_to_gas` không tự raise khi `ok:false` — nó trả nguyên dict ([gateway.py:283](../../../print-server/gateway.py)) — nên `_gas_fetch_online` phải tự kiểm `d.get("ok")`.
+
+**Phát hiện phụ:** vì `INBOX.poll()` chưa từng chạy, `_online` đứng nguyên `False` từ lúc khởi động. Badge cloud trên KDS ở quán đang hiện `🟡 Offline (local)` **vĩnh viễn** dù GAS vẫn tốt. Đó là triệu chứng thứ hai của cùng gốc rễ này, sửa xong là hết.
 
 ### 4.3 print_server — route từ chối
 
 `POST /order/<order_id>/reject`, body `{"reason": "out_of_stock" | "after_hours" | "fake"}`.
 
-1. `STORE.apply_status(order_id, "CANCELLED")`
+1. Ghi local: `status='CANCELLED'` **kèm** `void_reason=reason`, `voided_by='kds'`. Thêm một method mỏng vào `OrderStore` gọi `_apply(order_id, "status='CANCELLED', void_reason=?, voided_by=?", ...)`.
 2. `GATEWAY.enqueue("status", order_id, f"{order_id}:CANCELLED", {"action": "update_status", "order_id": order_id, "status": "CANCELLED", "reject_reason": reason})`
 3. Trả ngay, không chờ GAS — local-first, đúng khuôn `POST /order/status` ([print_server.py:1341](../../../print-server/print_server.py)).
 
+**Không dùng `STORE.void_order()`.** Hàm sẵn có đó set `status='VOIDED'` ([order_store.py:242](../../../print-server/order_store.py)), mà `VOIDED` không nằm trong `VALID_STATUS` của GAS ([Orders.gs:19](../../../gas/Orders.gs)) và cũng không lọt bộ lọc `unsynced_finalized` (`paid=1 OR status='CANCELLED'`, [order_store.py:249](../../../print-server/order_store.py)). Dùng nó là đơn bị từ chối kẹt lại local, không lên Sheets, đối soát cuối ngày lệch. Tái dùng hai cột `void_reason`/`voided_by` thì được — chỉ đừng tái dùng cái status.
+
 Mất mạng vẫn hủy được trên máy; syncer đẩy lên Sheets sau.
+
+**Phía GAS phải lưu vết lý do.** `updateOrderStatus` hiện chỉ đổi cột status ([Orders.gs:412](../../../gas/Orders.gs)) — chủ quán mở Sheets sẽ thấy `CANCELLED` mà không biết vì sao. Handler POST `update_status` nhận nguyên payload `p` ([Code.gs:704](../../../gas/Code.gs)) nên đọc được `p.reject_reason`: có thì nối vào cột `notes` (index 23) dạng `[Từ chối: hết món]`, giữ nguyên nội dung notes cũ.
 
 ### 4.4 KDS — banner góc phải
 
@@ -167,8 +243,19 @@ Thay bằng banner thông báo:
 | Hiệu ứng | viền nhấp nháy tới lúc bấm — tái dùng `@keyframes agePulse` ([kds.html:135](../../../web/kds.html)) |
 | Nhiều đơn | xếp chồng tối đa 3, dư gộp thành `+N đơn nữa` |
 | Chuông | `playNewOrderChime()`; đơn đã trễ dùng `playLateOrderChime()` ([kds.html:1076](../../../web/kds.html)) |
+| Cờ đỏ | `label_printed_at` rỗng → `⚠️ CHƯA IN TEM` + nút `🖨️ In tem` (mục 4.1b) |
 
 Toast 3 giây không dùng được ở đây — nhân viên đang cắm mặt vào máy pha thì thông báo đã biến mất.
+
+**Chống dội banner khi F5.** Tập "đã thấy" nằm trong RAM trình duyệt. Không chặn thì mỗi lần reload KDS, hoặc mở KDS trên màn thứ hai, mọi đơn online trong ngày đều bị coi là mới → banner đổ hàng loạt, chuông kêu dồn.
+
+Dùng lại đúng khuôn bảng đơn đang chạy: cờ `firstLoad` + `seenOrderIds` ([kds.html:2224-2230](../../../web/kds.html)). Lần `loadOrders()` đầu sau khi mở trang:
+
+- Đánh dấu tất cả đơn online hiện có là đã thấy.
+- **Không** phát chuông.
+- Chỉ dựng banner cho đơn có `created_at` trong vòng 5 phút — đơn vừa vào lúc nhân viên đang reload thì không được nuốt mất.
+
+Không cần `localStorage`: nhân viên hiếm khi reload, mà tập trong RAM sống đúng bằng phiên làm việc.
 
 ### 4.5 KDS — nút Từ chối
 
@@ -194,18 +281,27 @@ Thẻ đơn online hiện `customer_id` (SĐT) cỡ to để nhân viên gọi k
 
 | Tầng | Kiểm |
 |---|---|
-| Unit — GAS | `_getPendingOnlineOrders` lọc đúng 4 điều kiện; đơn `channel='staff'` không lọt; `payment_status` trống → `'PENDING'` chứ không phải `'PAID'` |
-| Unit — Python | import giữ nguyên `order_id`/`short_code` GAS; poll hai lần chỉ ra một dòng; `/order/<id>/reject` ghi outbox đúng payload |
+| Unit — GAS | `_getPendingOnlineOrders` lọc đúng 4 điều kiện; đơn `channel='staff'` không lọt; `payment_status` trống → `'PENDING'` chứ không phải `'PAID'`; cutoff nhận đơn 05:30 khi chạy lúc 09:45 |
+| Unit — GAS | `update_status` có `reject_reason` → nối vào `notes`, không xoá notes cũ |
+| Unit — Python | import giữ nguyên `order_id`/`short_code` GAS; đơn sau import có `status='CONFIRMED'` local; poll hai lần chỉ ra một dòng **và chỉ một op outbox** |
+| Unit — Python | `_gas_fetch_online`: `ok:false` → `_online` vẫn `True` + có `inbox_error`; timeout → `_online` `False` |
+| Unit — Python | `/order/<id>/reject` ghi `status='CANCELLED'` + `void_reason`, **không** ra `VOIDED` |
 | Tích hợp | GAS `CONFIRMED` thất bại → đơn vẫn trên KDS, poll lại không nhân đôi |
 | Tích hợp | `mark_paid` trên đơn online (không có outbox record) vẫn in được bill qua fallback |
-| E2E | Đặt đơn thật trên mitsu.cafe → tem in ra **và** banner hiện **và** mã trên tem khớp mã trên màn hình |
+| Tích hợp | Đơn bị từ chối lọt `unsynced_finalized` → lên được Sheets |
+| E2E | Đặt đơn thật trên mitsu.cafe → tem in ra **và** banner hiện **và** mã trên tem khớp mã trên màn hình **và** thẻ đơn hiện đúng SĐT khách |
+| E2E | F5 trang KDS khi đang có 5 đơn online → không chuông, không banner dội |
 | Hồi quy | Đơn tại quán (`source='staff'`) không bị ảnh hưởng; `short_code` không nhảy số |
+| Hồi quy | Badge cloud chuyển `🟢 Online` sau khi poll chạy |
 
 ---
 
 ## 7. Việc phải làm bằng tay sau khi merge
 
-1. Deploy GAS: `python3 ops/gas_push.py --deploy`
-2. Thêm `ONLINE_POLL=1` + `ONLINE_POLL_SEC=15` vào `~/Library/LaunchAgents/com.lamha.kissaten.printserver.plist`
-3. `launchctl kickstart -k gui/$(id -u)/com.lamha.kissaten.printserver`
-4. Đặt một đơn thật trên mitsu.cafe, xác nhận tem + banner + mã khớp
+1. **Deploy GAS TRƯỚC:** `python3 ops/gas_push.py --deploy`. Phải đi trước bước 2 — `ONLINE_POLL` giờ mặc định bật, restart server trước khi GAS có action là log đỏ mỗi 15 giây.
+2. `launchctl kickstart -k gui/$(id -u)/com.lamha.kissaten.printserver`
+   `print_server.py` chạy code CŨ tới khi kickstart — khác `kds.html` đọc thẳng từ đĩa.
+3. Xác nhận badge cloud trên KDS chuyển `🟢 Online`.
+4. Đặt một đơn thật trên mitsu.cafe, xác nhận tem + banner + mã khớp + SĐT hiện đúng.
+
+Không còn bước sửa `.plist` bằng tay (mục 4.2).
