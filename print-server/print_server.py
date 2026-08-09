@@ -427,51 +427,37 @@ def _attendance_loop():
         time.sleep(30)
 
 # ── Online-order inbox (Task 8) ────────────────────────────────────────────────
-from online_inbox import OnlineInbox
+from online_inbox import OnlineInbox, InboxActionError
 
 
 def _gas_fetch_online():
-    """Pull pending online orders from GAS mailbox. Returns [] on any failure so the
-    inbox flags offline rather than raising into the poll loop's status."""
+    """Kéo đơn online từ GAS mailbox.
+
+    _post_to_gas KHÔNG raise khi GAS trả ok:false — nó trả nguyên dict. Phải tự
+    kiểm, và raise InboxActionError để phân biệt với lỗi transport: cờ `online`
+    còn nuôi badge cloud trên KDS, gộp hai loại là báo động giả mất mạng."""
     d = GATEWAY._post_to_gas({"action": "pending_online_orders"})
-    return d.get("orders", []) if isinstance(d, dict) else []
+    if not isinstance(d, dict) or not d.get("ok"):
+        raise InboxActionError(str((d or {}).get("error", "malformed response")))
+    return d.get("orders", [])
 
 
-INBOX = OnlineInbox(STORE, fetch_fn=(lambda: []) if os.getenv("PRINT_ENGINE") == "noop"
-                    else _gas_fetch_online)
+def _confirm_on_gas(order_id):
+    """Đẩy NEW→CONFIRMED lên GAS. confirmed_at chính là dấu 'đã vào KDS' —
+    có nó thì đơn rớt khỏi mailbox. Local-first: chỉ ghi outbox, syncer đẩy sau."""
+    GATEWAY.enqueue("status", order_id, f"{order_id}:CONFIRMED",
+                    {"action": "update_status", "order_id": order_id, "status": "CONFIRMED"})
 
 
-@app.get("/inbox")
-def inbox_list():
-    return jsonify({"ok": True, "pending": INBOX.pending(), "status": INBOX.status()}), 200
-
-
-@app.post("/inbox/<online_order_id>/accept")
-def inbox_accept(online_order_id):
-    p = request.get_json(force=True, silent=True) or {}
-    minted = GATEWAY.mint_order({
-        "idempotency_key": "online:" + online_order_id,
-        "metadata": {"delivery_type": "pickup", "source": "online"},
-        "table_id": p.get("table_id", ""),
-        "customer_name": p.get("customer_name", ""),
-        "items": p.get("items", []),
-    })
-    order_id, short_code = minted["order_id"], minted["short_code"]
-    STORE.upsert_create({
-        "order_id": order_id, "short_code": short_code, "delivery_type": "pickup",
-        "table_id": p.get("table_id", ""), "source": "online",
-        "items": p.get("items", []),
-        "bill_meta": {"customer_name": p.get("customer_name", "")},
-    })
-    res = INBOX.accept(online_order_id, p)
-    return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
-                    "accepted": res["accepted"]}), 200
+INBOX = OnlineInbox(STORE,
+                    fetch_fn=(lambda: []) if os.getenv("PRINT_ENGINE") == "noop"
+                    else _gas_fetch_online,
+                    on_import=_confirm_on_gas)
 
 
 @app.get("/cloud/status")
 def cloud_status():
-    st = INBOX.status()
-    return jsonify({"ok": True, **st}), 200
+    return jsonify({"ok": True, **INBOX.status()}), 200
 
 def _print_engine():
     return os.getenv("PRINT_ENGINE", "legacy")
@@ -1186,6 +1172,27 @@ def order_void(order_id):
     if o is None:
         return jsonify({"ok": False, "error": "not found"}), 404
     STORE.apply_status(order_id, "VOIDED")  # ensure status mirrors even if void raced
+    return jsonify({"ok": True, "order": o}), 200
+
+
+_REJECT_REASONS = ("out_of_stock", "after_hours", "fake")
+
+
+@app.post("/order/<order_id>/reject")
+def order_reject(order_id):
+    """Từ chối đơn online. Không cần PIN quản lý như /void: đơn chưa thu tiền
+    (web order gửi payment.status=PENDING, khách trả tại quán) nên từ chối không
+    đụng tiền — bắt PIN chỉ làm chậm lúc quán đông."""
+    p = request.get_json(force=True, silent=True) or {}
+    reason = str(p.get("reason") or "")
+    if reason not in _REJECT_REASONS:
+        return jsonify({"ok": False, "error": "bad_reason"}), 400
+    o = STORE.reject_order(order_id, reason, p.get("staff", "kds"))
+    if o is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    GATEWAY.enqueue("status", order_id, f"{order_id}:CANCELLED",
+                    {"action": "update_status", "order_id": order_id,
+                     "status": "CANCELLED", "reject_reason": reason})
     return jsonify({"ok": True, "order": o}), 200
 
 
@@ -2260,15 +2267,14 @@ def _start_background_workers():
     def _poll_loop():
         while True:
             try:
-                # ONLINE_POLL defaults OFF: the GAS-side `pending_online_orders`
-                # mailbox action does not exist yet (tracked as a separate
-                # follow-up task), so an on-by-default poll would error every
-                # ~ONLINE_POLL_SEC seconds on the live server after deploy.
-                if os.getenv("ONLINE_POLL", "0") == "1":
+                # Mặc định BẬT: action pending_online_orders deploy cùng đợt này.
+                # Đặt mặc định trong code để `git pull` + kickstart là chạy, không
+                # phụ thuộc ai đó nhớ sửa plist LaunchAgent bằng tay.
+                if os.getenv("ONLINE_POLL", "1") == "1":
                     INBOX.poll()
             except Exception as e:
                 log.error("inbox poll error: %s", e)
-            time.sleep(int(os.getenv("ONLINE_POLL_SEC", "20")))
+            time.sleep(int(os.getenv("ONLINE_POLL_SEC", "15")))
 
     def _snapshot_loop():
         db_path = GATEWAY.db_path

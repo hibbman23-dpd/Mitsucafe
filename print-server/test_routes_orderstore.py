@@ -1,4 +1,4 @@
-import os, tempfile, unittest
+import json, os, tempfile, unittest
 os.environ["PRINT_ENGINE"] = "noop"  # avoid real printer I/O; see Step 3 note
 import print_server
 from gateway import Gateway
@@ -229,33 +229,62 @@ class TestEditRoutes(RouteTestBase):
         self.assertEqual(r.status_code, 200)  # bad qty defaults to 1, never crashes
 
 
-class TestInboxRoutes(RouteTestBase):
-    def setUp(self):
-        super().setUp()
-        # seed one pending online order directly into the shared INBOX
-        print_server.INBOX._pending["OLX"] = {"online_order_id": "OLX",
-            "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}]}
-
-    def test_inbox_lists_pending(self):
-        r = self.c.get("/inbox")
-        ids = [p["online_order_id"] for p in r.get_json()["pending"]]
-        self.assertIn("OLX", ids)
-
-    def test_accept_creates_order(self):
-        r = self.c.post("/inbox/OLX/accept", json={
+class TestOnlineOrderRoutes(RouteTestBase):
+    def _seed_online(self, oid="ORD-9", short_code="M09"):
+        print_server.STORE.upsert_create({
+            "order_id": oid, "short_code": short_code, "source": "online",
+            "delivery_type": "pickup",
             "items": [{"sku": "DR005", "name": "Cà phê muối", "qty": 1, "price": 30000}],
-            "table_id": "TAKE", "customer_name": "Anh A"})
+            "bill_meta": {"customer_name": "Anh A", "customer_id": "0901234567"},
+        })
+
+    def test_reject_online_order_cancels_and_queues_gas(self):
+        self._seed_online()
+        r = self.c.post("/order/ORD-9/reject", json={"reason": "out_of_stock"})
         d = r.get_json()
         self.assertTrue(d["ok"])
-        self.assertTrue(d["order_id"].startswith("ORD-"))
-        self.assertEqual(STORE_source_of(d["order_id"]), "online")
+        self.assertEqual(d["order"]["status"], "CANCELLED")
+        self.assertEqual(d["order"]["void_reason"], "out_of_stock")
+        ops = print_server.GATEWAY.unsynced()
+        self.assertTrue(any(json.loads(o["payload"]).get("reject_reason") == "out_of_stock"
+                            for o in ops))
 
-    def test_cloud_status(self):
-        self.assertIn("online", self.c.get("/cloud/status").get_json())
+    def test_reject_rejects_unknown_reason(self):
+        self._seed_online("ORD-10", "M10")
+        r = self.c.post("/order/ORD-10/reject", json={"reason": "vì tôi thích"})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(print_server.STORE.get("ORD-10")["status"], "NEW")
 
+    def test_reject_missing_order_404(self):
+        r = self.c.post("/order/ORD-NOPE/reject", json={"reason": "fake"})
+        self.assertEqual(r.status_code, 404)
 
-def STORE_source_of(order_id):
-    return print_server.STORE.get(order_id)["source"]
+    def test_inbox_routes_are_gone(self):
+        self.assertEqual(self.c.get("/inbox").status_code, 404)
+        self.assertEqual(self.c.post("/inbox/OL1/accept", json={}).status_code, 404)
+
+    def test_cloud_status_exposes_inbox_error(self):
+        d = self.c.get("/cloud/status").get_json()
+        self.assertTrue(d["ok"])
+        self.assertIn("online", d)
+        self.assertIn("inbox_error", d)
+
+    def test_mark_paid_on_imported_order_still_builds_receipt(self):
+        # Đơn online KHÔNG có outbox ingest_order (đơn đã nằm trên Sheets), nên
+        # get_create_payload trả None. mark_paid phải rơi xuống fallback p["order"]
+        # mà KDS gửi kèm — hỏng chỗ này là thu tiền xong không có bill.
+        self._seed_online("ORD-11", "M11")
+        self.assertIsNone(print_server.GATEWAY.get_create_payload("ORD-11"))
+        o = print_server.STORE.get("ORD-11")
+        r = self.c.post("/order/mark_paid", json={
+            "order_id": "ORD-11",
+            "order": {"order_id": "ORD-11", "items": o["items"],
+                      "metadata": {"short_code": "M11"},
+                      "payment": {"method": "cash"}},
+        })
+        d = r.get_json()
+        self.assertTrue(d["ok"])
+        self.assertEqual(print_server.STORE.get("ORD-11")["paid"], 1)
 
 
 class TestEodGuard(unittest.TestCase):
