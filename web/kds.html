@@ -133,6 +133,21 @@
     .age-chip { font-size: .62rem; font-weight: 700; padding: 1px 6px; border-radius: 9px; background: rgba(245,240,232,.12); color: var(--cream); margin-left: 4px; }
     .age-chip.overdue { background: #e53935; color: #fff; animation: agePulse 1.4s ease-in-out infinite; }
     @keyframes agePulse { 0%,100%{opacity:1;} 50%{opacity:.55;} }
+    #online-banners { position: fixed; top: 74px; right: 14px; z-index: 900;
+                      display: flex; flex-direction: column; gap: 10px; width: 400px; max-width: 92vw; }
+    .online-banner  { background: var(--accent); color: #fff; border: 3px solid #fff;
+                      border-radius: 14px; padding: 14px 16px; box-shadow: 0 8px 28px rgba(0,0,0,.45);
+                      animation: agePulse 1.1s ease-in-out infinite; }
+    .online-banner .ob-title { font-size: 1.4rem; font-weight: 800; letter-spacing: .5px; }
+    .online-banner .ob-code  { font-size: 2.1rem; font-weight: 900; line-height: 1.1; }
+    .online-banner .ob-line  { font-size: .95rem; margin-top: 4px; }
+    .online-banner .ob-warn  { background: #B71C1C; border-radius: 8px; padding: 4px 8px;
+                               font-weight: 800; margin-top: 8px; display: inline-block; }
+    .online-banner button    { margin-top: 10px; width: 100%; padding: 10px; font-size: 1rem;
+                               font-weight: 700; border: none; border-radius: 10px; cursor: pointer; }
+    .online-banner .ob-seen  { background: #fff; color: #111; }
+    .online-banner .ob-print { background: #FFC107; color: #111; margin-top: 6px; }
+    .online-banner .ob-more  { text-align: center; font-weight: 700; padding: 8px; }
     .btn-cancel { background: transparent; color: #e57373; border: 1px solid rgba(229,115,115,.5); border-radius: 8px; padding: 8px 12px; font-size: .8rem; font-weight: 600; cursor: pointer; }
     .btn-cancel:hover { background: rgba(229,57,53,.12); }
     .card-top {
@@ -499,7 +514,6 @@
   <div class="header-status">
     <span class="status-pill" id="cloud-badge" title="Trạng thái cloud">🟡 —</span>
     <span class="status-pill" id="printer-badge" title="Trạng thái máy in">🟢</span>
-    <button class="btn-inbox" id="inbox-btn" onclick="openInboxList()" title="Đơn online chờ nhận">📥<span class="inbox-count hidden" id="inbox-count">0</span></button>
     <button class="btn-sm" onclick="loadOrders()">↺ Làm mới</button>
   </div>
 </header>
@@ -1092,113 +1106,145 @@ function playLateOrderChime() {
   } catch (e) {}
 }
 
-// ─── ONLINE INBOX (mitsu.cafe orders pending accept) ──────────────────────────
-let __inboxSeen = new Set();
-let __inboxPending = [];
+// ─── BANNER ĐƠN ONLINE ────────────────────────────────────────────────────────
+// Đơn online tự vào bảng (print_server import từ GAS mailbox). Banner chỉ để
+// nhân viên đang đứng máy pha nhìn thấy — KHÔNG tự tắt như toast 3 giây.
+let __onlineSeen = new Set();
+let __onlineBanners = [];
+const ONLINE_FRESH_MS = 5 * 60 * 1000;
 
-async function pollInbox() {
-  let r;
-  try { r = await api().inbox(); } catch (_) { return; }
-  if (!(r.status === 200 && r.body && r.body.ok)) return;
-  const pend = r.body.pending || [];
-  __inboxPending = pend;
-  updateInboxBadge(pend.length);
-  const nowIso = new Date().toISOString();
-  let hasNewLate = false, hasNewFresh = false;
-  for (const p of pend) {
-    if (__inboxSeen.has(p.online_order_id)) continue;
-    __inboxSeen.add(p.online_order_id);
-    if (p.created_at && checkout.isLate(p.created_at, nowIso)) hasNewLate = true;
-    else hasNewFresh = true;
+function scanOnlineOrders(orders, isFirstLoad) {
+  const fresh = [];
+  for (const o of orders) {
+    if (o.source !== 'online') continue;
+    if (__onlineSeen.has(o.order_id)) continue;
+    __onlineSeen.add(o.order_id);
+    if (['CANCELLED', 'VOIDED', 'DELIVERED'].includes(o.status)) continue;
+    // Lần load đầu (F5, hoặc mở KDS ở màn thứ hai): mọi đơn trong ngày đều "chưa
+    // thấy" → không chặn là banner đổ hàng loạt + chuông kêu dồn. Chỉ nhận đơn
+    // vừa vào trong 5 phút, để đơn đến đúng lúc reload không bị nuốt mất.
+    const createdAt = onlineField(o, 'created_at') || o.created_at;
+    const age = createdAt ? (Date.now() - new Date(createdAt).getTime()) : 0;
+    if (isFirstLoad && age > ONLINE_FRESH_MS) continue;
+    fresh.push(o);
   }
-  if (hasNewLate) playLateOrderChime();
-  else if (hasNewFresh) playNewOrderChime();
-  const overlay = document.getElementById('inbox-overlay');
-  if (overlay) renderInboxList(pend);
+  if (!fresh.length) return;
+  __onlineBanners = [...__onlineBanners, ...fresh];
+  renderOnlineBanners();
+  if (!isFirstLoad) {
+    const late = fresh.some(o => {
+      const c = onlineField(o, 'created_at') || o.created_at;
+      return c && checkout.isLate(c, new Date().toISOString());
+    });
+    if (late) playLateOrderChime(); else playNewOrderChime();
+  }
 }
 
-function updateInboxBadge(count) {
-  const badge = document.getElementById('inbox-count');
-  if (!badge) return;
-  badge.textContent = String(count);
-  badge.classList.toggle('hidden', !count);
+function renderOnlineBanners() {
+  let host = document.getElementById('online-banners');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'online-banners';
+    document.body.appendChild(host);
+  }
+  const show = __onlineBanners.slice(0, 3);
+  const extra = __onlineBanners.length - show.length;
+  host.innerHTML = show.map(o => {
+    const noLabel = !onlineField(o, 'label_printed_at');
+    return `
+      <div class="online-banner">
+        <div class="ob-title">🛵 ĐƠN ONLINE MỚI</div>
+        <div class="ob-code">${esc(o.short_code) || '—'}</div>
+        <div class="ob-line">${esc(onlineField(o,'customer_name')) || 'Khách online'} · ${esc(onlineField(o,'customer_id')) || 'không có SĐT'}</div>
+        <div class="ob-line">${esc(formatItemsSummary(o.items || []))}</div>
+        <div class="ob-line"><strong>${fmt(o.total || 0)}</strong></div>
+        ${noLabel ? '<div class="ob-warn">⚠️ CHƯA IN TEM</div>' : ''}
+        <button class="ob-seen" onclick="dismissOnlineBanner('${esc(o.order_id)}')">Đã thấy</button>
+        ${noLabel ? `<button class="ob-print" onclick="reprintOnlineLabel('${esc(o.order_id)}', this)">🖨️ In tem</button>` : ''}
+      </div>`;
+  }).join('') + (extra > 0
+    ? `<div class="online-banner ob-more">+${extra} đơn nữa</div>` : '');
 }
 
-function openInboxList() {
-  renderInboxList(__inboxPending);
+function dismissOnlineBanner(orderId) {
+  __onlineBanners = __onlineBanners.filter(o => o.order_id !== orderId);
+  renderOnlineBanners();
 }
 
-function inboxItemsSummary(items) {
-  return (items || []).map(i => (i.qty || 1) + '× ' + esc(i.name || i.sku || '')).join(', ');
+async function reprintOnlineLabel(orderId, btn) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  btn.disabled = true; btn.textContent = 'Đang in...';
+  try {
+    const r = await api().reprintLabels({
+      order_id: o.order_id, items: o.items || [],
+      metadata: { short_code: o.short_code, delivery_type: o.delivery_type },
+    });
+    btn.textContent = (r.status === 200 && r.body && r.body.ok) ? '✅ Đã gửi máy in' : '❌ Lỗi — bấm lại';
+    if (!(r.status === 200 && r.body && r.body.ok)) btn.disabled = false;
+  } catch (_) {
+    btn.textContent = '❌ Lỗi — bấm lại'; btn.disabled = false;
+  }
 }
 
-function renderInboxList(pend) {
-  const nowIso = new Date().toISOString();
-  const html = `
-    <div class="overlay-bg" id="inbox-overlay" onclick="closeInboxOverlay(event)">
-      <div class="bottom-sheet" style="max-width:520px; margin:auto; border-radius:16px; max-height:85vh; overflow-y:auto;">
+// Spec §4.5: 3 nút nhanh, KHÔNG dùng prompt(). KDS chạy màn cảm ứng ở quầy —
+// gõ số vào hộp thoại hệ điều hành là chậm và dễ bấm nhầm.
+const REJECT_CHOICES = [
+  { reason: 'out_of_stock', label: 'Hết món' },
+  { reason: 'after_hours',  label: 'Ngoài giờ' },
+  { reason: 'fake',         label: 'Đơn ảo' },
+];
+
+function openRejectSheet(orderId) {
+  let el = document.getElementById('reject-sheet-container');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reject-sheet-container';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `
+    <div class="overlay-bg" id="reject-overlay" onclick="closeRejectSheet(event)">
+      <div class="bottom-sheet" style="max-width:420px; margin:auto; border-radius:16px;">
         <div class="sheet-head">
-          <div class="sheet-title">📥 Đơn online chờ nhận (${pend.length})</div>
-          <button class="btn-close" onclick="closeInboxOverlay()">✕</button>
+          <div class="sheet-title">✕ Từ chối đơn ${esc(orderId)}</div>
+          <button class="btn-close" onclick="closeRejectSheet()">✕</button>
         </div>
-        <div style="padding:12px 16px;">
-          ${pend.length ? pend.map(p => renderInboxItemCard(p, nowIso)).join('') :
-            '<div class="empty-state" style="padding:30px 0;"><div class="icon">📭</div>Không có đơn online chờ nhận</div>'}
+        <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+          ${REJECT_CHOICES.map(c => `
+            <button class="btn-mark-paid" style="background:#B71C1C;color:#fff;padding:14px;font-size:1.05rem;"
+                    onclick="rejectOnlineOrder('${esc(orderId)}','${c.reason}',this)">${c.label}</button>`).join('')}
         </div>
       </div>
     </div>`;
-  let el = document.getElementById('inbox-overlay-container');
-  if (!el) { el = document.createElement('div'); el.id = 'inbox-overlay-container'; document.body.appendChild(el); }
-  el.innerHTML = html;
 }
 
-function renderInboxItemCard(p, nowIso) {
-  const late = !!(p.created_at && checkout.isLate(p.created_at, nowIso));
-  const lateMin = late ? Math.round(checkout.lateMinutes(p.created_at, nowIso)) : 0;
-  return `
-    <div class="inbox-item-card ${late ? 'late' : ''}">
-      ${late ? `<div class="late-flag">⚠️ ĐƠN TRỄ ${lateMin} PHÚT</div>` : ''}
-      <div style="font-weight:700; font-size:.9rem; color:#fff; margin-bottom:2px;">${esc(p.customer_name || 'Khách online')}</div>
-      <div style="font-size:.8rem; color:var(--muted); margin-bottom:8px;">${inboxItemsSummary(p.items)}</div>
-      <button class="btn-mark-paid" style="width:100%;" onclick="acceptOnlineOrder('${esc(p.online_order_id)}', this)">✅ Nhận</button>
-    </div>`;
-}
-
-function closeInboxOverlay(e) {
-  if (e && e.target && e.target.id !== 'inbox-overlay') return;
-  const el = document.getElementById('inbox-overlay-container');
+function closeRejectSheet(e) {
+  if (e && e.target && e.target.id !== 'reject-overlay') return;
+  const el = document.getElementById('reject-sheet-container');
   if (el) el.innerHTML = '';
 }
 
-async function acceptOnlineOrder(onlineOrderId, btn) {
-  if (!btn || btn.disabled) return; // double-tap guard
-  btn.disabled = true;
-  const old = btn.textContent;
-  btn.textContent = 'Đang nhận...';
+async function rejectOnlineOrder(orderId, reason, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Đang huỷ...'; }
   try {
-    const p = __inboxPending.find(x => x.online_order_id === onlineOrderId);
-    if (!p) { btn.disabled = false; btn.textContent = old; return; }
-    const r = await api().acceptOnline(onlineOrderId, {
-      items: p.items || [],
-      table_id: p.table_id || '',
-      customer_name: p.customer_name || ''
-    });
+    const r = await api().rejectOrder(orderId, reason);
     if (r.status === 200 && r.body && r.body.ok) {
-      __inboxPending = __inboxPending.filter(x => x.online_order_id !== onlineOrderId);
-      updateInboxBadge(__inboxPending.length);
-      renderInboxList(__inboxPending);
-      toast('Đã nhận đơn online ' + (r.body.short_code || ''));
-      await loadOrders();
+      closeRejectSheet();
+      dismissOnlineBanner(orderId);
+      const o = allOrders.find(x => x.order_id === orderId);
+      if (o) o.status = 'CANCELLED';
+      setLocalOverride(orderId, { status: 'CANCELLED' });
+      renderOrders();
+      toast('Đã từ chối đơn ' + orderId);
     } else {
-      alert('Lỗi nhận đơn: ' + ((r.body && r.body.error) || 'mất kết nối') + ' — thử lại.');
-      btn.disabled = false; btn.textContent = old;
+      alert('Không từ chối được: ' + ((r.body && r.body.error) || 'mất kết nối'));
+      if (btn) { btn.disabled = false; btn.textContent = 'Thử lại'; }
     }
   } catch (err) {
-    alert('Lỗi nhận đơn: ' + ((err && err.message) || 'mất kết nối') + ' — thử lại.');
-    btn.disabled = false; btn.textContent = old;
+    alert('Không từ chối được: ' + ((err && err.message) || 'mất kết nối'));
+    if (btn) { btn.disabled = false; btn.textContent = 'Thử lại'; }
   }
 }
-setInterval(pollInbox, 20000);
 
 // ─── CLOUD + PRINTER STATUS BADGES ─────────────────────────────────────────────
 async function pollCloud() {
@@ -1994,10 +2040,15 @@ function renderOrders() {
     const needsSeparatePay = (dt2 === 'delivery') && !isPaid2 && o.status !== 'CANCELLED';
     const payAction = needsSeparatePay ? `
         <button class="btn-mark-paid" style="flex:1;" onclick="markPaid('${esc(o.order_id)}',${o.total},'${esc(o.short_code)}',this)">💳 Đã thanh toán</button>` : '';
-    const footer = (acts || payAction) ? `
+    // Nút Từ chối: chỉ cho đơn online chưa thanh toán và chưa kết thúc vòng đời —
+    // quán không thể vừa từ chối vừa đã ăn tiền, và đơn đã xong/huỷ thì hết ý nghĩa từ chối.
+    const rejectAction = (o.source === 'online' && o.payment_status !== 'PAID' && !['CANCELLED','VOIDED','DELIVERED'].includes(o.status))
+      ? `<button class="btn-mark-paid" style="background:#B71C1C;color:#fff;flex:0 0 auto;" onclick="openRejectSheet('${esc(o.order_id)}')">✕ Từ chối</button>` : '';
+    const footer = (acts || payAction || rejectAction) ? `
       <div class="card-footer" style="display:flex; gap:8px; flex-wrap:wrap;">
         ${acts}
         ${payAction}
+        ${rejectAction}
       </div>` : '';
     const cleanNotes = o.notes ? esc(o.notes.replace('[🎁 ĐỔI LY MIỄN PHÍ] ', '')) : '';
     const notesHtml = cleanNotes ? `<div class="card-notes" style="font-size: 0.8rem; color: var(--gold); font-style: italic; margin-top: 8px; border-top: 1px dashed rgba(245,240,232,0.08); padding-top: 6px;">📝 ${cleanNotes}</div>` : '';
@@ -2227,6 +2278,7 @@ async function loadOrders() {
   const data = r.body;
   __lastChangeTs = data.now || __lastChangeTs;
   // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc, trừ lần load đầu.
+  const wasFirstLoad = firstLoad;
   const fresh = data.orders.filter(o => !seenOrderIds.has(o.order_id));
   data.orders.forEach(o => seenOrderIds.add(o.order_id));
   if (!firstLoad && fresh.length) {
@@ -2234,6 +2286,7 @@ async function loadOrders() {
     speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
   }
   firstLoad = false;
+  scanOnlineOrders(data.orders, wasFirstLoad);
 
   let ovChanged = false;
   data.orders.forEach(o => {
@@ -4261,7 +4314,6 @@ function startKDS() {
   renderTableGrid();
   loadPromoStatus();
   loadOrders();
-  pollInbox();
   pollCloud();
   pollPrinters();
   pollPrintIssues();

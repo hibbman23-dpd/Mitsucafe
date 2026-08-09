@@ -55,12 +55,23 @@ test('splitOrder POSTs partitions', async () => {
   assert.strictEqual(JSON.parse(rec.opts.body).partitions.length, 1);
 });
 
-test('acceptOnline POSTs to /inbox/<id>/accept', async () => {
+test('rejectOrder POSTs reason to /order/<id>/reject', async () => {
   const rec = {};
-  const api = OrderApi('http://x', fakeFetch(rec, { body: { ok: true, order_id: 'ORD-9' } }));
-  const r = await api.acceptOnline('OL1', { items: [] });
-  assert.strictEqual(rec.url, 'http://x/inbox/OL1/accept');
-  assert.strictEqual(r.body.order_id, 'ORD-9');
+  const api = OrderApi('http://x', fakeFetch(rec, { body: { ok: true, order: { order_id: 'ORD-9' } } }));
+  const r = await api.rejectOrder('ORD-9', 'out_of_stock');
+  assert.strictEqual(rec.url, 'http://x/order/ORD-9/reject');
+  assert.strictEqual(rec.opts.method, 'POST');
+  assert.strictEqual(JSON.parse(rec.opts.body).reason, 'out_of_stock');
+  assert.strictEqual(r.body.order.order_id, 'ORD-9');
+});
+
+test('reprintLabels POSTs order to /enqueue/labels', async () => {
+  const rec = {};
+  const api = OrderApi('http://x', fakeFetch(rec, { body: { ok: true } }));
+  await api.reprintLabels({ order_id: 'ORD-9', items: [] });
+  assert.strictEqual(rec.url, 'http://x/enqueue/labels');
+  assert.strictEqual(rec.opts.method, 'POST');
+  assert.strictEqual(JSON.parse(rec.opts.body).order_id, 'ORD-9');
 });
 
 test('printIssues GETs /print/issues', async () => {
