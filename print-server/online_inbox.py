@@ -53,33 +53,50 @@ class OnlineInbox:
         return self.status()
 
     def _import_one(self, p):
-        """Trả True nếu vừa nhập mới. Phải hỏi store.get() TRƯỚC: upsert_create
-        luôn trả self.get(oid), không phân biệt vừa chèn hay đã có sẵn — không
-        kiểm trước thì mỗi vòng poll đẻ thêm một op CONFIRMED thừa trong outbox."""
+        """Trả True nếu vừa nhập mới. Giữ self._lock suốt cả chuỗi check-rồi-nhập:
+        store.get() và store có lock riêng của nó (self.store.lock) — khác khoá,
+        không lồng nhau, không có nguy cơ deadlock hay re-entrant.
+
+        Novelty check không chỉ hỏi "đã có row chưa" mà hỏi "đã XONG chưa": nếu
+        row tồn tại nhưng status vẫn "NEW" nghĩa là lần nhập trước đã chết nửa
+        chừng (crash giữa upsert_create và apply_status) — phải nhập tiếp chứ
+        không được coi là "đã nhập rồi" rồi bỏ qua vĩnh viễn.
+
+        Thứ tự cố ý: upsert_create → on_import (ghi outbox) → apply_status
+        CONFIRMED cuối cùng. on_import ghi outbox bằng INSERT OR IGNORE trên
+        idempotency_key cố định (xem Gateway.enqueue) nên gọi lại vô hại; còn
+        status="NEW" ở local chính là cái đánh dấu "chưa xong" để lần poll sau
+        tự retry — nếu apply_status chạy trước on_import mà on_import rồi lỗi,
+        status đã là CONFIRMED thì novelty check sẽ bỏ qua đơn đó mãi mãi."""
         oid = p.get("order_id")
-        if not oid or self.store.get(oid):
+        if not oid:
             return False
-        self.store.upsert_create({
-            "order_id": oid,
-            "short_code": p.get("short_code", ""),
-            "delivery_type": p.get("delivery_type", "pickup"),
-            "table_id": p.get("table_id", ""),
-            "source": "online",
-            "items": p.get("items", []),
-            "customer_note": p.get("notes", ""),
-            "total": p.get("total"),
-            "bill_meta": {
-                "customer_name":    p.get("customer_name", ""),
-                "customer_id":      p.get("customer_id", ""),
-                "created_at":       p.get("created_at", ""),
-                "label_printed_at": p.get("label_printed_at", ""),
-                "payment_status":   p.get("payment_status", "PENDING"),
-            },
-        })
-        self.store.apply_status(oid, "CONFIRMED")
-        if self.on_import:
-            self.on_import(oid)
-        return True
+        with self._lock:
+            existing = self.store.get(oid)
+            if existing and existing["status"] != "NEW":
+                return False
+            if not existing:
+                self.store.upsert_create({
+                    "order_id": oid,
+                    "short_code": p.get("short_code", ""),
+                    "delivery_type": p.get("delivery_type", "pickup"),
+                    "table_id": p.get("table_id", ""),
+                    "source": "online",
+                    "items": p.get("items", []),
+                    "customer_note": p.get("notes", ""),
+                    "total": p.get("total"),
+                    "bill_meta": {
+                        "customer_name":    p.get("customer_name", ""),
+                        "customer_id":      p.get("customer_id", ""),
+                        "created_at":       p.get("created_at", ""),
+                        "label_printed_at": p.get("label_printed_at", ""),
+                        "payment_status":   p.get("payment_status", "PENDING"),
+                    },
+                })
+            if self.on_import:
+                self.on_import(oid)
+            self.store.apply_status(oid, "CONFIRMED")
+            return True
 
     def _set(self, online, error):
         with self._lock:

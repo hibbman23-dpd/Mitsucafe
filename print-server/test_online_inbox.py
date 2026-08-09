@@ -52,6 +52,29 @@ class TestOnlineInboxImport(unittest.TestCase):
         rows = store.list_orders()
         self.assertEqual(len([r for r in rows if r["order_id"] == "ORD-20260809-4821"]), 1)
 
+    def test_on_import_failure_leaves_order_new_and_retries_next_poll(self):
+        # on_import ghi outbox rồi mới apply_status CONFIRMED. Nếu on_import
+        # lỗi (vd outbox full, disk lỗi), status phải kẹt ở NEW để lần poll
+        # sau coi đơn là "chưa nhập xong" và gọi lại on_import — không được
+        # kẹt vĩnh viễn (đơn mất tích khỏi GAS nhưng không lên KDS outbox).
+        store = _store()
+        calls = []
+
+        def flaky_on_import(oid):
+            calls.append(oid)
+            if len(calls) == 1:
+                raise RuntimeError("outbox write boom")
+
+        inbox = OnlineInbox(store, fetch_fn=lambda: [_order()], on_import=flaky_on_import)
+        inbox.poll()
+        self.assertEqual(store.get("ORD-20260809-4821")["status"], "NEW")
+        self.assertEqual(len(calls), 1)
+
+        inbox.poll()
+        self.assertEqual(store.get("ORD-20260809-4821")["status"], "CONFIRMED")
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls, ["ORD-20260809-4821", "ORD-20260809-4821"])
+
 
 class TestOnlineInboxSignals(unittest.TestCase):
     def test_transport_failure_flags_offline(self):
