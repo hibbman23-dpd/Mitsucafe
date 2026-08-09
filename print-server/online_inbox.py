@@ -1,49 +1,91 @@
-"""online_inbox.py — pull mitsu.cafe orders from the GAS mailbox, hold them for
-staff to accept. Internet-outage tolerant: on fetch failure it flags offline and
-keeps pending items so the next successful poll catches up. Dedupe by online_order_id.
+"""online_inbox.py — kéo đơn mitsu.cafe từ GAS mailbox và NHẬP THẲNG vào
+OrderStore. Không còn hộp chờ duyệt: đơn tự lên KDS, nhân viên chặn bằng nút
+Từ chối (mô hình "đơn tự chạy, chặn là ngoại lệ" — tem đã in trước khi có ai
+bấm gì nên "chờ duyệt" là trạng thái giả).
+
+Giữ nguyên order_id + short_code do GAS cấp: tem trong tay khách mang mã đó,
+mint mã mới là màn bếp một mã, tem một mã, và doanh thu bị nhân đôi.
+
+Dedupe hai lớp: store.get() ở đây, và confirmed_at bên GAS làm đơn rớt khỏi
+mailbox. Đứt đường nào cũng không nhân đôi.
 """
+import logging
 import threading
+
+log = logging.getLogger("online-inbox")
+
+
+class InboxActionError(Exception):
+    """GAS với tới được nhưng action hỏng (sai token, thiếu action, lỗi handler).
+
+    Tách khỏi lỗi transport vì cờ `online` còn nuôi badge cloud trên KDS: gộp
+    hai loại lỗi là nhân viên thấy "Offline (local)" trong khi GAS vẫn sống.
+    """
 
 
 class OnlineInbox:
-    def __init__(self, store, fetch_fn):
+    def __init__(self, store, fetch_fn, on_import=None):
         self.store = store
         self.fetch_fn = fetch_fn
-        self._pending = {}          # online_order_id -> payload
-        self._accepted = set()      # online_order_ids already accepted (idempotency)
+        self.on_import = on_import      # callback(order_id) — đẩy CONFIRMED lên GAS
         self._online = False
+        self._error = ""
         self._lock = threading.Lock()
 
     def poll(self):
         try:
             payloads = self.fetch_fn() or []
-            with self._lock:
-                self._online = True
-                for p in payloads:
-                    oid = p.get("online_order_id")
-                    if oid and oid not in self._accepted:
-                        self._pending.setdefault(oid, p)
-        except Exception:
-            with self._lock:
-                self._online = False
+        except InboxActionError as exc:
+            log.error("inbox action failed (GAS reachable): %s", exc)
+            self._set(online=True, error=str(exc))
+            return self.status()
+        except Exception as exc:
+            log.error("inbox fetch failed (transport): %s", exc)
+            self._set(online=False, error=str(exc))
+            return self.status()
+
+        self._set(online=True, error="")
+        for p in payloads:
+            try:
+                self._import_one(p)
+            except Exception as exc:
+                log.error("inbox import failed for %s: %s", p.get("order_id"), exc)
         return self.status()
 
-    def pending(self):
-        with self._lock:
-            return list(self._pending.values())
+    def _import_one(self, p):
+        """Trả True nếu vừa nhập mới. Phải hỏi store.get() TRƯỚC: upsert_create
+        luôn trả self.get(oid), không phân biệt vừa chèn hay đã có sẵn — không
+        kiểm trước thì mỗi vòng poll đẻ thêm một op CONFIRMED thừa trong outbox."""
+        oid = p.get("order_id")
+        if not oid or self.store.get(oid):
+            return False
+        self.store.upsert_create({
+            "order_id": oid,
+            "short_code": p.get("short_code", ""),
+            "delivery_type": p.get("delivery_type", "pickup"),
+            "table_id": p.get("table_id", ""),
+            "source": "online",
+            "items": p.get("items", []),
+            "customer_note": p.get("notes", ""),
+            "total": p.get("total"),
+            "bill_meta": {
+                "customer_name":    p.get("customer_name", ""),
+                "customer_id":      p.get("customer_id", ""),
+                "created_at":       p.get("created_at", ""),
+                "label_printed_at": p.get("label_printed_at", ""),
+                "payment_status":   p.get("payment_status", "PENDING"),
+            },
+        })
+        self.store.apply_status(oid, "CONFIRMED")
+        if self.on_import:
+            self.on_import(oid)
+        return True
 
-    def accept(self, online_order_id, order_dict):
-        """Consume a pending online order. Idempotent: accepting an id that is not
-        currently pending (already accepted, or never polled) is a no-op returning
-        accepted=False and does NOT blacklist it — so an id the mailbox delivers
-        later still surfaces via poll()."""
+    def _set(self, online, error):
         with self._lock:
-            if online_order_id not in self._pending:
-                return {"accepted": False}
-            self._pending.pop(online_order_id, None)
-            self._accepted.add(online_order_id)
-        return {"accepted": True}
+            self._online = online
+            self._error = error
 
     def status(self):
         with self._lock:
-            return {"online": self._online, "pending_count": len(self._pending)}
+            return {"online": self._online, "inbox_error": self._error}
