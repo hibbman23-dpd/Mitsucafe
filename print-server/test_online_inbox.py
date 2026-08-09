@@ -43,6 +43,27 @@ class TestOnlineInboxImport(unittest.TestCase):
         self.assertEqual(bm["customer_id"], "0901234567")
         self.assertEqual(bm["customer_name"], "Nguyễn Văn A")
 
+    def test_id_collision_with_staff_order_leaves_it_untouched(self):
+        # ORD-YYYYMMDD-XXXX là khuôn id chung: Gateway._gen_order_id() (gateway.py)
+        # mint id y hệt cho đơn khách tại quầy bằng số random 4 chữ số, nên có
+        # xác suất (nhỏ nhưng khác 0) trùng order_id với đơn web mới tới. Nếu
+        # novelty check chỉ xét status=="NEW" mà không xét source, đơn tại quầy
+        # đang dở dang (chưa ai bấm gì, status NEW) bị coi nhầm là "import
+        # online chưa xong" — on_import bắn nhầm callback CONFIRMED lên GAS và
+        # apply_status đè trạng thái của một đơn thật của khách.
+        store = _store()
+        oid = "ORD-20260809-4821"
+        store.upsert_create({
+            "order_id": oid, "short_code": "S01", "delivery_type": "dine_in",
+            "table_id": "T3", "source": "staff", "items": [], "total": 0,
+        })
+        seen = []
+        inbox = OnlineInbox(store, fetch_fn=lambda: [_order(oid)], on_import=seen.append)
+        inbox.poll()
+        self.assertEqual(store.get(oid)["status"], "NEW")
+        self.assertEqual(store.get(oid)["source"], "staff")
+        self.assertEqual(seen, [])
+
     def test_repoll_same_order_imports_once_and_calls_on_import_once(self):
         store = _store()
         seen = []

@@ -67,13 +67,28 @@ class OnlineInbox:
         idempotency_key cố định (xem Gateway.enqueue) nên gọi lại vô hại; còn
         status="NEW" ở local chính là cái đánh dấu "chưa xong" để lần poll sau
         tự retry — nếu apply_status chạy trước on_import mà on_import rồi lỗi,
-        status đã là CONFIRMED thì novelty check sẽ bỏ qua đơn đó mãi mãi."""
+        status đã là CONFIRMED thì novelty check sẽ bỏ qua đơn đó mãi mãi.
+
+        Novelty check phải khoanh vùng đúng đơn của module này: order_id dạng
+        ORD-YYYYMMDD-XXXX trùng khuôn với id Gateway._gen_order_id() mint cho
+        đơn khách tại quầy (gateway.py) — random 4 số nên có xác suất đụng độ
+        dù nhỏ. Nếu chỉ xét status=="NEW" mà bỏ qua nguồn gốc, một đơn tại
+        quầy đang dở dang (status NEW, source="staff") trùng id với đơn web
+        mới tới sẽ bị apply_status CONFIRMED và on_import bắn nhầm — đơn thật
+        của khách bị đè trạng thái. Phải đúng CẢ status=="NEW" LẪN
+        source=="online" (source do chính _import_one ghi khi upsert_create)
+        mới coi là "nhập dở, tiếp tục nhập"; ngoài ra không phải đơn của
+        module này — bỏ qua hoàn toàn, không on_import, không apply_status."""
         oid = p.get("order_id")
         if not oid:
             return False
+        # Giữ lock suốt cả chuỗi check-rồi-nhập lẫn gọi on_import: on_import
+        # (callback đẩy CONFIRMED lên GAS) chạy TRONG lock này. self._lock
+        # không tái nhập (non-reentrant) — on_import tương lai KHÔNG được gọi
+        # ngược vào bất kỳ method nào của OnlineInbox instance này, sẽ deadlock.
         with self._lock:
             existing = self.store.get(oid)
-            if existing and existing["status"] != "NEW":
+            if existing and not (existing["status"] == "NEW" and existing.get("source") == "online"):
                 return False
             if not existing:
                 self.store.upsert_create({
