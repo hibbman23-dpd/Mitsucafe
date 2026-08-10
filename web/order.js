@@ -112,6 +112,8 @@ let checkoutFormState = {
 };
 let customerLoyalty = null;
 let loadingLoyalty = false;
+let loyaltyAbortController = null; // Phase 2.2: huỷ request loyalty cũ khi có request mới
+let loyaltyDebounceTimer = null;   // Phase 2.2: gộp request khi khách gõ số liên tục
 
 // Backup original prices first
 MENU_DATA.forEach(item => {
@@ -305,8 +307,11 @@ function renderMenuScreen() {
   return `
     <header class="app-header">
       <a href="mitsu.html" class="header-home-btn" title="Trang chủ" style="display:flex; align-items:center;">
-        <img src="img/mitsu/logo-light.webp" class="header-logo-img logo-light-only" alt="Mitsu Logo" style="height:24px; width:auto;">
-        <img src="img/mitsu/logo-dark.webp" class="header-logo-img logo-dark-only" alt="Mitsu Logo" style="height:24px; width:auto;">
+        <!-- Bản -sm 147x72 (3x của 24px hiển thị). File gốc 1400x687 nặng 104KB+145KB,
+             cả hai đều tải dù CSS ẩn một cái — 250KB cho một logo cao 24px.
+             mitsu.html vẫn dùng file gốc (landing hiển thị to hơn), đừng gộp lại. -->
+        <img src="img/mitsu/logo-light-sm.webp" width="147" height="72" class="header-logo-img logo-light-only" alt="Mitsu Logo" style="height:24px; width:auto;">
+        <img src="img/mitsu/logo-dark-sm.webp" width="147" height="72" class="header-logo-img logo-dark-only" alt="Mitsu Logo" style="height:24px; width:auto;">
       </a>
       <div style="display:flex; align-items:center; gap:12px;">
         <button class="theme-toggle" data-theme-toggle aria-label="Đổi giao diện">
@@ -511,6 +516,17 @@ function renderCartSheet() {
 }
 
 // ─── SCREEN: CHECKOUT ─────────────────────────────────────────────────────────
+// Tách riêng để renderCheckoutScreen() (full render) và updateCheckoutTotals()
+// (patch DOM tại chỗ khi fetchLoyaltyInfo xong — Phase 2.1) dùng chung 1 nguồn.
+function renderDiscountRowHtml(discount) {
+  return discount.amount > 0 ? `
+    <div class="summary-row promo-row" style="color: var(--coral); font-weight: 600;">
+      <span>🎁 Ly nước miễn phí (Giảm)</span>
+      <span>-${fmt(discount.amount)}</span>
+    </div>
+  ` : '';
+}
+
 function renderCheckoutScreen() {
   const tableLabel = tableId ? `Bàn ${tableId.padStart(2,'0')}` : 'Mang đi';
   const isDelivery = deliveryMode === 'delivery';
@@ -518,12 +534,7 @@ function renderCheckoutScreen() {
 
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0);
   const discount = getCartDiscount();
-  const discountRow = discount.amount > 0 ? `
-    <div class="summary-row promo-row" style="color: var(--coral); font-weight: 600;">
-      <span>🎁 Ly nước miễn phí (Giảm)</span>
-      <span>-${fmt(discount.amount)}</span>
-    </div>
-  ` : '';
+  const discountRow = renderDiscountRowHtml(discount);
 
   return `
     <header class="app-header">
@@ -537,7 +548,7 @@ function renderCheckoutScreen() {
         <label class="form-label" id="lbl-phone">${phoneLabel}</label>
         <input class="form-input" id="inp-phone" type="tel" placeholder="09xx xxx xxx" inputmode="numeric"
                value="${esc(checkoutFormState.phone)}">
-        ${renderLoyaltySection()}
+        <div id="loyalty-section">${renderLoyaltySection()}</div>
       </div>
 
       <div class="form-section">
@@ -604,10 +615,10 @@ function renderCheckoutScreen() {
             <span>${ci.name} × ${ci.qty}</span>
             <span>${fmt(ci.subtotal)}</span>
           </div>`).join('')}
-        ${discountRow}
+        <div id="discount-row-wrap">${discountRow}</div>
         <div class="summary-total">
           <span>Tổng</span>
-          <strong>${fmt(cartTotal())}</strong>
+          <strong id="checkout-total-value">${fmt(cartTotal())}</strong>
         </div>
       </div>
 
@@ -944,6 +955,41 @@ function render() {
       });
     }
   }
+}
+
+// ─── IN-PLACE CART BADGE PATCH (Phase 2.3) ────────────────────────────────────
+// quickAdd() và nút "Thêm vào giỏ" trên item sheet trước đây gọi render() để cập
+// nhật số trên badge giỏ hàng — render() dựng lại toàn bộ ~74 thẻ món chỉ để đổi
+// 1 con số. Patch trực tiếp 3 chỗ hiển thị số lượng giỏ hàng, không đụng menu-list
+// (giữ nguyên vị trí cuộn, không rebuild category pills/grouping/view-toggle).
+function updateCartBadgesInPlace() {
+  const n = cartCount();
+
+  const headerCount = document.getElementById('header-cart-count');
+  if (headerCount) headerCount.textContent = n;
+
+  const headerWrapper = document.getElementById('header-cart-wrapper');
+  if (headerWrapper) headerWrapper.classList.toggle('has-items', n > 0);
+
+  const app = document.getElementById('app');
+  const existingFab = app ? app.querySelector('.cart-fab') : null;
+  const fabHtml = cartBadge();
+  if (fabHtml) {
+    if (existingFab) existingFab.outerHTML = fabHtml;
+    else if (app) app.insertAdjacentHTML('beforeend', fabHtml);
+  } else if (existingFab) {
+    existingFab.remove();
+  }
+}
+
+// Đóng item-sheet tại chỗ (gỡ DOM node) mà không đụng phần còn lại của #app —
+// dùng khi "add-to-cart" cần đóng sheet mà không muốn render() lại cả menu-list.
+function closeSheetInPlace() {
+  const app = document.getElementById('app');
+  if (!app) return;
+  app.querySelectorAll('.sheet-backdrop').forEach(el => el.remove());
+  const itemSheetEl = document.getElementById('item-sheet');
+  if (itemSheetEl) itemSheetEl.remove();
 }
 
 // ─── 3D CAROUSEL ─────────────────────────────────────────────────────────────
@@ -1997,7 +2043,12 @@ function quickAdd(sku) {
     // No options → add directly
     addToCart(item, 1, item.price_m, {});
     showToast(`${item.name} đã thêm ✓`);
-    render();
+    // Phase 2.3: menu đang hiện + không có sheet mở → patch badge tại chỗ, khỏi render().
+    if (screen === 'menu' && sheet === null) {
+      updateCartBadgesInPlace();
+    } else {
+      render();
+    }
   }
 }
 
@@ -2131,18 +2182,21 @@ async function sendOutboxEntry(entry) {
 
       // Tích hợp lưu đặc điểm khách hàng quen qua camera AI nội bộ — chuyển vào đây
       // từ submitOrder() vì giờ mới biết chắc server đã nhận đơn.
-      fetch('http://localhost:5000/api/associate_order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Camera-Secret': window.__CAMERA_AI_SECRET__ || localStorage.getItem('mitsu_camera_secret') || ''
-        },
-        body: JSON.stringify({
-          customer_phone: entry.payload.customer_id || '',
-          customer_name: entry.payload.customer_name || 'Khách Quen',
-          items: (entry.payload.items || []).map(ci => `${ci.name} (${ci.qty})`).join(', ')
-        })
-      }).catch(err => console.log('Không kết nối được Camera AI local:', err));
+      // Phase 3.2: chỉ gọi trên tablet tại quán — điện thoại khách không có localhost:5000.
+      if (isKioskMode()) {
+        fetch('http://localhost:5000/api/associate_order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Camera-Secret': window.__CAMERA_AI_SECRET__ || localStorage.getItem('mitsu_camera_secret') || ''
+          },
+          body: JSON.stringify({
+            customer_phone: entry.payload.customer_id || '',
+            customer_name: entry.payload.customer_name || 'Khách Quen',
+            items: (entry.payload.items || []).map(ci => `${ci.name} (${ci.qty})`).join(', ')
+          })
+        }).catch(err => console.log('Không kết nối được Camera AI local:', err));
+      }
 
       if (lastOrder.idempotency_key === entry.idempotency_key) {
         // Mã đơn hiển thị PHẢI lấy từ server (buildShortCode) — mã local chỉ là bộ đếm
@@ -2371,7 +2425,14 @@ document.addEventListener('click', e => {
       addToCart(selItem, selOpts.qty, price, modifiers);
       showToast(`${selItem.name} đã thêm ✓`);
       sheet = null;
-      render();
+      // Phase 2.3: item sheet chỉ mở trong màn menu — đóng sheet + patch badge tại
+      // chỗ thay vì render() lại toàn bộ menu-list phía sau sheet.
+      if (screen === 'menu') {
+        closeSheetInPlace();
+        updateCartBadgesInPlace();
+      } else {
+        render();
+      }
       break;
     }
 
@@ -2515,19 +2576,35 @@ function enterCheckout() {
   }
 }
 
+// Phase 2.1: patch #loyalty-section tại chỗ thay vì render() lại toàn bộ checkout —
+// render() phá huỷ + tạo lại mọi input, khiến bàn phím mobile đóng lại giữa lúc khách
+// đang gõ số điện thoại (document.activeElement rớt về <body>).
+// Phase 2.2: AbortController huỷ request cũ khi có request mới — request chậm về sau
+// không được ghi đè kết quả mới hơn.
 async function fetchLoyaltyInfo(phone) {
   const norm = phone.replace(/\D/g, '');
+
+  if (loyaltyAbortController) {
+    loyaltyAbortController.abort();
+    loyaltyAbortController = null;
+  }
+
   if (norm.length < 9 || norm.length > 11) {
     customerLoyalty = null;
-    render();
+    loadingLoyalty = false;
+    updateLoyaltyUI();
     return;
   }
 
+  const controller = new AbortController();
+  loyaltyAbortController = controller;
+
   loadingLoyalty = true;
-  render();
+  updateLoyaltyUI();
 
   try {
-    const res = await fetch(`${GAS_URL}?action=customer_info&phone=${encodeURIComponent(norm)}`);
+    const res = await fetch(`${GAS_URL}?action=customer_info&phone=${encodeURIComponent(norm)}`,
+      { signal: controller.signal });
     if (!res.ok) throw new Error('Fetch failed');
     const data = await res.json();
     if (data.ok && data.customer) {
@@ -2536,11 +2613,56 @@ async function fetchLoyaltyInfo(phone) {
       customerLoyalty = null;
     }
   } catch (err) {
-    console.error('Error fetching loyalty info:', err);
-    customerLoyalty = null;
+    if (err.name !== 'AbortError') {
+      // AbortError = ta tự huỷ vì có request mới hơn — không phải lỗi, đừng log/hiện cho khách.
+      console.error('Error fetching loyalty info:', err);
+      customerLoyalty = null;
+    }
   } finally {
-    loadingLoyalty = false;
-    render();
+    // Chỉ request MỚI NHẤT mới được phép ghi state + cập nhật UI — request đã bị
+    // huỷ (controller cũ) đi vào đây với loyaltyAbortController đã trỏ sang request khác.
+    if (loyaltyAbortController === controller) {
+      loadingLoyalty = false;
+      loyaltyAbortController = null;
+      updateLoyaltyUI();
+    }
+  }
+}
+
+// Debounce 400ms — khách gõ/sửa số điện thoại liên tục không bắn nhiều request chồng nhau.
+function scheduleLoyaltyFetch(phone) {
+  if (loyaltyDebounceTimer) clearTimeout(loyaltyDebounceTimer);
+  loyaltyDebounceTimer = setTimeout(() => {
+    loyaltyDebounceTimer = null;
+    fetchLoyaltyInfo(phone);
+  }, 400);
+}
+
+// Patch #loyalty-section + các chỗ hiển thị tổng tiền phụ thuộc customerLoyalty,
+// KHÔNG render() lại cả màn checkout. Nếu container không còn trong DOM (khách đã
+// rời màn checkout trước khi fetch xong) thì bỏ qua — không có gì cần cập nhật.
+function updateLoyaltyUI() {
+  const el = document.getElementById('loyalty-section');
+  if (!el) return;
+  el.innerHTML = renderLoyaltySection();
+  updateCheckoutTotals();
+}
+
+// cartTotal()/getCartDiscount() đọc customerLoyalty — nếu kết quả loyalty làm đổi
+// tổng tiền hiển thị (ví dụ đang bật sẵn useFreeDrink), patch 3 chỗ này tại chỗ.
+function updateCheckoutTotals() {
+  const discount = getCartDiscount();
+
+  const discountWrap = document.getElementById('discount-row-wrap');
+  if (discountWrap) discountWrap.innerHTML = renderDiscountRowHtml(discount);
+
+  const totalEl = document.getElementById('checkout-total-value');
+  if (totalEl) totalEl.textContent = fmt(cartTotal());
+
+  const submitBtn = document.getElementById('btn-submit');
+  if (submitBtn) {
+    const isDelivery = deliveryMode === 'delivery';
+    submitBtn.textContent = `${isDelivery ? '🛵 Gửi đơn giao hàng' : 'Gửi đơn'} — ${fmt(cartTotal())}`;
   }
 }
 
@@ -2668,12 +2790,18 @@ document.addEventListener('input', e => {
     const val = e.target.value.replace(/\D/g, '');
     checkoutFormState.phone = e.target.value;
     if (val.length === 10 || (val.length === 9 && !val.startsWith('0'))) {
-      fetchLoyaltyInfo(val);
+      scheduleLoyaltyFetch(val);
     } else if (val.length < 9) {
-      if (customerLoyalty !== null) {
+      // Số chưa đủ 9 số nữa (khách xoá bớt) — huỷ mọi fetch đang chờ/đang bay, và nếu
+      // đang có state loyalty cũ thì dọn tại chỗ. KHÔNG render() — cùng lý do Phase 2.1:
+      // giữ nguyên focus + bàn phím trong lúc khách còn đang gõ.
+      if (loyaltyDebounceTimer) { clearTimeout(loyaltyDebounceTimer); loyaltyDebounceTimer = null; }
+      if (loyaltyAbortController) { loyaltyAbortController.abort(); loyaltyAbortController = null; }
+      if (customerLoyalty !== null || loadingLoyalty) {
         customerLoyalty = null;
+        loadingLoyalty = false;
         checkoutFormState.useFreeDrink = false;
-        render();
+        updateLoyaltyUI();
       }
     }
   }
@@ -2699,12 +2827,41 @@ document.addEventListener('change', e => {
 });
 
 // ─── PROMOTION SYSTEM ──────────────────────────────────────────────────────────
+// Phase 3.1: cache promo_info trong sessionStorage 60s. Boot đọc cache TRƯỚC lần
+// render() đầu tiên nếu cache còn mới — tránh giá "nhảy" trước mắt khách 3 giây sau
+// khi round-trip GAS xong (đã đo 2.4-3.3s). Khuyến mãi theo giờ, lệch tối đa 60s là
+// chấp nhận được.
+const PROMO_CACHE_KEY = 'mitsu_promo_cache';
+const PROMO_CACHE_TTL_MS = 60 * 1000;
+
+function readPromoCache() {
+  try {
+    const raw = sessionStorage.getItem(PROMO_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.ts !== 'number' || !parsed.promo) {
+      return null; // shape lạ/hỏng → coi như không có cache, không throw
+    }
+    if (Date.now() - parsed.ts > PROMO_CACHE_TTL_MS) return null; // hết hạn
+    return parsed.promo;
+  } catch (_) {
+    return null; // JSON.parse lỗi (cache hỏng) → bỏ qua, không throw
+  }
+}
+
+function writePromoCache(promo) {
+  try {
+    sessionStorage.setItem(PROMO_CACHE_KEY, JSON.stringify({ ts: Date.now(), promo }));
+  } catch (_) { /* private mode / quota đầy — bỏ qua, không phải lỗi nghiêm trọng */ }
+}
+
 async function checkPromoStatus() {
   try {
     const res = await fetch(`${GAS_URL}?action=promo_info`);
     if (!res.ok) throw new Error('Fetch failed');
     const data = await res.json();
     if (data.ok && data.promo) {
+      writePromoCache(data.promo);
       updatePromoState(data.promo);
     }
   } catch (err) {
@@ -2821,6 +2978,26 @@ function updatePromoState(promo) {
   }
 }
 
+// ─── KIOSK GATE (Phase 3.2) ─────────────────────────────────────────────────────
+// pollActiveCustomer() + associate_order gọi http://localhost:5000 — chỉ tồn tại
+// trên máy tablet tại quán (Camera AI). Trên điện thoại khách, host đó không có gì
+// nghe cả → 20 request lỗi/phút vĩnh viễn. Gate sau flag ?kiosk=1 (ghi 1 lần vào
+// localStorage) hoặc localStorage đã có sẵn từ lần ghé trước.
+const KIOSK_FLAG_KEY = 'mitsu_kiosk';
+
+function isKioskMode() {
+  try {
+    const params = new URLSearchParams(location.search);
+    if (params.get('kiosk') === '1') {
+      localStorage.setItem(KIOSK_FLAG_KEY, '1');
+      return true;
+    }
+    return localStorage.getItem(KIOSK_FLAG_KEY) === '1';
+  } catch (_) {
+    return false; // private mode / localStorage bị chặn → coi như không phải kiosk
+  }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 function init() {
   const params = new URLSearchParams(location.search);
@@ -2841,8 +3018,17 @@ function init() {
   Outbox.expireStale();
   flushOutbox();
 
-  render();
-  checkPromoStatus().then(() => render());
+  // Phase 3.1: cache còn mới (<=60s) → áp giá TRƯỚC lần render() đầu tiên, first
+  // paint đã đúng giá luôn, không có lần render() thứ 2 flip giá dưới tay khách.
+  // Cache thiếu/hết hạn/hỏng → giữ đúng hành vi cũ: render() ngay rồi gọi GAS, xong render() lại.
+  const cachedPromo = readPromoCache();
+  if (cachedPromo) {
+    updatePromoState(cachedPromo);
+    render();
+  } else {
+    render();
+    checkPromoStatus().then(() => render());
+  }
   initCarousel();
 
   // Parse SKU deep link to auto-open 3D Carousel
@@ -2859,8 +3045,11 @@ function init() {
     setTimeout(() => openCartSheet(), 150);
   }
   
-  // Khởi chạy vòng lặp kiểm tra khách quen từ Camera AI (3 giây/lần)
-  setInterval(pollActiveCustomer, 3000);
+  // Khởi chạy vòng lặp kiểm tra khách quen từ Camera AI (3 giây/lần) — CHỈ trên
+  // tablet tại quán (Phase 3.2). Điện thoại khách không có host localhost:5000.
+  if (isKioskMode()) {
+    setInterval(pollActiveCustomer, 3000);
+  }
 }
 
 // ─── CAMERA AI INTEGRATION (ACTIVE CUSTOMER POLLING) ──────────────────────────
