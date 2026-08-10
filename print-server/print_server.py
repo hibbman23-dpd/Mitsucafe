@@ -48,6 +48,7 @@ import json
 import logging
 import os
 import socket
+import sys
 import threading
 import time
 from datetime import datetime, timezone, timedelta
@@ -648,6 +649,9 @@ _DRAWER_KICK = b'\x1b\x70\x30\xff\xff'   # ESC p 0x30 0xff 0xff
 def _kick_cash_drawer() -> None:
     """Mở két = 1 job raw RIÊNG (xung sạch, không nhúng vào bill raster để tránh bị nuốt)."""
     import subprocess
+    if _under_test_runner():   # két tiền thật không được bật ra trong test
+        log.warning("CHẶN mở két: đang chạy dưới test runner")
+        return
     try:
         subprocess.run(["lpr", "-P", RECEIPT_CUPS_PRINTER, "-o", "raw"],
                        input=_DRAWER_KICK, capture_output=True, check=True, timeout=8)
@@ -836,9 +840,42 @@ def _send_cups(printer_name: str, data: bytes, drawer: bool = False) -> int:
         raise last_exc
 
 
+def _under_test_runner() -> bool:
+    """True khi tiến trình đang chạy dưới test runner -> CẤM chạm máy in thật.
+
+    Vì sao cần: 09/08/2026 một lượt `python3 -m unittest discover` chạy trên máy
+    quán đẩy 17 job bill test vào hàng đợi CUPS. Máy in đang offline nên chúng nằm
+    im; sáng hôm sau chủ quán bật máy in, CUPS xả hết ra giấy — bill toàn món
+    trong fixture test. Tệ hơn: CUPS backend giữ luôn USB nên print server thật
+    nhận [Errno 13] Access denied, bill của khách không in được.
+
+    Guard PRINT_ENGINE=noop trước đây đặt rải rác ở từng file test — ai thêm file
+    mới mà quên là thủng. Chốt phải nằm ở đây, tầng chạm phần cứng.
+
+    Nhận diện qua __main__/argv chứ KHÔNG qua `"unittest" in sys.modules`: thư
+    viện phụ thuộc có thể import unittest.mock, false positive ở đây là quán mất
+    máy in giữa giờ bán. Sai thì phải sai về phía cho in.
+
+    ALLOW_REAL_PRINT_IN_TESTS=1 để mở cho kiểm thử phần cứng có chủ đích
+    (xem HARDWARE_VALIDATION.md).
+    """
+    if os.getenv("ALLOW_REAL_PRINT_IN_TESTS") == "1":
+        return False
+    main_file = (getattr(sys.modules.get("__main__"), "__file__", "") or "").replace("\\", "/")
+    argv0 = os.path.basename(sys.argv[0] or "")
+    return (argv0.startswith("pytest") or argv0 == "py.test"
+            or main_file.endswith("unittest/__main__.py")
+            or main_file.endswith("/pytest/__main__.py")
+            or os.path.basename(main_file) in ("pytest", "py.test"))
+
+
 def _send(mode: str, ip: str, port: int, serial_port: str, baud: int, data: bytes,
           usb_vid: int = 0, usb_pid: int = 0, usb_ep: int = 0x01, cups_printer: str = "",
           drawer: bool = False) -> int:
+    if _under_test_runner():
+        log.warning("CHẶN in thật: đang chạy dưới test runner (%d byte bị bỏ). "
+                    "Đặt ALLOW_REAL_PRINT_IN_TESTS=1 nếu thật sự muốn in.", len(data or b""))
+        return 0
     if mode == "cups":
         return _send_cups(cups_printer or RECEIPT_CUPS_PRINTER, data, drawer=drawer)
     elif mode == "usb":
