@@ -181,15 +181,6 @@ function allergenText(list) {
   return '⚠️ ' + list.map(a => map[a] || a).join(', ');
 }
 
-// Mã đơn ngắn 3 chữ số, reset mỗi ngày, lưu localStorage.
-function genShortCode() {
-  const today = new Date().toLocaleDateString('vi-VN').replace(/\//g, '');
-  const key = 'lhk_seq_' + today;
-  const seq = (parseInt(localStorage.getItem(key) || '0') + 1);
-  localStorage.setItem(key, seq);
-  return String(seq).padStart(3, '0');
-}
-
 // ─── RENDER HELPERS ──────────────────────────────────────────────────────────
 function cartBadge() {
   const n = cartCount();
@@ -749,6 +740,47 @@ function renderUpsellSheet() {
     </div>`;
 }
 
+// ─── BANNER MÓN TẠM HẾT ───────────────────────────────────────────────────────
+// Nguồn: MENU_UNAVAILABLE trong menu-data.js (sinh từ seed/menu_items.json).
+// Bật lại available=true + chạy gen_menu_data.py -> list rỗng -> banner tự tắt.
+const STOCK_NOTICE_KEY = 'mitsu_stock_notice_dismissed';
+
+function stockNoticeList() {
+  return (typeof MENU_UNAVAILABLE !== 'undefined' && Array.isArray(MENU_UNAVAILABLE))
+    ? MENU_UNAVAILABLE
+    : [];
+}
+
+// Chữ ký theo danh sách SKU: đổi món hết -> banner hiện lại dù đã tắt trước đó.
+function stockNoticeSig() {
+  return stockNoticeList().map(i => i.sku).sort().join(',');
+}
+
+function renderStockNotice() {
+  const list = stockNoticeList();
+  if (!list.length) return '';
+  try {
+    if (localStorage.getItem(STOCK_NOTICE_KEY) === stockNoticeSig()) return '';
+  } catch (_) { /* private mode: cứ hiện */ }
+
+  const names = list.map(i => esc(i.name)).join(' · ');
+  const note  = esc(list.map(i => i.note).filter(Boolean)[0] || '');
+  return `
+    <div id="stock-notice" class="stock-notice">
+      <span class="stock-notice-txt">
+        <strong>Tạm hết: ${names}</strong>${note ? ` — ${note}` : ''}
+      </span>
+      <button class="stock-notice-x" data-action="stock-notice-close" aria-label="Đóng thông báo">✕</button>
+    </div>
+  `;
+}
+
+function dismissStockNotice() {
+  try { localStorage.setItem(STOCK_NOTICE_KEY, stockNoticeSig()); } catch (_) {}
+  const el = document.getElementById('stock-notice');
+  if (el) el.remove();
+}
+
 // ─── RENDER MAIN ──────────────────────────────────────────────────────────────
 function render() {
   const app = document.getElementById('app');
@@ -797,6 +829,9 @@ function render() {
     contentHtml = renderMenuScreen();
   }
 
+  // Banner món tạm hết — chỉ ở màn menu, để khách thấy trước khi chọn
+  const stockHtml = screen === 'menu' ? renderStockNotice() : '';
+
   // Prepend promo banner if active
   if (activePromo && activePromo.active) {
     const bannerHtml = `
@@ -805,10 +840,10 @@ function render() {
         <span class="promo-countdown" id="promo-timer">--:--</span>
       </div>
     `;
-    app.innerHTML = bannerHtml + contentHtml;
+    app.innerHTML = bannerHtml + stockHtml + contentHtml;
     updatePromoTimerDisplay();
   } else {
-    app.innerHTML = contentHtml;
+    app.innerHTML = stockHtml + contentHtml;
   }
 
   // Khôi phục vị trí cuộn sau khi innerHTML cập nhật
@@ -1958,10 +1993,12 @@ async function submitOrder() {
 
   const utmSource = sessionStorage.getItem('lhk_utm') || 'web_static';
   const deliveryType = isDelivery ? 'delivery' : (tbl ? 'dine_in' : 'pickup');
-  const shortCode = genShortCode();
+  // 1 key/lần bấm gửi — server dedup theo key này nếu client retry do mạng yếu.
+  const idempotencyKey = 'w-' + Date.now() + '-' + Math.random().toString(16).slice(2);
 
   const payload = {
     channel: 'web', utm_source: utmSource,
+    idempotency_key: idempotencyKey,
     table_id: isDelivery ? null : tbl,
     customer_name: name || null,
     customer_id: normPhone || null,
@@ -1972,7 +2009,6 @@ async function submitOrder() {
       business_line: 'kissaten',
       category_type: 'beverage',
       notes,
-      short_code: shortCode,
       use_free_drink: checkoutFormState.useFreeDrink,
       ...(isDelivery && { delivery_address: address }),
     },
@@ -1984,16 +2020,25 @@ async function submitOrder() {
   if (btn) { btn.textContent = 'Đang gửi...'; btn.disabled = true; }
 
   try {
-    await fetch(GAS_URL, {
+    // text/plain = CORS "simple request", không preflight (GAS không trả lời OPTIONS).
+    const res = await fetch(GAS_URL, {
       method: 'POST',
-      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload),
     });
+    const data = await res.json();
+
+    if (!data.ok) {
+      submitting = false;
+      if (btn) { btn.textContent = `Gửi đơn — ${fmt(total)}`; btn.disabled = false; }
+      showErr(errEl, data.error || 'Gửi đơn thất bại — vui lòng thử lại.');
+      return;
+    }
 
     // Tích hợp lưu đặc điểm khách hàng quen qua camera AI nội bộ
     fetch('http://localhost:5000/api/associate_order', {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'X-Camera-Secret': window.__CAMERA_AI_SECRET__ || localStorage.getItem('mitsu_camera_secret') || ''
       },
@@ -2004,7 +2049,9 @@ async function submitOrder() {
       })
     }).catch(err => console.log('Không kết nối được Camera AI local:', err));
 
-    lastOrder = { shortCode, total, delivery: deliveryMode, paymentMethod: paymentMethod };
+    // Mã đơn hiển thị PHẢI lấy từ server (buildShortCode) — mã local chỉ là bộ đếm
+    // theo máy, hai máy cùng lúc sẽ trùng "001".
+    lastOrder = { shortCode: data.short_code || '', total, delivery: deliveryMode, paymentMethod: paymentMethod };
     clearCart();
     screen = 'success';
     render();
@@ -2033,6 +2080,10 @@ document.addEventListener('click', e => {
     case 'cat':
       activeCat = el.dataset.cat;
       render();
+      break;
+
+    case 'stock-notice-close':
+      dismissStockNotice();
       break;
 
     case 'toggle-group':

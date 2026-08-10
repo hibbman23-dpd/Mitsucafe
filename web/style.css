@@ -776,6 +776,36 @@ input  { font: inherit; }
   letter-spacing: 0.05em;
   text-align: center;
 }
+/* ── BANNER MÓN TẠM HẾT ── */
+.stock-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: color-mix(in srgb, var(--accent, #C68A3E) 16%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent, #C68A3E) 38%, transparent);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  text-align: center;
+  flex-shrink: 0;
+  z-index: 98;
+}
+.stock-notice-txt { flex: 1 1 auto; }
+.stock-notice-x {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--text-dim, #9e8a78);
+  font-size: 0.9rem;
+  padding: 4px 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+.stock-notice-x:hover { color: var(--text); }
+
 @keyframes urgent-blink {
   0%, 100% { opacity: 1; transform: scale(1); background: rgba(180, 0, 0, 0.8); box-shadow: 0 0 6px rgba(255,0,0,0.8); }
   50% { opacity: 0.4; transform: scale(1.04); background: rgba(255, 0, 0, 0.95); box-shadow: 0 0 14px rgba(255,0,0,1); }
