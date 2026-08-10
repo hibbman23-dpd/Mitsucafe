@@ -223,22 +223,59 @@ function appendOrderToSheet(order) {
 
 /**
  * Idempotency: tìm order_id đã tạo với cùng idempotency_key (chống đơn trùng khi
- * client retry do mạng yếu). Quét cột idempotency_key (index 28 / cột AC).
- * Trả order_id nếu trùng, '' nếu chưa có. Gọi trong doPost (đã giữ lock → an toàn race).
+ * client retry do mạng yếu). Trả order_id nếu trùng, '' nếu chưa có. Gọi trong
+ * doPost (đã giữ lock → an toàn race). Giữ nguyên contract cho caller cũ
+ * (vd ingestPreMintedOrder) — chỉ cần order_id, không cần short_code.
  */
 function findOrderIdByIdempotencyKey(key) {
-  if (!key) return '';
+  var found = findOrderByIdempotencyKey(key);
+  return found ? found.order_id : '';
+}
+
+/**
+ * Như findOrderIdByIdempotencyKey nhưng trả thêm short_code — cần cho response
+ * đường dedup (client retry phải thấy lại đúng mã đơn của lần gửi đầu).
+ *
+ * Bound 500 dòng gần nhất — giống generateOrderId (Orders.gs) — tránh quét toàn
+ * bộ lịch sử khi ORDERS phình to theo thời gian sống của quán. Đường KHÔNG khớp
+ * (phổ biến — mọi đơn không phải retry) chỉ đọc 1 cột idempotency_key trên 500
+ * dòng đó — KHÔNG đọc getLastRows(sheet, 500) (toàn bộ 29 cột, gồm items_json —
+ * một blob JSON mỗi đơn) vì điều đó kéo cả lịch sử món vào script mỗi lần submit
+ * dù không cần. Chỉ khi khớp (hiếm — chỉ đường retry) mới đọc thêm 1 dòng để lấy
+ * order_id + short_code.
+ */
+function findOrderByIdempotencyKey(key) {
+  if (!key) return null;
   var sheet = _ordersSheet();
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return '';
-  var col = ORDERS_HEADERS.indexOf('idempotency_key') + 1; // 1-based
-  var keys = sheet.getRange(2, col, lastRow - 1, 1).getValues();
+  if (lastRow < 2) return null;
+
+  // getSheetHeaders có cache (CacheService, Utils.gs:194-203) → coi như free,
+  // và vẫn bám header THẬT của sheet (không lệch nếu ai đổi cột tay trên Sheets).
+  var header = getSheetHeaders(sheet);
+  if (!header || !header.length) header = ORDERS_HEADERS; // fallback nếu sheet/cache rỗng
+
+  var idIdx = header.indexOf('order_id');
+  var keyIdx = header.indexOf('idempotency_key');
+  var scIdx = header.indexOf('short_code');
+  if (idIdx === -1 || keyIdx === -1) return null;
+
+  var startRow = Math.max(2, lastRow - 499); // bound 500 dòng gần nhất
+  var numRows = lastRow - startRow + 1;
+  var keys = sheet.getRange(startRow, keyIdx + 1, numRows, 1).getValues();
+
   for (var i = 0; i < keys.length; i++) {
     if (String(keys[i][0]) === String(key)) {
-      return String(sheet.getRange(i + 2, 1, 1, 1).getValue());
+      var rowIndex = startRow + i;
+      var lastCol = scIdx !== -1 ? Math.max(idIdx, scIdx) + 1 : idIdx + 1;
+      var rowVals = sheet.getRange(rowIndex, 1, 1, lastCol).getValues()[0];
+      return {
+        order_id: String(rowVals[idIdx]),
+        short_code: scIdx !== -1 ? String(rowVals[scIdx] || '') : ''
+      };
     }
   }
-  return '';
+  return null;
 }
 
 function generateOrderId() {

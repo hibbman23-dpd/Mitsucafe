@@ -823,9 +823,10 @@ function doPost(e) {
     // Default POST fallback: Đặt hàng (submit order)
     var _idemKey = (payload.metadata && payload.metadata.idempotency_key) || payload.idempotency_key || '';
     if (_idemKey) {
-      var _existing = findOrderIdByIdempotencyKey(_idemKey);
+      var _existing = findOrderByIdempotencyKey(_idemKey);
       if (_existing) {
-        return _jsonResponse({ ok: true, order_id: _existing, deduped: true });
+        // Đường retry — client cần thấy lại đúng mã đơn của lần gửi đầu, không phải blank.
+        return _jsonResponse({ ok: true, order_id: _existing.order_id, short_code: _existing.short_code, deduped: true });
       }
     }
 

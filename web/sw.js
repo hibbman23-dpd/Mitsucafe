@@ -3,11 +3,13 @@
 //             tài nguyên tĩnh = stale-while-revalidate (trả cache nhanh + cập nhật ngầm).
 // POST (đặt hàng) luôn online. Bump CACHE khi cần xoá sạch cache cũ.
 
-const CACHE = 'lhk-v5';
+const CACHE = 'lhk-v6';
+// Query ?v= phải khớp y hệt index.html — cache key tính cả query, lệch một ký tự
+// là precache trượt (nằm im trong cache, không ai dùng) và khách vẫn chạy bản cũ.
 const SHELL = [
   './', './index.html', './mitsu.html',
-  './style.css', './mitsu.css', './mitsu-landing.css',
-  './order.js', './menu-data.js', './mitsu-theme.js', './manifest.json',
+  './style.css?v=20260810a', './mitsu.css', './mitsu-landing.css',
+  './order.js?v=20260810a', './menu-data.js?v=20260810a', './mitsu-theme.js', './manifest.json',
 ];
 
 self.addEventListener('install', e => {
