@@ -250,14 +250,14 @@ function findOrderByIdempotencyKey(key) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return null;
 
-  // getSheetHeaders có cache (CacheService, Utils.gs:194-203) → coi như free,
-  // và vẫn bám header THẬT của sheet (không lệch nếu ai đổi cột tay trên Sheets).
-  var header = getSheetHeaders(sheet);
-  if (!header || !header.length) header = ORDERS_HEADERS; // fallback nếu sheet/cache rỗng
-
-  var idIdx = header.indexOf('order_id');
-  var keyIdx = header.indexOf('idempotency_key');
-  var scIdx = header.indexOf('short_code');
+  // Chỉ số cột lấy từ ORDERS_HEADERS, KHÔNG tra tên trên dòng tiêu đề thật của
+  // sheet: appendOrderToSheet ghi bằng appendRow với mảng 29 phần tử theo đúng
+  // thứ tự ORDERS_HEADERS, nên hằng số này mới là nguồn sự thật của vị trí cột.
+  // Tra tên sống sẽ hỏng khi ô tiêu đề chưa được seed — cột thêm sau thì appendRow
+  // vẫn ghi tràn sang mà không điền tên, indexOf ra -1 và dedup im lặng không chạy.
+  var idIdx = ORDERS_HEADERS.indexOf('order_id');
+  var keyIdx = ORDERS_HEADERS.indexOf('idempotency_key');
+  var scIdx = ORDERS_HEADERS.indexOf('short_code');
   if (idIdx === -1 || keyIdx === -1) return null;
 
   var startRow = Math.max(2, lastRow - 499); // bound 500 dòng gần nhất
