@@ -968,11 +968,18 @@ function _getPendingPrintOrders() {
   var result = [];
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var status    = row[12];  // col M = status
     var printedAt = row[22];  // col W = printed_at
     var ts        = row[2];   // col C = timestamp
     var paymentStatus = row[19]; // col T = payment_status
-    if (status !== 'DELIVERED' && paymentStatus !== 'PAID') continue;
+    // Bill CHỈ in cho đơn ĐÃ THU TIỀN. (col M = status không còn tham gia điều kiện.) Điều kiện cũ là
+    // `status !== 'DELIVERED' && paymentStatus !== 'PAID'` — chỉ bỏ qua khi CẢ HAI
+    // sai, nên đơn đã giao mà CHƯA thu vẫn lọt và poller in bill cho nó.
+    // 09/08/2026: 18 đơn DELIVERED + PENDING bị in ra 18 bill lúc 23:07, trong khi
+    // quầy đã in bill local lúc thu tiền rồi — phiếu thừa, chủ quán phải vứt.
+    // Đơn thu qua đường local đã có printed_at (mark_paid gửi receipt_printed_local
+    // => markOrderPaid skipReceipt + set printed_at) nên vẫn không in lần hai;
+    // nhánh này giờ chỉ còn là lưới an toàn cho đơn được thu ngoài luồng local.
+    if (paymentStatus !== 'PAID') continue;
     if (printedAt) continue;  // đã in
     var orderDate = ts ? new Date(ts) : null;
     if (!orderDate || orderDate < cutoff) continue;
