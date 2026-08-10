@@ -87,6 +87,10 @@ print-server/*.db
 print-server/*.db-wal
 print-server/*.db-shm
 print-server/backups/
+# ops/customer_reid.db do ops/dual_camera_ai.py ghi lúc chạy — cùng loại rủi ro.
+ops/*.db
+ops/*.db-wal
+ops/*.db-shm
 
 # Visual brainstorm companion artifacts
 .superpowers/
