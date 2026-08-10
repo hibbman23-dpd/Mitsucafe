@@ -95,6 +95,7 @@ let tableId      = '';        // từ URL ?t=03 → TABLE_03
 let cart         = loadCart();
 let lastOrder    = { shortCode: '', total: 0, delivery: 'pickup' };
 let submitting   = false;
+let isFlushing   = false;     // chặn flushOutbox chạy chồng khi 'online' + 'visibilitychange' bắn cùng lúc
 let deliveryMode = 'pickup';  // 'pickup' | 'delivery'
 let paymentMethod = 'bank_transfer'; // 'bank_transfer' | 'cash'
 
@@ -618,17 +619,55 @@ function renderCheckoutScreen() {
 }
 
 // ─── SCREEN: SUCCESS ──────────────────────────────────────────────────────────
+// Chip trạng thái gửi đơn (outbox). Không có CSS riêng (không được sửa style.css) —
+// dùng inline style, cùng tinh thần với ck-amount/payment-note đã có sẵn trong file này.
+function renderOutboxStateChip(state) {
+  if (state === 'sending') {
+    return `<div class="outbox-chip" style="display:inline-block;padding:4px 12px;border-radius:999px;
+      background:color-mix(in srgb, var(--accent,#C68A3E) 16%, transparent);color:var(--text-dim,#9e8a78);
+      font-size:.82rem;margin-bottom:10px;">⏳ Đang gửi tới quán…</div>`;
+  }
+  if (state === 'sent') {
+    return `<div class="outbox-chip" style="display:inline-block;padding:4px 12px;border-radius:999px;
+      background:#e6f4ea;color:#1e7e34;font-size:.82rem;margin-bottom:10px;">Quán đã nhận ✓</div>`;
+  }
+  if (state === 'failed') {
+    return `<div class="outbox-chip" style="display:inline-block;padding:4px 12px;border-radius:999px;
+      background:#fdecea;color:#c0392b;font-size:.82rem;margin-bottom:10px;">⚠️ Chưa gửi được đơn</div>`;
+  }
+  return '';
+}
+
 function renderSuccessScreen() {
   const isDelivery = lastOrder.delivery === 'delivery';
   const hasBankInfo = BANK_QR.acct && BANK_QR.bank;
-
-  const qrUrl = hasBankInfo
-    ? buildVietQRUrl(lastOrder.total, lastOrder.shortCode)
-    : null;
+  // state thiếu (không nên xảy ra) → coi như đã gửi, không chặn UI cũ.
+  const state = lastOrder.state || 'sent';
 
   let paymentBlock = '';
-  if (lastOrder.paymentMethod === 'bank_transfer') {
-    paymentBlock = hasBankInfo ? `
+
+  if (state === 'failed') {
+    // Server từ chối HOẶC hết lượt retry mạng — dù lý do gì cũng KHÔNG được để khách
+    // chuyển khoản khi quán chưa chắc đã nhận đơn (mã CK có thể rỗng/lệch số).
+    paymentBlock = `
+        <div class="payment-note" style="border:1px solid #c0392b;border-radius:10px;">
+          ⚠️ <strong>Chưa gửi được đơn — khoan chuyển khoản.</strong><br>
+          Bấm gửi lại, hoặc gọi quán: <a href="tel:0975087429">0975087429</a>
+          <div style="margin-top:10px;">
+            <button class="btn-primary" data-action="retry-outbox" data-key="${esc(lastOrder.idempotency_key || '')}">Gửi lại</button>
+          </div>
+        </div>`;
+  } else if (lastOrder.paymentMethod === 'bank_transfer') {
+    if (!lastOrder.shortCode) {
+      // Chưa có mã CK từ server → QR/mã trống sẽ nhận tiền mà không đối soát được đơn nào.
+      // Không render QR, chỉ hiện chờ.
+      paymentBlock = `
+        <div class="payment-note">
+          ⏳ Đang lấy mã CK từ quán… Vui lòng đợi trước khi chuyển khoản.
+        </div>`;
+    } else {
+      const qrUrl = hasBankInfo ? buildVietQRUrl(lastOrder.total, lastOrder.shortCode) : null;
+      paymentBlock = hasBankInfo ? `
         <div class="qr-block">
           <div class="qr-label">Quét QR — số tiền & nội dung đã có sẵn</div>
           <img class="qr-img" src="${qrUrl}" alt="QR ngân hàng ${BANK_QR.bank} · ${fmt(lastOrder.total)}">
@@ -641,11 +680,12 @@ function renderSuccessScreen() {
           <div class="ck-code">${lastOrder.shortCode}</div>
           <div class="ck-amount">Số tiền: <strong>${fmt(lastOrder.total)}</strong></div>
         </div>`
-    : `<div class="payment-note">
-         💳 Chuyển khoản ngân hàng<br>
-         <div class="ck-instruction" style="margin-top:8px">Ghi nội dung CK:</div>
-         <div class="ck-code">${lastOrder.shortCode}</div>
-       </div>`;
+      : `<div class="payment-note">
+           💳 Chuyển khoản ngân hàng<br>
+           <div class="ck-instruction" style="margin-top:8px">Ghi nội dung CK:</div>
+           <div class="ck-code">${lastOrder.shortCode}</div>
+         </div>`;
+    }
   } else {
     // cash payment method
     if (isDelivery) {
@@ -667,6 +707,7 @@ function renderSuccessScreen() {
     <main class="success-screen">
       <div class="success-icon">${isDelivery ? '🛵' : '✅'}</div>
       <h1 class="success-title">Đơn đã gửi!</h1>
+      ${renderOutboxStateChip(state)}
       <p class="success-sub">
         ${isDelivery
           ? 'Đơn giao hàng đã tiếp nhận — cảm ơn bạn!'
@@ -781,6 +822,29 @@ function dismissStockNotice() {
   if (el) el.remove();
 }
 
+// ─── BANNER KHÔI PHỤC ĐƠN OUTBOX (failed/expired) ──────────────────────────────
+// Đơn nào trong outbox đã 'failed' (gửi lỗi hẳn, hoặc hết hạn 30 phút) thì không
+// bao giờ tự gửi ngầm — khách phải thấy banner và chủ động "Đặt lại" hoặc bỏ qua.
+// Tái dùng class .stock-notice có sẵn (không được sửa style.css), override màu bằng inline style.
+function renderOutboxRecoveryBanner() {
+  if (typeof Outbox === 'undefined') return '';
+  const failed = Outbox.list().filter((e) => e.status === 'failed');
+  if (!failed.length) return '';
+  const entry = failed[0];
+  return `
+    <div id="outbox-recovery-banner" class="stock-notice"
+         style="background:#fdecea;border-bottom-color:#c0392b;">
+      <span class="stock-notice-txt">
+        ⚠️ Có đơn chưa gửi được tới quán.
+        <button class="btn-secondary" data-action="reorder-failed"
+                data-key="${esc(entry.idempotency_key)}" style="margin-left:8px;padding:2px 10px;">Đặt lại</button>
+      </span>
+      <button class="stock-notice-x" data-action="dismiss-outbox"
+              data-key="${esc(entry.idempotency_key)}" aria-label="Bỏ qua thông báo">✕</button>
+    </div>
+  `;
+}
+
 // ─── RENDER MAIN ──────────────────────────────────────────────────────────────
 function render() {
   const app = document.getElementById('app');
@@ -831,6 +895,8 @@ function render() {
 
   // Banner món tạm hết — chỉ ở màn menu, để khách thấy trước khi chọn
   const stockHtml = screen === 'menu' ? renderStockNotice() : '';
+  // Banner khôi phục đơn outbox failed/expired — chỉ ở màn menu (điểm hạ cánh mặc định).
+  const outboxBannerHtml = screen === 'menu' ? renderOutboxRecoveryBanner() : '';
 
   // Prepend promo banner if active
   if (activePromo && activePromo.active) {
@@ -840,10 +906,10 @@ function render() {
         <span class="promo-countdown" id="promo-timer">--:--</span>
       </div>
     `;
-    app.innerHTML = bannerHtml + stockHtml + contentHtml;
+    app.innerHTML = bannerHtml + outboxBannerHtml + stockHtml + contentHtml;
     updatePromoTimerDisplay();
   } else {
-    app.innerHTML = stockHtml + contentHtml;
+    app.innerHTML = outboxBannerHtml + stockHtml + contentHtml;
   }
 
   // Khôi phục vị trí cuộn sau khi innerHTML cập nhật
@@ -2014,54 +2080,130 @@ async function submitOrder() {
     },
   };
 
-  // UI: loading
   submitting = true;
-  const btn = document.getElementById('btn-submit');
-  if (btn) { btn.textContent = 'Đang gửi...'; btn.disabled = true; }
 
+  // Phase 1 (outbox): không chờ mạng để chuyển màn hình. Xếp hàng local trước,
+  // qua màn "Đơn đã gửi!" ngay, rồi gửi ngầm — mã CK thật + trạng thái cập nhật
+  // vào đúng lastOrder này khi flushOutbox() xong (khớp theo idempotency_key).
+  Outbox.enqueue(idempotencyKey, payload);
+  clearCart();
+  lastOrder = {
+    shortCode: '', total, delivery: deliveryMode, paymentMethod,
+    idempotency_key: idempotencyKey, state: 'sending',
+  };
+  screen = 'success';
+  render();
+
+  flushOutbox(); // không await — chạy ngầm
+}
+
+// ─── OUTBOX SYNC ──────────────────────────────────────────────────────────────
+// Gửi tất cả đơn 'pending' còn hợp lệ trong outbox. Guard isFlushing chặn 'online'
+// và 'visibilitychange' chạy chồng trên CÙNG tab; hai tab khác nhau vẫn có thể
+// race nhau gọi đồng thời — vô hại vì server dedup theo idempotency_key (đã verify prod).
+async function flushOutbox() {
+  if (isFlushing) return;
+  isFlushing = true;
+  try {
+    const entries = Outbox.expireStale(undefined, new Date()).filter(e => e.status === 'pending');
+    for (const entry of entries) {
+      await sendOutboxEntry(entry);
+    }
+  } finally {
+    isFlushing = false;
+  }
+}
+
+async function sendOutboxEntry(entry) {
   try {
     // text/plain = CORS "simple request", không preflight (GAS không trả lời OPTIONS).
+    // keepalive: true — request sống sót nếu khách đóng tab ngay sau khi bấm gửi.
     const res = await fetch(GAS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(entry.payload),
+      keepalive: true,
     });
     const data = await res.json();
 
-    if (!data.ok) {
-      submitting = false;
-      if (btn) { btn.textContent = `Gửi đơn — ${fmt(total)}`; btn.disabled = false; }
-      showErr(errEl, data.error || 'Gửi đơn thất bại — vui lòng thử lại.');
-      return;
+    if (data.ok) {
+      Outbox.remove(entry.idempotency_key);
+
+      // Tích hợp lưu đặc điểm khách hàng quen qua camera AI nội bộ — chuyển vào đây
+      // từ submitOrder() vì giờ mới biết chắc server đã nhận đơn.
+      fetch('http://localhost:5000/api/associate_order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Camera-Secret': window.__CAMERA_AI_SECRET__ || localStorage.getItem('mitsu_camera_secret') || ''
+        },
+        body: JSON.stringify({
+          customer_phone: entry.payload.customer_id || '',
+          customer_name: entry.payload.customer_name || 'Khách Quen',
+          items: (entry.payload.items || []).map(ci => `${ci.name} (${ci.qty})`).join(', ')
+        })
+      }).catch(err => console.log('Không kết nối được Camera AI local:', err));
+
+      if (lastOrder.idempotency_key === entry.idempotency_key) {
+        // Mã đơn hiển thị PHẢI lấy từ server (buildShortCode) — mã local chỉ là bộ đếm
+        // theo máy, hai máy cùng lúc sẽ trùng "001".
+        lastOrder.shortCode = data.short_code || '';
+        lastOrder.state = 'sent';
+        if (screen === 'success') render();
+      }
+    } else if (isTransientServerError(data.error)) {
+      // doPost trả ok:false khi LockService.waitLock(20000) hết giờ — đơn của khách
+      // xếp hàng sau 18 cron dùng chung script lock. Đây là lỗi NHẤT THỜI: thử lại
+      // vài giây sau là qua. Đừng gộp chung với lỗi validate.
+      scheduleRetry(entry);
+    } else {
+      // Server từ chối payload (validate fail) — retry không giúp gì, dừng luôn.
+      failEntry(entry);
     }
-
-    // Tích hợp lưu đặc điểm khách hàng quen qua camera AI nội bộ
-    fetch('http://localhost:5000/api/associate_order', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Camera-Secret': window.__CAMERA_AI_SECRET__ || localStorage.getItem('mitsu_camera_secret') || ''
-      },
-      body: JSON.stringify({
-        customer_phone: normPhone,
-        customer_name: name || 'Khách Quen',
-        items: cart.map(ci => `${ci.name} (${ci.qty})`).join(', ')
-      })
-    }).catch(err => console.log('Không kết nối được Camera AI local:', err));
-
-    // Mã đơn hiển thị PHẢI lấy từ server (buildShortCode) — mã local chỉ là bộ đếm
-    // theo máy, hai máy cùng lúc sẽ trùng "001".
-    lastOrder = { shortCode: data.short_code || '', total, delivery: deliveryMode, paymentMethod: paymentMethod };
-    clearCart();
-    screen = 'success';
-    render();
-
   } catch (err) {
-    submitting = false;
-    if (btn) { btn.textContent = `Gửi đơn — ${fmt(total)}`; btn.disabled = false; }
-    showErr(errEl, 'Mất kết nối — kiểm tra mạng và thử lại.');
+    scheduleRetry(entry); // lỗi mạng/throw
   }
 }
+
+// 'System busy, please try again.' — chuỗi duy nhất doPost trả khi kẹt lock
+// (gas/Code.gs). Mọi ok:false khác đều tất định, thử lại chỉ ra đúng lỗi đó.
+function isTransientServerError(err) {
+  return /busy/i.test(String(err || ''));
+}
+
+function markLastOrderFailed(entry) {
+  if (lastOrder.idempotency_key === entry.idempotency_key) {
+    lastOrder.state = 'failed';
+    if (screen === 'success') render();
+    return;
+  }
+  // Không khớp lastOrder = đơn hỏng ngầm sau khi khách tải lại trang (lastOrder mất
+  // theo reload). Banner khôi phục đọc thẳng từ outbox nên chỉ cần vẽ lại màn menu,
+  // không có cú này thì banner nằm im tới khi khách vô tình chạm vào thứ gì đó.
+  if (screen === 'menu') render();
+}
+
+function failEntry(entry) {
+  Outbox.update(entry.idempotency_key, { status: 'failed' });
+  markLastOrderFailed(entry);
+}
+
+// Lên lịch gửi lại theo backoff; hết lượt thì chuyển 'failed'.
+function scheduleRetry(entry) {
+  const delay = Outbox.nextDelayMs(entry.attempts);
+  if (delay == null) {
+    Outbox.update(entry.idempotency_key, { status: 'failed', attempts: entry.attempts + 1 });
+    markLastOrderFailed(entry);
+    return;
+  }
+  Outbox.update(entry.idempotency_key, { attempts: entry.attempts + 1 });
+  setTimeout(() => { flushOutbox(); }, delay);
+}
+
+window.addEventListener('online', () => { flushOutbox(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') flushOutbox();
+});
 
 function showErr(el, msg) {
   if (!el) return;
@@ -2307,6 +2449,40 @@ document.addEventListener('click', e => {
 
     case 'submit':
       submitOrder();
+      break;
+
+    case 'retry-outbox': {
+      // Nút "Gửi lại" trên màn success khi state === 'failed'.
+      const key = el.dataset.key;
+      Outbox.update(key, { status: 'pending' });
+      if (lastOrder.idempotency_key === key) lastOrder.state = 'sending';
+      render();
+      flushOutbox();
+      break;
+    }
+
+    case 'reorder-failed': {
+      // Banner khôi phục trên màn menu — dựng lại giỏ từ payload đã lưu, KHÔNG tự gửi lại.
+      const key = el.dataset.key;
+      const entry = Outbox.list().find(o => o.idempotency_key === key);
+      if (entry) {
+        cart = (entry.payload.items || []).map(pi => {
+          const modifiers = pi.modifiers || {};
+          return { _key: pi.sku + JSON.stringify(modifiers), sku: pi.sku, name: pi.name,
+                   qty: pi.qty, price: pi.price, modifiers, subtotal: pi.qty * pi.price };
+        });
+        saveCart();
+        Outbox.remove(key);
+      }
+      screen = 'menu';
+      submitting = false; // đường này cũng rời màn success — không mở khoá là khách kẹt, không gửi lại được
+      render();
+      break;
+    }
+
+    case 'dismiss-outbox':
+      Outbox.remove(el.dataset.key);
+      render();
       break;
   }
 });
@@ -2659,6 +2835,11 @@ function init() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+
+  // Đơn từ phiên trước còn kẹt trong outbox (mất mạng/đóng tab giữa chừng):
+  // hết hạn thì đánh 'failed' luôn, còn hợp lệ thì gửi tiếp — flushOutbox() làm cả hai.
+  Outbox.expireStale();
+  flushOutbox();
 
   render();
   checkPromoStatus().then(() => render());
