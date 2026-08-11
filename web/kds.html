@@ -1281,6 +1281,15 @@ const REJECT_CHOICES = [
   { reason: 'fake',         label: 'Đơn ảo' },
 ];
 
+// SĐT online có thể mất số 0 đầu (Sheets ép "0343726787" thành số 343726787).
+// Chỉ chuẩn hoá để hiển thị/tel: — không đoán thêm biến đổi nào khác.
+function normalizePhoneDisplay(raw) {
+  const digits = String(raw == null ? '' : raw).replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 9 && !digits.startsWith('0')) return '0' + digits;
+  return digits;
+}
+
 function openRejectSheet(orderId) {
   let el = document.getElementById('reject-sheet-container');
   if (!el) {
@@ -1288,6 +1297,20 @@ function openRejectSheet(orderId) {
     el.id = 'reject-sheet-container';
     document.body.appendChild(el);
   }
+  // Đơn online mới bị chặn ở KDS trước khi nhân viên kịp gọi khách hôm nay —
+  // bắt buộc thấy tên+SĐT TRƯỚC khi bấm lý do, để nhớ có người thật đang chờ.
+  const o = allOrders.find(x => x.order_id === orderId);
+  const custName = (o && onlineField(o, 'customer_name')) || 'Khách online';
+  const phone = normalizePhoneDisplay(o ? onlineField(o, 'customer_id') : '');
+  const customerBlock = phone
+    ? `<div style="padding:0 16px 12px; font-size:0.95rem;">
+         <div>👤 ${esc(custName)}</div>
+         <div style="margin-top:4px;">📞 <a href="tel:${esc(phone)}" style="font-weight:800; color:#B71C1C; font-size:1.1rem;">${esc(phone)}</a></div>
+       </div>`
+    : `<div style="padding:0 16px 12px; font-size:0.95rem;">
+         <div>👤 ${esc(custName)}</div>
+         <div style="margin-top:4px; color:#B71C1C; font-weight:700;">⚠️ Không có số điện thoại</div>
+       </div>`;
   el.innerHTML = `
     <div class="overlay-bg" id="reject-overlay" onclick="closeRejectSheet(event)">
       <div class="bottom-sheet" style="max-width:420px; margin:auto; border-radius:16px;">
@@ -1295,6 +1318,7 @@ function openRejectSheet(orderId) {
           <div class="sheet-title">✕ Từ chối đơn ${esc(orderId)}</div>
           <button class="btn-close" onclick="closeRejectSheet()">✕</button>
         </div>
+        ${customerBlock}
         <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;" id="reject-sheet-btns">
           ${REJECT_CHOICES.map(c => `
             <button class="btn-mark-paid reject-choice-btn" style="background:#B71C1C;color:#fff;padding:14px;font-size:1.05rem;"
@@ -1322,13 +1346,17 @@ async function rejectOnlineOrder(orderId, reason, btn) {
   try {
     const r = await api().rejectOrder(orderId, reason);
     if (r.status === 200 && r.body && r.body.ok) {
+      // Lấy tên/SĐT TRƯỚC khi đóng sheet — closeRejectSheet xoá DOM chứa chúng.
+      const o = allOrders.find(x => x.order_id === orderId);
+      const custName = (o && onlineField(o, 'customer_name')) || 'Khách online';
+      const phone = normalizePhoneDisplay(o ? onlineField(o, 'customer_id') : '');
+      const reasonLabel = (REJECT_CHOICES.find(c => c.reason === reason) || {}).label || reason;
       closeRejectSheet();
       dismissOnlineBanner(orderId);
-      const o = allOrders.find(x => x.order_id === orderId);
       if (o) o.status = 'CANCELLED';
       setLocalOverride(orderId, { status: 'CANCELLED' });
       renderOrders();
-      toast('Đã từ chối đơn ' + orderId);
+      showRejectDonePanel(orderId, reasonLabel, custName, phone);
     } else {
       alert('Không từ chối được: ' + ((r.body && r.body.error) || 'mất kết nối'));
       sheetBtns.forEach(b => b.disabled = false);
@@ -1339,6 +1367,44 @@ async function rejectOnlineOrder(orderId, reason, btn) {
     sheetBtns.forEach(b => b.disabled = false);
     if (btn) { btn.textContent = 'Thử lại'; }
   }
+}
+
+// Panel sau khi từ chối — KHÔNG tự biến mất như toast cũ. Nhân viên phải bấm
+// "Đã gọi khách xong" mới đóng, để không lỡ quên gọi báo khách đơn bị từ chối.
+function showRejectDonePanel(orderId, reasonLabel, custName, phone) {
+  let el = document.getElementById('reject-done-container');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reject-done-container';
+    document.body.appendChild(el);
+  }
+  const contactBlock = phone
+    ? `<a href="tel:${esc(phone)}" style="display:block; text-align:center; font-size:1.5rem;
+         font-weight:800; color:#fff; background:#2e7d32; padding:16px; border-radius:12px;
+         text-decoration:none; margin:14px 0;">📞 Gọi ${esc(phone)}</a>`
+    : `<div style="text-align:center; font-weight:700; color:#B71C1C; padding:14px; margin:14px 0;
+         border:1px solid #B71C1C; border-radius:12px;">
+         Đơn này không có số điện thoại — không liên hệ được</div>`;
+  el.innerHTML = `
+    <div class="overlay-bg" id="reject-done-overlay">
+      <div class="bottom-sheet" style="max-width:420px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">✕ Đã từ chối đơn ${esc(orderId)}</div>
+        </div>
+        <div style="padding:0 16px 16px;">
+          <div>Lý do: <strong>${esc(reasonLabel)}</strong></div>
+          <div style="margin-top:6px;">👤 ${esc(custName)}</div>
+          ${contactBlock}
+          <button class="btn-mark-paid" style="width:100%; padding:14px; font-size:1.05rem;"
+                  onclick="closeRejectDonePanel()">Đã gọi khách xong</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function closeRejectDonePanel() {
+  const el = document.getElementById('reject-done-container');
+  if (el) el.innerHTML = '';
 }
 
 // ─── CLOUD + PRINTER STATUS BADGES ─────────────────────────────────────────────
