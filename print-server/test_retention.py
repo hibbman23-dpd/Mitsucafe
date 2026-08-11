@@ -5,10 +5,19 @@ gateway.purge_synced   — deletes synced (non-FAILED) outbox rows older than N 
                           never synced_at IS NULL (unsynced) or 'FAILED%' (kept for audit).
 """
 import os, sqlite3, tempfile, threading, unittest
+from datetime import datetime, timedelta, timezone
 from print_spool import PrintSpool
 from gateway import Gateway
 
+_VN = timezone(timedelta(hours=7))
 OLD = "2000-01-01T00:00:00+07:00"
+
+
+def _recent():
+    """1 phút trước 'now' thật — luôn nằm trong cửa sổ 7 ngày bất kể ngày chạy test.
+    Hardcode một mốc thời gian cụ thể (vd 2026-07-23) sẽ hết hạn khi đồng hồ hệ thống
+    trôi qua, làm purge tưởng nhầm là 'cũ' rồi xoá — false failure, không phải bug thật."""
+    return (datetime.now(_VN) - timedelta(minutes=1)).isoformat()
 
 
 def _order(oid="ORD-20260723-0001"):
@@ -47,7 +56,7 @@ class TestSpoolPurge(unittest.TestCase):
             "SELECT COUNT(*) FROM print_spool").fetchone()[0], 0)
 
     def test_purge_old_keeps_recent_printed_row(self):
-        recent = "2026-07-23T07:59:00+07:00"  # well within 7 days of "now"
+        recent = _recent()  # well within 7 days of "now"
         self._make("k2", "printed", recent)
         n = self.spool.purge_old(days=7)
         self.assertEqual(n, 0)
@@ -124,7 +133,7 @@ class TestOutboxPurge(unittest.TestCase):
             "SELECT COUNT(*) FROM outbox").fetchone()[0], 1)
 
     def test_purge_synced_keeps_recent_synced_row(self):
-        recent = "2026-07-23T07:59:00+07:00"
+        recent = _recent()
         self._make("k4", "ORD-4", recent)
         n = self.gw.purge_synced(days=7)
         self.assertEqual(n, 0)

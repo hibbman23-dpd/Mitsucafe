@@ -115,8 +115,14 @@ class TestEditRoutes(RouteTestBase):
         items = d["order"]["items"]
         self.assertEqual(items[0]["sku"], "DR099")
         self.assertEqual(items[0]["modifiers"]["swap_from"], "Cà phê muối")
-        # old line (Cà phê muối x2 @30000) removed, Trà sữa oolong x1 @25000 untouched
-        self.assertEqual(d["order"]["total"], 40000 + 25000)
+        # Swap keeps the QUANTITY of the line being replaced (see commit a4d24c6 —
+        # 2026-08-08 incident: trusting the client's new_item qty undercharged a
+        # real order by 30.000đ). Old line was Cà phê muối x2 @30000; swapped-in
+        # Matcha đá xay inherits qty=2, so its subtotal is 40000*2=80000, not
+        # 40000*1. Trà sữa oolong x1 @25000 is untouched.
+        self.assertEqual(items[0]["qty"], 2)
+        self.assertEqual(items[0]["subtotal"], 80000)
+        self.assertEqual(d["order"]["total"], 80000 + 25000)
         self.assertEqual(len(d["cancelled_lines"]), 1)
         self.assertEqual(d["cancelled_lines"][0]["sku"], "DR005")
 
