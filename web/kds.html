@@ -148,6 +148,16 @@
     .online-banner .ob-seen  { background: #fff; color: #111; }
     .online-banner .ob-print { background: #FFC107; color: #111; margin-top: 6px; }
     .online-banner .ob-more  { text-align: center; font-weight: 700; padding: 8px; }
+    /* Banner "chuông câm": autoplay policy chặn AudioContext sau reload — cố định
+       trên cùng, không tự tắt, để nhân viên biết chuông không kêu chứ không phải quán vắng. */
+    #bell-off-notice { position: fixed; top: 0; left: 0; right: 0; z-index: 1200;
+                        background: #B71C1C; color: #fff; padding: 10px 14px;
+                        display: flex; align-items: center; justify-content: center;
+                        gap: 14px; font-weight: 800; font-size: .92rem; text-align: center;
+                        animation: agePulse 1.2s ease-in-out infinite; }
+    #bell-off-notice.hidden { display: none; }
+    #bell-off-notice button { background: #fff; color: #B71C1C; border: none;
+                        border-radius: 20px; padding: 6px 16px; font-weight: 800; cursor: pointer; }
     .btn-cancel { background: transparent; color: #e57373; border: 1px solid rgba(229,115,115,.5); border-radius: 8px; padding: 8px 12px; font-size: .8rem; font-weight: 600; cursor: pointer; }
     .btn-cancel:hover { background: rgba(229,57,53,.12); }
     .card-top {
@@ -903,6 +913,12 @@ const OVERDUE_MIN = 10;            // đơn đang xử lý quá X phút → tô 
 let seenOrderIds  = new Set();     // id đã thấy → phát hiện đơn mới
 let firstLoad     = true;          // lần load đầu không kêu chuông
 let audioCtx      = null;          // WebAudio cho chuông đơn mới
+const KDS_ORIGINAL_TITLE = document.title; // phục hồi khi hết đơn online chưa xử lý
+// loadOrders() ở cuối file KHÔNG được await, còn setInterval(pollOrderChanges, 4000)
+// đăng ký trước đó. Lần tải đầu chậm quá 4 giây thì vòng poll chạy trước và tiêu thụ
+// mất cờ firstLoad — sau đó loadOrders() hô nguyên tồn kho trong ngày (chuông dồn +
+// banner đổ hàng loạt). Cờ này giữ đường poll im cho tới khi lần tải đầu xong hẳn.
+let initialLoadDone = false;
 
 // Backup original prices first
 MENU_DATA.forEach(item => {
@@ -1013,11 +1029,15 @@ function enableTTS() {
     }
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   } catch (e) {}
-  if (!window.speechSynthesis) { ttsReady = true; document.getElementById('tts-banner').classList.add('hidden'); return; }
+  if (!window.speechSynthesis) {
+    ttsReady = true; document.getElementById('tts-banner').classList.add('hidden');
+    updateBellOffNotice(); return;
+  }
   const u = new SpeechSynthesisUtterance(''); u.volume = 0;
   window.speechSynthesis.speak(u);
   ttsReady = true;
   document.getElementById('tts-banner').classList.add('hidden');
+  updateBellOffNotice(); // audioCtx vừa mở khoá (hoặc vẫn không mở được) — cập nhật banner "chuông câm" ngay
 }
 
 let soundMuted = localStorage.getItem('kds_sound_muted') !== '0'; // Mặc định TẮT TIẾNG theo yêu cầu
@@ -1045,6 +1065,7 @@ function toggleSound() {
   if (soundMuted && window.speechSynthesis) window.speechSynthesis.cancel();
   if (!soundMuted && !ttsReady) enableTTS();
   updateSoundBtn();
+  updateBellOffNotice(); // soundMuted đổi ảnh hưởng điều kiện hiện banner "chuông câm"
 }
 
 function updateSoundBtn() {
@@ -1113,6 +1134,55 @@ let __onlineSeen = new Set();
 let __onlineBanners = [];
 const ONLINE_FRESH_MS = 5 * 60 * 1000;
 
+// Tab nền/thu nhỏ vẫn phải hét được — đổi tiêu đề tab khi còn banner online chưa "Đã thấy".
+function updateKdsTitle() {
+  const n = __onlineBanners.length;
+  document.title = n > 0 ? `(${n}) ĐƠN MỚI · ${KDS_ORIGINAL_TITLE}` : KDS_ORIGINAL_TITLE;
+}
+
+// Sự cố 08:49: audioCtx chỉ được tạo trong enableTTS() (cần user gesture do autoplay
+// policy) — nếu tab reload mà không ai bấm banner TTS, playNewOrderChime() thoát êm re,
+// không ai biết chuông đã câm. Hàm này hiện 1 banner đỏ CỐ ĐỊNH khi: còn đơn online
+// chưa "Đã thấy" VÀ chuông thật sự không kêu được (chưa mở khoá AudioContext).
+// Không xét khi soundMuted=true — đó là nhân viên CHỦ ĐỘNG tắt tiếng (đã có nút riêng
+// báo trạng thái), khác với chuông bị autoplay chặn ngoài ý muốn.
+function updateBellOffNotice() {
+  const bellBroken = !soundMuted && __onlineBanners.length > 0 &&
+    (!audioCtx || audioCtx.state === 'suspended');
+  let el = document.getElementById('bell-off-notice');
+  if (!bellBroken) { if (el) el.classList.add('hidden'); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'bell-off-notice';
+    el.className = 'bell-off-notice';
+    el.innerHTML = '🔕 CHUÔNG CHƯA BẬT — có đơn online chờ mà máy KHÔNG kêu được' +
+      '<button onclick="enableTTS()">🔊 Bật chuông ngay</button>';
+    document.body.appendChild(el);
+  }
+  el.classList.remove('hidden');
+}
+
+// Dò đơn mới rồi báo (chuông + đọc + banner online) — dùng CHUNG cho loadOrders()
+// (mở trang / bấm "Làm mới") VÀ pollOrderChanges() (nền, mỗi 4 giây). seenOrderIds
+// là chốt chặn DUY NHẤT: đơn nào bị add vào Set trước thì đường đó báo, đường kia
+// thấy id đã có trong Set → bỏ qua, không báo trùng. `orders` phải là danh sách ĐẦY
+// ĐỦ (không phải chỉ phần thay đổi) để scanOnlineOrders quét đúng.
+function announceNewOrders(orders) {
+  const wasFirstLoad = firstLoad;
+  const fresh = orders.filter(o => !seenOrderIds.has(o.order_id));
+  orders.forEach(o => seenOrderIds.add(o.order_id));
+  if (!wasFirstLoad && fresh.length) {
+    // Đơn online có chuông RIÊNG trong scanOnlineOrders (thường vs trễ). Kêu thêm
+    // chuông chung ở đây là hai tiếng chồng lên nhau, nghe nhoè, mất luôn ý nghĩa
+    // phân biệt. Chuông chung chỉ dành cho đơn không phải online.
+    if (fresh.some(o => o.source !== 'online')) playNewOrderChime();
+    speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
+  }
+  firstLoad = false;
+  scanOnlineOrders(orders, wasFirstLoad);
+  updateBellOffNotice();
+}
+
 function scanOnlineOrders(orders, isFirstLoad) {
   const fresh = [];
   for (const o of orders) {
@@ -1164,6 +1234,10 @@ function renderOnlineBanners() {
       </div>`;
   }).join('') + (extra > 0
     ? `<div class="online-banner ob-more">+${extra} đơn nữa</div>` : '');
+  // Chốt chặn duy nhất cho title tab + banner "chuông câm" — mọi đường thêm/bớt
+  // banner (scanOnlineOrders, dismissOnlineBanner, reject...) đều đi qua render này.
+  updateKdsTitle();
+  updateBellOffNotice();
 }
 
 function dismissOnlineBanner(orderId) {
@@ -2304,16 +2378,9 @@ async function loadOrders() {
   }
   const data = r.body;
   __lastChangeTs = data.now || __lastChangeTs;
-  // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc, trừ lần load đầu.
-  const wasFirstLoad = firstLoad;
-  const fresh = data.orders.filter(o => !seenOrderIds.has(o.order_id));
-  data.orders.forEach(o => seenOrderIds.add(o.order_id));
-  if (!firstLoad && fresh.length) {
-    playNewOrderChime();
-    speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
-  }
-  firstLoad = false;
-  scanOnlineOrders(data.orders, wasFirstLoad);
+  // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc + banner, trừ lần load đầu.
+  announceNewOrders(data.orders);
+  initialLoadDone = true;
 
   let ovChanged = false;
   data.orders.forEach(o => {
@@ -2350,6 +2417,11 @@ async function pollOrderChanges() {
       normalizePaid(allOrders);
       __lastChangeTs = r.body.now || __lastChangeTs;
       renderOrders();
+      // Sự cố 08:49: đường poll nền 4 giây này từng hoàn toàn im lặng — không
+      // chuông, không banner, không title. allOrders sau mergeChanges() là bức
+      // tranh ĐẦY ĐỦ (không chỉ phần thay đổi) nên dùng chung announceNewOrders
+      // với loadOrders() — seenOrderIds chặn báo trùng dù đường nào thấy trước.
+      if (initialLoadDone) announceNewOrders(allOrders);
     } else if (r.body && r.body.now) { __lastChangeTs = r.body.now; }
   } catch (_) {}
 }
