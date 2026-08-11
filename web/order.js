@@ -650,6 +650,13 @@ function renderOutboxStateChip(state) {
 }
 
 function renderSuccessScreen() {
+  // Quán đã từ chối đơn (order_status trả CANCELLED) — AN TOÀN TIỀN BẠC: không
+  // được để lọt QR/mã CK ở đây, khách chuyển khoản cho đơn đã bị từ chối là mất
+  // tiền vô ích. Cắt sớm, không đi qua nhánh dựng QR/ck-code bên dưới.
+  if (lastOrder.orderStatus === 'CANCELLED') {
+    return renderRejectedScreen();
+  }
+
   const isDelivery = lastOrder.delivery === 'delivery';
   const hasBankInfo = BANK_QR.acct && BANK_QR.bank;
   // state thiếu (không nên xảy ra) → coi như đã gửi, không chặn UI cũ.
@@ -730,6 +737,24 @@ function renderSuccessScreen() {
       </div>` : ''}
       ${paymentBlock}
       <button class="btn-secondary" data-action="go-menu">Đặt thêm</button>
+    </main>`;
+}
+
+// Màn khi quán từ chối đơn. KHÔNG có QR/ck-code ở đây — cố tình bỏ hẳn khỏi
+// nhánh render này thay vì ẩn bằng CSS, để không ai lỡ tay thêm lại QR vào
+// nhánh này sau này mà quên rule an toàn tiền.
+function renderRejectedScreen() {
+  return `
+    <main class="success-screen">
+      <div class="success-icon">😔</div>
+      <h1 class="success-title">Quán không nhận được đơn này</h1>
+      <p class="success-sub">
+        Rất tiếc, quán chưa thể nhận đơn của bạn lúc này. Bạn vui lòng gọi quán để được hỗ trợ nhé.
+      </p>
+      <div class="payment-note" style="border:1px solid #c0392b;border-radius:10px;text-align:center;">
+        📞 Gọi quán: <a href="tel:0975087429" style="font-weight:800;font-size:1.2rem;">0975087429</a>
+      </div>
+      <button class="btn-secondary" data-action="go-menu">Đặt lại</button>
     </main>`;
 }
 
@@ -2138,9 +2163,11 @@ async function submitOrder() {
   // vào đúng lastOrder này khi flushOutbox() xong (khớp theo idempotency_key).
   Outbox.enqueue(idempotencyKey, payload);
   clearCart();
+  stopOrderStatusPoll(); // đơn mới thay lastOrder — dừng poll của đơn cũ (nếu còn)
   lastOrder = {
     shortCode: '', total, delivery: deliveryMode, paymentMethod,
     idempotency_key: idempotencyKey, state: 'sending',
+    orderId: '', orderStatus: '',
   };
   screen = 'success';
   render();
@@ -2202,8 +2229,12 @@ async function sendOutboxEntry(entry) {
         // Mã đơn hiển thị PHẢI lấy từ server (buildShortCode) — mã local chỉ là bộ đếm
         // theo máy, hai máy cùng lúc sẽ trùng "001".
         lastOrder.shortCode = data.short_code || '';
+        lastOrder.orderId = data.order_id || '';
         lastOrder.state = 'sent';
         if (screen === 'success') render();
+        // Giờ đã có order_id thật — bắt đầu hỏi thăm trạng thái để khách biết
+        // nếu quán từ chối (không có kênh đẩy nào tới khách hoạt động — xem brief).
+        if (lastOrder.orderId) startOrderStatusPoll();
       }
     } else if (isTransientServerError(data.error)) {
       // doPost trả ok:false khi LockService.waitLock(20000) hết giờ — đơn của khách
@@ -2240,6 +2271,52 @@ function markLastOrderFailed(entry) {
 function failEntry(entry) {
   Outbox.update(entry.idempotency_key, { status: 'failed' });
   markLastOrderFailed(entry);
+}
+
+// ─── ORDER STATUS POLL (khách tự biết đơn bị từ chối) ──────────────────────────
+// Không có kênh đẩy nào tới khách đang hoạt động (sendZaloNotify là stub —
+// xem gas/Notify.gs). Trong lúc chờ, trang thành công của khách tự hỏi thăm
+// order_status (GET, AUTH.PUBLIC, đã có sẵn) để biết nếu quán từ chối.
+let orderStatusPollTimer   = null;
+let orderStatusPollDeadline = 0;
+const ORDER_STATUS_POLL_MS         = 20000;      // ~20s/lần
+const ORDER_STATUS_POLL_TIMEOUT_MS = 10 * 60 * 1000; // bỏ cuộc sau ~10 phút
+const ORDER_TERMINAL_STATUSES = ['CANCELLED', 'DELIVERED', 'VOIDED'];
+
+function startOrderStatusPoll() {
+  stopOrderStatusPoll();
+  orderStatusPollDeadline = Date.now() + ORDER_STATUS_POLL_TIMEOUT_MS;
+  orderStatusPollTimer = setInterval(pollOrderStatusTick, ORDER_STATUS_POLL_MS);
+}
+
+function stopOrderStatusPoll() {
+  if (orderStatusPollTimer) { clearInterval(orderStatusPollTimer); orderStatusPollTimer = null; }
+}
+
+async function pollOrderStatusTick() {
+  if (Date.now() > orderStatusPollDeadline) { stopOrderStatusPoll(); return; }
+  if (screen !== 'success' || !lastOrder.orderId) { stopOrderStatusPoll(); return; }
+  // Tab nền: bỏ lượt này (không fetch), nhưng KHÔNG dừng hẹn giờ — lượt sau
+  // khách quay lại tab vẫn tự bắt kịp trong vòng ORDER_STATUS_POLL_MS.
+  if (document.visibilityState !== 'visible') return;
+
+  const orderId = lastOrder.orderId;
+  try {
+    const res = await fetch(`${GAS_URL}?action=order_status&order_id=${encodeURIComponent(orderId)}`);
+    const data = await res.json();
+    // Im lặng khi lỗi/không hợp lệ — khách không được thấy lỗi mạng trên màn thành công.
+    if (!data || !data.ok) return;
+    // lastOrder đã đổi sang đơn khác trong lúc chờ fetch (khách "Đặt thêm") — bỏ qua.
+    if (lastOrder.orderId !== orderId) return;
+
+    lastOrder.orderStatus = data.status || '';
+    if (ORDER_TERMINAL_STATUSES.indexOf(lastOrder.orderStatus) !== -1) {
+      stopOrderStatusPoll();
+    }
+    if (screen === 'success') render();
+  } catch (_) {
+    // im lặng — lỗi mạng không được lộ ra màn thành công của khách
+  }
 }
 
 // Lên lịch gửi lại theo backoff; hết lượt thì chuyển 'failed'.

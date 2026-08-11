@@ -72,6 +72,10 @@ test('expireStale flips expired pending entries to failed, leaves others alone',
   Outbox.enqueue('w-old', { total: 1 }, st);
   Outbox.update('w-old', { created_at: '2026-08-09T16:50:00.000Z' }, st); // đêm hôm trước ở HCM
   Outbox.enqueue('w-fresh', { total: 2 }, st);
+  // created_at phải neo theo `now` cắm cứng ở trên, KHÔNG lấy đồng hồ thật của
+  // enqueue(): trộn mốc cứng với đồng hồ thật thì test chỉ xanh trong đúng ngày
+  // viết nó, qua nửa đêm là khác ngày HCM và w-fresh bị tính là hết hạn.
+  Outbox.update('w-fresh', { created_at: '2026-08-09T17:00:00.000Z' }, st);
   Outbox.expireStale(st, now);
   const all = Outbox.list(st);
   const old = all.find((e) => e.idempotency_key === 'w-old');

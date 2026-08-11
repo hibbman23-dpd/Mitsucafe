@@ -3,13 +3,13 @@
 //             tài nguyên tĩnh = stale-while-revalidate (trả cache nhanh + cập nhật ngầm).
 // POST (đặt hàng) luôn online. Bump CACHE khi cần xoá sạch cache cũ.
 
-const CACHE = 'lhk-v8';
+const CACHE = 'lhk-v9';
 // Query ?v= phải khớp y hệt index.html — cache key tính cả query, lệch một ký tự
 // là precache trượt (nằm im trong cache, không ai dùng) và khách vẫn chạy bản cũ.
 const SHELL = [
   './', './index.html', './mitsu.html',
-  './style.css?v=20260810c', './mitsu.css', './mitsu-landing.css',
-  './order.js?v=20260810c', './outbox.js?v=20260810c', './menu-data.js?v=20260810c',
+  './style.css?v=20260811a', './mitsu.css', './mitsu-landing.css',
+  './order.js?v=20260811a', './outbox.js?v=20260811a', './menu-data.js?v=20260811a',
   './mitsu-theme.js', './manifest.json',
 ];
 
