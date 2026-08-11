@@ -554,7 +554,7 @@ function _rowToOrder(row) {
     location_id: row[5],
     table_id: row[6],
     staff_id: row[7],
-    customer_id: row[8],
+    customer_id: normalizeCustomerId(row[8]),   // Sheets lưu 0343726787 thành SỐ, mất số 0 đầu
     items: row[9] ? JSON.parse(row[9]) : [],
     subtotal: row[10],
     total: row[11],
@@ -739,7 +739,7 @@ function getTodayOrders() {
       short_code:     row[25] || '',
       timestamp:      Utilities.formatDate(new Date(row[2]), 'Asia/Ho_Chi_Minh', 'HH:mm'),
       created_iso:    row[2] ? new Date(row[2]).toISOString() : '',
-      customer_id:    row[8],
+      customer_id:    normalizeCustomerId(row[8]),   // xem chú thích ở _rowToOrder
       customer_name:  row[24] || '',
       table_id:       row[6] || '',
       total:          row[11],
@@ -818,7 +818,7 @@ function getCustomerInfo(phone) {
     var row = data[i];
     if (normalizeCustomerId(row[0]) === normPhone || normalizeCustomerId(row[2]) === normPhone) {
       return {
-        customer_id: row[0] || normPhone,
+        customer_id: normalizeCustomerId(row[0]) || normPhone,
         name: row[1] || '',
         phone: row[2] || phone,
         zalo_id: row[3] || '',

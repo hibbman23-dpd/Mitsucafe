@@ -995,7 +995,7 @@ function _rowToOrderFull(row) {
     order_id:      row[0],
     timestamp:     row[2],
     table_id:      row[6],
-    customer_id:   row[8],
+    customer_id:   normalizeCustomerId(row[8]),   // xem chú thích ở _rowToOrder (Orders.gs)
     customer_name: row[24] || '',
     items:         row[9] ? JSON.parse(row[9]) : [],
     subtotal:      row[10],
@@ -1024,7 +1024,7 @@ function _rowToOnlineOrder(row) {
     created_at:       row[2] ? new Date(row[2]).toISOString() : '',
     channel:          row[3] || '',
     table_id:         row[6] || '',
-    customer_id:      row[8] || '',
+    customer_id:      normalizeCustomerId(row[8]),   // xem chú thích ở _rowToOrder (Orders.gs)
     items:            row[9] ? JSON.parse(row[9]) : [],
     total:            Number(row[11]) || 0,
     payment_status:   row[19] || 'PENDING',
