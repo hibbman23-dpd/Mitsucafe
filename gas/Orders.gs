@@ -318,8 +318,16 @@ function _seedWatermarkFromMax(dateStr, letter) {
   var sheet = _ordersSheet();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
-  var ids  = sheet.getRange(2, 1, lastRow - 1, 1).getValues();          // col A order_id
-  var codes = sheet.getRange(2, 27, lastRow - 1, 1).getValues();        // col AA short_code (idx 26 → col 27)
+  // Vị trí cột lấy từ ORDERS_HEADERS — appendOrderToSheet ghi theo vị trí nên hằng
+  // số này là nguồn sự thật. Bản cũ hardcode cột 27 kèm chú thích sai: short_code
+  // là index 25 → cột 26, còn cột 27 là delivery_type. Regex '^Q(\d+)$' đem so với
+  // 'dine_in' nên không bao giờ khớp và hàm luôn trả 0 — mất đường phục hồi
+  // watermark, ScriptProperties bay giữa ngày là mã đơn reset về 1 và hai khách
+  // cùng được gọi 'Q03'.
+  var idCol = ORDERS_HEADERS.indexOf('order_id') + 1;
+  var scCol = ORDERS_HEADERS.indexOf('short_code') + 1;
+  var ids  = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
+  var codes = sheet.getRange(2, scCol, lastRow - 1, 1).getValues();
   var prefix = 'ORD-' + dateStr + '-';
   var max = 0;
   for (var i = 0; i < ids.length; i++) {
