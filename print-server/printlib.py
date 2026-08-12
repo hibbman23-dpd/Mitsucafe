@@ -45,15 +45,17 @@ _W   = RASTER_DOTS_WIDTH
 _PAD = 8
 _CW  = _W - 2 * _PAD
 
-_SZ_SUPER   = 56
-_SZ_HEADER  = 30
-_SZ_TITLE   = 34
+_SZ_SUPER   = 40
+_SZ_HEADER  = 26
+_SZ_TITLE   = 28
 _SZ_LOGO    = 22
-_SZ_ADDR    = 14
-_SZ_NORMAL  = 22
-_SZ_SMALL   = 26
-_SZ_TOTAL   = 26
-_SZ_ITEM    = 44
+_SZ_ADDR    = 13
+_SZ_NORMAL  = 19
+_SZ_SMALL   = 21
+_SZ_TOTAL   = 24
+_SZ_ITEM    = 36
+_SZ_MOD_PREP = 32   # tuỳ chọn (vừa/ngọt/ít đá/ghi chú) IN TO trên PHIẾU PHA CHẾ cho bếp dễ đọc; bill vẫn dùng _SZ_SMALL
+_SZ_TABLE    = 40   # số bàn — riêng 1 dòng, to hơn hẳn phần còn lại để bưng đúng bàn không cần nhìn kỹ
 
 
 def _get_daily_sequence(order: dict) -> str:
@@ -93,6 +95,17 @@ def _format_amount(n) -> str:
         return str(n)
 
 
+def _format_amount_short(n) -> str:
+    """18000 -> '18k' — dùng cho giá nhỏ từng món trên tem/bill, KHÔNG dùng cho Tổng tiền."""
+    try:
+        k = float(n) / 1000
+    except Exception:
+        return str(n)
+    if k == int(k):
+        return f"{int(k)}k"
+    return f"{round(k, 1)}k"
+
+
 def _format_timestamp(ts_str: str) -> str:
     try:
         from datetime import datetime, timezone, timedelta
@@ -101,6 +114,18 @@ def _format_timestamp(ts_str: str) -> str:
         return vn.strftime("%H:%M  %d/%m/%Y")
     except Exception:
         return ts_str
+
+
+def _order_pay_method(order: dict) -> str:
+    """Phương thức thanh toán của đơn, chấp nhận cả hai hình dạng payload.
+
+    Route in bill gửi phẳng `payment_method`; payload cũ kiểu GAS lồng trong
+    `payment.method`. Chỉ đọc một dạng thì bill MoMo in ra chữ "Thanh toán"
+    chung chung thay vì "MoMo".
+    """
+    return (order.get("payment_method")
+            or (order.get("payment") or {}).get("method", "")
+            or "")
 
 
 def _payment_label(method: str) -> str:
@@ -114,7 +139,44 @@ def _payment_label(method: str) -> str:
     }.get(method or "", "Thanh toán")
 
 
-def _mods_line(modifiers: dict) -> str:
+_SKU_SUBCAT_MAP = None
+
+def _load_sku_subcat_map() -> dict:
+    """sku -> subcategory, đọc từ seed/menu_items.json (giống _load_menu_map ở gateway.py)."""
+    global _SKU_SUBCAT_MAP
+    if _SKU_SUBCAT_MAP is not None:
+        return _SKU_SUBCAT_MAP
+    _SKU_SUBCAT_MAP = {}
+    menu_file = os.path.join(os.path.dirname(__file__), "..", "seed", "menu_items.json")
+    if os.path.exists(menu_file):
+        try:
+            import json
+            with open(menu_file, "r", encoding="utf-8") as f:
+                for it in json.load(f):
+                    if it.get("sku") and it.get("subcategory"):
+                        _SKU_SUBCAT_MAP[it["sku"]] = it["subcategory"]
+        except Exception:
+            pass
+    return _SKU_SUBCAT_MAP
+
+
+# Món pha nóng được (cà phê/trà nóng/latte/trà sữa/trà trái cây) -> "none" đá gọi là "Nóng".
+# Coldbrew (pha lạnh) và sữa chua (uống lạnh) giữ nguyên "Không đá" — gọi "Nóng" sẽ sai nghĩa.
+_HOT_ELIGIBLE_SUBCATS = {"coffee", "hot_drinks", "latte", "milk_tea", "fruit_tea"}
+
+
+def _ice_label_for(value: str, sku: str = None) -> str:
+    ice_map = {
+        "full": "Nhiều đá", "less": "Ít đá",
+        "none": "Không đá", "blended": "Xay",
+    }
+    if value != "none":
+        return ice_map.get(value, value)
+    subcat = _load_sku_subcat_map().get(sku)
+    return "Nóng" if subcat in _HOT_ELIGIBLE_SUBCATS else "Không đá"
+
+
+def _mods_line(modifiers: dict, sku: str = None) -> str:
     if not modifiers:
         return ""
     sugar_map = {
@@ -122,17 +184,13 @@ def _mods_line(modifiers: dict) -> str:
         "50%": "Vừa",       "70%": "Ngọt",
         "100%": "Rất ngọt",
     }
-    ice_map = {
-        "full": "Nhiều đá", "less": "Ít đá",
-        "none": "Không đá", "blended": "Xay",
-    }
     parts = []
     if modifiers.get("size"):     parts.append(modifiers["size"])
     if modifiers.get("sugar"):    parts.append(sugar_map.get(modifiers["sugar"], modifiers["sugar"]))
-    if modifiers.get("ice"):      parts.append(ice_map.get(modifiers["ice"], modifiers["ice"]))
+    if modifiers.get("ice"):      parts.append(_ice_label_for(modifiers["ice"], sku))
     if modifiers.get("toppings"): parts.append(modifiers["toppings"])
-    if modifiers.get("note"):     parts.append(f"📌 {modifiers['note']}")
-    if modifiers.get("swap_from"): parts.append(f"🔄 Thay cho: {modifiers['swap_from']}")
+    if modifiers.get("note"):     parts.append(f"Ghi chú: {modifiers['note']}")
+    if modifiers.get("swap_from"): parts.append(f"Thay cho: {modifiers['swap_from']}")
     return " / ".join(parts)
 
 
@@ -209,6 +267,44 @@ def _get_logo(target_w: int):
     return img
 
 
+# ── Mã QR thanh toán ─────────────────────────────────────────────────────────
+# Đọc từ BIẾN MÔI TRƯỜNG, không đọc CONFIG trên GAS: đường in phải chạy được
+# khi GAS chết (GAS ở quán có tiền sử 403 theo chu kỳ 7 ngày).
+# MOMO_STATIC_PAYLOAD = chuỗi trong mã QR trên tấm mica ở quầy. Không đưa vào
+# repo — nó chứa số tài khoản ngân hàng của quán.
+MOMO_STATIC_PAYLOAD = os.getenv("MOMO_STATIC_PAYLOAD", "")
+MOMO_QR_DOTS        = int(os.getenv("MOMO_QR_DOTS", "270"))
+
+
+def build_momo_qr(amount, order_ref=""):
+    """Ảnh QR động để dán lên bill. None nếu thiếu cấu hình hoặc sinh lỗi.
+
+    KHÔNG BAO GIỜ ném lỗi: mất mã QR là phiền, mất tờ bill là mất khách.
+    """
+    if not MOMO_STATIC_PAYLOAD:
+        return None
+    try:
+        import qrcode
+        import emvqr
+        from PIL import Image
+
+        payload = emvqr.to_dynamic(MOMO_STATIC_PAYLOAD, amount, order_ref)
+        qr = qrcode.QRCode(
+            error_correction=qrcode.constants.ERROR_CORRECT_M,  # chịu giấy nhiệt mờ
+            box_size=1, border=2,
+        )
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white").convert("L")
+        # Phóng bằng NEAREST: mọi phép nội suy khác làm nhoè ô vuông, in ra
+        # ở 203dpi là điện thoại không bắt được mã.
+        side = max(120, min(int(MOMO_QR_DOTS), _CW))
+        scale = max(1, side // img.width)
+        return img.resize((img.width * scale, img.height * scale), Image.NEAREST)
+    except Exception:
+        return None
+
+
 def _bee_height(s: float = 1.1) -> int:
     def S(v):
         return int(round(v * s))
@@ -244,7 +340,7 @@ def _draw_bee(draw, cx: int, top: int, s: float = 1.1) -> int:
 
 
 # ── Receipt builder ───────────────────────────────────────────────────────────
-def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
+def build_receipt_raster(order: dict, is_cash: bool = False, show_total: bool = False) -> bytes:
     from PIL import Image, ImageDraw
 
     W, PAD, CW = _W, _PAD, _CW
@@ -257,17 +353,20 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     f_small  = _load_font(_SZ_SMALL)
     f_total  = _load_font(_SZ_TOTAL)
     f_item   = _load_font(_SZ_ITEM)
+    f_table  = _load_font(_SZ_TABLE)
+    # Phiếu pha chế (show_total=False): modifier + ghi chú in TO cho bếp. Bill (show_total=True): giữ nhỏ.
+    f_mod    = f_small if show_total else _load_font(_SZ_MOD_PREP)
 
     def tw(text, font):
         bb = font.getbbox(text)
         return bb[2] - bb[0]
 
-    def lh(font, extra=4):
+    def lh(font, extra=2):
         bb = font.getbbox("Agypjq")
         return bb[3] - bb[1] + extra
 
     cmds = []
-    y = 6
+    y = 4
 
     def add_text(text, font, align="left", indent=0):
         nonlocal y
@@ -281,13 +380,13 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         cmds.append(("text", x, y, text, font))
         y += lh(font)
 
-    def add_hline(thick=1, gap_before=2, gap_after=2):
+    def add_hline(thick=1, gap_before=1, gap_after=1):
         nonlocal y
         y += gap_before
         cmds.append(("hline", y, thick))
         y += thick + gap_after
 
-    def add_gap(px=4):
+    def add_gap(px=2):
         nonlocal y
         y += px
 
@@ -296,7 +395,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         cmds.append(("bee", W // 2, y, scale))
         y += _bee_height(scale)
 
-    def add_logo(target_w=300):
+    def add_logo(target_w=260):
         nonlocal y
         logo = _get_logo(min(target_w, CW))
         if logo is None:
@@ -306,19 +405,43 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         cmds.append(("logo", x, y, logo))
         y += logo.height
 
+    def add_momo_qr(amount, ref):
+        """Chèn QR MoMo. Trả True nếu có in, False nếu bỏ qua.
+
+        Bọc try/except toàn bộ: lỗi ở đây KHÔNG được làm hỏng tờ bill.
+        """
+        nonlocal y
+        try:
+            qimg = build_momo_qr(amount, ref)
+        except Exception:
+            qimg = None
+        if qimg is None:
+            return False
+        qx = max(0, (W - qimg.width) // 2)
+        cmds.append(("logo", qx, y, qimg))   # dùng lại lệnh dán ảnh sẵn có
+        y += qimg.height
+        return True
+
     meta          = order.get("metadata") or {}
     ts            = _format_timestamp(str(order.get("timestamp", "")))
     short_code    = str(meta.get("short_code") or order.get("short_code") or "").replace("#", "").strip()
     daily_seq_str = _get_daily_sequence(order)
     table_label   = _loc_label(order)
 
-    add_text("=== PHIẾU PHA CHẾ ===", f_header, "center")
+    # Logo Mitsu cách điệu (assets/receipt-logo.png) ở đầu — chỉ HÓA ĐƠN (khách),
+    # PHIẾU PHA CHẾ bỏ logo cho gọn/nhanh (bếp chỉ cần thông tin món).
+    if show_total:
+        add_logo()
+        add_gap(2)
+    add_text("=== HÓA ĐƠN ===" if show_total else "=== PHIẾU PHA CHẾ ===", f_header, "center")
     add_text(f"STT ĐƠN: {daily_seq_str}", f_super, "center")
 
-    code_sub  = f"Mã: #{short_code}" if short_code else ""
-    meta_line = "  ·  ".join(filter(None, [code_sub, table_label]))
-    if meta_line:
-        add_text(meta_line, f_title, "center")
+    # Số bàn riêng 1 dòng, to — bưng đúng bàn không cần nhìn kỹ.
+    if table_label:
+        add_text(table_label.upper(), f_table, "center")
+
+    if short_code:
+        add_text(f"Mã: #{short_code}", f_title, "center")
 
     copy_num = order.get("copy_num", 0)
     if copy_num == 1:
@@ -338,7 +461,7 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
     elif customer_id and customer_id not in ("0000000000", ""):
         add_text(customer_id, f_norm)
 
-    add_hline(thick=2, gap_before=4, gap_after=4)
+    add_hline(thick=2, gap_before=2, gap_after=3)
 
     for idx, it in enumerate(order.get("items") or [], start=1):
         name = f"{idx}. " + it.get("name", "?")
@@ -378,22 +501,27 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
             cmds.append(("text", name_x, y, extra_l, f_item))
             y += lh(f_item)
 
+        # Bill (show_total): giá nhỏ từng món ngay dưới tên — tổng tiền chỉ hiện 1 lần ở cuối.
+        if show_total:
+            add_text(_format_amount_short(qty * price), f_mod, "right")
+
         mods = _mods_line(
-            {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}
+            {k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"},
+            it.get("sku"),
         )
         if mods:
-            mod_words = f"👉 {mods}".split()
+            mod_words = f"→ {mods}".split()
             mod_lines, curr_m = [], ""
             for mw in mod_words:
                 test_m = (curr_m + " " + mw).strip()
-                if tw(test_m, f_small) <= CW - 16:
+                if tw(test_m, f_mod) <= CW - 16:
                     curr_m = test_m
                 else:
                     if curr_m: mod_lines.append(curr_m)
                     curr_m = mw
             if curr_m: mod_lines.append(curr_m)
-            for ml in (mod_lines or [f"👉 {mods}"]):
-                add_text(ml, f_small, indent=8)
+            for ml in (mod_lines or [f"→ {mods}"]):
+                add_text(ml, f_mod, indent=8)
 
     notes = meta.get("notes", "")
     if notes:
@@ -401,16 +529,51 @@ def build_receipt_raster(order: dict, is_cash: bool = False) -> bytes:
         note_lines, curr_n = [], ""
         for nw_word in note_words:
             test_n = (curr_n + " " + nw_word).strip()
-            if tw(test_n, f_small) <= CW - 12:
+            if tw(test_n, f_mod) <= CW - 12:
                 curr_n = test_n
             else:
                 if curr_n: note_lines.append(curr_n)
                 curr_n = nw_word
         if curr_n: note_lines.append(curr_n)
         for nl in (note_lines or [f"Ghi chú: {notes}"]):
-            add_text(nl, f_small, indent=0)
+            add_text(nl, f_mod, indent=0)
 
-    add_hline(thick=3, gap_before=6, gap_after=12)
+    # HÓA ĐƠN (show_total=True): tổng tiền + phương thức + cảm ơn. PHIẾU PHA CHẾ bỏ qua.
+    if show_total:
+        add_hline(thick=1, gap_before=2, gap_after=2)
+        total_str = f"Tổng:  {_format_amount(order.get('total', 0))}đ"
+        pmt_str   = f"TT:  {_payment_label(_order_pay_method(order))}"
+        add_text(total_str, f_total, "right")
+        add_text(pmt_str,   f_norm,  "right")
+
+        # QR MoMo: chỉ HÓA ĐƠN (show_total), chỉ đơn CHƯA trả, chỉ phương thức momo.
+        # - phiếu pha chế: không liên quan thanh toán
+        # - đơn đã trả:    in QR lên bill đã thu tiền = mời khách trả lần hai
+        _paid = bool(order.get("paid")) or str(order.get("payment_status", "")).upper() == "PAID"
+        _method = str(order.get("payment_method") or "").lower()
+        if not _paid and _method == "momo":
+            _amt = order.get("total")
+            _ref = str((order.get("metadata") or {}).get("short_code")
+                       or order.get("order_id") or "")
+            add_gap(4)
+            if add_momo_qr(_amt, _ref):
+                # In số tiền bằng chữ cạnh mã: giấy nhiệt mờ hoặc đầu in mòn thì
+                # mã khó quét, có số bằng chữ là nhân viên đọc và xử lý tay được.
+                add_text("Quét MoMo trả " + _format_amount(_amt), f_norm, "center")
+                add_gap(3)
+
+        add_hline(thick=2, gap_before=3, gap_after=3)
+        add_text("Cảm ơn! Hẹn gặp lại nhé!", f_norm, "center")
+        add_text("mitsu.cafe",               f_addr,  "center")
+    else:
+        # PHIẾU PHA CHẾ của đơn ĐÃ THU TIỀN: đóng dấu ĐTT thật to ở cuối, để bar
+        # nhìn phát biết khỏi chạy đi hỏi thu ngân. Chỉ trên phiếu bếp — hóa đơn
+        # khách đã có dòng "TT:" riêng, in thêm ĐTT ở đó là thừa và rối.
+        if bool(order.get("paid")) or str(order.get("payment_status", "")).upper() == "PAID":
+            add_hline(thick=2, gap_before=4, gap_after=4)
+            add_text("ĐTT", _load_font(_SZ_SUPER), "center")
+
+    add_hline(thick=3, gap_before=4, gap_after=8)
 
     height = y + 8
     img = Image.new("L", (W, height), 255)
@@ -495,7 +658,7 @@ def _viet_cp1258(s: str) -> str:
     return "".join(result)
 
 
-def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
+def build_receipt_text(order: dict, is_cash: bool = False, show_total: bool = False) -> bytes:
     ESC = b"\x1b"
     GS  = b"\x1d"
     W   = 32
@@ -557,18 +720,45 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
             parts.append(enc("  " + extra_l + "\n"))
         parts.append(ESC + b"!\x00")
 
-        mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"})
+        # Bill (show_total): giá nhỏ từng món ngay dưới tên — tổng tiền chỉ hiện 1 lần ở cuối.
+        if show_total:
+            price_str = _format_amount_short(int(it.get("qty", 1)) * it.get("price", 0))
+            parts.append(enc(rjust(price_str, W) + "\n"))
+
+        mods = _mods_line({k: v for k, v in (it.get("modifiers") or {}).items() if k != "size"}, it.get("sku"))
         if mods:
             mod_lines = _wrap_text_to_lines("-> " + mods, W - 4)
+            # PHIẾU PHA CHẾ (show_total=False): tuỳ chọn IN TO (cao gấp đôi + đậm) cho bếp dễ đọc.
+            # HÓA ĐƠN (show_total=True): giữ thường.
+            if not show_total:
+                parts.append(ESC + b"!\x18")
             for ml in mod_lines:
                 parts.append(enc("  " + ml + "\n"))
+            if not show_total:
+                parts.append(ESC + b"!\x00")
 
     notes = meta.get("notes", "")
     if notes:
         note_lines = _wrap_text_to_lines("Ghi chú: " + notes, W - 2)
+        if not show_total:
+            parts.append(ESC + b"!\x18")   # ghi chú cũng IN TO trên phiếu pha chế
         for nl in note_lines:
             parts.append(enc("  " + nl + "\n"))
+        if not show_total:
+            parts.append(ESC + b"!\x00")
     parts.append(enc("-" * W + "\n"))
+    # HÓA ĐƠN (show_total=True): tổng tiền + phương thức + cảm ơn. PHIẾU PHA CHẾ bỏ qua (vé bếp sạch).
+    if show_total:
+        parts.append(ESC + b"!\x08")
+        parts.append(enc(rjust("Tong: " + _format_amount(order.get("total", 0)) + "d", W) + "\n"))
+        parts.append(ESC + b"!\x00")
+        pmt = _order_pay_method(order)
+        parts.append(enc(rjust("TT: " + _payment_label(pmt), W) + "\n"))
+        parts.append(enc("=" * W + "\n"))
+        parts.append(ESC + b"a\x01")
+        parts.append(enc("Cam on! Hen gap lai nhe!\n"))
+        parts.append(enc("mitsu.cafe\n"))
+        parts.append(ESC + b"a\x00")
     parts.append(enc("=" * W + "\n"))
     parts.append(b"\n\n\n")
     if is_cash:
@@ -579,14 +769,17 @@ def build_receipt_text(order: dict, is_cash: bool = False) -> bytes:
     return b"".join(parts)
 
 
-def build_receipt(order: dict, is_cash: bool = False) -> bytes:
+def build_receipt(order: dict, is_cash: bool = False, show_total: bool = False,
+                  prefer_raster: bool = False) -> bytes:
+    # HÓA ĐƠN (prefer_raster=True): render raster để có logo Mitsu cách điệu + tổng tiền.
+    # PHIẾU PHA CHẾ: theo RECEIPT_FORMAT (mặc định text, nhanh, không logo).
     fmt = os.getenv("RECEIPT_FORMAT", "text").lower()
-    if fmt == "raster":
+    if fmt == "raster" or prefer_raster:
         try:
-            return build_receipt_raster(order, is_cash)
+            return build_receipt_raster(order, is_cash, show_total=show_total)
         except Exception as exc:
             log.warning("Raster build failed (%s), fallback to text mode", exc)
-    return build_receipt_text(order, is_cash)
+    return build_receipt_text(order, is_cash, show_total=show_total)
 
 
 # ── Label builder ─────────────────────────────────────────────────────────────
@@ -669,12 +862,20 @@ def build_label_raster(order: dict, item: dict, cup_num: int, total_cups: int) -
         name += f" ({size})"
     max_w = W - 2 * PAD
     name_lines = wrap_font_lines(name, f_item, max_w)
+    name_row_y = y
     for nl in name_lines:
         nw = tw(nl, f_item)
         cmds.append(("text", max(PAD, (W - nw) // 2), y, nl, f_item))
         y += lh(f_item)
 
-    mods = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"})
+    # Giá tiền in ngang hàng với dòng đầu tên món, sát lề phải — không chiếm thêm dòng riêng.
+    price = item.get("price")
+    if price is not None:
+        price_str = _format_amount_short(price)
+        pw = tw(price_str, f_mod)
+        cmds.append(("text", max(PAD, W - PAD - pw), name_row_y, price_str, f_mod))
+
+    mods = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"}, item.get("sku"))
     if mods:
         mods_lines = wrap_font_lines(mods, f_mod, max_w)
         for ml in mods_lines:
@@ -746,7 +947,7 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
     size       = (item.get("modifiers") or {}).get("size", "")
     if size:
         name += f" ({size})"
-    mods     = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"})
+    mods     = _mods_line({k: v for k, v in (item.get("modifiers") or {}).items() if k != "size"}, item.get("sku"))
     notes    = str(meta.get("notes") or "").strip()
     time_str = _format_time_only(str(order.get("timestamp", "")))
 
@@ -769,6 +970,12 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
 
     middle_items = []
 
+    # Giá tiền in NGANG bên phải tên từng gây đè chữ trên tem thật (font TSPL "1"/"2" trên
+    # máy in này rộng hơn hẳn so với ước lượng theo số ký tự — chưa có cách đo pixel thật
+    # qua TSPL để hiệu chỉnh đúng). Quay lại giá xuống dòng riêng ngay dưới tên — đã in ổn
+    # định trước đó, không rủi ro đè chữ dù tên dài cỡ nào.
+    price = item.get("price")
+
     name_stripped = _strip_viet(name)
     if len(name_stripped) <= 14:
         middle_items.append((name, "4", 1, 2, 42))
@@ -784,6 +991,9 @@ def build_label_tspl(order: dict, item: dict, cup_num: int, total_cups: int, inc
             line_h = 20
         for nl in name_lines:
             middle_items.append((nl, font_choice, 1, 1 if font_choice == "2" else 2, line_h))
+
+    if price is not None:
+        middle_items.append((_format_amount_short(price), "3", 1, 1, 22))
 
     if mods:
         mods_lines = _wrap_text_to_lines(mods, 22)

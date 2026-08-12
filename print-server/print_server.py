@@ -48,8 +48,10 @@ import json
 import logging
 import os
 import socket
+import sys
 import threading
 import time
+from datetime import datetime, timezone, timedelta
 
 from flask import Flask, jsonify, request, send_from_directory
 
@@ -90,7 +92,11 @@ log = logging.getLogger("print-server")
 
 import urllib.request
 import ssl
-from gateway import Gateway
+# _ssl_ctx: _gas_post() dùng nó nhưng trước đây KHÔNG import -> NameError mỗi lần
+# gọi. Lỗi im lặng vì mọi caller đều bọc try/except: notify_admin nuốt luôn,
+# refresh_staff chỉ log WARNING rồi giữ cache cũ (cache rỗng = cả quán không
+# chấm công được, không ai biết vì sao).
+from gateway import Gateway, _ssl_ctx
 from printlib import build_label_tspl, build_order_labels_tspl, build_receipt
 
 app = Flask(__name__)
@@ -105,6 +111,11 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+    # Trang + script của app (kds.html/order.html/order-api.js/checkout.js/menu-data.js/mitsu.css)
+    # luôn revalidate với server -> tablet/điện thoại tự lấy bản mới khi ta cập nhật, hết kẹt cache.
+    ct = response.headers.get("Content-Type", "")
+    if "text/html" in ct or "javascript" in ct or "text/css" in ct:
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
 @app.route('/order', methods=['OPTIONS'])
@@ -146,6 +157,309 @@ RECEIPT_TRANSPORT = os.getenv("RECEIPT_TRANSPORT", "cups")
 
 SPOOL = PrintSpool(GATEWAY._conn, GATEWAY._lock)
 
+from print_issues import PrintIssues
+PRINT_ISSUES = PrintIssues(GATEWAY._conn, GATEWAY._lock)
+
+# ── Materialized orders store (Task 5) ─────────────────────────────────────────
+from order_store import OrderStore, VersionConflict
+import bill_engine
+import eod_sync
+STORE = OrderStore(GATEWAY._conn, GATEWAY._lock)
+
+# ── Chấm công (attendance) ────────────────────────────────────────────────────
+# DB RIÊNG, KHÔNG dùng GATEWAY._conn: outbox.db có purge_synced(days=7) còn bảng
+# công là căn cứ trả lương, phải giữ nhiều tháng. Đừng gộp lại.
+import secrets
+import sqlite3 as _sqlite3
+from attendance_store import (AttendanceStore, QuickPunchConfirm, UnclosedChoice,
+                              NotFound, NoShiftToClose, NonceConflict)
+from attendance_auth import StaffCache, RateLimiter, OwnerSessions, hash_pin, _looks_like_pin
+
+_ATT_DB = os.getenv("ATTENDANCE_DB",
+                    os.path.join(os.path.dirname(__file__), "attendance.db"))
+_att_conn = _sqlite3.connect(_ATT_DB, check_same_thread=False)
+_att_conn.row_factory = _sqlite3.Row
+ATT_STORE = AttendanceStore(_att_conn, threading.Lock())
+ATT_CACHE = StaffCache(os.getenv("ATTENDANCE_STAFF_CACHE",
+                       os.path.join(os.path.dirname(__file__), "staff_cache.json")))
+ATT_SESSIONS = OwnerSessions(ttl_seconds=900)
+ATT_RL_STAFF = RateLimiter(5, 60)     # 5 lần sai / phút / nhân viên
+ATT_RL_IP = RateLimiter(15, 60)       # 15 lần sai / phút / IP — chặn script xoay staff_id
+ATT_RL_GLOBAL = RateLimiter(30, 60)   # 30 lần sai / phút toàn hệ thống -> báo chủ
+
+
+_ATT_ALERT_STATE = {"last_sent": 0.0}
+_ATT_ALERT_LOCK = threading.Lock()
+
+
+def _att_maybe_alert_brute_force():
+    """Cảnh báo vượt ngưỡng sai PIN toàn hệ thống (§F7).
+
+    Debounce còn lại 1 lần/cửa sổ (ATT_RL_GLOBAL.window): một khi ngưỡng đã
+    vượt, MỌI lần thử sai tiếp theo trong cửa sổ cũng khiến ATT_RL_GLOBAL.hit
+    trả False — nếu không debounce, mỗi lần thử sai lại gọi thêm 1 request ra
+    ngoài. Đồng thời gửi trên thread nền: _gas_post đồng bộ có thể mất tới 8s,
+    cùng process này còn đang phục vụ KDS + máy in, không được để 1 script dò
+    PIN treo cả hai."""
+    now = time.time()
+    with _ATT_ALERT_LOCK:
+        if now - _ATT_ALERT_STATE["last_sent"] < ATT_RL_GLOBAL.window:
+            return
+        _ATT_ALERT_STATE["last_sent"] = now
+
+    def _send():
+        try:
+            _gas_post({"action": "attendance_alert",
+                       "text": "⚠️ Chấm công: >30 lần nhập sai PIN trong 1 phút."})
+        except Exception:
+            pass
+
+    threading.Thread(target=_send, daemon=True, name="att-brute-alert").start()
+
+
+def _att_bad_pin(staff_id):
+    """Một câu trả lời duy nhất cho mọi kiểu sai — không tiết lộ tên có tồn tại hay không."""
+    ip = request.remote_addr or "?"
+    ATT_RL_STAFF.hit(staff_id or "?")
+    ATT_RL_IP.hit(ip)
+    if not ATT_RL_GLOBAL.hit("*"):
+        _att_maybe_alert_brute_force()
+    return jsonify({"ok": False, "error": "PIN không đúng"}), 401
+
+
+def _att_throttled(staff_id):
+    ip = request.remote_addr or "?"
+    wait = max(ATT_RL_STAFF.blocked(staff_id or "?"), ATT_RL_IP.blocked(ip))
+    if wait <= 0:
+        return None
+    return jsonify({"ok": False, "error": "Nhập sai nhiều lần, thử lại sau",
+                    "retry_after": int(wait)}), 429
+
+
+def _att_owner(req):
+    """staff_id của chủ nếu header phiên còn hạn, None nếu không."""
+    return ATT_SESSIONS.resolve(req.headers.get("X-Owner-Session", ""))
+
+
+@app.get("/cham-cong.html")
+def serve_cham_cong():
+    return send_from_directory(WEB_DIR, "cham-cong.html")
+
+
+@app.get("/cham-cong.js")
+def serve_cham_cong_js():
+    return send_from_directory(WEB_DIR, "cham-cong.js")
+
+
+@app.get("/attendance/staff")
+def attendance_staff():
+    # staff_ids_with_open_shift, KHÔNG phải today_open: người đã nghỉ có ca đã
+    # qua đợt quét 04:00 (UNCLOSED) vẫn phải hiện trên lưới tên để tự bấm ra.
+    return jsonify({"ok": True,
+                    "staff": ATT_CACHE.list_visible(ATT_STORE.staff_ids_with_open_shift())})
+
+
+_ATT_PUNCH_INTENTS = ("close_late", "new_shift")
+
+
+@app.post("/attendance/punch")
+def attendance_punch():
+    body = request.get_json(silent=True) or {}
+    staff_id = body.get("staff_id", "")
+    nonce = body.get("nonce", "")
+    if not nonce:
+        return jsonify({"ok": False, "error": "thiếu nonce"}), 400
+
+    intent = body.get("intent")
+    if intent is not None and intent not in _ATT_PUNCH_INTENTS:
+        return jsonify({"ok": False, "error": "intent không hợp lệ"}), 400
+
+    throttled = _att_throttled(staff_id)
+    if throttled:
+        return throttled
+
+    pin = body.get("pin", "")
+    who = ATT_CACHE.verify(staff_id, pin)
+    if who is None:
+        # Người đã nghỉ (active=FALSE) vẫn phải đóng được ca đang treo.
+        stale = ATT_CACHE.get(staff_id)
+        # Cùng tiêu chí với _open_shift (OPEN + UNCLOSED trong 24h) — today_open
+        # chỉ có OPEN nên ca đã qua đợt quét 04:00 sẽ không bao giờ tự đóng được.
+        open_ids = set(ATT_STORE.staff_ids_with_open_shift())
+        # §P2d: đường vòng này tự so compare_digest, KHÔNG đi qua
+        # StaffCache.verify() nên thiếu luôn guard định dạng của verify() (§F1)
+        # — một staff_cache.json ghi từ TRƯỚC khi guard đó tồn tại vẫn có thể
+        # còn giữ hash("") (staff mới thêm, chưa ai gõ PIN). Nếu refresh_staff()
+        # đang lỗi giữa cửa sổ GAS 403 (không viết đè cache), PIN rỗng sẽ khớp
+        # ngay hash("") đó và xác thực trót lọt. Phải tự chặn định dạng ở đây
+        # y hệt verify() làm, TRƯỚC khi băm so sánh.
+        if not (stale and staff_id in open_ids and _looks_like_pin(pin)
+                and secrets.compare_digest(
+                    stale["pin_hash"], hash_pin(pin, ATT_CACHE.salt))):
+            return _att_bad_pin(staff_id)
+        who = {"staff_id": staff_id, "name": stale["name"], "role": stale["role"]}
+
+    try:
+        # `now` KHÔNG lấy từ body — mốc giờ luôn do server sinh.
+        res = ATT_STORE.punch(staff_id, who["name"], nonce,
+                              confirm_quick_out=bool(body.get("confirm_quick_out")),
+                              intent=intent)
+    except QuickPunchConfirm as exc:
+        return jsonify({"ok": True, "action": "confirm_needed",
+                        "message": "Mới vào ca vài phút trước. Ra ca luôn?",
+                        "row": exc.row}), 200
+    except UnclosedChoice as exc:
+        # Ca gần nhất là UNCLOSED và client chưa nói rõ ý định — hỏi lại chứ
+        # KHÔNG tự đoán (§F2): "close_late" hay "new_shift" ra hai kết quả
+        # lương hoàn toàn khác nhau.
+        return jsonify({"ok": True, "action": "choose_unclosed",
+                        "message": "Ca hôm trước chưa đóng. Bạn muốn?",
+                        "row": exc.row}), 200
+    except NoShiftToClose:
+        # Client tin có một ca cần đóng (đang hiện màn hình "Ra ca hôm qua")
+        # nhưng server không còn ca nào khớp — thường vì ca đó đã được
+        # acknowledge từ trước (nay AWAIT_OWNER) hoặc đã rơi khỏi cửa sổ 24h.
+        # KHÔNG được âm thầm mở ca mới thay thế (§P1) — trả lỗi rõ ràng để
+        # client biết mà tự bấm lại đúng ý (vào ca mới nếu thực sự đang bắt
+        # đầu ca hôm nay).
+        return jsonify({"ok": False, "error":
+                        "Không tìm thấy ca cần đóng — có thể đã ghi nhận rồi. "
+                        "Nếu bạn mới bắt đầu ca hôm nay, hãy bấm lại tên."}), 409
+
+    return jsonify({"ok": True, **res})
+
+
+@app.get("/attendance/today")
+def attendance_today():
+    return jsonify({"ok": True, "open": ATT_STORE.today_open()})
+
+
+@app.post("/attendance/owner_login")
+def attendance_owner_login():
+    body = request.get_json(silent=True) or {}
+    staff_id = body.get("staff_id", "")
+    throttled = _att_throttled(staff_id)
+    if throttled:
+        return throttled
+    who = ATT_CACHE.verify(staff_id, body.get("pin", ""))
+    if who is None:
+        return _att_bad_pin(staff_id)
+    if who.get("role") != "owner":
+        return jsonify({"ok": False, "error": "Không có quyền"}), 403
+    token, expires = ATT_SESSIONS.issue(staff_id)
+    return jsonify({"ok": True, "session_token": token, "expires_at": expires})
+
+
+@app.get("/attendance/report")
+def attendance_report():
+    if _att_owner(request) is None:
+        return jsonify({"ok": False, "error": "Phiên hết hạn"}), 401
+    rep = ATT_STORE.report(request.args.get("from", ""), request.args.get("to", ""))
+    return jsonify({"ok": True, **rep})
+
+
+@app.post("/attendance/fix")
+def attendance_fix():
+    owner_id = _att_owner(request)
+    if owner_id is None:
+        return jsonify({"ok": False, "error": "Phiên hết hạn"}), 401
+    body = request.get_json(silent=True) or {}
+    try:
+        row = ATT_STORE.fix(body.get("punch_id", ""), owner_id,
+                            body.get("note", ""),
+                            clock_in_at=body.get("clock_in_at"),
+                            clock_out_at=body.get("clock_out_at"))
+    except NotFound:
+        return jsonify({"ok": False, "error": "Không tìm thấy ca"}), 404
+    except (ValueError, TypeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, "row": row})
+
+
+@app.post("/attendance/create_manual")
+def attendance_create_manual():
+    owner_id = _att_owner(request)
+    if owner_id is None:
+        return jsonify({"ok": False, "error": "Phiên hết hạn"}), 401
+    body = request.get_json(silent=True) or {}
+    staff = ATT_CACHE.get(body.get("staff_id", ""))
+    if staff is None:
+        return jsonify({"ok": False, "error": "Không có nhân viên này"}), 404
+    try:
+        row = ATT_STORE.create_manual(
+            staff["staff_id"], staff["name"],
+            body.get("clock_in_at", ""), body.get("clock_out_at", ""),
+            owner_id, body.get("note", ""), nonce=body.get("nonce"))
+    except NonceConflict as exc:
+        # §P2c: nonce đã dùng nhưng lần gửi này mang giờ/ghi chú KHÁC lần lưu
+        # trước — trả thẳng row cũ với ok:True (hành vi cũ) sẽ khiến chủ
+        # tưởng giờ MỚI đã lưu trong khi ca vẫn giữ giờ CŨ. Trả về row đang
+        # lưu kèm lỗi rõ ràng để UI báo xung đột thay vì âm thầm chấp nhận.
+        return jsonify({"ok": False,
+                        "error": "Nonce này đã lưu một ca với giờ/ghi chú khác — "
+                                 "kiểm tra lại ca đã lưu trước khi gửi lại.",
+                        "row": exc.row}), 409
+    except (ValueError, TypeError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    return jsonify({"ok": True, "row": row})
+
+
+from attendance_sync import AttendanceSync
+
+ATT_SYNC = AttendanceSync(ATT_STORE, ATT_CACHE, lambda p: _gas_post(p, timeout=15))
+
+
+def _attendance_loop():
+    """Đẩy dòng chưa sync mỗi 30s · làm mới STAFF mỗi 10 phút ·
+    chạy job ngày một lần khi đồng hồ qua 04:00."""
+    import time
+    last_staff = 0.0
+    while True:
+        try:
+            ATT_SYNC.push_once()
+            if time.time() - last_staff > 600:
+                ATT_SYNC.refresh_staff()
+                last_staff = time.time()
+            now = datetime.now(timezone(timedelta(hours=7)))
+            if now.hour >= 4:
+                ATT_SYNC.run_daily(now=now)
+        except Exception as exc:
+            log.error("attendance loop error: %s", exc)
+        time.sleep(30)
+
+# ── Online-order inbox (Task 8) ────────────────────────────────────────────────
+from online_inbox import OnlineInbox, InboxActionError
+
+
+def _gas_fetch_online():
+    """Kéo đơn online từ GAS mailbox.
+
+    _post_to_gas KHÔNG raise khi GAS trả ok:false — nó trả nguyên dict. Phải tự
+    kiểm, và raise InboxActionError để phân biệt với lỗi transport: cờ `online`
+    còn nuôi badge cloud trên KDS, gộp hai loại là báo động giả mất mạng."""
+    d = GATEWAY._post_to_gas({"action": "pending_online_orders"})
+    if not isinstance(d, dict) or not d.get("ok"):
+        raise InboxActionError(str((d or {}).get("error", "malformed response")))
+    return d.get("orders", [])
+
+
+def _confirm_on_gas(order_id):
+    """Đẩy NEW→CONFIRMED lên GAS. confirmed_at chính là dấu 'đã vào KDS' —
+    có nó thì đơn rớt khỏi mailbox. Local-first: chỉ ghi outbox, syncer đẩy sau."""
+    GATEWAY.enqueue("status", order_id, f"{order_id}:CONFIRMED",
+                    {"action": "update_status", "order_id": order_id, "status": "CONFIRMED"})
+
+
+INBOX = OnlineInbox(STORE,
+                    fetch_fn=(lambda: []) if os.getenv("PRINT_ENGINE") == "noop"
+                    else _gas_fetch_online,
+                    on_import=_confirm_on_gas)
+
+
+@app.get("/cloud/status")
+def cloud_status():
+    return jsonify({"ok": True, **INBOX.status()}), 200
+
 def _print_engine():
     return os.getenv("PRINT_ENGINE", "legacy")
 
@@ -159,7 +473,11 @@ def _cups_from_items(order_items):
 def _render_job(job):
     payload = json.loads(job["payload_json"])
     if job["kind"] == "receipt":
-        return build_receipt(payload["order"], is_cash=payload.get("is_cash", False))
+        show_total = payload.get("show_total", False)
+        # Raster cho cả 2: HÓA ĐƠN (logo + tổng tiền) lẫn PHIẾU PHA CHẾ (không logo,
+        # tuỳ chọn đường/đá/topping IN TO + giữ dấu tiếng Việt, dễ đọc cho bếp).
+        return build_receipt(payload["order"], is_cash=payload.get("is_cash", False),
+                             show_total=show_total, prefer_raster=True)
     return build_label_tspl(payload["order"], payload["item"],
                             job["seq_in_order"], job["total_in_order"], include_header=False)
 
@@ -174,6 +492,11 @@ def _gas_mark(order_id, kind):
 def _spool_alert(job, err):
     text = f"⚠️ In hỏng: {job.get('idempotency_key')} — {str(err)[:200]}"
     log.error("[SPOOL FAILED] %s", text)
+    try:
+        PRINT_ISSUES.log_auto_failed(job.get("order_id", ""), job.get("printer", ""),
+                                      job.get("seq_in_order"), str(err))
+    except Exception as exc:
+        log.error("print_issues log failed: %s", exc)
     try:
         _gas_post({"action": "notify_admin", "text": text})
     except Exception:
@@ -269,7 +592,9 @@ def enqueue_receipt_route():
     order = p.get("order") or {}
     is_cash = bool(p.get("is_cash", False))
     copies = 1
-    n = SPOOL.enqueue_receipt(order, is_cash, copies=copies)
+    tag = p.get("tag", "receipt")
+    force = bool(p.get("force", False))
+    n = SPOOL.enqueue_receipt(order, is_cash, copies=copies, tag=tag, force=force)
     return jsonify({"ok": True, "enqueued": n}), 200
 
 
@@ -298,6 +623,14 @@ def serve_order():
 def serve_menu_data():
     return send_from_directory(WEB_DIR, "menu-data.js")
 
+@app.get("/order-api.js")
+def serve_order_api():
+    return send_from_directory(WEB_DIR, "order-api.js")
+
+@app.get("/checkout.js")
+def serve_checkout():
+    return send_from_directory(WEB_DIR, "checkout.js")
+
 @app.get("/mitsu.css")
 def serve_mitsu_css():
     return send_from_directory(WEB_DIR, "mitsu.css")
@@ -316,6 +649,9 @@ _DRAWER_KICK = b'\x1b\x70\x30\xff\xff'   # ESC p 0x30 0xff 0xff
 def _kick_cash_drawer() -> None:
     """Mở két = 1 job raw RIÊNG (xung sạch, không nhúng vào bill raster để tránh bị nuốt)."""
     import subprocess
+    if _under_test_runner():   # két tiền thật không được bật ra trong test
+        log.warning("CHẶN mở két: đang chạy dưới test runner")
+        return
     try:
         subprocess.run(["lpr", "-P", RECEIPT_CUPS_PRINTER, "-o", "raw"],
                        input=_DRAWER_KICK, capture_output=True, check=True, timeout=8)
@@ -504,9 +840,42 @@ def _send_cups(printer_name: str, data: bytes, drawer: bool = False) -> int:
         raise last_exc
 
 
+def _under_test_runner() -> bool:
+    """True khi tiến trình đang chạy dưới test runner -> CẤM chạm máy in thật.
+
+    Vì sao cần: 09/08/2026 một lượt `python3 -m unittest discover` chạy trên máy
+    quán đẩy 17 job bill test vào hàng đợi CUPS. Máy in đang offline nên chúng nằm
+    im; sáng hôm sau chủ quán bật máy in, CUPS xả hết ra giấy — bill toàn món
+    trong fixture test. Tệ hơn: CUPS backend giữ luôn USB nên print server thật
+    nhận [Errno 13] Access denied, bill của khách không in được.
+
+    Guard PRINT_ENGINE=noop trước đây đặt rải rác ở từng file test — ai thêm file
+    mới mà quên là thủng. Chốt phải nằm ở đây, tầng chạm phần cứng.
+
+    Nhận diện qua __main__/argv chứ KHÔNG qua `"unittest" in sys.modules`: thư
+    viện phụ thuộc có thể import unittest.mock, false positive ở đây là quán mất
+    máy in giữa giờ bán. Sai thì phải sai về phía cho in.
+
+    ALLOW_REAL_PRINT_IN_TESTS=1 để mở cho kiểm thử phần cứng có chủ đích
+    (xem HARDWARE_VALIDATION.md).
+    """
+    if os.getenv("ALLOW_REAL_PRINT_IN_TESTS") == "1":
+        return False
+    main_file = (getattr(sys.modules.get("__main__"), "__file__", "") or "").replace("\\", "/")
+    argv0 = os.path.basename(sys.argv[0] or "")
+    return (argv0.startswith("pytest") or argv0 == "py.test"
+            or main_file.endswith("unittest/__main__.py")
+            or main_file.endswith("/pytest/__main__.py")
+            or os.path.basename(main_file) in ("pytest", "py.test"))
+
+
 def _send(mode: str, ip: str, port: int, serial_port: str, baud: int, data: bytes,
           usb_vid: int = 0, usb_pid: int = 0, usb_ep: int = 0x01, cups_printer: str = "",
           drawer: bool = False) -> int:
+    if _under_test_runner():
+        log.warning("CHẶN in thật: đang chạy dưới test runner (%d byte bị bỏ). "
+                    "Đặt ALLOW_REAL_PRINT_IN_TESTS=1 nếu thật sự muốn in.", len(data or b""))
+        return 0
     if mode == "cups":
         return _send_cups(cups_printer or RECEIPT_CUPS_PRINTER, data, drawer=drawer)
     elif mode == "usb":
@@ -673,6 +1042,23 @@ def order_create():
         "items": payload.get("items", []),
     }
 
+    is_paid = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
+
+    # Materialize into the daytime orders store (Task 5) — read routes (/orders,
+    # /order/<id>, /orders/changes) serve off this, independent of the outbox log.
+    STORE.upsert_create({
+        "order_id": order_id,
+        "short_code": short_code,
+        "delivery_type": order["metadata"]["delivery_type"],
+        "table_id": order["table_id"],
+        "source": (payload.get("metadata") or {}).get("source", "staff"),
+        "items": order["items"],
+        "total": order.get("total", 0),
+        "paid": is_paid,
+        "customer_note": order["metadata"].get("notes", ""),
+        "bill_meta": {},
+    })
+
     cups = []
     for it in order["items"]:
         for _ in range(max(1, int(it.get("qty", 1)))):
@@ -681,14 +1067,22 @@ def order_create():
     # Đơn đã được ghi vào outbox trong GATEWAY.mint_order (atomic, trước khi in).
     # Ở đây chỉ in tem; in lỗi KHÔNG mất đơn (record đã có, syncer vẫn đẩy lên GAS).
     printed_ok, warning = True, None
-    # Chính sách: BILL chỉ in khi đơn đã thanh toán (quickPay = PAID ngay lúc tạo).
-    # Đơn PENDING chỉ in tem ly; bill sẽ in lúc thanh toán (Xong / mark_paid).
-    is_paid = bool((payload.get("payment") or {}).get("status") == "PAID" or payload.get("payment_status") == "PAID")
-    if _print_engine() == "spool":
+    # PHIẾU PHA CHẾ (tag=prep) in MỌI đơn lúc tạo — vé cho bar pha, KHÔNG mở két.
+    # HÓA ĐƠN (tag=bill) chỉ in khi đơn đã thanh toán ngay (quickPay) — mở két nếu tiền mặt.
+    # 2 tag khác nhau => key idempotency khác => KHÔNG bị dedup nuốt, cả hai đều ra.
+    # printlib đóng dấu ĐTT lên phiếu bếp dựa vào cờ này. `order` là payload đã
+    # validate, chưa mang trạng thái thanh toán — không gán thì bar không bao giờ
+    # thấy dấu, dù đơn gửi qua "Gửi & Thanh toán ngay".
+    order["paid"] = is_paid
+
+    if _print_engine() == "noop":
+        pass  # tests: skip physical enqueue entirely (no hardware, no spool)
+    elif _print_engine() == "spool":
         if cups:
             SPOOL.enqueue_labels(order, cups)
+        SPOOL.enqueue_receipt(order, is_cash=False, tag="prep")
         if is_paid:
-            SPOOL.enqueue_receipt(order, is_cash=is_paid, copies=1)
+            SPOOL.enqueue_receipt(order, is_cash=True, tag="bill")
     else:
         if cups:
             def _async_print_labels():
@@ -699,11 +1093,15 @@ def order_create():
                 except Exception as exc:
                     log.error("label print failed %s: %s", order_id, exc)
             threading.Thread(target=_async_print_labels, daemon=True).start()
+        try:
+            _print_receipt_bytes(build_receipt(order), open_drawer=False)
+        except Exception as exc:
+            log.error("prep ticket print failed %s: %s", order_id, exc)
         if is_paid:
             try:
-                _print_receipt_bytes(build_receipt(order), open_drawer=is_paid)
+                _print_receipt_bytes(build_receipt(order, show_total=True), open_drawer=True)
             except Exception as exc:
-                log.error("receipt print failed %s: %s", order_id, exc)
+                log.error("bill print failed %s: %s", order_id, exc)
 
     return jsonify({"ok": True, "order_id": order_id, "short_code": short_code,
                     "printed": True, "warning": None}), 200
@@ -715,6 +1113,270 @@ def order_lookup():
     if not found:
         return jsonify({"ok": True, "found": False}), 200
     return jsonify({"ok": True, "found": True, **found}), 200
+
+@app.get("/orders")
+def orders_list():
+    from gateway import _today_str
+    return jsonify({"ok": True, "orders": STORE.list_orders(since_date=_today_str()),
+                    "now": _now_iso_server()}), 200
+
+@app.get("/order/<order_id>")
+def order_get(order_id):
+    o = STORE.get(order_id)
+    if not o:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return jsonify({"ok": True, "order": o}), 200
+
+@app.get("/orders/changes")
+def orders_changes():
+    since = request.args.get("since", "")
+    now = _now_iso_server()
+    changes = STORE.changes_since(since)
+    return jsonify({"ok": True, "changes": changes, "now": now}), 200
+
+
+def _enqueue_cancel_ticket(order, cancelled_lines):
+    """Print a PHIẾU HỦY/ĐIỀU CHỈNH to the bar so staff stop making voided drinks."""
+    if not cancelled_lines or _print_engine() == "noop":
+        return
+    cancel_order = dict(order)
+    cancel_order["items"] = [{"name": c["name"], "sku": c["sku"], "qty": c["removed_qty"]}
+                             for c in cancelled_lines]
+    cancel_order.setdefault("metadata", {})["notes"] = "PHIẾU HỦY/ĐIỀU CHỈNH"
+    if _print_engine() == "spool":
+        SPOOL.enqueue_receipt(cancel_order, is_cash=False, tag="cancel")
+    elif _print_engine() != "noop":  # legacy
+        try:
+            _print_receipt_bytes(build_receipt(cancel_order), open_drawer=False)
+        except Exception as exc:
+            log.error("cancel ticket print failed: %s", exc)
+
+
+@app.patch("/order/<order_id>/items")
+def order_patch_items(order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    cur = STORE.get(order_id)
+    _locked = cur and (cur.get("paid") or cur.get("status") == "VOIDED")
+    if _locked and str(p.get("manager_pin") or "") not in ("1234", "9999"):
+        return jsonify({"ok": False, "error": "locked_order_needs_pin"}), 403
+    try:
+        res = bill_engine.apply_items_edit(
+            STORE, order_id, p.get("items", []), int(p.get("version", -1)))
+    except VersionConflict:
+        return jsonify({"ok": False, "error": "version_conflict"}), 409
+    except KeyError:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    reason = p.get("reason")
+    if reason:
+        log.info("order_patch_items order=%s reason=%s", order_id, str(reason)[:200])
+    _enqueue_cancel_ticket(res["order"], res["cancelled_lines"])
+    return jsonify({"ok": True, "order": res["order"],
+                    "cancelled_lines": res["cancelled_lines"]}), 200
+
+
+@app.patch("/order/<order_id>/meta")
+def order_patch_meta(order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    try:
+        o = STORE.set_meta(order_id, p.get("customer_note", ""),
+                           p.get("bill_meta", {}), int(p.get("version", -1)))
+    except VersionConflict:
+        return jsonify({"ok": False, "error": "version_conflict"}), 409
+    return jsonify({"ok": True, "order": o}), 200
+
+
+@app.post("/order/<order_id>/split")
+def order_split(order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    try:
+        subs = bill_engine.split_order(
+            STORE, order_id, p.get("partitions", []), int(p.get("version", -1)))
+    except VersionConflict:
+        return jsonify({"ok": False, "error": "version_conflict"}), 409
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return jsonify({"ok": True, "suborders": subs}), 200
+
+
+@app.post("/order/<order_id>/void")
+def order_void(order_id):
+    p = request.get_json(force=True, silent=True) or {}
+    if str(p.get("manager_pin") or "") not in ("1234", "9999"):
+        return jsonify({"ok": False, "error": "bad_pin"}), 403
+    o = STORE.void_order(order_id, p.get("reason", ""), p.get("staff", ""))
+    if o is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    STORE.apply_status(order_id, "VOIDED")  # ensure status mirrors even if void raced
+    return jsonify({"ok": True, "order": o}), 200
+
+
+_REJECT_REASONS = ("out_of_stock", "after_hours", "fake")
+
+
+@app.post("/order/<order_id>/reject")
+def order_reject(order_id):
+    """Từ chối đơn online. Không cần PIN quản lý như /void: đơn chưa thu tiền
+    (web order gửi payment.status=PENDING, khách trả tại quán) nên từ chối không
+    đụng tiền — bắt PIN chỉ làm chậm lúc quán đông."""
+    p = request.get_json(force=True, silent=True) or {}
+    reason = str(p.get("reason") or "")
+    if reason not in _REJECT_REASONS:
+        return jsonify({"ok": False, "error": "bad_reason"}), 400
+    if STORE.get(order_id) is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    # Ghi outbox TRƯỚC khi đổi trạng thái local: nếu enqueue lỗi (khoá SQLite,
+    # IO), route trả 500 nhưng đơn vẫn NEW ở local — card còn trên KDS, thu
+    # ngân bấm lại là xong. Đảo ngược thứ tự (như cũ) từng khiến đơn CANCELLED
+    # cục bộ mà outbox trống — Sheets không bao giờ biết đơn bị huỷ, và không
+    # còn nút nào để bấm lại vì KDS đã ẩn card theo trạng thái local.
+    # enqueue là idempotent (INSERT OR IGNORE trên key order_id:CANCELLED cố
+    # định) nên bấm lại lần 2 sau khi reject_order lỡ lỗi cũng không tạo dòng
+    # outbox thừa.
+    GATEWAY.enqueue("status", order_id, f"{order_id}:CANCELLED",
+                    {"action": "update_status", "order_id": order_id,
+                     "status": "CANCELLED", "reject_reason": reason})
+    o = STORE.reject_order(order_id, reason, p.get("staff", "kds"))
+    if o is None:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return jsonify({"ok": True, "order": o}), 200
+
+
+@app.post("/bill/merge")
+def bill_merge():
+    p = request.get_json(force=True, silent=True) or {}
+    try:
+        res = bill_engine.merge_bill(STORE, p.get("order_ids", []))
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except KeyError as e:
+        return jsonify({"ok": False, "error": "order not found: %s" % e}), 404
+    return jsonify({"ok": True, **res}), 200
+
+
+# Chỉ nhận đúng các phương thức đã biết. Chuỗi lạ từ client không được lọt vào
+# recp — dict đó đi thẳng vào hàm dựng ảnh và vào print spool.
+_BILL_PAY_METHODS = ("cash", "momo", "vietqr", "bank_transfer")
+
+
+def _bill_pay_method():
+    """Phương thức thanh toán kèm theo lệnh in.
+
+    Bảng `orders` ở máy quán KHÔNG có cột payment_method (kiểm bằng
+    PRAGMA table_info) nên không tra ngược từ kho ra được. Phương thức là quyết
+    định của thu ngân lúc tính tiền, nên nó đi kèm request.
+
+    Thiếu thì mặc định 'cash' — tuyệt đối không đoán 'momo', kẻo bill tiền mặt
+    mọc mã QR thanh toán.
+    """
+    m = str((request.get_json(silent=True) or {}).get("payment_method") or "cash").lower()
+    return m if m in _BILL_PAY_METHODS else None
+
+
+@app.post("/bill/<order_id>/print")
+def bill_print(order_id):
+    o = STORE.get(order_id)
+    if not o:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    _m = _bill_pay_method()
+    if _m is None:
+        return jsonify({"ok": False, "error": "payment_method lạ"}), 400
+    if _print_engine() == "noop":
+        return jsonify({"ok": True, "printed": False, "engine": "noop"}), 200
+    recp = {"order_id": o["order_id"], "items": o["items"], "total": o["total"],
+            "metadata": {"short_code": o["short_code"], "notes": o["customer_note"]},
+            "table_id": o["table_id"], "bill_meta": o["bill_meta"],
+            "payment_method": _m, "paid": bool(o.get("paid"))}
+    if _print_engine() == "spool":
+        SPOOL.enqueue_receipt(recp, is_cash=False, tag="bill")
+    else:  # legacy
+        try:
+            _print_receipt_bytes(build_receipt(recp, show_total=True), open_drawer=False)
+        except Exception as exc:
+            log.error("bill print failed %s: %s", order_id, exc)
+    return jsonify({"ok": True, "printed": True}), 200
+
+
+@app.post("/bill/group/<group_id>/print")
+def bill_group_print(group_id):
+    try:
+        bill = bill_engine.build_group_bill(STORE, group_id)
+    except KeyError:
+        return jsonify({"ok": False, "error": "group not found"}), 404
+    _m = _bill_pay_method()
+    if _m is None:
+        return jsonify({"ok": False, "error": "payment_method lạ"}), 400
+    if _print_engine() == "noop":
+        return jsonify({"ok": True, "printed": False, "order_ids": bill["order_ids"]}), 200
+    # Bàn coi như đã trả xong CHỈ KHI mọi đơn trong bàn đều đã trả. Còn một đơn
+    # chưa trả mà coi cả bàn là xong thì bill không có QR, khách không có gì để quét.
+    _orders = [STORE.get(oid) for oid in bill["order_ids"]]
+    _all_paid = bool(_orders) and all(bool(x and x.get("paid")) for x in _orders)
+    recp = {"order_id": group_id, "items": bill["items"], "total": bill["total"],
+            "metadata": {"short_code": group_id, "notes": ""},
+            "payment_method": _m, "paid": _all_paid}
+    if _print_engine() == "spool":
+        SPOOL.enqueue_receipt(recp, is_cash=False, tag="bill")
+    else:  # legacy
+        try:
+            _print_receipt_bytes(build_receipt(recp, show_total=True), open_drawer=False)
+        except Exception as exc:
+            log.error("group bill print failed %s: %s", group_id, exc)
+    return jsonify({"ok": True, "printed": True, "order_ids": bill["order_ids"]}), 200
+
+
+@app.post("/print/custom_label")
+def print_custom_label():
+    """In tem dán ly cho MÓN LẠ ngoài menu — KHÔNG tạo đơn, KHÔNG đụng tiền."""
+    p = request.get_json(force=True, silent=True) or {}
+    name = (p.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name required"}), 400
+    try:
+        qty = max(1, int(p.get("qty") or 1))
+    except (TypeError, ValueError):
+        qty = 1
+    item = {"name": name, "sku": "CUSTOM", "qty": 1, "modifiers": p.get("modifiers") or {}}
+    cups = [item for _ in range(qty)]
+    order = {"order_id": "CUSTOM-" + str(time.time_ns()), "short_code": "", "table_id": "",
+             "metadata": {"short_code": "", "delivery_type": "custom", "notes": "TEM MÓN LẺ"},
+             "items": cups}
+    engine = _print_engine()
+    if engine == "noop":
+        return jsonify({"ok": True, "printed": False, "engine": "noop"}), 200
+    try:
+        if engine == "spool":
+            SPOOL.enqueue_labels(order, cups)
+        else:
+            _print_label_bytes(build_order_labels_tspl(order, cups))
+    except Exception as exc:
+        log.error("custom_label print failed: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 502
+    return jsonify({"ok": True, "printed": True}), 200
+
+
+@app.get("/print/issues")
+def print_issues_list():
+    return jsonify({"ok": True, "issues": PRINT_ISSUES.list_open()}), 200
+
+
+@app.post("/print/issues/flag")
+def print_issues_flag():
+    """Nhân viên báo 'tem không ra' cho 1 đơn — không cần PIN (chỉ là báo cáo, không đụng tiền)."""
+    p = request.get_json(force=True, silent=True) or {}
+    order_id = (p.get("order_id") or "").strip()
+    if not order_id:
+        return jsonify({"ok": False, "error": "order_id required"}), 400
+    PRINT_ISSUES.flag_manual(order_id, p.get("note") or "")
+    return jsonify({"ok": True}), 200
+
+
+@app.post("/print/issues/<int:issue_id>/resolve")
+def print_issues_resolve(issue_id):
+    PRINT_ISSUES.resolve(issue_id)
+    return jsonify({"ok": True}), 200
+
 
 @app.post("/order/status")
 def order_status():
@@ -731,6 +1393,8 @@ def order_status():
     # Local-first: ghi outbox rồi trả NGAY, KHÔNG chờ GAS. Syncer nền (3s) đẩy lên GAS.
     # Bỏ _gas_post đồng bộ (block ≤8s) — đó là nguồn delay của nút Xong.
     GATEWAY.enqueue("status", order_id, f"{order_id}:{status}", payload)
+    for _oid in (order_id.split(",") if is_batch else [order_id]):
+        STORE.apply_status(_oid.strip(), status)
     return jsonify({"ok": True, "queued": True}), 200
 
 @app.post("/order/mark_paid")
@@ -758,10 +1422,10 @@ def order_mark_paid():
         method = ((recp.get("payment") or {}).get("method")) or p.get("payment_method") or "cash"
         is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
         if _print_engine() == "spool":
-            SPOOL.enqueue_receipt(recp, is_cash); receipt_printed = True
-        else:
+            SPOOL.enqueue_receipt(recp, is_cash, tag="bill"); receipt_printed = True
+        elif _print_engine() != "noop":  # legacy path; noop (tests) must NOT touch the live printer
             try:
-                _print_receipt_bytes(build_receipt(recp), open_drawer=is_cash); receipt_printed = True
+                _print_receipt_bytes(build_receipt(recp, show_total=True), open_drawer=is_cash); receipt_printed = True
             except Exception as exc:
                 log.error("local receipt failed: %s", exc)
     # Local-first: in bill local xong thì ghi outbox + trả NGAY, KHÔNG chờ GAS (bỏ _gas_post
@@ -769,11 +1433,18 @@ def order_mark_paid():
     # GAS KHÔNG in lần 2. Đây là gốc rễ 45 đơn kẹt: batch cũ gọi GAS trần, hiccup là mất PAID.
     GATEWAY.enqueue("mark_paid", order_id, f"{order_id}:paid",
                     {"action": "mark_paid", "order_id": order_id, "receipt_printed_local": True})
+    STORE.apply_paid(order_id, True)
     return jsonify({"ok": True, "queued": True, "receipt_printed_local": receipt_printed}), 200
 
 
 @app.post("/order/swap_item")
 def order_swap_item():
+    """Đổi 1 dòng món trong đơn sang món khác — đi qua STORE/bill_engine local-first
+    (giống PATCH /order/<id>/items), KHÔNG còn tự tay UPDATE outbox.payload_json (cột
+    không tồn tại — outbox thật có cột `payload`, xem gateway.py _SCHEMA) và KHÔNG còn
+    enqueue action 'swap_order_item' lên GAS (GAS chưa từng cài hành động này ->
+    unknown_action). Local STORE là nguồn sự thật cho items/total — khớp đúng cách
+    /order/<id>/items PATCH đã làm cho hủy món."""
     payload = request.get_json(force=True, silent=True) or {}
     order_id = payload.get("order_id")
     item_index = payload.get("item_index")
@@ -785,44 +1456,52 @@ def order_swap_item():
     if pin not in ("1234", "9999"):
         return jsonify({"ok": False, "error": "Mã PIN Quản lý không đúng!"}), 400
 
-    order_payload = None
-    with GATEWAY._lock:
-        row = GATEWAY._conn.execute(
-            "SELECT payload_json FROM outbox WHERE order_id = ? AND op = 'ingest_order'",
-            (order_id,)
-        ).fetchone()
-        if row:
-            p = json.loads(row[0])
-            items = p.get("items", [])
-            item_idx = int(item_index)
-            if 0 <= item_idx < len(items):
-                old_item = items[item_idx]
-                old_name = old_item.get("name") or old_item.get("sku") or "Món cũ"
-                if not new_item.get("modifiers"): new_item["modifiers"] = {}
-                new_item["modifiers"]["swap_from"] = old_name
-                items[item_idx] = new_item
-                p["items"] = items
-                p["total"] = sum((float(it.get("price") or 0)) * (int(it.get("qty") or 1)) for it in items)
-                GATEWAY._conn.execute(
-                    "UPDATE outbox SET payload_json = ? WHERE order_id = ? AND op = 'ingest_order'",
-                    (json.dumps(p), order_id)
-                )
-                GATEWAY._conn.commit()
-                order_payload = p
+    cur = STORE.get(order_id)
+    if cur is None:
+        return jsonify({"ok": False, "error": "Order not found"}), 404
+    items = cur.get("items", [])
+    item_idx = int(item_index)
+    if not (0 <= item_idx < len(items)):
+        return jsonify({"ok": False, "error": "Invalid item_index"}), 400
+
+    old_item = items[item_idx]
+    old_name = old_item.get("name") or old_item.get("sku") or "Món cũ"
+    if not new_item.get("modifiers"):
+        new_item["modifiers"] = {}
+    new_item["modifiers"]["swap_from"] = old_name
+
+    # Đổi món = thay SẢN PHẨM của một dòng, KHÔNG phải đổi số lượng. Giữ nguyên
+    # qty của dòng cũ và tính lại subtotal theo giá món mới.
+    #
+    # Sự cố thật 2026-08-08: KDS gửi món mới với qty cứng bằng 1. Đơn 2× SỮA CHUA
+    # 30k + 1× MATCHA 35k = 95.000đ, đổi dòng 2 ly xong tổng tụt còn 65.000đ —
+    # thu thiếu 30.000đ, không cảnh báo gì. Client đã được vá, nhưng chốt luôn ở
+    # đây: server giữ tiền, không tin số lượng client gửi trong luồng đổi món.
+    # Muốn đổi số lượng thì dùng PATCH /order/<id>/items.
+    _kept_qty = int(old_item.get("qty", 1) or 1)
+    new_item["qty"] = _kept_qty
+    _unit = int(new_item.get("price", 0) or 0)
+    new_item["subtotal"] = _unit * _kept_qty
+
+    new_items = [dict(it) for it in items]
+    new_items[item_idx] = new_item
 
     try:
-        if _print_engine() == "spool" and order_payload:
-            items = order_payload.get("items", [])
-            item_idx = int(item_index)
-            SPOOL.enqueue_single_label(order_payload, new_item, item_idx + 1, len(items))
+        res = bill_engine.apply_items_edit(STORE, order_id, new_items, int(cur["version"]))
+    except VersionConflict:
+        return jsonify({"ok": False, "error": "version_conflict"}), 409
+    except KeyError:
+        return jsonify({"ok": False, "error": "Order not found"}), 404
+
+    _enqueue_cancel_ticket(res["order"], res["cancelled_lines"])
+
+    try:
+        if _print_engine() == "spool":
+            SPOOL.enqueue_single_label(res["order"], new_item, item_idx + 1, len(new_items))
     except Exception as exc:
         log.warning("swap_item single_label print failed: %s", exc)
 
-    swap_key = f"{order_id}:swap:{item_index}:{int(time.time() * 1000)}"
-    GATEWAY.enqueue("swap_order_item", order_id, swap_key,
-                    {"action": "swap_order_item", "order_id": order_id, "item_index": item_index, "new_item": new_item, "manager_pin": pin})
-
-    return jsonify({"ok": True, "order_id": order_id}), 200
+    return jsonify({"ok": True, "order": res["order"], "cancelled_lines": res["cancelled_lines"]}), 200
 
 
 
@@ -1626,7 +2305,60 @@ def _syncer_loop():
         time.sleep(interval if done else min(30, interval * 2))
 
 
+def _start_background_workers():
+    """Poll loop + hourly snapshot loop, as daemon threads. No-op under
+    PRINT_ENGINE=noop so the test client never spawns background threads."""
+    if os.getenv("PRINT_ENGINE") == "noop":
+        return
+
+    def _poll_loop():
+        while True:
+            try:
+                # Mặc định BẬT: action pending_online_orders deploy cùng đợt này.
+                # Đặt mặc định trong code để `git pull` + kickstart là chạy, không
+                # phụ thuộc ai đó nhớ sửa plist LaunchAgent bằng tay.
+                if os.getenv("ONLINE_POLL", "1") == "1":
+                    INBOX.poll()
+            except Exception as e:
+                log.error("inbox poll error: %s", e)
+            time.sleep(int(os.getenv("ONLINE_POLL_SEC", "15")))
+
+    def _snapshot_loop():
+        db_path = GATEWAY.db_path
+        outdir = os.getenv("BACKUP_DIR", os.path.join(os.path.dirname(__file__), "backups"))
+        os.makedirs(outdir, exist_ok=True)
+        while True:
+            time.sleep(3600)
+            try:
+                eod_sync.snapshot_db(db_path, outdir)
+            except Exception as e:
+                log.error("snapshot error: %s", e)
+
+    threading.Thread(target=_poll_loop, daemon=True).start()
+    threading.Thread(target=_snapshot_loop, daemon=True).start()
+    threading.Thread(target=_attendance_loop, daemon=True, name="attendance").start()
+
+
+def run_eod_sync():
+    """EOD archive is the SOLE GAS pusher ONLY when the realtime syncer is disabled.
+    While GATEWAY_SYNC is on, the syncer already archives every order live every 3s, so
+    running EOD too would double-push to GAS (different idempotency keys) -> duplicate
+    Sheets rows = phantom revenue/loyalty. EOD therefore refuses to run unless the
+    operator has explicitly set GATEWAY_SYNC=0 (opting into EOD as the sole pusher)."""
+    if os.getenv("GATEWAY_SYNC", "1") != "0":
+        log.warning("run_eod_sync skipped: realtime syncer active (GATEWAY_SYNC!=0); EOD redundant")
+        return {"skipped": "syncer_active", "pushed": 0, "failed": 0}
+    def post(op):
+        return GATEWAY._post_to_gas(op)
+    return eod_sync.sync_finalized_2op(STORE, post_fn=post)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
+if __name__ == "__main__" and os.getenv("RUN_EOD") == "1":
+    import sys
+    print(run_eod_sync())
+    sys.exit(0)
+
 if __name__ == "__main__":
     if os.getenv("GATEWAY_SYNC", "1") == "1":
         threading.Thread(target=_syncer_loop, daemon=True).start()
@@ -1640,4 +2372,5 @@ if __name__ == "__main__":
         LABEL_SERIAL_PORT if LABEL_MODE == "serial" else f"{LABEL_PRINTER_IP}:{LABEL_PRINTER_PORT}",
         LABEL_MODE,
     )
+    _start_background_workers()
     app.run(host="0.0.0.0", port=SERVER_PORT, threaded=True)

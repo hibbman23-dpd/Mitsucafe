@@ -297,10 +297,24 @@ class Gateway:
     def sync_once(self):
         n = 0
         for op in self.unsynced():
-            payload = json.loads(op["payload"])
-            if "action" not in payload:
-                payload["action"] = {"ingest_order": "ingest_order", "status": "update_status",
-                                     "mark_paid": "mark_paid"}[op["op"]]
+            # Đọc payload + tra action PHẢI nằm trong try. Trước 10/08/2026 hai dòng
+            # này nằm ngoài: một dòng outbox hỏng là exception ném thẳng ra
+            # _syncer_loop, và vì vòng lặp luôn đọc lại từ dòng cũ nhất, nó chết đi
+            # chết lại mỗi 3 giây — TOÀN BỘ hàng đợi tắc, không đơn nào lên Sheets.
+            # Đã xảy ra thật: outbox.db bị git tráo dưới chân server đang chạy, sinh
+            # 3 dòng rác (op là số nguyên, vi phạm cả NOT NULL của order_id/payload).
+            # Dòng hỏng không thể sửa bằng cách thử lại -> park FAILED (giữ để đối
+            # soát, xem purge_synced) rồi ĐI TIẾP, không break: các dòng sau vẫn phải
+            # được đẩy.
+            try:
+                payload = json.loads(op["payload"])
+                if "action" not in payload:
+                    payload["action"] = {"ingest_order": "ingest_order", "status": "update_status",
+                                         "mark_paid": "mark_paid"}[op["op"]]
+            except Exception as exc:
+                self.mark_error(op["seq"],
+                                "validation: outbox row hỏng, không dựng được request (%s)" % exc)
+                continue
             try:
                 d = self._post_to_gas(payload)
                 if d.get("ok"):

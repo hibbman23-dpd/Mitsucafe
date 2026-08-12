@@ -60,6 +60,17 @@ Lưu ý:   Lần fix 2026-07-03 làm bằng redeploy trong editor — redeploy c
          ép re-auth (che triệu chứng), KHÔNG chữa gốc → 7 ngày sau chết lại.
 ```
 
+## L6 — Mac Mini chết trong lúc chấm công (attendance)
+
+```
+Trigger: Máy chấm công (192.168.50.125:5001) không vào được — Mac Mini crash/mất điện
+Action:  Nhân viên ghi giờ vào/ra ra GIẤY (giờ:phút, tên) như bình thường
+Fix:     Máy sống lại → chủ mở tab Bảng công trên trang chấm công → Thêm ca tay
+         (POST /attendance/create_manual) → nhập từng ca từ giấy → ghi
+         note = "chấm giấy <ngày>" để phân biệt với ca bấm thật (cột source=owner_manual)
+Chi tiết: docs/system/attendance.md
+```
+
 ## SOP Offline (In laminated, dán tại quầy)
 ```
 1. Mạng chết     → Chrome Form cache · In tem LAN

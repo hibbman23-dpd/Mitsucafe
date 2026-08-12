@@ -231,8 +231,14 @@ def poll_once() -> bool:
             method = ((order.get("payment") or {}).get("method") or "cash")
             is_cash = str(method).lower() in ("cash", "tien_mat", "tienmat")
             try:
+                # tag='bill' BẮT BUỘC. Máy quán in hoá đơn lúc thanh toán với key
+                # '<order_id>:bill:0'; không gửi tag thì route mặc định 'receipt',
+                # ra key khác, dedup không bắt và in thêm tờ thứ hai. Tờ thừa đó lại
+                # không có tổng tiền (show_total chỉ bật khi tag=='bill') nên nhìn
+                # y hệt phiếu bếp. Đơn online chưa in tại quán vẫn in bình thường —
+                # key ':bill:0' của nó chưa tồn tại.
                 resp = _post_json(PRINT_SERVER_URL + "/enqueue/receipt",
-                                  {"order": order, "is_cash": is_cash})
+                                  {"order": order, "is_cash": is_cash, "tag": "bill"})
                 if not resp.get("ok"):
                     raise RuntimeError(f"enqueue receipt: {resp}")
                 log.info("Receipt enqueued for %s (%d new)", order_id, resp.get("enqueued", 0))

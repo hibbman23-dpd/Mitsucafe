@@ -9,32 +9,35 @@ os.environ.setdefault("GAS_WEBAPP_URL", "http://gas.invalid")
 import print_server
 from gateway import Gateway
 from print_spool import PrintSpool
+from order_store import OrderStore
 
 
 class TestOrderSpoolE2E(unittest.TestCase):
     def setUp(self):
         # save globals so we can restore them (no leakage into other test modules)
-        self._orig = (print_server.GATEWAY, print_server.SPOOL,
+        self._orig = (print_server.GATEWAY, print_server.SPOOL, print_server.STORE,
                       print_server._gas_mark, print_server._gas_post,
                       os.environ.get("PRINT_ENGINE"))
         os.environ["PRINT_ENGINE"] = "spool"          # route branch reads this dynamically
         print_server.app.config["TESTING"] = True
         self.c = print_server.app.test_client()
         self._db = tempfile.mktemp(suffix=".db")
-        # rebind BOTH GATEWAY and SPOOL to one temp DB (SPOOL binds import-time GATEWAY,
-        # so rebinding GATEWAY alone would leave SPOOL on the real outbox.db)
+        # rebind GATEWAY, SPOOL, and STORE to one temp DB (SPOOL and STORE both bind
+        # import-time GATEWAY, so rebinding GATEWAY alone would leave them on the real
+        # outbox.db — this is what let /order writes leak into prod, Task 5 fix)
         def fake_reserve(dtype, n):
             return {"letter": "Q", "date": "20260723", "from": 1, "to": n}
         print_server.GATEWAY = Gateway(self._db, "http://gas", "tok",
                                        reserve_fn=fake_reserve, today="20260723")
         print_server.SPOOL = PrintSpool(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
+        print_server.STORE = OrderStore(print_server.GATEWAY._conn, print_server.GATEWAY._lock)
         # keep GAS marking off the network
         print_server._gas_mark = lambda oid, kind: True
         print_server._gas_post = lambda payload, timeout=8: {"ok": True}
 
     def tearDown(self):
-        gw, sp, gm, gp, engine = self._orig
-        print_server.GATEWAY, print_server.SPOOL = gw, sp
+        gw, sp, st, gm, gp, engine = self._orig
+        print_server.GATEWAY, print_server.SPOOL, print_server.STORE = gw, sp, st
         print_server._gas_mark, print_server._gas_post = gm, gp
         if engine is None:
             os.environ.pop("PRINT_ENGINE", None)
@@ -100,11 +103,18 @@ class TestOrderSpoolE2E(unittest.TestCase):
         oid = self.c.post("/order", json=body).get_json()["order_id"]
         r = self.c.post("/order/mark_paid", json={"order_id": oid, "payment_method": "cash"})
         self.assertTrue(r.get_json()["ok"])
+        # Tạo đơn in PHIẾU PHA CHẾ (tag=prep); mark_paid in HÓA ĐƠN (tag=bill) — key riêng, không dedup.
         row = print_server.SPOOL._conn.execute(
-            "SELECT idempotency_key, order_id, payload_json FROM print_spool WHERE printer='receipt'").fetchone()
-        self.assertEqual(row["idempotency_key"], f"{oid}:receipt:0")   # real order_id, not ':receipt:0'
+            "SELECT idempotency_key, order_id, payload_json FROM print_spool "
+            "WHERE printer='receipt' AND idempotency_key LIKE '%:bill:%'").fetchone()
+        self.assertEqual(row["idempotency_key"], f"{oid}:bill:0")
         self.assertEqual(row["order_id"], oid)
         self.assertTrue(_json.loads(row["payload_json"])["is_cash"])   # cash → drawer will kick
+        # PHIẾU PHA CHẾ vẫn có mặt (in lúc tạo đơn, không mở két)
+        prep = print_server.SPOOL._conn.execute(
+            "SELECT payload_json FROM print_spool WHERE idempotency_key=?", (f"{oid}:prep:0",)).fetchone()
+        self.assertIsNotNone(prep)
+        self.assertFalse(_json.loads(prep["payload_json"])["is_cash"])
 
     def test_mark_paid_vietqr_receipt_no_drawer(self):
         import json as _json
@@ -113,10 +123,9 @@ class TestOrderSpoolE2E(unittest.TestCase):
                 "idempotency_key": "e2e-qr"}
         oid = self.c.post("/order", json=body).get_json()["order_id"]
         self.c.post("/order/mark_paid", json={"order_id": oid, "payment_method": "vietqr"})
-        rid = print_server.SPOOL._conn.execute(
-            "SELECT id FROM print_spool WHERE printer='receipt'").fetchone()[0]
         payload = _json.loads(print_server.SPOOL._conn.execute(
-            "SELECT payload_json FROM print_spool WHERE id=?", (rid,)).fetchone()["payload_json"])
+            "SELECT payload_json FROM print_spool "
+            "WHERE printer='receipt' AND idempotency_key=?", (f"{oid}:bill:0",)).fetchone()["payload_json"])
         self.assertFalse(payload["is_cash"])  # non-cash → no drawer kick
 
 

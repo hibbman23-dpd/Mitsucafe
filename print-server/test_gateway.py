@@ -110,3 +110,58 @@ class TestGateway(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSyncPoisonRow(unittest.TestCase):
+    """Một dòng outbox hỏng KHÔNG được phép chặn cả hàng đợi.
+
+    09/08/2026: outbox.db bị git tráo dưới chân server đang chạy -> bảng outbox
+    dính 3 dòng rác (op là số nguyên, payload không đọc được). json.loads nằm
+    NGOÀI khối try trong sync_once nên ném thẳng ra _syncer_loop: syncer chết
+    vòng lặp mỗi 3 giây, không đơn nào lên Sheets suốt nhiều giờ.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mktemp(suffix=".db")
+        fake_reserve.calls = 0; fake_reserve.next = 1
+        self.posted = []
+        self.gw = Gateway(self.tmp, "http://gas", "tok", reserve_fn=fake_reserve,
+                          today="20260722")
+        self.gw._poster = self._poster
+
+    def tearDown(self):
+        if os.path.exists(self.tmp): os.remove(self.tmp)
+
+    def _poster(self, payload):
+        self.posted.append(payload)
+        return {"ok": True}
+
+    def _raw_insert(self, seq, op, payload):
+        with self.gw._lock:
+            self.gw._conn.execute(
+                "INSERT INTO outbox(seq,op,order_id,idempotency_key,payload) VALUES(?,?,?,?,?)",
+                (seq, op, "ORD-RAC-%s" % seq, "k%s" % seq, payload))
+            self.gw._conn.commit()
+
+    def test_poison_payload_does_not_block_the_queue(self):
+        self._raw_insert(1, 1777973, "{}")          # op số nguyên -> không tra được action
+        self._raw_insert(2, "status", "{khong-phai-json")  # payload không parse được
+        self.gw.enqueue("status", "ORD-1", "ORD-1:CANCELLED",
+                        {"action": "update_status", "order_id": "ORD-1", "status": "CANCELLED"})
+
+        done = self.gw.sync_once()
+
+        self.assertEqual(done, 1, "dòng hợp lệ phải được đẩy dù có dòng rác đứng trước")
+        self.assertEqual([p["order_id"] for p in self.posted], ["ORD-1"])
+
+    def test_poison_rows_are_parked_not_retried_forever(self):
+        self._raw_insert(1, 1777973, "{}")
+        self.gw.sync_once()
+        left = [r["seq"] for r in self.gw.unsynced()]
+        self.assertNotIn(1, left, "dòng rác phải bị park (FAILED), không quay lại hàng đợi")
+        with self.gw._lock:
+            row = self.gw._conn.execute(
+                "SELECT synced_at, last_error FROM outbox WHERE seq=1").fetchone()
+        self.assertTrue(str(row["synced_at"]).startswith("FAILED:"),
+                        "giữ lại để đối soát, không xoá âm thầm")
+        self.assertIn("validation", str(row["last_error"]).lower())

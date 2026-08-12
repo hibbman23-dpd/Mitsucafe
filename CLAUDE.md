@@ -21,6 +21,9 @@
 | Loyalty stamps | `docs/system/loyalty-stamps.md` | addStamp, redeem, Zalo stamp template |
 | Campaign promo | `docs/system/campaign-promo.md` | checkAndRunCampaigns, scheduling |
 | Roadmap (module tiers + checklist) | `docs/system/roadmap.md` | Plan phase, module thuộc tier nào |
+| Chấm công nhân viên | `docs/system/attendance.md` | Sửa attendance_store/auth/sync, tab ATTENDANCE, trang cham-cong |
+| Mã QR thanh toán trên bill | `docs/system/momo-qr.md` | Sửa emvqr/build_momo_qr, route in bill, cấu hình MoMo |
+| Sổ bán hàng cho thuế | `docs/system/so-ban-hang.md` | Dựng tab SO_BAN_HANG / TONG_THANG từ ORDERS |
 
 Docs khác: `docs/architecture.md` (kiến trúc chi tiết) · `docs/agent-map.md` (skill/agent vận hành quán) · `docs/TOKEN_EFFICIENCY.md` (cách làm việc tiết kiệm token).
 

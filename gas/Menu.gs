@@ -181,3 +181,93 @@ function getMenuEngineeringData(monthStr) {
     items: result
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Đồng bộ MENU từ seed/menu_items.json (nguồn sự thật của web)
+// ─────────────────────────────────────────────────────────────────────
+
+var MENU_SYNC_HEADERS = [
+  'sku', 'name', 'name_jp', 'category', 'subcategory', 'role',
+  'price_m', 'price_l', 'cost_nl', 'cost_packaging', 'cogs_percent',
+  'on_promo', 'promo_price', 'available',
+  'customizations', 'allergens', 'image_url', 'sort_order', 'story_telling'
+];
+
+/**
+ * Ghi đè toàn bộ tab MENU bằng danh sách món gửi từ Mac Mini.
+ *
+ * Vì sao phải ghi đè chứ không cập nhật từng dòng: sheet đã tích tụ nhiều đời
+ * menu chồng lên nhau (171 dòng cho 72 mã, mỗi mã 2-3 dòng), và getAllMenu()
+ * dựng map nên DÒNG CUỐI THẮNG — tức là món nào đang có hiệu lực phụ thuộc
+ * vào thứ tự dòng, không ai kiểm soát được. Cập nhật từng dòng chỉ đắp thêm
+ * một đời nữa lên đống đó.
+ *
+ * Giữ lại on_promo/promo_price đang chạy: chiến dịch khuyến mãi đang diễn ra
+ * không được biến mất chỉ vì đồng bộ menu.
+ *
+ * @param {Object} payload — { items: [...], dry_run: bool }
+ */
+function menuSyncFromRepo(payload) {
+  var items = (payload && payload.items) || [];
+  if (!items.length) return { ok: false, error: 'payload.items rỗng' };
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('MENU');
+  if (!sheet) return { ok: false, error: 'MENU sheet missing' };
+
+  // Giữ promo đang chạy, khoá theo sku
+  var promo = {};
+  var old = sheet.getDataRange().getValues();
+  if (old.length > 1) {
+    var oh = old[0].map(function (h) { return String(h).trim(); });
+    var iS = oh.indexOf('sku'), iOn = oh.indexOf('on_promo'), iPp = oh.indexOf('promo_price');
+    for (var r = 1; r < old.length; r++) {
+      var s = String(old[r][iS] || '').trim().toUpperCase();
+      if (s && iOn >= 0 && old[r][iOn] === true) {
+        promo[s] = { on: true, price: iPp >= 0 ? old[r][iPp] : '' };
+      }
+    }
+  }
+
+  var rows = items.map(function (it) {
+    var sku = String(it.sku || '').trim().toUpperCase();
+    var p = promo[sku] || { on: false, price: '' };
+    var cust = it.customizations;
+    return [
+      sku,
+      it.name || '',
+      it.name_jp || '',
+      it.category || '',
+      it.subcategory || '',
+      it.role || '',
+      it.price_m == null ? '' : it.price_m,
+      it.price_l == null ? '' : it.price_l,
+      it.cost_nl == null ? '' : it.cost_nl,
+      it.cost_packaging == null ? '' : it.cost_packaging,
+      it.cogs_percent == null ? '' : it.cogs_percent,
+      p.on,
+      p.price,
+      it.available === false ? false : true,
+      cust ? JSON.stringify(cust) : '',
+      it.allergens ? JSON.stringify(it.allergens) : '',
+      it.image_url || '',
+      it.sort_order == null ? '' : it.sort_order,
+      it.story_telling || ''
+    ];
+  });
+
+  if (payload && payload.dry_run) {
+    return { ok: true, dry_run: true, would_write: rows.length,
+             current_rows: Math.max(0, sheet.getLastRow() - 1),
+             promo_kept: Object.keys(promo).length, headers: MENU_SYNC_HEADERS };
+  }
+
+  sheet.clear();
+  sheet.getRange(1, 1, 1, MENU_SYNC_HEADERS.length).setValues([MENU_SYNC_HEADERS]);
+  sheet.getRange(1, 1, 1, MENU_SYNC_HEADERS.length)
+       .setFontWeight('bold').setBackground('#1f2937').setFontColor('#ffffff');
+  sheet.setFrozenRows(1);
+  sheet.getRange(2, 1, rows.length, MENU_SYNC_HEADERS.length).setValues(rows);
+
+  return { ok: true, written: rows.length, promo_kept: Object.keys(promo).length };
+}

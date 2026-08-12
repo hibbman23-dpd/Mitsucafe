@@ -8,6 +8,13 @@
   <meta http-equiv="Pragma" content="no-cache">
   <title>Màn bếp · Mitsu 蜜</title>
   <script src="menu-data.js?v=20260722_v2"></script>
+  <script src="order-api.js"></script>
+  <script src="checkout.js"></script>
+  <script>
+    // GATEWAY_URL is defined later in the page's main script; guard with a getter used at call time.
+    window.__api = null;
+    function api() { if (!window.__api) window.__api = OrderApi(GATEWAY_URL); return window.__api; }
+  </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Be+Vietnam+Pro:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap">
   <link rel="stylesheet" href="mitsu.css">
   <style>
@@ -53,6 +60,35 @@
     }
     .nav-tab.active { color: var(--cream); border-bottom-color: var(--coral); }
 
+    /* ── STATUS BADGES (cloud / printer) + ONLINE INBOX ── */
+    .header-status { display: flex; align-items: center; gap: 10px; }
+    .status-pill {
+      font-size: .68rem; font-weight: 600; color: var(--muted);
+      white-space: nowrap;
+    }
+    .btn-inbox {
+      position: relative; background: var(--surface); border: 1px solid var(--border);
+      color: var(--cream); padding: 7px 12px; border-radius: 20px; cursor: pointer;
+      font-size: .85rem;
+    }
+    .btn-inbox:active { opacity: .75; }
+    .inbox-count {
+      position: absolute; top: -6px; right: -6px;
+      background: #e53935; color: #fff; font-size: .62rem; font-weight: 800;
+      min-width: 17px; height: 17px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center; padding: 0 4px;
+    }
+    .inbox-count.hidden { display: none; }
+    .inbox-item-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 14px; margin-bottom: 10px;
+    }
+    .inbox-item-card.late { border-left: 3px solid #e53935; box-shadow: 0 0 0 1px rgba(229,57,53,.35); }
+    .late-flag {
+      display: inline-block; background: #e53935; color: #fff; font-size: .68rem; font-weight: 800;
+      letter-spacing: .03em; padding: 3px 9px; border-radius: 10px; margin-bottom: 6px;
+    }
+
     /* ── TTS BANNER ── */
     .tts-banner {
       background: rgba(200,150,62,.1); border: 1px solid rgba(200,150,62,.25);
@@ -63,6 +99,22 @@
     }
     .tts-banner.hidden { display: none; }
     .btn-tts { background: var(--gold); color: var(--bg); border: none; border-radius: 20px; padding: 5px 14px; font-size: .78rem; font-weight: 700; cursor: pointer; }
+
+    /* ── PRINT ISSUES BANNER ── */
+    .issue-banner {
+      background: rgba(239,83,80,.12); border: 1px solid rgba(239,83,80,.4);
+      border-radius: var(--radius); margin: 10px 14px 0;
+      padding: 9px 14px; cursor: pointer;
+      font-size: .82rem; color: #ef5350; font-weight: 700;
+    }
+    .issue-banner.hidden { display: none; }
+    .issue-list { margin: 0 14px 10px; display: flex; flex-direction: column; gap: 8px; }
+    .issue-list.hidden { display: none; }
+    .issue-row {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; font-size: .8rem;
+    }
 
     /* ── FILTER BAR ── */
     .filter-bar { display: flex; gap: 8px; padding: 10px 14px 6px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -81,6 +133,31 @@
     .age-chip { font-size: .62rem; font-weight: 700; padding: 1px 6px; border-radius: 9px; background: rgba(245,240,232,.12); color: var(--cream); margin-left: 4px; }
     .age-chip.overdue { background: #e53935; color: #fff; animation: agePulse 1.4s ease-in-out infinite; }
     @keyframes agePulse { 0%,100%{opacity:1;} 50%{opacity:.55;} }
+    #online-banners { position: fixed; top: 74px; right: 14px; z-index: 900;
+                      display: flex; flex-direction: column; gap: 10px; width: 400px; max-width: 92vw; }
+    .online-banner  { background: var(--accent); color: #fff; border: 3px solid #fff;
+                      border-radius: 14px; padding: 14px 16px; box-shadow: 0 8px 28px rgba(0,0,0,.45);
+                      animation: agePulse 1.1s ease-in-out infinite; }
+    .online-banner .ob-title { font-size: 1.4rem; font-weight: 800; letter-spacing: .5px; }
+    .online-banner .ob-code  { font-size: 2.1rem; font-weight: 900; line-height: 1.1; }
+    .online-banner .ob-line  { font-size: .95rem; margin-top: 4px; }
+    .online-banner .ob-warn  { background: #B71C1C; border-radius: 8px; padding: 4px 8px;
+                               font-weight: 800; margin-top: 8px; display: inline-block; }
+    .online-banner button    { margin-top: 10px; width: 100%; padding: 10px; font-size: 1rem;
+                               font-weight: 700; border: none; border-radius: 10px; cursor: pointer; }
+    .online-banner .ob-seen  { background: #fff; color: #111; }
+    .online-banner .ob-print { background: #FFC107; color: #111; margin-top: 6px; }
+    .online-banner .ob-more  { text-align: center; font-weight: 700; padding: 8px; }
+    /* Banner "chuông câm": autoplay policy chặn AudioContext sau reload — cố định
+       trên cùng, không tự tắt, để nhân viên biết chuông không kêu chứ không phải quán vắng. */
+    #bell-off-notice { position: fixed; top: 0; left: 0; right: 0; z-index: 1200;
+                        background: #B71C1C; color: #fff; padding: 10px 14px;
+                        display: flex; align-items: center; justify-content: center;
+                        gap: 14px; font-weight: 800; font-size: .92rem; text-align: center;
+                        animation: agePulse 1.2s ease-in-out infinite; }
+    #bell-off-notice.hidden { display: none; }
+    #bell-off-notice button { background: #fff; color: #B71C1C; border: none;
+                        border-radius: 20px; padding: 6px 16px; font-weight: 800; cursor: pointer; }
     .btn-cancel { background: transparent; color: #e57373; border: 1px solid rgba(229,115,115,.5); border-radius: 8px; padding: 8px 12px; font-size: .8rem; font-weight: 600; cursor: pointer; }
     .btn-cancel:hover { background: rgba(229,57,53,.12); }
     .card-top {
@@ -244,6 +321,22 @@
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 3px 8px rgba(46, 196, 182, 0.5);
     }
+    .num-badge {
+      position: absolute; top: 8px; left: 8px;
+      background: linear-gradient(135deg, #d8a94a, #b8863a); color: #1b140b;
+      font-size: 0.95rem; font-weight: 800;
+      min-width: 26px; height: 26px; padding: 0 4px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 8px rgba(216, 169, 74, 0.5);
+      z-index: 2;
+    }
+    .numnav-strip {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 16px; margin-bottom: 12px;
+      background: linear-gradient(90deg, rgba(216,169,74,0.25), rgba(20,30,33,0.8));
+      border-left: 4px solid #d8a94a; border-radius: 0 10px 10px 0;
+      font-size: 0.95rem; font-weight: 700; color: #fff;
+    }
 
     /* ── CART BAR ── */
     .cart-bar {
@@ -268,6 +361,10 @@
       padding: 16px;
     }
     .overlay-bg.hidden { display: none !important; }
+    /* size-overlay là dialog customization LỒNG bên trong checkout-overlay/swap — luôn phải nổi trên cùng
+       bất kể thứ tự DOM. checkout-overlay tĩnh nằm SAU size-overlay trong HTML nên cùng z-index 9999 nó
+       đè khuất size-overlay khi cả hai cùng mở (case "➕ Thêm món" trong màn Thanh toán). */
+    #size-overlay { z-index: 10000; }
 
     .bottom-sheet {
       background: #181922 !important;
@@ -324,6 +421,7 @@
       display: flex; align-items: center; justify-content: center; font-weight: 800;
     }
     .step-btn:active { opacity: .75; }
+    .step-btn:disabled { opacity: .3; cursor: default; }
     .qty-val { font-size: 1.1rem; font-weight: 800; min-width: 24px; text-align: center; color: #fff; }
 
     /* Order form */
@@ -370,6 +468,22 @@
     /* ── HIDDEN UTIL ── */
     .hidden { display: none !important; }
 
+    /* ── FLOOR MAP (sơ đồ bàn) ── */
+    .floor-map { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; padding:6px 0 100px; }
+    .table-tile { position:relative; aspect-ratio:1/1; border-radius:16px; border:2px solid var(--border); background:var(--surface);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; cursor:pointer;
+      transition:transform .1s, border-color .15s; padding:8px; text-align:center; }
+    .table-tile:hover { transform:translateY(-2px); }
+    .table-tile .tnum { font-size:1.6rem; font-weight:800; color:var(--cream); line-height:1; }
+    .table-tile .tstate { font-size:.72rem; letter-spacing:.03em; }
+    .table-tile .tmeta { font-size:.8rem; font-weight:700; color:var(--cream); }
+    .table-tile.empty { border-color:rgba(80,180,120,.4); }
+    .table-tile.empty .tstate { color:#57b978; }
+    .table-tile.busy { border-color:rgba(230,160,60,.7); background:rgba(230,160,60,.10); }
+    .table-tile.busy .tstate { color:#e0a63c; }
+    .tile-add { position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:8px;
+      border:none; background:var(--coral); color:#fff; font-size:1.1rem; font-weight:800; cursor:pointer; line-height:1; }
+
     /* ── CUSTOM OPTIONS ── */
     .opt-group  { margin-bottom: 16px; padding: 0 18px; }
     .opt-label  {
@@ -408,7 +522,11 @@
     <div class="kds-title"><span class="wm">mitsu<span class="dot">.</span></span> <small style="font-weight:400;color:var(--muted)">(Lâm Hà)</small></div>
     <div class="kds-sub" id="refresh-time">Đang tải...</div>
   </div>
-  <button class="btn-sm" onclick="loadOrders()">↺ Làm mới</button>
+  <div class="header-status">
+    <span class="status-pill" id="cloud-badge" title="Trạng thái cloud">🟡 —</span>
+    <span class="status-pill" id="printer-badge" title="Trạng thái máy in">🟢</span>
+    <button class="btn-sm" onclick="loadOrders()">↺ Làm mới</button>
+  </div>
 </header>
 
 <!-- MAIN NAV TABS -->
@@ -420,6 +538,13 @@
 
 <!-- ════════ VIEW: ORDERS ════════ -->
 <div id="view-orders">
+  <div class="issue-banner hidden" id="issue-banner" onclick="toggleIssueBanner()"></div>
+  <div class="issue-list hidden" id="issue-list"></div>
+  <div class="orders-mode-toggle" style="display:flex; gap:8px; margin-bottom:10px;">
+    <button class="filter-pill active" id="mode-list" onclick="setOrdersMode('list')">📋 Danh sách</button>
+    <button class="filter-pill" id="mode-map" onclick="setOrdersMode('map')">🗺️ Sơ đồ bàn</button>
+    <button class="filter-pill" id="mode-cashier" onclick="setOrdersMode('cashier')">💰 Thu ngân</button>
+  </div>
   <div class="tts-banner" id="tts-banner">
     🔔 Bật thông báo âm thanh khi xác nhận thanh toán
     <button class="btn-tts" onclick="enableTTS()">Bật loa</button>
@@ -429,6 +554,7 @@
     <button class="filter-pill"        onclick="setFilter('pending',this)">⚠️ Chờ TT</button>
     <button class="filter-pill"        onclick="setFilter('active',this)">Đang làm</button>
     <button class="filter-pill"        onclick="setFilter('paid',this)">✅ Đã TT</button>
+    <button class="filter-pill" id="btn-custom-label" onclick="openCustomLabelSheet()">🏷️ Tem lẻ</button>
     <button class="filter-pill" id="btn-toggle-label-print" onclick="toggleLabelPrint()" style="margin-left:auto;">🏷️ Tem: BẬT</button>
     <button class="filter-pill" id="btn-toggle-sound" onclick="toggleSound()">🔇 Đã tắt tiếng</button>
   </div>
@@ -436,6 +562,8 @@
   <div class="orders-list" id="orders-list">
     <div class="empty-state"><div class="icon">☕</div>Đang tải đơn hàng...</div>
   </div>
+  <div class="floor-map hidden" id="floor-map"></div>
+  <div class="cashier-view hidden" id="cashier-view"></div>
 </div>
 
 <!-- ════════ VIEW: MENU ════════ -->
@@ -544,7 +672,7 @@
         </div>
       </div>
       <div class="form-row" id="table-row">
-        <label class="form-label">Số bàn</label>
+        <label class="form-label">Số bàn <span id="table-key-hint" style="color:var(--gold); font-weight:700;"></span></label>
         <div class="table-grid" id="table-grid"></div>
       </div>
       <div class="form-row">
@@ -567,6 +695,11 @@
           💳 Gửi & Thanh toán ngay (Enter ↵)
         </button>
       </div>
+      <div style="display:flex; margin-top:10px;">
+        <button class="btn-submit-order" id="btn-momo-order" style="flex:1; padding:16px; font-size:1.05rem; font-weight:800; border-radius:12px; border:none; cursor:pointer; background:#d82d8b; color:#fff;" onclick="submitStaffOrderMomo()">
+          💗 Gửi & In bill QR MoMo (Phím O)
+        </button>
+      </div>
     </div>
 
     <!-- Success state (shown after submit) -->
@@ -576,6 +709,42 @@
       <p id="submit-success-msg">Mã đơn: —</p>
       <br>
       <button class="btn-sm" style="width:100%;padding:12px" onclick="closeCartSheet();resetStaffCart()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ OVERLAY: CHECKOUT (iPOS-style bill review/edit/print/pay) ════════ -->
+<div class="overlay-bg hidden" id="checkout-overlay" onclick="closeCheckout(event)">
+  <div class="bottom-sheet" id="checkout-sheet" style="max-width:640px; margin:auto; border-radius:16px; max-height:90vh; overflow-y:auto;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div class="sheet-title" id="checkout-title">💳 Thanh toán</div>
+      <button class="btn-close" onclick="closeCheckout()">✕</button>
+    </div>
+    <div class="sheet-body" id="checkout-sheet-body">
+      <!-- Dynamic content injected by renderCheckout() -->
+    </div>
+  </div>
+</div>
+
+<!-- ════════ OVERLAY: TEM LẺ (off-menu custom label print) ════════ -->
+<div class="overlay-bg hidden" id="custom-label-overlay" onclick="if(event.target.id==='custom-label-overlay')closeCustomLabelSheet()">
+  <div class="bottom-sheet" style="max-width:460px;margin:auto;border-radius:16px;">
+    <div class="sheet-head"><div class="sheet-title">🏷️ In tem món lẻ</div>
+      <button class="btn-close" onclick="closeCustomLabelSheet()">✕</button></div>
+    <div class="sheet-body" style="padding:14px 16px;">
+      <input class="form-input" id="cl-name" placeholder="Tên món (gõ tự do)" style="width:100%;margin-bottom:10px;">
+      <div class="opt-chips" id="cl-size"></div>
+      <div class="opt-chips" id="cl-ice" style="margin-top:8px;"></div>
+      <div class="opt-chips" id="cl-sugar" style="margin-top:8px;"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin:12px 0;">
+        <span>Số lượng</span>
+        <button class="btn-sm" onclick="clQty(-1)">－</button>
+        <span id="cl-qty" style="font-weight:800;min-width:24px;text-align:center;">1</span>
+        <button class="btn-sm" onclick="clQty(1)">＋</button>
+      </div>
+      <button class="btn-mark-paid" style="width:100%;background:#eb624a;color:#fff;padding:14px;border-radius:12px;"
+        onclick="printCustomLabelFromSheet(this)">🖨 In tem</button>
     </div>
   </div>
 </div>
@@ -662,7 +831,7 @@ function formatItemsSummary(items) {
     const mods = it.modifiers || {};
     const modParts = [];
     if (mods.size) modParts.push(mods.size);
-    if (mods.ice) modParts.push(ICE_LABEL[mods.ice] || mods.ice);
+    if (mods.ice) modParts.push(iceLabelForSku(mods.ice, it.sku));
     if (mods.sugar) modParts.push(SUGAR_LABEL[mods.sugar] || mods.sugar);
     if (mods.toppings) modParts.push(mods.toppings);
     const itemNote = it.note || mods.note || '';
@@ -736,6 +905,8 @@ const ROLE_BADGE = {
 let allOrders    = [];
 let activeFilter = 'all';
 let activeView   = 'orders';
+let numNavBucket = null;   // null = màn "Tất cả" bình thường; 1-8 = đang xem 1 bucket bàn phím
+const NUM_NAV_KEYS = ['1','2','3','4','5','6','7','8','9','0','-','='];
 let activeCat    = 'all';
 let ttsReady     = false;
 // #7: cảnh báo đơn trễ + chuông đơn mới
@@ -743,6 +914,12 @@ const OVERDUE_MIN = 10;            // đơn đang xử lý quá X phút → tô 
 let seenOrderIds  = new Set();     // id đã thấy → phát hiện đơn mới
 let firstLoad     = true;          // lần load đầu không kêu chuông
 let audioCtx      = null;          // WebAudio cho chuông đơn mới
+const KDS_ORIGINAL_TITLE = document.title; // phục hồi khi hết đơn online chưa xử lý
+// loadOrders() ở cuối file KHÔNG được await, còn setInterval(pollOrderChanges, 4000)
+// đăng ký trước đó. Lần tải đầu chậm quá 4 giây thì vòng poll chạy trước và tiêu thụ
+// mất cờ firstLoad — sau đó loadOrders() hô nguyên tồn kho trong ngày (chuông dồn +
+// banner đổ hàng loạt). Cờ này giữ đường poll im cho tới khi lần tải đầu xong hẳn.
+let initialLoadDone = false;
 
 // Backup original prices first
 MENU_DATA.forEach(item => {
@@ -770,6 +947,43 @@ let promoInterval = null;
 
 const ICE_LABEL   = { full: 'Nhiều đá', less: 'Ít đá', none: 'Không đá', blended: 'Xay' };
 const SUGAR_LABEL = { '0%':'Không ngọt','30%':'Ít ngọt','50%':'Vừa','70%':'Ngọt','100%':'Rất ngọt' };
+// none-đá gọi "Nóng" cho món pha nóng được (cà phê/trà nóng/latte/trà sữa/trà trái cây);
+// coldbrew (pha lạnh) và sữa chua (uống lạnh) giữ nguyên "Không đá" — gọi "Nóng" sẽ sai nghĩa.
+const HOT_ELIGIBLE_SUBCATS = new Set(['coffee', 'hot_drinks', 'latte', 'milk_tea', 'fruit_tea']);
+function iceLabelForSku(value, sku) {
+  if (value !== 'none') return ICE_LABEL[value] || value;
+  const m = (typeof MENU_DATA !== 'undefined') ? MENU_DATA.find(x => x.sku === sku) : null;
+  return HOT_ELIGIBLE_SUBCATS.has(m && m.subcategory) ? 'Nóng' : 'Không đá';
+}
+
+// ─── TEM LẺ (off-menu custom label) ────────────────────────────────────────
+let clState = { size: 'M', ice: '', sugar: '', qty: 1 };
+function openCustomLabelSheet() {
+  clState = { size: 'M', ice: '', sugar: '', qty: 1 };
+  document.getElementById('cl-name').value = '';
+  document.getElementById('cl-qty').textContent = '1';
+  renderClChips();
+  document.getElementById('custom-label-overlay').classList.remove('hidden');
+}
+function closeCustomLabelSheet() { document.getElementById('custom-label-overlay').classList.add('hidden'); }
+function clQty(d) { clState.qty = Math.max(1, clState.qty + d); document.getElementById('cl-qty').textContent = clState.qty; }
+function renderClChips() {
+  const chip = (val, cur, on) => `<button class="kds-chip${val === cur ? ' active' : ''}" onclick="${on}">${val || '—'}</button>`;
+  document.getElementById('cl-size').innerHTML = 'Size: ' + ['S', 'M', 'L'].map(s => chip(s, clState.size, `clSet('size','${s}')`)).join('');
+  document.getElementById('cl-ice').innerHTML = 'Đá: ' + ['', 'less', 'none'].map(v => chip(ICE_LABEL[v] || (v || 'BT'), ICE_LABEL[clState.ice] || (clState.ice || 'BT'), `clSet('ice','${v}')`)).join('');
+  document.getElementById('cl-sugar').innerHTML = 'Đường: ' + ['', '50', '30'].map(v => chip(SUGAR_LABEL[v] || (v || 'BT'), SUGAR_LABEL[clState.sugar] || (clState.sugar || 'BT'), `clSet('sugar','${v}')`)).join('');
+}
+function clSet(k, v) { clState[k] = v; renderClChips(); }
+async function printCustomLabelFromSheet(btn) {
+  const name = document.getElementById('cl-name').value.trim();
+  if (!name) { alert('Nhập tên món.'); return; }
+  btn.disabled = true;
+  const mods = { size: clState.size, ice: clState.ice, sugar: clState.sugar };
+  const r = await api().printCustomLabel(name, mods, clState.qty);
+  btn.disabled = false;
+  if (r.body && r.body.ok) { toast(r.body.printed ? 'Đã in tem.' : 'Đã gửi (chế độ thử).'); closeCustomLabelSheet(); }
+  else { alert('In tem lỗi — thử lại.'); }
+}
 
 function applyPromoPercent(active) {
   const pct = (activePromo && activePromo.percent) ? activePromo.percent : 5;
@@ -816,11 +1030,15 @@ function enableTTS() {
     }
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   } catch (e) {}
-  if (!window.speechSynthesis) { ttsReady = true; document.getElementById('tts-banner').classList.add('hidden'); return; }
+  if (!window.speechSynthesis) {
+    ttsReady = true; document.getElementById('tts-banner').classList.add('hidden');
+    updateBellOffNotice(); return;
+  }
   const u = new SpeechSynthesisUtterance(''); u.volume = 0;
   window.speechSynthesis.speak(u);
   ttsReady = true;
   document.getElementById('tts-banner').classList.add('hidden');
+  updateBellOffNotice(); // audioCtx vừa mở khoá (hoặc vẫn không mở được) — cập nhật banner "chuông câm" ngay
 }
 
 let soundMuted = localStorage.getItem('kds_sound_muted') !== '0'; // Mặc định TẮT TIẾNG theo yêu cầu
@@ -848,6 +1066,7 @@ function toggleSound() {
   if (soundMuted && window.speechSynthesis) window.speechSynthesis.cancel();
   if (!soundMuted && !ttsReady) enableTTS();
   updateSoundBtn();
+  updateBellOffNotice(); // soundMuted đổi ảnh hưởng điều kiện hiện banner "chuông câm"
 }
 
 function updateSoundBtn() {
@@ -889,8 +1108,429 @@ function speak(text) {
   window.speechSynthesis.speak(utt);
 }
 
+// Chuông "đơn online TRỄ": 3 nốt vuông gấp gáp hơn chuông đơn mới thường, để phân biệt khi cần ưu tiên.
+function playLateOrderChime() {
+  if (soundMuted) return;
+  try {
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    [660, 660, 660].forEach((freq, i) => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square'; osc.frequency.value = freq;
+      const t0 = audioCtx.currentTime + i * 0.22;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.28, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(t0); osc.stop(t0 + 0.2);
+    });
+  } catch (e) {}
+}
+
+// ─── BANNER ĐƠN ONLINE ────────────────────────────────────────────────────────
+// Đơn online tự vào bảng (print_server import từ GAS mailbox). Banner chỉ để
+// nhân viên đang đứng máy pha nhìn thấy — KHÔNG tự tắt như toast 3 giây.
+let __onlineSeen = new Set();
+let __onlineBanners = [];
+const ONLINE_FRESH_MS = 5 * 60 * 1000;
+
+// Tab nền/thu nhỏ vẫn phải hét được — đổi tiêu đề tab khi còn banner online chưa "Đã thấy".
+function updateKdsTitle() {
+  const n = __onlineBanners.length;
+  document.title = n > 0 ? `(${n}) ĐƠN MỚI · ${KDS_ORIGINAL_TITLE}` : KDS_ORIGINAL_TITLE;
+}
+
+// Sự cố 08:49: audioCtx chỉ được tạo trong enableTTS() (cần user gesture do autoplay
+// policy) — nếu tab reload mà không ai bấm banner TTS, playNewOrderChime() thoát êm re,
+// không ai biết chuông đã câm. Hàm này hiện 1 banner đỏ CỐ ĐỊNH khi: còn đơn online
+// chưa "Đã thấy" VÀ chuông thật sự không kêu được (chưa mở khoá AudioContext).
+// Không xét khi soundMuted=true — đó là nhân viên CHỦ ĐỘNG tắt tiếng (đã có nút riêng
+// báo trạng thái), khác với chuông bị autoplay chặn ngoài ý muốn.
+function updateBellOffNotice() {
+  const bellBroken = !soundMuted && __onlineBanners.length > 0 &&
+    (!audioCtx || audioCtx.state === 'suspended');
+  let el = document.getElementById('bell-off-notice');
+  if (!bellBroken) { if (el) el.classList.add('hidden'); return; }
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'bell-off-notice';
+    el.className = 'bell-off-notice';
+    el.innerHTML = '🔕 CHUÔNG CHƯA BẬT — có đơn online chờ mà máy KHÔNG kêu được' +
+      '<button onclick="enableTTS()">🔊 Bật chuông ngay</button>';
+    document.body.appendChild(el);
+  }
+  el.classList.remove('hidden');
+}
+
+// Dò đơn mới rồi báo (chuông + đọc + banner online) — dùng CHUNG cho loadOrders()
+// (mở trang / bấm "Làm mới") VÀ pollOrderChanges() (nền, mỗi 4 giây). seenOrderIds
+// là chốt chặn DUY NHẤT: đơn nào bị add vào Set trước thì đường đó báo, đường kia
+// thấy id đã có trong Set → bỏ qua, không báo trùng. `orders` phải là danh sách ĐẦY
+// ĐỦ (không phải chỉ phần thay đổi) để scanOnlineOrders quét đúng.
+function announceNewOrders(orders) {
+  const wasFirstLoad = firstLoad;
+  const fresh = orders.filter(o => !seenOrderIds.has(o.order_id));
+  orders.forEach(o => seenOrderIds.add(o.order_id));
+  if (!wasFirstLoad && fresh.length) {
+    // Đơn online có chuông RIÊNG trong scanOnlineOrders (thường vs trễ). Kêu thêm
+    // chuông chung ở đây là hai tiếng chồng lên nhau, nghe nhoè, mất luôn ý nghĩa
+    // phân biệt. Chuông chung chỉ dành cho đơn không phải online.
+    if (fresh.some(o => o.source !== 'online')) playNewOrderChime();
+    speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
+  }
+  firstLoad = false;
+  scanOnlineOrders(orders, wasFirstLoad);
+  updateBellOffNotice();
+}
+
+function scanOnlineOrders(orders, isFirstLoad) {
+  const fresh = [];
+  for (const o of orders) {
+    if (o.source !== 'online') continue;
+    if (__onlineSeen.has(o.order_id)) continue;
+    __onlineSeen.add(o.order_id);
+    if (['CANCELLED', 'VOIDED', 'DELIVERED'].includes(o.status)) continue;
+    // Lần load đầu (F5, hoặc mở KDS ở màn thứ hai): mọi đơn trong ngày đều "chưa
+    // thấy" → không chặn là banner đổ hàng loạt + chuông kêu dồn. Chỉ nhận đơn
+    // vừa vào trong 5 phút, để đơn đến đúng lúc reload không bị nuốt mất.
+    const createdAt = onlineField(o, 'created_at') || o.created_at;
+    const age = createdAt ? (Date.now() - new Date(createdAt).getTime()) : 0;
+    if (isFirstLoad && age > ONLINE_FRESH_MS) continue;
+    fresh.push(o);
+  }
+  if (!fresh.length) return;
+  __onlineBanners = [...__onlineBanners, ...fresh];
+  renderOnlineBanners();
+  if (!isFirstLoad) {
+    const late = fresh.some(o => {
+      const c = onlineField(o, 'created_at') || o.created_at;
+      return c && checkout.isLate(c, new Date().toISOString());
+    });
+    if (late) playLateOrderChime(); else playNewOrderChime();
+  }
+}
+
+function renderOnlineBanners() {
+  let host = document.getElementById('online-banners');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'online-banners';
+    document.body.appendChild(host);
+  }
+  const show = __onlineBanners.slice(0, 3);
+  const extra = __onlineBanners.length - show.length;
+  host.innerHTML = show.map(o => {
+    const noLabel = !onlineField(o, 'label_printed_at');
+    return `
+      <div class="online-banner">
+        <div class="ob-title">🛵 ĐƠN ONLINE MỚI</div>
+        <div class="ob-code">${esc(o.short_code) || '—'}</div>
+        <div class="ob-line">${esc(onlineField(o,'customer_name')) || 'Khách online'} · ${esc(onlineField(o,'customer_id')) || 'không có SĐT'}</div>
+        <div class="ob-line">${esc(formatItemsSummary(o.items || []))}</div>
+        <div class="ob-line"><strong>${fmt(o.total || 0)}</strong></div>
+        ${noLabel ? '<div class="ob-warn">⚠️ CHƯA IN TEM</div>' : ''}
+        <button class="ob-seen" onclick="dismissOnlineBanner('${esc(o.order_id)}')">Đã thấy</button>
+        ${noLabel ? `<button class="ob-print" onclick="reprintOnlineLabel('${esc(o.order_id)}', this)">🖨️ In tem</button>` : ''}
+      </div>`;
+  }).join('') + (extra > 0
+    ? `<div class="online-banner ob-more">+${extra} đơn nữa</div>` : '');
+  // Chốt chặn duy nhất cho title tab + banner "chuông câm" — mọi đường thêm/bớt
+  // banner (scanOnlineOrders, dismissOnlineBanner, reject...) đều đi qua render này.
+  updateKdsTitle();
+  updateBellOffNotice();
+}
+
+function dismissOnlineBanner(orderId) {
+  __onlineBanners = __onlineBanners.filter(o => o.order_id !== orderId);
+  renderOnlineBanners();
+}
+
+async function reprintOnlineLabel(orderId, btn) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  btn.disabled = true; btn.textContent = 'Đang in...';
+  try {
+    // Route /enqueue/labels đọc đơn từ khóa lồng "order" (order.get("order")),
+    // rồi tự suy cups từ order.items — gửi phẳng thì server thấy order rỗng,
+    // enqueue 0 tem mà vẫn trả ok:true (xem print_server.py enqueue_labels_route).
+    const r = await api().reprintLabels({
+      order: {
+        order_id: o.order_id, items: o.items || [],
+        metadata: { short_code: o.short_code, delivery_type: o.delivery_type },
+      },
+    });
+    // ok:true không đủ — enqueued:0 nghĩa là không có tem nào được xếp hàng in,
+    // phải coi là thất bại và cho bấm lại.
+    const enqueued = r.status === 200 && r.body && r.body.ok ? (r.body.enqueued || 0) : 0;
+    if (enqueued > 0) {
+      btn.textContent = '✅ Đã gửi máy in';
+    } else {
+      btn.textContent = '❌ Lỗi — bấm lại';
+      btn.disabled = false;
+    }
+  } catch (_) {
+    btn.textContent = '❌ Lỗi — bấm lại'; btn.disabled = false;
+  }
+}
+
+// Spec §4.5: 3 nút nhanh, KHÔNG dùng prompt(). KDS chạy màn cảm ứng ở quầy —
+// gõ số vào hộp thoại hệ điều hành là chậm và dễ bấm nhầm.
+const REJECT_CHOICES = [
+  { reason: 'out_of_stock', label: 'Hết món' },
+  { reason: 'after_hours',  label: 'Ngoài giờ' },
+  { reason: 'fake',         label: 'Đơn ảo' },
+];
+
+// SĐT online có thể mất số 0 đầu (Sheets ép "0343726787" thành số 343726787).
+// Chỉ chuẩn hoá để hiển thị/tel: — không đoán thêm biến đổi nào khác.
+function normalizePhoneDisplay(raw) {
+  const digits = String(raw == null ? '' : raw).replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 9 && !digits.startsWith('0')) return '0' + digits;
+  return digits;
+}
+
+function openRejectSheet(orderId) {
+  let el = document.getElementById('reject-sheet-container');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reject-sheet-container';
+    document.body.appendChild(el);
+  }
+  // Đơn online mới bị chặn ở KDS trước khi nhân viên kịp gọi khách hôm nay —
+  // bắt buộc thấy tên+SĐT TRƯỚC khi bấm lý do, để nhớ có người thật đang chờ.
+  const o = allOrders.find(x => x.order_id === orderId);
+  const custName = (o && onlineField(o, 'customer_name')) || 'Khách online';
+  const phone = normalizePhoneDisplay(o ? onlineField(o, 'customer_id') : '');
+  const customerBlock = phone
+    ? `<div style="padding:0 16px 12px; font-size:0.95rem;">
+         <div>👤 ${esc(custName)}</div>
+         <div style="margin-top:4px;">📞 <a href="tel:${esc(phone)}" style="font-weight:800; color:#B71C1C; font-size:1.1rem;">${esc(phone)}</a></div>
+       </div>`
+    : `<div style="padding:0 16px 12px; font-size:0.95rem;">
+         <div>👤 ${esc(custName)}</div>
+         <div style="margin-top:4px; color:#B71C1C; font-weight:700;">⚠️ Không có số điện thoại</div>
+       </div>`;
+  el.innerHTML = `
+    <div class="overlay-bg" id="reject-overlay" onclick="closeRejectSheet(event)">
+      <div class="bottom-sheet" style="max-width:420px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">✕ Từ chối đơn ${esc(orderId)}</div>
+          <button class="btn-close" onclick="closeRejectSheet()">✕</button>
+        </div>
+        ${customerBlock}
+        <div style="padding:14px 16px; display:flex; flex-direction:column; gap:10px;" id="reject-sheet-btns">
+          ${REJECT_CHOICES.map(c => `
+            <button class="btn-mark-paid reject-choice-btn" style="background:#B71C1C;color:#fff;padding:14px;font-size:1.05rem;"
+                    onclick="rejectOnlineOrder('${esc(orderId)}','${c.reason}',this)">${c.label}</button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function closeRejectSheet(e) {
+  if (e && e.target && e.target.id !== 'reject-overlay') return;
+  const el = document.getElementById('reject-sheet-container');
+  if (el) el.innerHTML = '';
+}
+
+async function rejectOnlineOrder(orderId, reason, btn) {
+  // Khoá HẾT nút trong sheet ngay khi bấm 1 nút — không chỉ nút vừa bấm.
+  // Nếu chỉ khoá 1 nút, tay nhanh có thể bấm nút lý do thứ 2 trước khi request
+  // đầu resolve, bắn 2 request reject cùng lúc; response thứ 2 có thể báo lỗi
+  // giả đè lên 1 lần từ chối đã thành công, khiến nhân viên không biết đơn đã
+  // bị huỷ hay chưa.
+  const sheetBtns = document.querySelectorAll('#reject-sheet-btns .reject-choice-btn');
+  sheetBtns.forEach(b => b.disabled = true);
+  if (btn) { btn.textContent = 'Đang huỷ...'; }
+  try {
+    const r = await api().rejectOrder(orderId, reason);
+    if (r.status === 200 && r.body && r.body.ok) {
+      // Lấy tên/SĐT TRƯỚC khi đóng sheet — closeRejectSheet xoá DOM chứa chúng.
+      const o = allOrders.find(x => x.order_id === orderId);
+      const custName = (o && onlineField(o, 'customer_name')) || 'Khách online';
+      const phone = normalizePhoneDisplay(o ? onlineField(o, 'customer_id') : '');
+      const reasonLabel = (REJECT_CHOICES.find(c => c.reason === reason) || {}).label || reason;
+      closeRejectSheet();
+      dismissOnlineBanner(orderId);
+      if (o) o.status = 'CANCELLED';
+      setLocalOverride(orderId, { status: 'CANCELLED' });
+      renderOrders();
+      showRejectDonePanel(orderId, reasonLabel, custName, phone);
+    } else {
+      alert('Không từ chối được: ' + ((r.body && r.body.error) || 'mất kết nối'));
+      sheetBtns.forEach(b => b.disabled = false);
+      if (btn) { btn.textContent = 'Thử lại'; }
+    }
+  } catch (err) {
+    alert('Không từ chối được: ' + ((err && err.message) || 'mất kết nối'));
+    sheetBtns.forEach(b => b.disabled = false);
+    if (btn) { btn.textContent = 'Thử lại'; }
+  }
+}
+
+// Panel sau khi từ chối — KHÔNG tự biến mất như toast cũ. Nhân viên phải bấm
+// "Đã gọi khách xong" mới đóng, để không lỡ quên gọi báo khách đơn bị từ chối.
+function showRejectDonePanel(orderId, reasonLabel, custName, phone) {
+  let el = document.getElementById('reject-done-container');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'reject-done-container';
+    document.body.appendChild(el);
+  }
+  const contactBlock = phone
+    ? `<a href="tel:${esc(phone)}" style="display:block; text-align:center; font-size:1.5rem;
+         font-weight:800; color:#fff; background:#2e7d32; padding:16px; border-radius:12px;
+         text-decoration:none; margin:14px 0;">📞 Gọi ${esc(phone)}</a>`
+    : `<div style="text-align:center; font-weight:700; color:#B71C1C; padding:14px; margin:14px 0;
+         border:1px solid #B71C1C; border-radius:12px;">
+         Đơn này không có số điện thoại — không liên hệ được</div>`;
+  el.innerHTML = `
+    <div class="overlay-bg" id="reject-done-overlay">
+      <div class="bottom-sheet" style="max-width:420px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">✕ Đã từ chối đơn ${esc(orderId)}</div>
+        </div>
+        <div style="padding:0 16px 16px;">
+          <div>Lý do: <strong>${esc(reasonLabel)}</strong></div>
+          <div style="margin-top:6px;">👤 ${esc(custName)}</div>
+          ${contactBlock}
+          <button class="btn-mark-paid" style="width:100%; padding:14px; font-size:1.05rem;"
+                  onclick="closeRejectDonePanel()">Đã gọi khách xong</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function closeRejectDonePanel() {
+  const el = document.getElementById('reject-done-container');
+  if (el) el.innerHTML = '';
+}
+
+// ─── CLOUD + PRINTER STATUS BADGES ─────────────────────────────────────────────
+async function pollCloud() {
+  let r;
+  try { r = await api().cloudStatus(); } catch (_) { setCloudBadge(null); return; }
+  setCloudBadge(r.status === 200 && r.body && r.body.ok ? r.body.online : null);
+}
+
+function setCloudBadge(online) {
+  const el = document.getElementById('cloud-badge');
+  if (!el) return;
+  if (online === true)  { el.textContent = '🟢 Online';           el.title = 'Cloud (GAS) đang kết nối'; }
+  else if (online === false) { el.textContent = '🟡 Offline (local)'; el.title = 'Mất kết nối cloud — vẫn thu ngân/in tem local bình thường'; }
+  else { el.textContent = '🟡 —'; el.title = 'Chưa rõ trạng thái cloud'; }
+}
+
+async function pollPrinters() {
+  let r;
+  try { r = await api().health(); } catch (_) { setPrinterBadge(null); return; }
+  setPrinterBadge(r.status === 200 ? r.body : null);
+}
+
+function setPrinterBadge(body) {
+  const el = document.getElementById('printer-badge');
+  if (!el) return;
+  const printers = body && body.printers;
+  if (!printers) { el.textContent = '🔴'; el.title = 'Không rõ trạng thái máy in'; return; }
+  const labelOk   = !!(printers.label   && printers.label.online);
+  const receiptOk = !!(printers.receipt && printers.receipt.online);
+  if (labelOk && receiptOk) {
+    el.textContent = '🟢'; el.title = 'Máy in tem + hoá đơn OK';
+  } else {
+    const down = [];
+    if (!labelOk) down.push('tem');
+    if (!receiptOk) down.push('hoá đơn');
+    // Cảnh báo MỀM — KHÔNG khoá nút in/thanh toán, chỉ nhắc nhân viên kiểm tra máy in.
+    el.textContent = '🔴'; el.title = 'Máy in ' + down.join(' + ') + ' mất kết nối — vẫn cho phép in/thanh toán, kiểm tra máy in.';
+  }
+}
+setInterval(pollCloud, 15000);
+setInterval(pollPrinters, 30000);
+
+// ─── PRINT ISSUES BANNER (in hỏng thật + nhân viên báo tem không ra) ──────────
+let printIssuesOpen = [];
+
+async function pollPrintIssues() {
+  let r;
+  try { r = await api().printIssues(); } catch (_) { return; }
+  if (r.status === 200 && r.body && r.body.ok) {
+    printIssuesOpen = r.body.issues || [];
+    renderIssueBanner();
+  }
+}
+
+function renderIssueBanner() {
+  const bEl = document.getElementById('issue-banner');
+  const lEl = document.getElementById('issue-list');
+  if (!bEl || !lEl) return;
+  if (!printIssuesOpen.length) {
+    bEl.classList.add('hidden');
+    lEl.classList.add('hidden');
+    lEl.innerHTML = '';
+    return;
+  }
+  bEl.classList.remove('hidden');
+  bEl.textContent = `⚠️ ${printIssuesOpen.length} vấn đề in cần xử lý — bấm để xem`;
+  lEl.innerHTML = printIssuesOpen.map(is => `
+    <div class="issue-row">
+      <div>#${esc(is.order_id)} · ${is.kind === 'label' ? 'tem' : 'hoá đơn'}${is.issue_type === 'auto_failed' ? ' (lỗi in thật)' : ' (nhân viên báo)'} · ${esc(is.note || '')}</div>
+      <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+        ${is.kind === 'label' ? `<button class="btn-sm" onclick="reprintIssue(${is.id}, '${esc(is.order_id)}', '${is.kind}', ${is.cup_index == null ? 'null' : is.cup_index})">🏷️ In lại</button>` : `<span style="font-size:0.72rem; color:var(--muted);">in lại bằng nút Bill/Đơn bếp trên thẻ đơn</span>`}
+        <button class="btn-sm" onclick="resolveIssueOnly(${is.id})">✓ Đã xử lý</button>
+      </div>
+    </div>`).join('');
+}
+
+function toggleIssueBanner() {
+  const lEl = document.getElementById('issue-list');
+  if (lEl) lEl.classList.toggle('hidden');
+}
+
+async function resolveIssueOnly(id) {
+  await api().resolvePrintIssue(id);
+  pollPrintIssues();
+}
+
+async function reprintIssue(id, orderId, kind, cupIndex) {
+  // Chỉ gọi cho kind === 'label' — banner không còn nút "In lại" cho kind === 'receipt'
+  // vì printer='receipt' dùng chung cho bill/đơn bếp/phiếu huỷ, không phân biệt được (xem Fix 1).
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) { toast('Đơn không còn trong danh sách hôm nay — không thể in lại.'); return; }
+  const itemsList = cupItemsOf(o);
+  if (cupIndex != null && itemsList[cupIndex - 1]) {
+    await reprintCupLabelExecute(orderId, cupIndex - 1, null);
+  } else {
+    for (let i = 0; i < itemsList.length; i++) await reprintCupLabelExecute(orderId, i, null);
+  }
+  await api().resolvePrintIssue(id);
+  pollPrintIssues();
+}
+
+function flagPrintIssuePrompt(orderId) {
+  if (!confirm('Xác nhận: tem đơn này không ra dù đã gửi lệnh in?')) return;
+  api().flagPrintIssue(orderId, 'Nhân viên báo tem không ra').then(r => {
+    if (r.status === 200 && r.body && r.body.ok) {
+      toast('Đã báo quản lý — sẽ hiện trên banner.');
+      pollPrintIssues();
+    } else {
+      alert('Không báo được cho quản lý — thử lại.');
+    }
+  }).catch(() => {
+    alert('Không báo được cho quản lý — thử lại.');
+  });
+}
+
+setInterval(pollPrintIssues, 15000);
+
 // ─── VIEW SWITCH ─────────────────────────────────────────────────────────────
 function switchView(v) {
+  if (activeView === 'menu' && v !== 'menu' && numNavBucket) {
+    numNavBucket = null;
+    const pills = document.getElementById('cat-pills');
+    if (pills) pills.classList.remove('hidden');
+  }
   activeView = v;
   document.getElementById('view-orders').classList.toggle('hidden', v !== 'orders');
   document.getElementById('view-menu').classList.toggle('hidden',   v !== 'menu');
@@ -1043,6 +1683,8 @@ function setFilter(f, btn) {
   renderOrders();
 }
 
+const TABLE_COUNT = 20;   // số bàn của quán — đổi số này là đổi cả sơ đồ bàn, chip lọc, lưới gọi món
+
 function renderTableFilterPills() {
   const bar = document.getElementById('table-filter-bar');
   if (!bar) return;
@@ -1050,7 +1692,7 @@ function renderTableFilterPills() {
   const items = [
     { id: 'all', label: 'Tất cả vị trí' },
     { id: 'pickup', label: '🥡 Mang đi' },
-    ...Array.from({ length: 17 }, (_, i) => {
+    ...Array.from({ length: TABLE_COUNT }, (_, i) => {
       const num = String(i + 1).padStart(2, '0');
       return { id: `TABLE_${num}`, label: `🪑 Bàn ${num}` };
     })
@@ -1090,9 +1732,10 @@ function applyFilter(orders) {
 function renderTableSummaryBar() {
   const tableMap = new Map();
   allOrders.forEach(o => {
-    if (o.status === 'CANCELLED') return;
-    const isUnpaidOrActive = o.payment_status !== 'PAID' || ['NEW','CONFIRMED','MAKING','READY','DELIVERING'].includes(o.status);
-    if (!isUnpaidOrActive) return;
+    if (['CANCELLED', 'VOIDED', 'SPLIT', 'DELIVERED'].includes(o.status)) return;
+    // Đơn đã thanh toán KHÔNG cộng vào thanh thanh toán bàn (đồng bộ với sơ đồ bàn) —
+    // thanh này chỉ gom tiền CÒN PHẢI THU của bàn.
+    if (isCheckoutOrderPaid(o)) return;
     const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
     if (dt !== 'dine_in' || !o.table_id) return;
     const tid = String(o.table_id).trim();
@@ -1115,7 +1758,7 @@ function renderTableSummaryBar() {
     const count = orders.length;
     const isFocused = (activeTableFilter && activeTableFilter.toUpperCase() === tid.toUpperCase());
     const bgStyle = isFocused ? 'background:#2ec4b6; border:2px solid #fff; transform:scale(1.04); font-weight:800;' : 'background: var(--teal);';
-    html += `<button class="btn-mark-paid" style="${bgStyle} color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s;" onclick="finishTableGroup('${esc(tid)}', this)">
+    html += `<button class="btn-mark-paid" style="${bgStyle} color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s;" onclick="openCheckoutTable('${esc(tid)}')">
       💳 Thanh toán Bàn ${esc(tableNum)} (${count} đơn · ${fmt(totalSum)})
     </button>`;
   });
@@ -1258,18 +1901,20 @@ async function reprintBill(orderId) {
     setLocalOverride(orderId, { payment_status: 'PAID' });
     renderOrders();
 
+    // Đánh PAID nhưng KHÔNG in (skip_receipt) — bill sẽ in ở lệnh force bên dưới,
+    // tránh in 2 tờ. force=true + tag=bill => reprint lặp được nhiều lần.
     try {
       fetch(`${GATEWAY_URL}/order/mark_paid`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order_id: orderId, order: o })
+        body: JSON.stringify({ order_id: orderId, order: o, skip_receipt: true })
       });
     } catch (_) {}
 
     await fetch(`${GATEWAY_URL}/enqueue/receipt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order: payload, is_cash: true })
+      body: JSON.stringify({ order: payload, is_cash: true, tag: 'bill', force: true })
     });
     alert('Đã gửi lệnh in bill & cập nhật trạng thái Đã Thanh Toán cho đơn ' + (o.short_code || orderId));
   } catch (err) {
@@ -1277,109 +1922,280 @@ async function reprintBill(orderId) {
   }
 }
 
-async function reprintCupLabelPrompt(orderId) {
+async function reprintPrepTicket(orderId) {
+  // In lại PHIẾU PHA CHẾ (đơn bếp, không giá) — dùng khi thay giấy / kẹt giấy.
+  // force=true để in lại được nhiều lần; tag=prep giữ đúng bản không tổng tiền.
   const o = allOrders.find(x => x.order_id === orderId);
   if (!o) return;
-  let itemsList = [];
-  if (Array.isArray(o.items)) itemsList = o.items;
-  else if (typeof o.items_json === 'string') {
-    try { itemsList = JSON.parse(o.items_json); } catch(_) {}
+  try {
+    const payload = JSON.parse(JSON.stringify(o));
+    payload.is_reprint = true;
+    await fetch(`${GATEWAY_URL}/enqueue/receipt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: payload, is_cash: false, tag: 'prep', force: true })
+    });
+    alert('Đã gửi in lại PHIẾU PHA CHẾ (đơn bếp) cho ' + (o.short_code || orderId));
+  } catch (err) {
+    alert('Không gửi được lệnh in đơn bếp.');
   }
-  if (!itemsList.length) {
-    alert('Đơn hàng không có danh sách ly để in lại.');
-    return;
-  }
+}
 
-  const cupOptions = itemsList.map((it, idx) => `${idx + 1}. ${it.name}`).join('\n');
-  const choice = prompt(`Chọn số thứ tự ly muốn in lại tem:\n${cupOptions}`, '1');
-  if (!choice) return;
-  const idx = parseInt(choice, 10) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= itemsList.length) {
-    alert('Số thứ tự không hợp lệ.');
-    return;
-  }
+function cupItemsOf(o) {
+  if (Array.isArray(o.items)) return o.items;
+  if (typeof o.items_json === 'string') { try { return JSON.parse(o.items_json); } catch(_) {} }
+  return [];
+}
 
+// ─── In lại tem ly (tap-chọn thay vì gõ số) ────────────────────────────────
+function reprintCupLabelPrompt(orderId) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  const itemsList = cupItemsOf(o);
+  if (!itemsList.length) { alert('Đơn hàng không có danh sách ly để in lại.'); return; }
+  const html = `
+    <div class="overlay-bg" id="cupreprint-overlay" onclick="closeCupReprintOverlay(event)">
+      <div class="bottom-sheet" style="max-width:480px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">↻ In lại tem — Đơn #${esc(o.short_code || o.order_id)}</div>
+          <button class="btn-close" onclick="closeCupReprintOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:8px;">
+          ${itemsList.map((it, idx) => `
+            <button class="btn-sm" style="padding:12px 14px; text-align:left; display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:10px;" onclick="reprintCupLabelExecute('${esc(orderId)}', ${idx}, this)">
+              <span>${esc(it.name)}</span><span style="color:var(--gold);">🏷️ In</span>
+            </button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('cupreprint-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'cupreprint-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+function closeCupReprintOverlay(e) {
+  if (e && e.target && e.target.id !== 'cupreprint-overlay') return;
+  const el = document.getElementById('cupreprint-overlay-container');
+  if (el) el.innerHTML = '';
+}
+async function reprintCupLabelExecute(orderId, idx, btn) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  const itemsList = cupItemsOf(o);
   const selectedItem = itemsList[idx];
+  if (!selectedItem) return;
+  if (btn) btn.disabled = true;
   try {
     await fetch(`${GATEWAY_URL}/enqueue/single_label`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        order: o,
-        cup_item: selectedItem,
-        cup_index: idx + 1,
-        total_cups: itemsList.length
-      })
+      body: JSON.stringify({ order: o, cup_item: selectedItem, cup_index: idx + 1, total_cups: itemsList.length })
     });
-    alert(`Đã gửi lệnh in lại tem ly "${selectedItem.name}"`);
+    closeCupReprintOverlay();
+    toast(`Đã gửi lệnh in lại tem "${selectedItem.name}"`);
   } catch (err) {
     alert('Không gửi được lệnh in tem.');
+    if (btn) btn.disabled = false;
   }
 }
 
-async function transferTablePrompt(fromTableId) {
+// ─── Chuyển bàn (tap-chọn số bàn thay vì gõ tay) ───────────────────────────
+function transferTablePrompt(fromTableId) {
   const tableNum = String(fromTableId).replace(/^TABLE_/i, '');
-  const toTable = prompt(`Chuyển tất cả đơn từ Bàn ${tableNum} sang Bàn số:`, '');
-  if (!toTable) return;
-  const cleanToTable = toTable.trim();
-  if (!cleanToTable) return;
-  const targetTbl = 'TABLE_' + cleanToTable.padStart(2, '0');
-
+  const html = `
+    <div class="overlay-bg" id="transfer-overlay" onclick="closeTransferOverlay(event)">
+      <div class="bottom-sheet" style="max-width:520px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">🔄 Chuyển Bàn ${esc(tableNum)} sang bàn số...</div>
+          <button class="btn-close" onclick="closeTransferOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:grid; grid-template-columns:repeat(5,1fr); gap:8px;">
+          ${Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')).filter(n => n !== tableNum).map(n => `
+            <button class="btn-sm" style="padding:12px 4px; text-align:center;" onclick="executeTransferTable('${esc(fromTableId)}','${n}')">Bàn ${n}</button>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('transfer-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'transfer-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+function closeTransferOverlay(e) {
+  if (e && e.target && e.target.id !== 'transfer-overlay') return;
+  const el = document.getElementById('transfer-overlay-container');
+  if (el) el.innerHTML = '';
+}
+async function executeTransferTable(fromTableId, toNum) {
+  const targetTbl = 'TABLE_' + toNum;
+  closeTransferOverlay();
   try {
     allOrders.forEach(o => {
-      if (String(o.table_id).trim() === String(fromTableId).trim()) {
-        o.table_id = targetTbl;
-      }
+      if (String(o.table_id).trim() === String(fromTableId).trim()) o.table_id = targetTbl;
     });
     renderOrders();
-
     await fetch(`${GAS_URL}?action=transfer_table&from_table=${encodeURIComponent(fromTableId)}&to_table=${encodeURIComponent(targetTbl)}${TQ}`);
-    alert(`Đã chuyển Bàn ${tableNum} sang Bàn ${cleanToTable}`);
+    toast(`Đã chuyển sang Bàn ${toNum}`);
   } catch (err) {
     alert('Lỗi chuyển bàn: ' + (err.message || 'Chưa đồng bộ được'));
   }
 }
 
-async function cancelItemPrompt(orderId) {
+// ─── Hủy món (tap-chọn NHIỀU món cùng lúc, lý do dạng chip, PIN xác nhận) ──
+const CANCEL_REASONS = ['Khách đổi ý', 'Gọi nhầm món', 'Pha nhầm', 'Hết nguyên liệu', 'Khác'];
+let pendingCancel = null;
+
+function cancelItemPrompt(orderId) {
   const o = allOrders.find(x => x.order_id === orderId);
   if (!o) return;
-  let itemsList = [];
-  if (Array.isArray(o.items)) itemsList = o.items;
-  else if (typeof o.items_json === 'string') {
-    try { itemsList = JSON.parse(o.items_json); } catch(_) {}
-  }
-  if (!itemsList.length) {
-    alert('Đơn hàng không có món để hủy.');
-    return;
-  }
-
-  const options = itemsList.map((it, idx) => `${idx + 1}. ${it.name} (${fmt(it.price)})`).join('\n');
-  const choice = prompt(`Chọn món muốn HỦY trong đơn ${o.short_code || orderId}:\n${options}`, '1');
-  if (!choice) return;
-  const idx = parseInt(choice, 10) - 1;
-  if (isNaN(idx) || idx < 0 || idx >= itemsList.length) {
-    alert('Số món không hợp lệ.');
-    return;
-  }
-
-  const reason = prompt(`Lý do hủy món "${itemsList[idx].name}":`, 'Khách báo hủy');
-  if (reason === null) return;
-
-  const pin = verifyManagerPin();
-  if (!pin) return;
-
+  const itemsList = cupItemsOf(o);
+  if (!itemsList.length) { alert('Đơn hàng không có món để hủy.'); return; }
+  // qty = {chỉ số dòng: số ly hủy}. Dòng 2 ly hủy 1 ly là hợp lệ.
+  pendingCancel = { orderId, qty: {} };
+  renderCancelStep1();
+}
+function cancelTotalCups() {
+  return Object.keys(pendingCancel.qty).reduce((s, k) => s + (pendingCancel.qty[k] || 0), 0);
+}
+// Tên kèm số ly bị hủy, dùng cho bước lý do + toast: "Trà sữa ×2"
+function cancelledNamesOf(itemsList) {
+  return Object.keys(pendingCancel.qty)
+    .map(Number).sort((a, b) => a - b)
+    .filter(i => itemsList[i] && pendingCancel.qty[i] > 0)
+    .map(i => `${itemsList[i].name} ×${pendingCancel.qty[i]}`);
+}
+function renderCancelStep1() {
+  const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
+  if (!o) { closeCancelOverlay(); return; }
+  const itemsList = cupItemsOf(o);
+  const n = cancelTotalCups();
+  const html = `
+    <div class="overlay-bg" id="cancel-overlay" onclick="closeCancelOverlay(event)">
+      <div class="bottom-sheet" style="max-width:480px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">❌ Hủy món — Đơn #${esc(o.short_code || o.order_id)}</div>
+          <button class="btn-close" onclick="closeCancelOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:8px;">
+          ${itemsList.map((it, idx) => {
+            const max  = Number(it.qty) || 1;
+            const pick = pendingCancel.qty[idx] || 0;
+            const on   = pick > 0;
+            return `
+            <div style="padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:${on ? 'rgba(239,83,80,0.18)' : 'rgba(255,255,255,0.05)'}; border:1px solid ${on ? '#ef5350' : 'var(--border)'}; border-radius:10px; cursor:pointer;" onclick="toggleCancelItem(${idx})">
+              <div style="flex:1; text-align:left;">
+                <div>${on ? '☑' : '☐'} ${esc(it.name)}${max > 1 ? ` <span style="color:var(--muted);">(${max} ly)</span>` : ''}</div>
+                <div style="font-size:.75rem; color:var(--muted);">${fmt(it.price)}${on ? ` · hủy ${pick}/${max}` : ''}</div>
+              </div>
+              ${max > 1 ? `
+              <div class="stepper" onclick="event.stopPropagation()">
+                <button class="step-btn" onclick="setCancelQty(${idx}, ${pick - 1})" ${pick <= 0 ? 'disabled' : ''}>−</button>
+                <span class="qty-val">${pick}</span>
+                <button class="step-btn" onclick="setCancelQty(${idx}, ${pick + 1})" ${pick >= max ? 'disabled' : ''}>+</button>
+              </div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="padding:0 16px 16px;">
+          <button class="btn-submit-order" style="width:100%; background:#ef5350;" ${n === 0 ? 'disabled' : ''} onclick="renderCancelStep2()">❌ Hủy ${n} ly đã chọn</button>
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('cancel-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'cancel-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+function cancelLineMax(idx) {
+  const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
+  const it = o ? cupItemsOf(o)[idx] : null;
+  return it ? (Number(it.qty) || 1) : 0;
+}
+function setCancelQty(idx, v) {
+  const n = Math.min(Math.max(v, 0), cancelLineMax(idx));
+  if (n <= 0) delete pendingCancel.qty[idx]; else pendingCancel.qty[idx] = n;
+  renderCancelStep1();
+}
+// Tap thân dòng = chọn/bỏ cả dòng (dòng 1 ly giữ nguyên thao tác cũ).
+function toggleCancelItem(idx) {
+  setCancelQty(idx, pendingCancel.qty[idx] ? 0 : cancelLineMax(idx));
+}
+function renderCancelStep2() {
+  if (!cancelTotalCups()) return;
+  const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
+  if (!o) { closeCancelOverlay(); return; }
+  const names = cancelledNamesOf(cupItemsOf(o));
+  const html = `
+    <div class="overlay-bg" id="cancel-overlay" onclick="closeCancelOverlay(event)">
+      <div class="bottom-sheet" style="max-width:460px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">❌ Lý do hủy ${cancelTotalCups()} ly</div>
+          <button class="btn-close" onclick="closeCancelOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+          <div style="font-size:.8rem; color:var(--muted);">${names.map(esc).join(', ')}</div>
+          <div class="opt-chips" style="padding:0;">
+            ${CANCEL_REASONS.map(r => `<div class="kds-chip" onclick="selectCancelReason(this,'${esc(r)}')">${esc(r)}</div>`).join('')}
+          </div>
+          <input type="text" class="form-input" id="cancel-reason-input" placeholder="Lý do hủy...">
+          <button class="btn-submit-order" style="background:#ef5350;" onclick="executeCancelItem(event)">❌ Xác nhận Hủy (cần PIN Quản lý)</button>
+        </div>
+      </div>
+    </div>`;
+  const el = document.getElementById('cancel-overlay-container');
+  if (el) el.innerHTML = html;
+}
+function selectCancelReason(el, reason) {
+  document.querySelectorAll('#cancel-overlay .kds-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const input = document.getElementById('cancel-reason-input');
+  if (input) input.value = reason;
+}
+function closeCancelOverlay(e) {
+  if (e && e.target && e.target.id !== 'cancel-overlay') return;
+  const el = document.getElementById('cancel-overlay-container');
+  if (el) el.innerHTML = '';
+  pendingCancel = null;
+}
+async function executeCancelItem(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
   try {
-    const res = await fetch(`${GAS_URL}?action=cancel_order_item&order_id=${encodeURIComponent(orderId)}&item_index=${idx}&reason=${encodeURIComponent(reason)}&pin=${encodeURIComponent(pin)}${TQ}`);
-    const d = await res.json();
-    if (d.ok) {
-      alert(`Đã hủy món "${itemsList[idx].name}". Tổng tiền mới: ${fmt(d.new_total)}`);
-      loadOrders();
+    if (!pendingCancel || !cancelTotalCups()) return;
+    const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
+    if (!o) { toast('Đơn không còn trong danh sách — đã tải lại'); await loadOrders(); return; }
+    const reasonInput = document.getElementById('cancel-reason-input');
+    const reason = (reasonInput ? reasonInput.value : '').trim();
+    if (!reason) { alert('Vui lòng chọn hoặc nhập lý do hủy.'); return; }
+    const pin = verifyManagerPin();
+    if (!pin) return;
+    const itemsList = cupItemsOf(o);
+    const cancelledNames = cancelledNamesOf(itemsList);
+    const cancelledCups = cancelTotalCups();
+    const newItems = checkout.applyCancelQty(itemsList, pendingCancel.qty);
+    const r = await api().patchItems(o.order_id, newItems, o.version, pin, reason);
+    if (checkout.isStale(r.status)) {
+      await loadOrders();
+      toast('Đơn vừa đổi ở máy khác — đã tải lại');
+      return;
+    }
+    if (r.status === 200 && r.body.ok) {
+      Object.assign(o, r.body.order);
+      o.items_summary = formatItemsSummary(o.items);
+      setLocalOverride(o.order_id, { items: r.body.order.items, total: r.body.order.total, version: r.body.order.version });
+      closeCancelOverlay();
+      toast(`Đã hủy ${cancelledCups} ly: ${cancelledNames.join(', ')}`);
+      renderOrders();
     } else {
-      alert('Lỗi hủy món: ' + (d.error || 'Server từ chối'));
+      alert('Lỗi hủy món: ' + ((r.body && r.body.error) || 'không rõ'));
     }
   } catch (err) {
     alert('Lỗi kết nối khi hủy món.');
+  } finally {
+    if (btn) btn.disabled = false;
   }
+}
+
+// Bảng orders trong SQLite không có cột customer_id/customer_name — chúng nằm
+// trong bill_meta. GET /orders trả nguyên _row_to_dict, không qua mapper nào.
+function onlineField(o, key) {
+  return (o && o[key]) || (o && o.bill_meta && o.bill_meta[key]) || '';
 }
 
 function renderOrders() {
@@ -1390,6 +2206,7 @@ function renderOrders() {
     const summaryBar = renderTableSummaryBar();
     list.innerHTML = summaryBar + `<div class="empty-state"><div class="icon">🍵</div>
       ${allOrders.length ? 'Không có đơn nào khớp bộ lọc vị trí/bàn.' : 'Chưa có đơn nào hôm nay.'}</div>`;
+    if (ordersViewMode === 'map') renderFloorMap();
     return;
   }
   const summaryBar = renderTableSummaryBar();
@@ -1402,11 +2219,17 @@ function renderOrders() {
       ? '<span class="pay-badge paid">✅ Đã TT</span>'
       : '<span class="pay-badge pending">⚠️ Chờ TT</span>';
     // Tuổi đơn + cảnh báo trễ (chỉ cho đơn đang xử lý)
+    // Đơn website nhập từ local store không có created_iso (chỉ GAS gán field này) —
+    // fallback sang bill_meta.created_at (onlineField) để vẫn tính được tuổi đơn/hiển thị giờ.
+    const createdIsoAny = o.created_iso || onlineField(o, 'created_at') || null;
     const isActive  = ['NEW','CONFIRMED','MAKING','READY'].includes(o.status);
-    const ageMin    = o.created_iso ? Math.floor((Date.now() - new Date(o.created_iso).getTime()) / 60000) : null;
+    const ageMin    = createdIsoAny ? Math.floor((Date.now() - new Date(createdIsoAny).getTime()) / 60000) : null;
     const isOverdue = isActive && ageMin !== null && ageMin >= OVERDUE_MIN;
     const ageChip   = (isActive && ageMin !== null)
       ? `<span class="age-chip${isOverdue?' overdue':''}">⏱ ${ageMin}′</span>` : '';
+    const displayTime = o.timestamp || (onlineField(o, 'created_at')
+      ? new Date(onlineField(o, 'created_at')).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})
+      : '');
     const isPaid2 = o.payment_status === 'PAID';
     const acts = actionButtons(o);
     // Nút thanh toán riêng CHỈ khi chưa PAID và KHÔNG phải [Xong]-cash-flow (dine_in/pickup đã gộp vào Xong).
@@ -1414,10 +2237,15 @@ function renderOrders() {
     const needsSeparatePay = (dt2 === 'delivery') && !isPaid2 && o.status !== 'CANCELLED';
     const payAction = needsSeparatePay ? `
         <button class="btn-mark-paid" style="flex:1;" onclick="markPaid('${esc(o.order_id)}',${o.total},'${esc(o.short_code)}',this)">💳 Đã thanh toán</button>` : '';
-    const footer = (acts || payAction) ? `
+    // Nút Từ chối: chỉ cho đơn online chưa thanh toán và chưa kết thúc vòng đời —
+    // quán không thể vừa từ chối vừa đã ăn tiền, và đơn đã xong/huỷ thì hết ý nghĩa từ chối.
+    const rejectAction = (o.source === 'online' && o.payment_status !== 'PAID' && !['CANCELLED','VOIDED','DELIVERED'].includes(o.status))
+      ? `<button class="btn-mark-paid" style="background:#B71C1C;color:#fff;flex:0 0 auto;" onclick="openRejectSheet('${esc(o.order_id)}')">✕ Từ chối</button>` : '';
+    const footer = (acts || payAction || rejectAction) ? `
       <div class="card-footer" style="display:flex; gap:8px; flex-wrap:wrap;">
         ${acts}
         ${payAction}
+        ${rejectAction}
       </div>` : '';
     const cleanNotes = o.notes ? esc(o.notes.replace('[🎁 ĐỔI LY MIỄN PHÍ] ', '')) : '';
     const notesHtml = cleanNotes ? `<div class="card-notes" style="font-size: 0.8rem; color: var(--gold); font-style: italic; margin-top: 8px; border-top: 1px dashed rgba(245,240,232,0.08); padding-top: 6px;">📝 ${cleanNotes}</div>` : '';
@@ -1427,10 +2255,12 @@ function renderOrders() {
         <div class="card-top">
           <div class="short-code">${esc(o.short_code)||'—'}</div>
           <div class="order-meta">
-            <strong>${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong><br>
-            ${o.customer_name ? esc(o.customer_name)+' · ' : ''}${esc(o.customer_id) || 'Khách vãng lai'}<br>
+            ${o.table_id
+              ? `<strong style="cursor:pointer; text-decoration:underline dotted;" title="Mở thanh toán bàn" onclick="openCheckoutTable('${esc(o.table_id)}')">${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong>`
+              : `<strong>${esc(deliveryLabel(o.delivery_type, o.table_id))}</strong>`}<br>
+            ${onlineField(o,'customer_name') ? esc(onlineField(o,'customer_name'))+' · ' : ''}${esc(onlineField(o,'customer_id')) || 'Khách vãng lai'}<br>
             ${o.customer_stamps ? `<span style="color: var(--gold); font-weight: bold; font-size: 0.72rem;">${esc(o.customer_stamps)}</span><br>` : ''}
-            ${esc(o.timestamp)} ${ageChip}<span class="status-chip s-${esc(o.status)}">${esc(statusVi(o.status))}</span>
+            ${esc(displayTime)} ${ageChip}<span class="status-chip s-${esc(o.status)}">${esc(statusVi(o.status))}</span>
           </div>
         </div>
         <div class="card-body">
@@ -1438,8 +2268,10 @@ function renderOrders() {
           ${notesHtml}
           <div style="display:flex; gap:6px; margin-top:8px; border-top:1px dashed var(--border); padding-top:6px; flex-wrap:wrap;">
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại bill" onclick="reprintBill('${esc(o.order_id)}')">🖨️ Bill</button>
-            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại tem ly lẻ" onclick="reprintCupLabelPrompt('${esc(o.order_id)}')">🏷️ Tem lẻ</button>
-            ${o.table_id ? `<button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="Chuyển bàn" onclick="transferTablePrompt('${esc(o.table_id)}')">🔄 Bàn</button>` : ''}
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại phiếu pha chế (đơn bếp)" onclick="reprintPrepTicket('${esc(o.order_id)}')">🧾 Đơn bếp</button>
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="In lại tem ly" onclick="reprintCupLabelPrompt('${esc(o.order_id)}')">↻ In lại tem</button>
+            <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#ef5350;" title="Báo tem không ra dù đã gửi lệnh in" onclick="flagPrintIssuePrompt('${esc(o.order_id)}')">⚠️ Tem không ra</button>
+            ${o.table_id ?`<button class="btn-sm" style="padding:3px 8px; font-size:0.72rem;" title="Chuyển bàn" onclick="transferTablePrompt('${esc(o.table_id)}')">🔄 Bàn</button>` : ''}
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#2ec4b6;" title="Đổi món" onclick="swapItemPrompt('${esc(o.order_id)}')">🔀 Đổi món</button>
             <button class="btn-sm" style="padding:3px 8px; font-size:0.72rem; color:#ef5350;" title="Hủy món" onclick="cancelItemPrompt('${esc(o.order_id)}')">❌ Hủy món</button>
           </div>
@@ -1454,6 +2286,145 @@ function renderOrders() {
         ${footer}
       </div>`;
   }).join('');
+  if (ordersViewMode === 'map') renderFloorMap();
+  if (ordersViewMode === 'cashier') renderCashier();
+}
+
+// ─── FLOOR MAP (sơ đồ bàn — iPOS style) ────────────────────────────────────
+let ordersViewMode = 'list';
+
+function setOrdersMode(m) {
+  ordersViewMode = m;
+  document.getElementById('mode-list').classList.toggle('active', m === 'list');
+  document.getElementById('mode-map').classList.toggle('active', m === 'map');
+  document.getElementById('mode-cashier').classList.toggle('active', m === 'cashier');
+  document.getElementById('orders-list').classList.toggle('hidden', m !== 'list');
+  document.getElementById('table-filter-bar').classList.toggle('hidden', m !== 'list');
+  document.getElementById('floor-map').classList.toggle('hidden', m !== 'map');
+  document.getElementById('cashier-view').classList.toggle('hidden', m !== 'cashier');
+  if (m === 'map') renderFloorMap();
+  if (m === 'cashier') renderCashier();
+}
+
+// ─── CASHIER MODE (Thu ngân) ────────────────────────────────────────────────
+function cashierUnpaid() {
+  const EX = ['CANCELLED', 'VOIDED', 'SPLIT', 'DELIVERED'];
+  const owe = allOrders.filter(o => !EX.includes(o.status) && !isCheckoutOrderPaid(o));
+  // gom theo bàn (dine_in) hoặc từng đơn (pickup)
+  const groups = new Map();
+  owe.forEach(o => {
+    const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
+    const key = (dt === 'dine_in' && o.table_id) ? 'T:' + String(o.table_id).trim() : 'O:' + o.order_id;
+    if (!groups.has(key)) groups.set(key, { key, dt, tableId: o.table_id, orders: [] });
+    groups.get(key).orders.push(o);
+  });
+  return [...groups.values()].map(g => ({
+    ...g,
+    total: g.orders.reduce((s, o) => s + (Number(o.total) || 0), 0),
+    count: g.orders.length,
+    firstAt: g.orders.reduce((m, o) => (o.created_at && (!m || o.created_at < m)) ? o.created_at : m, ''),
+  })).sort((a, b) => (a.firstAt || '').localeCompare(b.firstAt || ''));
+}
+
+function renderCashier() {
+  const el = document.getElementById('cashier-view');
+  const rows = cashierUnpaid();
+  const nDone = allOrders.filter(o => isCheckoutOrderPaid(o) &&
+    !['DELIVERED', 'CANCELLED', 'VOIDED', 'SPLIT'].includes(o.status)).length;
+  const closeBtn = `<button class="btn-mark-paid" style="background:#3f7d4a;color:#fff;padding:10px 16px;border-radius:10px;margin-bottom:12px;"
+      onclick="batchCloseDelivered()">✅ Xong hết đơn đã giao${nDone ? ' (' + nDone + ')' : ''}</button>`;
+  if (!rows.length) {
+    el.innerHTML = closeBtn + '<div class="empty-state"><div class="icon">💰</div>Không có bàn/đơn nào còn nợ tiền.</div>';
+    return;
+  }
+  el.innerHTML = closeBtn + rows.map(g => {
+    const label = (g.dt === 'dine_in' && g.tableId)
+      ? '🪑 Bàn ' + String(g.tableId).replace(/\D/g, '')
+      : '🥡 ' + esc(g.orders[0].short_code || g.orders[0].order_id);
+    const onclick = (g.dt === 'dine_in' && g.tableId)
+      ? `openCheckoutTable('${esc(g.tableId)}')`
+      : `openCheckout('${esc(g.orders[0].order_id)}')`;
+    return `<div class="cashier-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;
+        background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+        <div><div style="font-weight:800;font-size:1.05rem;color:var(--cream);">${label}</div>
+          <div style="color:var(--muted);font-size:.85rem;">${g.count} đơn</div></div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-weight:800;font-size:1.15rem;color:var(--cream);">${fmt(g.total)}</div>
+          <button class="btn-mark-paid" style="background:#eb624a;color:#fff;padding:10px 18px;border-radius:10px;"
+            onclick="${onclick}">💰 Thu tiền</button></div>
+      </div>`;
+  }).join('');
+}
+
+async function batchCloseDelivered() {
+  const targets = allOrders.filter(o => isCheckoutOrderPaid(o) &&
+    !['DELIVERED', 'CANCELLED', 'VOIDED', 'SPLIT'].includes(o.status));
+  if (!targets.length) { alert('Không có đơn đã trả nào cần đóng.'); return; }
+  if (!confirm('Đóng ' + targets.length + ' đơn đã trả tiền (đánh dấu đã giao)?')) return;
+  let ok = 0, fail = 0;
+  for (const o of targets) {
+    const r = await api().setStatus(o.order_id, 'DELIVERED');
+    if (r.status === 200 && r.body && r.body.ok) { o.status = 'DELIVERED'; ok++; } else fail++;
+  }
+  alert('Đã đóng ' + ok + ' đơn' + (fail ? ', ' + fail + ' lỗi — thử lại.' : '.'));
+  await loadOrders();
+}
+
+function renderFloorMap() {
+  const map = document.getElementById('floor-map');
+  if (!map) return;
+  const activeStatuses = ['DELIVERED', 'CANCELLED', 'VOIDED', 'SPLIT'];
+  // Bàn chỉ tính đơn CHƯA thanh toán. Đơn đã trả (paid) coi như xong, không cộng vào bàn —
+  // dù chưa "giao" (status có thể vẫn MAKING/READY). Đây là "tiền còn phải thu ở bàn này".
+  const tableOrders = n => allOrders.filter(o =>
+    parseInt(String(o.table_id || '').replace(/\D/g, ''), 10) === n &&
+    !activeStatuses.includes(o.status) && !isCheckoutOrderPaid(o));
+
+  const tiles = [];
+  for (let n = 1; n <= TABLE_COUNT; n++) {
+    const orders = tableOrders(n);
+    const numLabel = String(n).padStart(2, '0');
+    if (!orders.length) {
+      tiles.push(`
+        <div class="table-tile empty" onclick="switchView('menu'); selectedTable='${numLabel}'; renderTableGrid();">
+          <div class="tnum">${numLabel}</div>
+          <div class="tstate">● Trống</div>
+        </div>`);
+    } else {
+      const sum = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+      tiles.push(`
+        <div class="table-tile busy" onclick="openCheckoutTable('${esc(orders[0].table_id)}')">
+          <button class="tile-add" title="Gọi thêm món"
+            onclick="event.stopPropagation(); addRoundToTable(${n});">＋</button>
+          <div class="tnum">${numLabel}</div>
+          <div class="tstate">● Đang phục vụ</div>
+          <div class="tmeta">${orders.length} đơn · ${fmt(sum)}</div>
+        </div>`);
+    }
+  }
+
+  // Tile tổng hợp Mang đi (nếu có đơn pickup/take_away đang hoạt động)
+  const pickupOrders = allOrders.filter(o => {
+    const dt = o.delivery_type || (o.table_id ? 'dine_in' : 'pickup');
+    return (dt === 'pickup' || dt === 'take_away') && !activeStatuses.includes(o.status) && !isCheckoutOrderPaid(o);
+  });
+  if (pickupOrders.length) {
+    const sum = pickupOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    tiles.push(`
+      <div class="table-tile busy" onclick="openCheckout('${esc(pickupOrders[0].order_id)}')">
+        <div class="tnum">🥡</div>
+        <div class="tstate">● Mang đi</div>
+        <div class="tmeta">${pickupOrders.length} đơn · ${fmt(sum)}</div>
+      </div>`);
+  }
+
+  map.innerHTML = tiles.join('');
+}
+
+function addRoundToTable(n) {
+  switchView('menu');
+  selectedTable = String(n).padStart(2, '0');
+  renderTableGrid();
 }
 
 // Lỗi tải đơn: hiện lý do + cách xử lý ngay trên board thay vì treo "Đang tải đơn hàng...".
@@ -1488,56 +2459,24 @@ function setLocalOverride(orderId, patch) {
   _saveOverrides(localOverrides);
 }
 
+let __lastChangeTs = '2000-01-01T00:00:00';
 async function loadOrders() {
-  if (!REPORT_TOKEN) {
-    try {
-      const tokRes = await fetch('http://127.0.0.1:5001/token').then(r => r.json());
-      if (tokRes && tokRes.ok && tokRes.token) {
-        REPORT_TOKEN = tokRes.token;
-        TQ = '&token=' + encodeURIComponent(REPORT_TOKEN);
-        try { localStorage.setItem('mitsu_report_token', REPORT_TOKEN); } catch (_) {}
-      }
-    } catch (_) {}
-  }
-  let res;
+  let r;
   try {
-    res = await fetch(`${GAS_URL}?action=orders${TQ}`);
+    r = await api().listOrders();
   } catch (_) {
-    // fetch ném lỗi = mất mạng HOẶC Google chặn (trang 403 của Google không có header CORS
-    // nên browser cũng ném TypeError). Phân biệt: probe 1 asset cùng origin — mạng sống mà
-    // GAS fail → GAS bị chặn, không phải WiFi.
-    let onlineOk = false;
-    try {
-      const p = await fetch('favicon-32.png?ping=' + Date.now(), { cache: 'no-store' });
-      onlineOk = p.ok;
-    } catch (_) {}
-    if (onlineOk) showOrdersError('Google chặn API (GAS)', GAS_BLOCKED_MSG);
-    else showOrdersError('Mất kết nối mạng', 'Kiểm tra WiFi/4G của thiết bị này.');
+    showOrdersError('Mất kết nối máy chủ', 'Không tải được đơn từ máy chủ local.');
     return;
   }
-  let data;
-  try {
-    data = JSON.parse(await res.text());
-  } catch (_) {
-    // GAS trả HTML thay vì JSON (trang chặn của Google) → hỏng phía server, KHÔNG phải mất mạng.
-    showOrdersError('Google chặn API (HTTP ' + res.status + ')', GAS_BLOCKED_MSG);
+  if (!(r.status === 200 && r.body && r.body.ok)) {
+    showOrdersError('Mất kết nối máy chủ', 'Không tải được đơn từ máy chủ local.');
     return;
   }
-  if (!data.ok) {
-    const msg = data.error === 'unauthorized'
-      ? 'Thiếu/sai token API — mở KDS qua đúng địa chỉ mitsu-ops (token tự tiêm), hoặc thêm ?token=... vào URL.'
-      : 'Server báo lỗi: ' + (data.error || 'không rõ');
-    showOrdersError('Không tải được đơn', msg);
-    return;
-  }
-  // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc, trừ lần load đầu.
-  const fresh = data.orders.filter(o => !seenOrderIds.has(o.order_id));
-  data.orders.forEach(o => seenOrderIds.add(o.order_id));
-  if (!firstLoad && fresh.length) {
-    playNewOrderChime();
-    speak(fresh.length === 1 ? 'Có đơn mới' : 'Có ' + fresh.length + ' đơn mới');
-  }
-  firstLoad = false;
+  const data = r.body;
+  __lastChangeTs = data.now || __lastChangeTs;
+  // Phát hiện đơn mới (id chưa từng thấy) → chuông + đọc + banner, trừ lần load đầu.
+  announceNewOrders(data.orders);
+  initialLoadDone = true;
 
   let ovChanged = false;
   data.orders.forEach(o => {
@@ -1557,6 +2496,7 @@ async function loadOrders() {
   });
   if (ovChanged) _saveOverrides(localOverrides);
 
+  normalizePaid(data.orders);
   const serverIds = new Set(data.orders.map(o => o.order_id));
   const stillPending = allOrders.filter(o => o._optimistic && !serverIds.has(o.order_id));
   allOrders = [...stillPending, ...data.orders];
@@ -1564,6 +2504,24 @@ async function loadOrders() {
   const now = new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   document.getElementById('refresh-time').textContent = 'Cập nhật: ' + now;
 }
+
+async function pollOrderChanges() {
+  try {
+    const r = await api().pollChanges(__lastChangeTs);
+    if (r.status === 200 && r.body.ok && r.body.changes.length) {
+      allOrders = checkout.mergeChanges(allOrders, r.body.changes);
+      normalizePaid(allOrders);
+      __lastChangeTs = r.body.now || __lastChangeTs;
+      renderOrders();
+      // Sự cố 08:49: đường poll nền 4 giây này từng hoàn toàn im lặng — không
+      // chuông, không banner, không title. allOrders sau mergeChanges() là bức
+      // tranh ĐẦY ĐỦ (không chỉ phần thay đổi) nên dùng chung announceNewOrders
+      // với loadOrders() — seenOrderIds chặn báo trùng dù đường nào thấy trước.
+      if (initialLoadDone) announceNewOrders(allOrders);
+    } else if (r.body && r.body.now) { __lastChangeTs = r.body.now; }
+  } catch (_) {}
+}
+setInterval(pollOrderChanges, 4000);
 
 async function kickCashDrawer(btn) {
   if (btn) { btn.disabled = true; btn.textContent = '...'; }
@@ -1624,7 +2582,8 @@ function actionButtons(o) {
   if (dt === 'pickup' || dt === 'take_away') {
     const ready = (o.status !== 'READY')
       ? `<button class="btn-mark-paid" style="background:#2196F3;color:#fff;flex:1;" onclick="setReady('${esc(o.order_id)}',this)">🔔 Sẵn sàng</button>` : '';
-    return ready + xong + pha;
+    const checkoutBtn = `<button class="btn-sm" style="flex:0 0 auto;padding:8px 12px;" title="Mở màn hình thanh toán" onclick="openCheckout('${esc(o.order_id)}')">🧾 Tính tiền</button>`;
+    return ready + xong + pha + checkoutBtn;
   }
   return xong + pha;   // dine_in
 }
@@ -1634,10 +2593,14 @@ async function finishOrder(orderId, btn) {
   btn.disabled = true; const old = btn.textContent; btn.textContent = 'Đang lưu...';
   const method = (o && o.payment_method) || (o && o.payment && o.payment.method) || 'cash';
   try {
-    if (method === 'cash' && o && o.payment_status !== 'PAID') {
+    // isCheckoutOrderPaid, KHÔNG phải `payment_status !== 'PAID'`: endpoint /orders
+    // nội bộ trả cột `paid` (số) và KHÔNG trả `payment_status`. Canh mỗi
+    // payment_status thì đơn đã thu tiền + đã in bill ở màn thu ngân vẫn lọt vào
+    // đây, gọi gwMarkPaid mặc định skipReceipt=false -> IN RA TỜ BILL THỨ HAI.
+    if (method === 'cash' && o && !isCheckoutOrderPaid(o)) {
       const d = await gwMarkPaid(orderId, o);
-      o.payment_status = 'PAID';
-      setLocalOverride(orderId, { payment_status: 'PAID' });
+      o.payment_status = 'PAID'; o.paid = 1;
+      setLocalOverride(orderId, { payment_status: 'PAID', paid: 1 });
       if (!d.already_paid) speak(`Nhận tiền ${fmtSpeak(o.total)} đồng, đơn ${o.short_code || orderId}`);
     }
     await gwStatus(orderId, 'DELIVERED');
@@ -1693,6 +2656,577 @@ async function updateStatus(orderId, newStatus, btn) {
     btn.classList.remove('loading'); btn.textContent = oldText;
     alert('Lỗi cập nhật trạng thái — thử lại.');
   }
+}
+
+// ─── CHECKOUT (iPOS-style bill review/edit/split/merge/print/pay) ─────────────
+// Talks to the local OrderStore-backed API (api()/checkout.js) — order objects here
+// carry `.paid` (bool) + `.version` (int), NOT the legacy `.payment_status` string
+// used by the older GAS-era board code above. Anti-fraud: editing a paid order's
+// lines requires verifyManagerPin() first, PIN forwarded to patchItems.
+let checkoutState = null; // { orderId, tableId, mergeSelected:Set, splitAssign:{idx:'A'}, paymentMethod, groupId }
+
+function toast(msg) {
+  let t = document.getElementById('kds-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'kds-toast';
+    t.style.cssText = 'position:fixed; left:50%; bottom:24px; transform:translateX(-50%); ' +
+      'background:#222330; color:#fff; padding:12px 20px; border-radius:10px; font-size:0.88rem; ' +
+      'font-weight:600; z-index:99999; box-shadow:0 8px 24px rgba(0,0,0,.5); ' +
+      'border:1px solid rgba(255,255,255,.15); max-width:90vw; text-align:center; transition:opacity .2s;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(() => { t.style.opacity = '0'; }, 2600);
+}
+
+function isCheckoutOrderPaid(o) { return !!(o && (o.paid || o.payment_status === 'PAID')); }
+
+// Local /orders trả `paid` (int) nhưng không có `payment_status`; các chỗ check
+// trạng thái thanh toán trên board đọc payment_status → phải đồng bộ lại.
+function normalizePaid(list) { (list || []).forEach(o => { if (o && o.paid && !o.payment_status) o.payment_status = 'PAID'; }); return list; }
+
+function checkoutModsStr(it) {
+  const mods = it.modifiers || {};
+  const parts = [];
+  if (mods.size) parts.push(mods.size);
+  if (mods.ice) parts.push(iceLabelForSku(mods.ice, it.sku));
+  if (mods.sugar) parts.push(SUGAR_LABEL[mods.sugar] || mods.sugar);
+  if (mods.toppings) parts.push(mods.toppings);
+  return parts.join(', ');
+}
+
+function openCheckout(orderId) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) { alert('Không tìm thấy đơn hàng.'); return; }
+  checkoutState = { orderId, tableId: o.table_id || null, mergeSelected: new Set(), splitAssign: {}, paymentMethod: 'cash', groupId: o.bill_group_id || null };
+  document.getElementById('checkout-overlay').classList.remove('hidden');
+  renderCheckout();
+}
+
+function openCheckoutTable(tableId) {
+  const orders = allOrders.filter(o =>
+    String(o.table_id || '').trim() === String(tableId).trim() &&
+    !['CANCELLED', 'VOIDED', 'SPLIT'].includes(o.status));
+  if (!orders.length) { alert('Không tìm thấy đơn đang mở cho bàn này.'); return; }
+  const primary = orders.find(o => !isCheckoutOrderPaid(o)) || orders[0];
+  checkoutState = { orderId: primary.order_id, tableId, mergeSelected: new Set(), splitAssign: {}, paymentMethod: 'cash', groupId: primary.bill_group_id || null };
+  document.getElementById('checkout-overlay').classList.remove('hidden');
+  renderCheckout();
+}
+
+function closeCheckout(e) {
+  if (e && e.target && e.target.id !== 'checkout-overlay') return;
+  document.getElementById('checkout-overlay').classList.add('hidden');
+  checkoutState = null;
+}
+
+function checkoutSwitchOrder(orderId) {
+  if (!checkoutState) return;
+  checkoutState.orderId = orderId;
+  checkoutState.splitAssign = {};
+  renderCheckout();
+}
+
+function renderCheckout() {
+  if (!checkoutState) return;
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) { closeCheckout(); return; }
+  document.getElementById('checkout-title').textContent =
+    '💳 Thanh toán — Đơn ' + (o.short_code || o.order_id);
+
+  const items = o.items || [];
+  const tableOrders = checkoutState.tableId
+    ? allOrders.filter(x => String(x.table_id || '').trim() === String(checkoutState.tableId).trim() &&
+        !['CANCELLED', 'VOIDED'].includes(x.status))
+    : [];
+  const isPaid = isCheckoutOrderPaid(o);
+  const meta = o.bill_meta || {};
+
+  const switchHtml = tableOrders.length > 1 ? `
+    <div style="padding:10px 22px 0; display:flex; gap:6px; flex-wrap:wrap;">
+      ${tableOrders.map(to => `
+        <button class="btn-sm" style="padding:4px 10px; font-size:.76rem; ${to.order_id===o.order_id?'background:var(--teal);color:#fff;':''}" onclick="checkoutSwitchOrder('${esc(to.order_id)}')">
+          ${esc(to.short_code || to.order_id)}${isCheckoutOrderPaid(to)?' ✅':''}
+        </button>`).join('')}
+    </div>` : '';
+
+  const linesHtml = items.length ? items.map((it, idx) => {
+    const modsStr = checkoutModsStr(it);
+    const note = (it.modifiers && it.modifiers.note) || it.note || '';
+    const groupOpts = ['', 'A', 'B', 'C', 'D'].map(g =>
+      `<option value="${g}" ${((checkoutState.splitAssign[idx] || '') === g) ? 'selected' : ''}>${g || '–'}</option>`).join('');
+    return `
+      <div class="cart-item-row" style="flex-direction:column; align-items:stretch; gap:6px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+          <div style="flex:1;">
+            <div class="cart-item-name">${esc(it.name)}</div>
+            ${modsStr ? `<div style="font-size:.75rem; color:var(--muted); margin-top:2px;">${esc(modsStr)}</div>` : ''}
+            <div class="cart-item-price">${fmt(checkout.lineSubtotal(it))}</div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+            <div class="stepper">
+              <button class="step-btn" onclick="checkoutQty(${idx}, -1)">−</button>
+              <span class="qty-val">${it.qty || 1}</span>
+              <button class="step-btn" onclick="checkoutQty(${idx}, 1)">+</button>
+            </div>
+            <button class="btn-sm" style="padding:2px 10px; font-size:.7rem; color:#ef5350;" onclick="checkoutRemoveLine(${idx})">🗑 Xoá</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" class="form-input" style="flex:1; font-size:.78rem; padding:5px 10px;" placeholder="Ghi chú dòng..." value="${esc(note)}" onchange="checkoutLineNote(${idx}, this.value)">
+          <select class="form-input" style="width:66px; padding:5px 6px; font-size:.78rem;" title="Nhóm tách bill" onchange="checkoutSetSplitGroup(${idx}, this.value)">${groupOpts}</select>
+        </div>
+      </div>`;
+  }).join('') : '<div class="empty-state" style="padding:16px 0;">Chưa có món nào</div>';
+
+  const metaHtml = `
+    <div class="form-row">
+      <label class="form-label">Ghi chú đơn</label>
+      <input class="form-input" id="checkout-note" value="${esc(o.customer_note || '')}" onchange="checkoutSaveMeta()">
+    </div>
+    <div class="form-row" style="display:flex; gap:10px;">
+      <div style="flex:1;">
+        <label class="form-label">Tên khách</label>
+        <input class="form-input" id="checkout-cust-name" value="${esc(meta.customer_name || '')}" onchange="checkoutSaveMeta()">
+      </div>
+      <div style="flex:1;">
+        <label class="form-label">MST / VAT</label>
+        <input class="form-input" id="checkout-vat" value="${esc(meta.vat || '')}" onchange="checkoutSaveMeta()">
+      </div>
+    </div>`;
+
+  const splitHtml = items.length > 1 ? `
+    <div class="form-row">
+      <label class="form-label">Tách bill</label>
+      <div style="font-size:.76rem; color:var(--muted); margin-bottom:8px;">Gán nhóm A/B/C cho MỌI dòng ở trên rồi bấm Tách.</div>
+      <button class="btn-sm" style="width:100%;" onclick="checkoutSplit(event)">✂️ Tách theo nhóm đã gán</button>
+    </div>` : '';
+
+  const subOrders = allOrders.filter(x => x.parent_order_id === o.order_id);
+  const subHtml = subOrders.length ? `
+    <div class="form-row">
+      <label class="form-label">Đơn con sau khi tách</label>
+      ${subOrders.map(s => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border); font-size:.85rem;">
+          <span>${esc(s.short_code || s.order_id)} · ${fmt(s.total)}</span>
+          <button class="btn-sm" style="padding:3px 10px; font-size:.74rem;" onclick="checkoutPrintOnly('${esc(s.order_id)}')">🖨 In</button>
+        </div>`).join('')}
+    </div>` : '';
+
+  const mergeHtml = tableOrders.length > 1 ? `
+    <div class="form-row">
+      <label class="form-label">Gộp bàn</label>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        ${tableOrders.map(to => `
+          <label style="display:flex; align-items:center; gap:8px; font-size:.85rem; background:rgba(255,255,255,.04); padding:8px 10px; border-radius:8px; cursor:pointer;">
+            <input type="checkbox" ${checkoutState.mergeSelected.has(to.order_id) ? 'checked' : ''} onchange="checkoutToggleMerge('${esc(to.order_id)}', this.checked)">
+            <span style="flex:1;">${esc(to.short_code || to.order_id)} · ${fmt(to.total)}${isCheckoutOrderPaid(to) ? ' ✅' : ''}</span>
+          </label>`).join('')}
+      </div>
+      <button class="btn-sm" style="width:100%; margin-top:8px;" onclick="checkoutMergeTable(event)">🧾 Gộp bàn đã chọn</button>
+    </div>` : '';
+
+  const total = checkout.cartTotal(items);
+  document.getElementById('checkout-sheet-body').innerHTML = `
+    ${switchHtml}
+    <div class="cart-items">${linesHtml}</div>
+    <div style="padding:0 22px;">
+      <button class="btn-sm" style="width:100%; margin:4px 0 8px;" onclick="checkoutOpenAddItem()">➕ Thêm món</button>
+    </div>
+    <div class="order-form">
+      ${metaHtml}
+      ${splitHtml}
+      ${subHtml}
+      ${mergeHtml}
+      <div class="order-total-row">
+        <span class="order-total-label">TỔNG CỘNG ${isPaid ? '<span style="color:#81C784;font-weight:700;">· Đã thanh toán</span>' : ''}</span>
+        <span class="order-total-amount" style="font-size:1.4rem;">${fmt(total)}</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Phương thức thanh toán</label>
+        <div class="mode-btns">
+          <div class="mode-btn ${!['vietqr','momo'].includes(checkoutState.paymentMethod) ? 'active' : ''}" onclick="checkoutSetPayMethod('cash')">💵 Tiền mặt</div>
+          <div class="mode-btn ${checkoutState.paymentMethod === 'vietqr' ? 'active' : ''}" onclick="checkoutSetPayMethod('vietqr')">📱 VietQR</div>
+          <div class="mode-btn ${checkoutState.paymentMethod === 'momo' ? 'active' : ''}" onclick="checkoutSetPayMethod('momo')">💗 MoMo</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button class="btn-submit-order" style="flex:1; background:#4a5568;" onclick="checkoutVoidPrompt()">🗑 Huỷ đơn</button>
+        <button class="btn-submit-order" style="flex:2; background:#2ec4b6;" onclick="checkoutPrintAndPay(event)">🖨 In bill + Thu tiền</button>
+      </div>
+    </div>`;
+}
+
+async function checkoutPatchItems(orderId, newItems) {
+  const o = allOrders.find(x => x.order_id === orderId);
+  if (!o) return;
+  let pin = null;
+  if (isCheckoutOrderPaid(o)) { pin = verifyManagerPin(); if (!pin) return; } // anti-fraud: paid edit needs PIN
+  const r = await api().patchItems(orderId, newItems, o.version, pin);
+  if (checkout.isStale(r.status)) {
+    await loadOrders();
+    toast('Đơn vừa đổi ở máy khác — đã tải lại');
+    renderCheckout();
+    return;
+  }
+  if (r.status === 200 && r.body.ok) {
+    Object.assign(o, r.body.order);
+    o.items_summary = formatItemsSummary(o.items);
+    setLocalOverride(orderId, { items: r.body.order.items, total: r.body.order.total, version: r.body.order.version });
+    renderCheckout();
+    renderOrders();
+  } else {
+    toast('Lỗi cập nhật món: ' + ((r.body && r.body.error) || 'không rõ'));
+  }
+}
+
+function checkoutQty(idx, delta) {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const newItems = checkout.applyQty(o.items || [], idx, delta);
+  checkoutPatchItems(o.order_id, newItems);
+}
+
+function checkoutRemoveLine(idx) {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const cur = (o.items || [])[idx];
+  if (!cur) return;
+  const newItems = checkout.applyQty(o.items || [], idx, -(Number(cur.qty) || 1));
+  checkoutPatchItems(o.order_id, newItems);
+}
+
+function checkoutLineNote(idx, val) {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const newItems = (o.items || []).map(checkout.cloneItem);
+  if (!newItems[idx]) return;
+  newItems[idx].modifiers = Object.assign({}, newItems[idx].modifiers, { note: val });
+  newItems[idx].note = val;
+  checkoutPatchItems(o.order_id, newItems);
+}
+
+function checkoutSetSplitGroup(idx, val) {
+  if (!checkoutState) return;
+  if (!val) delete checkoutState.splitAssign[idx];
+  else checkoutState.splitAssign[idx] = val;
+}
+
+async function checkoutSaveMeta() {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const note = document.getElementById('checkout-note').value;
+  const custName = document.getElementById('checkout-cust-name').value;
+  const vat = document.getElementById('checkout-vat').value;
+  const bill_meta = Object.assign({}, o.bill_meta, { customer_name: custName, vat });
+  const r = await api().patchMeta(o.order_id, { customer_note: note, bill_meta }, o.version);
+  if (checkout.isStale(r.status)) {
+    await loadOrders();
+    toast('Đơn vừa đổi ở máy khác — đã tải lại');
+    renderCheckout();
+    return;
+  }
+  if (r.status === 200 && r.body.ok) {
+    Object.assign(o, r.body.order);
+    toast('Đã lưu ghi chú đơn');
+  } else {
+    toast('Lỗi lưu ghi chú: ' + ((r.body && r.body.error) || 'không rõ'));
+  }
+}
+
+async function checkoutSplit(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
+  try {
+    const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+    if (!o) return;
+    const items = o.items || [];
+    const assignment = items.map((_, idx) => checkoutState.splitAssign[idx] || null);
+    if (assignment.some(a => a == null)) { alert('Gán nhóm A/B/C cho MỌI dòng trước khi tách.'); return; }
+    let partitions;
+    try { partitions = checkout.buildPartitions(items, assignment); }
+    catch (e) { alert('Lỗi tách: ' + (e.message || e)); return; }
+    if (partitions.length < 2) { alert('Cần ít nhất 2 nhóm khác nhau để tách bill.'); return; }
+    const r = await api().splitOrder(o.order_id, partitions, o.version);
+    if (checkout.isStale(r.status)) {
+      await loadOrders();
+      toast('Đơn vừa đổi ở máy khác — đã tải lại');
+      renderCheckout();
+      return;
+    }
+    if (r.status === 200 && r.body.ok) {
+      await loadOrders();
+      checkoutState.splitAssign = {};
+      // Origin flips to a SPLIT shell (audit trail only) — continue checkout on the first sub-order.
+      if (r.body.suborders && r.body.suborders.length) checkoutState.orderId = r.body.suborders[0].order_id;
+      toast('Đã tách thành ' + r.body.suborders.length + ' đơn con');
+      renderCheckout();
+    } else {
+      alert('Lỗi tách đơn: ' + ((r.body && r.body.error) || 'không rõ'));
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function checkoutPrintOnly(orderId) {
+  const r = await api().printBill(orderId, checkoutState && checkoutState.paymentMethod);
+  toast(r.body && r.body.printed ? 'Đã in bill' : 'Đã gửi lệnh in (chế độ test không in thật)');
+}
+
+function checkoutToggleMerge(orderId, checked) {
+  if (!checkoutState) return;
+  if (checked) checkoutState.mergeSelected.add(orderId);
+  else checkoutState.mergeSelected.delete(orderId);
+}
+
+async function checkoutMergeTable(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
+  try {
+    const ids = Array.from(checkoutState.mergeSelected);
+    if (!ids.includes(checkoutState.orderId)) ids.push(checkoutState.orderId);
+    if (ids.length < 2) { alert('Chọn ít nhất 2 đơn để gộp bàn.'); return; }
+    const r = await api().mergeBill(ids);
+    if (r.status === 200 && r.body.ok) {
+      checkoutState.groupId = r.body.group_id;
+      await loadOrders();
+      toast('Đã gộp bill nhóm ' + r.body.group_id + '. Bấm "In bill + Thu tiền" để in.');
+      renderCheckout();
+    } else {
+      alert('Lỗi gộp bàn: ' + ((r.body && r.body.error) || 'không rõ'));
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function checkoutSetPayMethod(m) {
+  if (!checkoutState) return;
+  checkoutState.paymentMethod = m;
+  renderCheckout();
+}
+
+// Settle EVERY open order at the table/group in one tap — not just the focused order —
+// so a merged bill or a multi-order table doesn't leave siblings stuck open on the board.
+async function checkoutPrintAndPay(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) { if (btn) btn.disabled = false; return; }
+  const method = checkoutState.paymentMethod || 'cash';
+  const EXCLUDED = ['CANCELLED', 'VOIDED', 'SPLIT'];
+  let groupId = o.bill_group_id || checkoutState.groupId;
+  let settleSet;
+  if (groupId) {
+    settleSet = allOrders.filter(x => x.bill_group_id === groupId && !EXCLUDED.includes(x.status) && !isCheckoutOrderPaid(x));
+  } else if (checkoutState.tableId) {
+    settleSet = allOrders.filter(x =>
+      String(x.table_id || '').trim() === String(checkoutState.tableId).trim() &&
+      !EXCLUDED.includes(x.status) && !isCheckoutOrderPaid(x));
+  } else {
+    settleSet = [o];
+  }
+  // Đơn đang focus luôn phải nằm trong settle set nếu chưa thanh toán, kể cả khi bị lọc ra ở trên.
+  if (!isCheckoutOrderPaid(o) && !settleSet.includes(o)) settleSet.push(o);
+  if (!settleSet.length) {
+    if (btn) btn.disabled = false;
+    alert('Đơn đã thanh toán.');
+    return;
+  }
+  try {
+    if (settleSet.length > 1 && !groupId) {
+      const mres = await api().mergeBill(settleSet.map(so => so.order_id));
+      if (mres.status === 200 && mres.body && mres.body.ok) {
+        groupId = mres.body.group_id;
+      }
+    }
+    // Gửi kèm phương thức thu ngân vừa chọn — server cần nó để quyết in mã QR.
+    if (groupId) await api().printGroup(groupId, method);
+    else await api().printBill(o.order_id, method);
+    const failed = [];
+    for (const so of settleSet) {
+      const rPaid = await api().markPaid(so.order_id, { payment_method: method, skip_receipt: true });
+      const rStatus = await api().setStatus(so.order_id, 'DELIVERED');
+      const ok = rPaid.status === 200 && rPaid.body && rPaid.body.ok && rStatus.status === 200 && rStatus.body && rStatus.body.ok;
+      if (ok) {
+        so.paid = 1; so.status = 'DELIVERED'; so.payment_status = 'PAID';
+        setLocalOverride(so.order_id, { status: 'DELIVERED', payment_status: 'PAID' });
+      } else {
+        failed.push(so.short_code || so.order_id);
+      }
+    }
+    if (failed.length) {
+      if (btn) btn.disabled = false;
+      alert('Một số đơn chưa thu được tiền: ' + failed.join(', ') + ' — thử lại.');
+      await loadOrders();
+      return;
+    }
+    toast('Đã in bill và thu tiền ' + settleSet.length + ' đơn (' + (o.short_code || o.order_id) + ')');
+    closeCheckout();
+    await loadOrders();
+  } catch (err) {
+    if (btn) btn.disabled = false;
+    alert('Lỗi in bill / thu tiền: ' + ((err && err.message) || 'mất kết nối') + ' — thử lại.');
+  }
+}
+
+// ─── CHECKOUT: void order (PIN + reason chips) ─────────────────────────────────
+const VOID_REASONS = ['Khách đổi ý', 'Gọi nhầm món', 'Hết nguyên liệu', 'Lỗi hệ thống', 'Khác'];
+
+function checkoutVoidPrompt() {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const html = `
+    <div class="overlay-bg" id="void-overlay" onclick="closeVoidOverlay(event)">
+      <div class="bottom-sheet" style="max-width:460px; margin:auto; border-radius:16px;">
+        <div class="sheet-head">
+          <div class="sheet-title">🗑 Huỷ đơn #${esc(o.short_code || o.order_id)}</div>
+          <button class="btn-close" onclick="closeVoidOverlay()">✕</button>
+        </div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
+          <label class="form-label">Lý do huỷ</label>
+          <div class="opt-chips" style="padding:0;">
+            ${VOID_REASONS.map(r => `<div class="kds-chip" onclick="selectVoidReason(this,'${esc(r)}')">${esc(r)}</div>`).join('')}
+          </div>
+          <input type="text" class="form-input" id="void-reason-input" placeholder="Lý do huỷ...">
+          <input type="text" class="form-input" id="void-staff-input" placeholder="Tên nhân viên (không bắt buộc)">
+          <button class="btn-submit-order" style="background:#ef5350;" onclick="executeVoidOrder(event)">🗑 Xác nhận Huỷ (cần PIN Quản lý)</button>
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('void-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'void-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+
+function selectVoidReason(el, reason) {
+  document.querySelectorAll('#void-overlay .kds-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const input = document.getElementById('void-reason-input');
+  if (input) input.value = reason;
+}
+
+function closeVoidOverlay(e) {
+  if (e && e.target && e.target.id !== 'void-overlay') return;
+  const el = document.getElementById('void-overlay-container');
+  if (el) el.innerHTML = '';
+}
+
+async function executeVoidOrder(e) {
+  const btn = e && e.target;
+  if (btn) btn.disabled = true;
+  try {
+    if (!checkoutState) return;
+    const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+    if (!o) return;
+    const reasonInput = document.getElementById('void-reason-input');
+    const staffInput = document.getElementById('void-staff-input');
+    const reason = (reasonInput ? reasonInput.value : '').trim();
+    const staff = (staffInput ? staffInput.value : '').trim() || 'staff';
+    if (!reason) { alert('Vui lòng nhập lý do huỷ.'); return; }
+    const pin = verifyManagerPin();
+    if (!pin) return;
+    const r = await api().voidOrder(o.order_id, reason, staff, pin);
+    if (r.status === 200 && r.body.ok) {
+      Object.assign(o, r.body.order);
+      setLocalOverride(o.order_id, { status: 'VOIDED' });
+      closeVoidOverlay();
+      closeCheckout();
+      await loadOrders();
+      toast('Đã huỷ đơn ' + (o.short_code || o.order_id));
+    } else {
+      alert('Lỗi huỷ đơn: ' + ((r.body && r.body.error) || 'PIN sai hoặc mất kết nối') + ' — thử lại.');
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ─── CHECKOUT: + Thêm món (reuses the staff menu-add picker + size-sheet) ──────
+let pendingCheckoutAdd = false;
+
+function checkoutOpenAddItem() {
+  const html = `
+    <div class="overlay-bg" id="checkout-add-overlay" onclick="closeCheckoutAddOverlay(event)">
+      <div class="bottom-sheet" style="max-width:580px; margin:auto; border-radius:16px; max-height:85vh; overflow-y:auto;">
+        <div class="sheet-head">
+          <div class="sheet-title">➕ Thêm món vào đơn</div>
+          <button class="btn-close" onclick="closeCheckoutAddOverlay()">✕</button>
+        </div>
+        <div style="padding:12px 16px;">
+          <input type="text" class="form-input" style="margin-bottom:12px; font-size:0.85rem; padding:8px 12px; border-radius:8px;" placeholder="🔍 Tìm món..." oninput="filterCheckoutAddMenu(this.value)">
+          <div id="checkout-add-menu-list" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; max-height:55vh; overflow-y:auto; padding-right:4px;">
+            ${renderCheckoutAddMenuItems()}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  let el = document.getElementById('checkout-add-overlay-container');
+  if (!el) { el = document.createElement('div'); el.id = 'checkout-add-overlay-container'; document.body.appendChild(el); }
+  el.innerHTML = html;
+}
+
+function renderCheckoutAddMenuItems(filterStr = '') {
+  const query = (filterStr || '').trim().toLowerCase();
+  const available = MENU_DATA.filter(i => {
+    if (!i.available) return false;
+    if (query) return (i.name || '').toLowerCase().includes(query) || (i.sku || '').toLowerCase().includes(query);
+    return true;
+  });
+  return available.map(item => `
+    <div class="menu-card" style="padding:10px; cursor:pointer;" onclick="checkoutSelectAddItem('${esc(item.sku)}')">
+      <div style="font-weight:700; font-size:0.82rem; color:#fff;">${esc(item.name)}</div>
+      <div style="font-weight:700; font-size:0.8rem; color:var(--gold); margin-top:4px;">${fmt(item.price_m)}</div>
+    </div>`).join('');
+}
+
+function filterCheckoutAddMenu(val) {
+  const list = document.getElementById('checkout-add-menu-list');
+  if (list) list.innerHTML = renderCheckoutAddMenuItems(val);
+}
+
+function closeCheckoutAddOverlay(e) {
+  if (e && e.target && e.target.id !== 'checkout-add-overlay') return;
+  const el = document.getElementById('checkout-add-overlay-container');
+  if (el) el.innerHTML = '';
+}
+
+function checkoutSelectAddItem(sku) {
+  const item = MENU_DATA.find(m => m.sku === sku);
+  if (!item) return;
+  pendingItem = item;
+  pendingOpts = {
+    size: item.price_l ? 'M' : null,
+    sugar: item.customizations?.sugar?.length ? item.customizations.sugar[Math.floor(item.customizations.sugar.length / 2)] : null,
+    ice: item.customizations?.ice?.length ? item.customizations.ice[0] : null,
+    toppings: [],
+    note: '',
+    qty: 1
+  };
+  const c = item.customizations || {};
+  const hasOpts = item.price_l || (c.sugar && c.sugar.length) || (c.ice && c.ice.length) || (c.toppings && c.toppings.length);
+  if (hasOpts) {
+    closeCheckoutAddOverlay(); // đóng sheet chọn món TRƯỚC — nếu không size-overlay mở "âm thầm" phía sau (cùng z-index, đè khuất)
+    document.getElementById('size-item-name').textContent = '[Thêm vào đơn] ' + item.name;
+    document.getElementById('size-overlay').classList.remove('hidden');
+    renderCustomOptions();
+    pendingCheckoutAdd = true;
+  } else {
+    confirmCheckoutAddItem(item, {}, item.price_m);
+  }
+}
+
+function confirmCheckoutAddItem(item, modifiers, price, qty = 1) {
+  const o = allOrders.find(x => x.order_id === checkoutState.orderId);
+  if (!o) return;
+  const newItem = { sku: item.sku, name: item.name, qty, price, subtotal: price * qty, modifiers, note: modifiers.note || '' };
+  const newItems = (o.items || []).map(checkout.cloneItem).concat([newItem]);
+  closeCheckoutAddOverlay();
+  checkoutPatchItems(o.order_id, newItems);
 }
 
 // ─── MENU VIEW ────────────────────────────────────────────────────────────────
@@ -1776,7 +3310,90 @@ function clearMenuSearch() {
   renderMenuGrid();
 }
 
+// ─── KEYBOARD NUMBER NAV (chỉ màn "Gọi món") ───────────────────────────────
+// 8 bucket: 7 category thật (1-7) + 1 bucket ảo gom hết món có "CA CAO" (8) —
+// tách cacao ra để không category nào vượt quá 12 món (đủ 12 phím 1234567890-=).
+function computeNumNavBuckets() {
+  const out = {};
+  CATEGORIES.forEach((cat, i) => {
+    out[i + 1] = MENU_DATA
+      .filter(m => m.available && m.subcategory === cat.id && !m.name.toUpperCase().includes('CA CAO'))
+      .sort((a, b) => a.sort_order - b.sort_order);
+  });
+  out[8] = MENU_DATA
+    .filter(m => m.available && m.name.toUpperCase().includes('CA CAO'))
+    .sort((a, b) => a.sort_order - b.sort_order);
+  return out;
+}
+
+function enterNumNavBucket(n) {
+  if (n < 1 || n > 8) return;
+  numNavBucket = n;
+  const pills = document.getElementById('cat-pills');
+  if (pills) pills.classList.add('hidden');
+  renderMenuGrid();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function exitNumNavBucket() {
+  numNavBucket = null;
+  const pills = document.getElementById('cat-pills');
+  if (pills) pills.classList.remove('hidden');
+  renderMenuGrid();
+}
+
+function numNavBucketLabel(n) {
+  if (n === 8) return { emoji: '🍫', label: 'Cacao' };
+  const cat = CATEGORIES[n - 1];
+  return cat ? { emoji: cat.emoji, label: cat.label } : { emoji: '🍶', label: '' };
+}
+
+function renderNumNavItems() {
+  const items = computeNumNavBuckets()[numNavBucket] || [];
+  const inCart = {};
+  staffCart.forEach(c => { inCart[c.sku] = (inCart[c.sku] || 0) + c.qty; });
+  const { emoji, label } = numNavBucketLabel(numNavBucket);
+
+  const cardsHtml = items.map((item, idx) => {
+    const key = NUM_NAV_KEYS[idx];
+    const itemEmoji = CAT_EMOJI[item.subcategory] || '🍶';
+    const badge = ROLE_BADGE[item.role];
+    const qty = inCart[item.sku] || 0;
+    const priceText = item.price_l
+      ? `M: ${fmt(item.price_m)} · L: ${fmt(item.price_l)}`
+      : fmt(item.price_m);
+    const nameInfo = getShortNameInfo(item.name);
+
+    return `
+      <div class="menu-card${qty ? ' in-cart' : ''}" onclick="tapMenuItem('${item.sku}')">
+        ${key ? `<div class="num-badge">${key}</div>` : ''}
+        <div class="menu-card-top">
+          <div class="menu-emoji-wrap">${itemEmoji}</div>
+          ${badge ? `<div class="menu-badge ${badge.cls}">${badge.text}</div>` : ''}
+        </div>
+        <div>
+          ${nameInfo.prefix ? `<div class="menu-family-tag">${nameInfo.prefix}</div>` : ''}
+          <div class="menu-name">${nameInfo.shortName}</div>
+          ${item.name_jp ? `<div class="menu-jp">${item.name_jp}</div>` : ''}
+        </div>
+        <div class="menu-price">${priceText}</div>
+        ${qty ? `<div class="cart-qty-badge">${qty}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  document.getElementById('menu-grid').innerHTML = `
+    <div class="numnav-strip">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span>${emoji}</span><span>${label}</span>
+      </div>
+      <span class="menu-cat-count">${items.length} món · Backspace để quay lại</span>
+    </div>
+    <div class="menu-grid">${cardsHtml || '<div class="empty-state" style="grid-column:1/-1; padding:50px 20px;"><div class="icon">🌿</div>Không có món trong mục này.</div>'}</div>`;
+}
+
 function renderMenuGrid() {
+  if (numNavBucket) { renderNumNavItems(); return; }
+
   const inCart = {};
   staffCart.forEach(c => { inCart[c.sku] = (inCart[c.sku] || 0) + c.qty; });
 
@@ -1916,7 +3533,8 @@ function tapMenuItem(sku) {
       size: item.price_l ? 'M' : null,
       sugar: c.sugar && c.sugar.length ? c.sugar[Math.floor(c.sugar.length / 2)] : null,
       ice: c.ice && c.ice.length ? c.ice[0] : null,
-      toppings: []
+      toppings: [],
+      qty: 1
     };
     
     document.getElementById('size-item-name').textContent = item.name;
@@ -1990,7 +3608,7 @@ function renderCustomOptions() {
         <div class="opt-chips">
           ${c.ice.map(val => `
             <button class="kds-chip${pendingOpts.ice === val ? ' active' : ''}" onclick="selectPendingOpt('ice', '${val}')">
-              ${ICE_LABEL[val] || val}
+              ${iceLabelForSku(val, item.sku)}
             </button>
           `).join('')}
         </div>
@@ -2017,7 +3635,22 @@ function renderCustomOptions() {
     `;
   }
   
-  // 5. Item Note
+  // 5. Số lượng (ẩn khi đang Đổi món — swap luôn 1-đổi-1, không có khái niệm số lượng)
+  const showQty = !(pendingSwap && pendingSwap.isCustomizing);
+  if (showQty) {
+    html += `
+      <div class="opt-group">
+        <div class="opt-label">Số lượng</div>
+        <div class="stepper">
+          <button class="step-btn" onclick="adjustPendingQty(-1)">−</button>
+          <span class="qty-val">${pendingOpts.qty || 1}</span>
+          <button class="step-btn" onclick="adjustPendingQty(1)">＋</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // 6. Item Note
   html += `
     <div class="opt-group">
       <div class="opt-label">📝 Ghi chú riêng món này</div>
@@ -2031,12 +3664,21 @@ function renderCustomOptions() {
   `;
 
   document.getElementById('custom-sheet-body').innerHTML = html;
-  
+
   const basePrice = (pendingOpts.size === 'L' && item.price_l) ? item.price_l : item.price_m;
   const toppingsPrice = pendingOpts.toppings.reduce((sum, t) => sum + t.price, 0);
   const totalPrice = basePrice + toppingsPrice;
-  
-  document.getElementById('btn-add-custom-cart').textContent = `Thêm vào giỏ (Enter ↵) · ${fmt(totalPrice)}`;
+  const qty = showQty ? (pendingOpts.qty || 1) : 1;
+
+  document.getElementById('btn-add-custom-cart').textContent =
+    qty > 1
+      ? `Thêm vào giỏ (Enter ↵) · x${qty} · ${fmt(totalPrice * qty)}`
+      : `Thêm vào giỏ (Enter ↵) · ${fmt(totalPrice)}`;
+}
+
+function adjustPendingQty(d) {
+  pendingOpts.qty = Math.max(1, (pendingOpts.qty || 1) + d);
+  renderCustomOptions();
 }
 
 document.addEventListener('keydown', function(e) {
@@ -2050,9 +3692,13 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
       e.preventDefault();
       confirmCustomOrder();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      closeSizeSheet();
+    } else if (e.key === 'Escape' || e.key === 'Backspace') {
+      if (!isInputFocused) {
+        e.preventDefault();
+        closeSizeSheet();
+      }
+    } else if (!isInputFocused) {
+      handleSizeOverlayShortcut(e);
     }
     return;
   }
@@ -2067,9 +3713,17 @@ document.addEventListener('keydown', function(e) {
         e.preventDefault();
         submitStaffOrder(false); // Phím M = 🚀 Đặt đơn / Gửi đơn
       }
+    } else if (e.key && e.key.toLowerCase() === 'o') {
+      if (!isInputFocused) {
+        e.preventDefault();
+        submitStaffOrderMomo(); // Phím O = 💗 Gửi & In bill QR MoMo
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       closeCartSheet();
+    } else if (orderMode === 'dine_in' && !isInputFocused && /^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      handleCartTableKey(e.key);
     }
     return;
   }
@@ -2080,13 +3734,77 @@ document.addEventListener('keydown', function(e) {
       e.preventDefault();
       openCartSheet(); // Phím M = Mở giỏ hàng & Gửi đơn từ màn hình chính!
     }
+    return;
+  }
+
+  // 4. Gọi món — bàn phím số chọn category (1-8) rồi chọn món (1234567890-=)
+  if (activeView === 'menu' && !isInputFocused) {
+    if (e.key === 'Backspace') {
+      if (numNavBucket) { e.preventDefault(); exitNumNavBucket(); }
+      return;
+    }
+    if (numNavBucket) {
+      const idx = NUM_NAV_KEYS.indexOf(e.key);
+      if (idx >= 0) {
+        const items = computeNumNavBuckets()[numNavBucket] || [];
+        const item = items[idx];
+        if (item) { e.preventDefault(); tapMenuItem(item.sku); }
+      }
+      return;
+    }
+    if (/^[1-8]$/.test(e.key)) {
+      e.preventDefault();
+      enterNumNavBucket(Number(e.key));
+    }
   }
 });
+
+// ─── Phím tắt chọn size/đá/đường/topping trong #size-overlay ──────────────
+// L/M = size · ↑/↓ = nhiều/ít đá · 1-5 = mức đường theo thứ tự · 8,9,0 = topping 1/2/3.
+// Chỉ hoạt động khi không có ô nhập text nào đang focus (guard ở nơi gọi).
+function handleSizeOverlayShortcut(e) {
+  if (!pendingItem) return;
+  const item = pendingItem;
+  const c = item.customizations || {};
+  const key = e.key;
+  const lower = key.toLowerCase();
+
+  if (item.price_l && (lower === 'l' || lower === 'm')) {
+    e.preventDefault();
+    selectPendingOpt('size', lower === 'l' ? 'L' : 'M');
+    return;
+  }
+  if (c.ice && c.ice.length && !c.ice.includes('blended') && (key === 'ArrowUp' || key === 'ArrowDown')) {
+    e.preventDefault();
+    const idx = c.ice.indexOf(pendingOpts.ice);
+    const cur = idx >= 0 ? idx : 0;
+    const next = key === 'ArrowUp' ? Math.max(0, cur - 1) : Math.min(c.ice.length - 1, cur + 1);
+    selectPendingOpt('ice', c.ice[next]);
+    return;
+  }
+  if (c.sugar && c.sugar.length && key >= '1' && key <= '5') {
+    e.preventDefault();
+    const idx = Number(key) - 1;
+    if (idx < c.sugar.length) selectPendingOpt('sugar', c.sugar[idx]);
+    return;
+  }
+  if (c.toppings && c.toppings.length && (key === '8' || key === '9' || key === '0')) {
+    e.preventDefault();
+    const idx = key === '8' ? 0 : key === '9' ? 1 : 2;
+    const t = c.toppings[idx];
+    if (t) togglePendingTopping(t.id, t.name, t.price);
+    return;
+  }
+  if (!(pendingSwap && pendingSwap.isCustomizing) && (key === 'ArrowLeft' || key === 'ArrowRight')) {
+    e.preventDefault();
+    adjustPendingQty(key === 'ArrowRight' ? 1 : -1);
+  }
+}
 
 function confirmCustomOrder() {
   if (!pendingItem) return;
   const item = pendingItem;
-  
+
   const basePrice = (pendingOpts.size === 'L' && item.price_l) ? item.price_l : item.price_m;
   const toppingsPrice = pendingOpts.toppings.reduce((sum, t) => sum + t.price, 0);
   const totalPrice = basePrice + toppingsPrice;
@@ -2109,7 +3827,16 @@ function confirmCustomOrder() {
     return;
   }
 
-  addToStaffCart(item, modifiers, totalPrice);
+  const qty = pendingOpts.qty || 1;
+
+  if (pendingCheckoutAdd) {
+    pendingCheckoutAdd = false;
+    closeSizeSheet();
+    confirmCheckoutAddItem(item, modifiers, totalPrice, qty);
+    return;
+  }
+
+  addToStaffCart(item, modifiers, totalPrice, qty);
   closeSizeSheet();
 }
 
@@ -2237,13 +3964,15 @@ function selectSwapNewItem(sku) {
     sugar: item.customizations?.sugar?.length ? item.customizations.sugar[Math.floor(item.customizations.sugar.length / 2)] : null,
     ice: item.customizations?.ice?.length ? item.customizations.ice[0] : null,
     toppings: [],
-    note: ''
+    note: '',
+    qty: 1
   };
 
   const c = item.customizations || {};
   const hasOpts = item.price_l || (c.sugar && c.sugar.length) || (c.ice && c.ice.length) || (c.toppings && c.toppings.length);
 
   if (hasOpts) {
+    closeSwapOverlay(); // đóng sheet chọn món TRƯỚC — cùng lý do như checkoutSelectAddItem
     document.getElementById('size-item-name').textContent = `[Đổi món mới] ` + item.name;
     document.getElementById('size-overlay').classList.remove('hidden');
     renderCustomOptions();
@@ -2254,12 +3983,16 @@ function selectSwapNewItem(sku) {
 }
 
 function confirmSwapNewItem(item, modifiers, price) {
+  // GIỮ số lượng của dòng đang đổi. Đổi món = thay sản phẩm, không phải đổi
+  // số lượng. Bản cũ đặt cứng qty:1 — đơn 2 ly 30k đổi món xong tụt mất 30.000đ
+  // khỏi tổng, thu thiếu mà không cảnh báo gì (sự cố thật 2026-08-08).
+  const keptQty = Number(pendingSwap.oldItem && pendingSwap.oldItem.qty) || 1;
   const newItemObj = {
     sku: item.sku,
     name: item.name,
-    qty: 1,
+    qty: keptQty,
     price: price,
-    subtotal: price,
+    subtotal: price * keptQty,
     modifiers: { ...modifiers, swap_from: pendingSwap.oldItem.name || 'Món cũ' },
     note: modifiers.note || ''
   };
@@ -2406,13 +4139,15 @@ function makeCartKey(sku, modifiers) {
   return (String(sku) + '_' + parts.join('_')).replace(/[^a-zA-Z0-9_\-]/g, '');
 }
 
-function addToStaffCart(item, modifiers, price) {
+function addToStaffCart(item, modifiers, price, qty = 1) {
   const key = makeCartKey(item.sku, modifiers);
   const ex  = staffCart.find(c => c._key === key);
-  if (ex) { ex.qty++; ex.subtotal = ex.qty * ex.price; }
-  else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty:1, price, modifiers, subtotal:price });
+  if (ex) { ex.qty += qty; ex.subtotal = ex.qty * ex.price; }
+  else     staffCart.push({ _key:key, sku:item.sku, name:item.name, qty, price, modifiers, subtotal:price * qty });
   updateCartBar();
-  renderMenuGrid();
+  // Thêm giỏ xong (dù bấm số hay chạm tay) -> luôn về "Tất cả", đúng yêu cầu điều hướng bàn phím.
+  if (numNavBucket) exitNumNavBucket();
+  else renderMenuGrid();
 }
 
 function updateCartItemQty(key, delta) {
@@ -2456,20 +4191,57 @@ function resetStaffCart() {
   document.getElementById('submit-success').classList.add('hidden');
   document.getElementById('order-form').classList.remove('hidden');
   updateCartBar();
-  renderMenuGrid();
+  if (numNavBucket) exitNumNavBucket();
+  else renderMenuGrid();
 }
 
 // ─── CART SHEET ───────────────────────────────────────────────────────────────
 function openCartSheet() {
+  // Luôn hiện form gọi món sống, không kẹt lại panel "Đã gửi" cũ nếu lần trước
+  // bị đóng bằng tap-ra-ngoài thay vì nút "Đóng" (xem Fix 2).
+  document.getElementById('submit-success').classList.add('hidden');
+  document.getElementById('order-form').classList.remove('hidden');
   renderCartItems();
   renderTableGrid();
   document.getElementById('order-form-total').textContent = fmt(cartTotal());
   document.getElementById('cart-overlay').classList.remove('hidden');
+  resetCartTableKeyBuffer();
 }
 
 function closeCartSheet(e) {
   if (e && e.target !== document.getElementById('cart-overlay')) return;
   document.getElementById('cart-overlay').classList.add('hidden');
+  resetCartTableKeyBuffer();
+}
+
+// ─── Gõ số bàn bằng bàn phím trong giỏ hàng (2 chữ số, khớp nhãn "01".."20") ──
+let cartTableKeyBuffer = '';
+let cartTableKeyTimer = null;
+
+function resetCartTableKeyBuffer() {
+  cartTableKeyBuffer = '';
+  if (cartTableKeyTimer) { clearTimeout(cartTableKeyTimer); cartTableKeyTimer = null; }
+  const hint = document.getElementById('table-key-hint');
+  if (hint) hint.textContent = '';
+}
+
+function handleCartTableKey(digit) {
+  if (cartTableKeyTimer) clearTimeout(cartTableKeyTimer);
+  cartTableKeyBuffer = (cartTableKeyBuffer.length >= 2 ? '' : cartTableKeyBuffer) + digit;
+  const hint = document.getElementById('table-key-hint');
+
+  if (cartTableKeyBuffer.length === 2) {
+    const code = cartTableKeyBuffer;
+    cartTableKeyBuffer = '';
+    if (hint) hint.textContent = '';
+    if (code >= '01' && code <= String(TABLE_COUNT).padStart(2, '0')) {
+      selectTable(code);
+    }
+    return;
+  }
+
+  if (hint) hint.textContent = ` — gõ: ${cartTableKeyBuffer}_`;
+  cartTableKeyTimer = setTimeout(resetCartTableKeyBuffer, 1200);
 }
 
 function updateCartItemNote(key, noteVal) {
@@ -2489,7 +4261,7 @@ function renderCartItems() {
     const sizeStr = ci.modifiers?.size ? ` (${ci.modifiers.size})` : '';
     const modsList = [];
     if (ci.modifiers?.sugar) modsList.push(SUGAR_LABEL[ci.modifiers.sugar] || ci.modifiers.sugar);
-    if (ci.modifiers?.ice) modsList.push(ICE_LABEL[ci.modifiers.ice] || ci.modifiers.ice);
+    if (ci.modifiers?.ice) modsList.push(iceLabelForSku(ci.modifiers.ice, ci.sku));
     if (ci.modifiers?.toppings) modsList.push(ci.modifiers.toppings);
     const modsStr = modsList.length ? `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${modsList.join(', ')}</div>` : '';
     const currentNote = ci.note || ci.modifiers?.note || '';
@@ -2530,11 +4302,12 @@ function setMode(mode) {
   document.getElementById('mode-dine').classList.toggle('active',   mode === 'dine_in');
   document.getElementById('mode-pickup').classList.toggle('active', mode === 'pickup');
   document.getElementById('table-row').style.display = mode === 'dine_in' ? '' : 'none';
+  resetCartTableKeyBuffer();
 }
 
 function renderTableGrid() {
   const grid = document.getElementById('table-grid');
-  const nums = Array.from({length:17}, (_,i) => String(i+1).padStart(2,'0'));
+  const nums = Array.from({length:TABLE_COUNT}, (_,i) => String(i+1).padStart(2,'0'));
   grid.innerHTML = nums.map(n => `
     <div class="table-btn${selectedTable===n?' active':''}" onclick="selectTable('${n}')">${n}</div>
   `).join('');
@@ -2545,12 +4318,19 @@ function selectTable(n) {
   renderTableGrid();
 }
 
-async function submitStaffOrder(quickPay = false) {
+// Phím O / nút 💗: gửi đơn ở trạng thái CHƯA TRẢ rồi in bill kèm QR MoMo cho
+// khách quét. Không đánh dấu đã trả — đánh dấu thì cổng chặn QR đóng lại và bill
+// in ra không có mã, khách không có gì để quét.
+async function submitStaffOrderMomo() { return submitStaffOrder(false, true); }
+
+async function submitStaffOrder(quickPay = false, momoBill = false) {
   if (!staffCart.length) return;
   const btn = document.getElementById('btn-submit-order');
   const btnQuick = document.getElementById('btn-quick-pay-order');
   if (btn) { btn.disabled = true; btn.textContent = 'Đang gửi...'; }
   if (btnQuick) { btnQuick.disabled = true; btnQuick.textContent = 'Đang gửi...'; }
+  const btnMomo = document.getElementById('btn-momo-order');
+  if (btnMomo) { btnMomo.disabled = true; btnMomo.textContent = 'Đang gửi...'; }
 
   if (!pendingStaffSubmit) {
     const phone = document.getElementById('staff-phone').value.trim().replace(/\D/g,'');
@@ -2610,11 +4390,29 @@ async function submitStaffOrder(quickPay = false) {
       setLocalOverride(minted.order_id || payload.order_id, { payment_status: 'PAID' });
     }
 
+    if (momoBill) {
+      const oid = minted.order_id || payload.order_id;
+      try {
+        const rb = await api().printBill(oid, 'momo');
+        toast(rb.body && rb.body.printed ? 'Đã in bill QR MoMo' : 'Đã gửi lệnh in bill');
+      } catch (err) {
+        // Đơn ĐÃ gửi thành công rồi — in hỏng không được làm mất đơn. Báo để
+        // nhân viên in lại bằng nút 🖨️ Bill trên thẻ đơn.
+        alert('Đơn đã gửi nhưng CHƯA in được bill QR — dùng nút 🖨️ Bill để in lại.');
+      }
+    }
+
     optimisticInsert(payload, minted);
+
+    // Xoá giỏ NGAY khi gửi thành công — không chờ bấm "Đóng" nữa (nếu chờ, bấm ra
+    // ngoài/đổi tab sẽ giữ nguyên giỏ cũ và gộp gửi trùng đơn ở lần gửi kế tiếp).
+    staffCart = [];
+    updateCartBar();
 
     pendingStaffSubmit = null;
     if (btn) { btn.disabled = false; btn.textContent = 'Đặt đơn'; }
     if (btnQuick) { btnQuick.disabled = false; btnQuick.textContent = '💳 Gửi & Thanh toán ngay'; }
+    if (btnMomo) { btnMomo.disabled = false; btnMomo.textContent = '💗 Gửi & In bill QR MoMo (Phím O)'; }
     document.getElementById('order-form').classList.add('hidden');
     document.getElementById('submit-success').classList.remove('hidden');
     document.getElementById('submit-success-msg').textContent =
@@ -2622,6 +4420,7 @@ async function submitStaffOrder(quickPay = false) {
   } catch(err) {
     if (btn) { btn.disabled = false; btn.textContent = 'Đặt đơn'; }
     if (btnQuick) { btnQuick.disabled = false; btnQuick.textContent = '💳 Gửi & Thanh toán ngay'; }
+    if (btnMomo) { btnMomo.disabled = false; btnMomo.textContent = '💗 Gửi & In bill QR MoMo (Phím O)'; }
     alert('Đơn CHƯA gửi được (' + ((err && err.message) || 'mất kết nối') + ') — giỏ hàng vẫn giữ nguyên, thử lại.');
   }
 }
@@ -2710,7 +4509,9 @@ function startKDS() {
   renderTableGrid();
   loadPromoStatus();
   loadOrders();
-  setInterval(loadOrders, POLL_MS);
+  pollCloud();
+  pollPrinters();
+  pollPrintIssues();
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────

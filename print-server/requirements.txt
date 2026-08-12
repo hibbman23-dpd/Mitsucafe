@@ -1,3 +1,5 @@
 flask>=3.0
 pyserial>=3.5   # Bluetooth serial và USB serial (RPP02N, /dev/cu.*)
 pyusb>=1.3      # USB Printer class direct EP write (bypass macOS BT serial bug)
+qrcode>=7.4     # QR thanh toán trên bill
+Pillow>=10.0    # dựng ảnh bill/tem (printlib) — trước đây dùng mà không khai báo

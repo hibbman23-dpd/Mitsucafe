@@ -69,6 +69,29 @@ seed/test_order_*.json.local
 .claude/.dispatcher-auth.json
 ops/.dispatcher.lock
 
+# Attendance (chấm công): payroll DB + salted PIN cache — KHÔNG commit.
+# staff_cache.json là SHA-256(salt+pin) trên không gian 4 chữ số (10,000 khả
+# năng) — lộ file + salt là dò được PIN thật trong vài giây.
+print-server/attendance.db*
+print-server/staff_cache.json*
+*.salt
+
+# CSDL SỐNG của print server — KHÔNG BAO GIỜ commit.
+# 09/08/2026: outbox.db bị theo dõi bởi git, nên `git stash -u` đã đưa nó về bản
+# commit cũ NGAY TRONG LÚC server đang mở nó với WAL đang chạy. Khởi động lại là
+# file main không khớp WAL -> index ux_outbox_key lệch, bảng outbox dính 3 dòng
+# rác, syncer chết vòng lặp, không đơn nào lên Sheets. Mất lịch sử 1270 đơn local.
+# Bất kỳ lệnh git nào đụng working tree (stash/checkout/reset/clean) đều có thể
+# tráo file database dưới chân tiến trình đang chạy. Để git ra ngoài hoàn toàn.
+print-server/*.db
+print-server/*.db-wal
+print-server/*.db-shm
+print-server/backups/
+# ops/customer_reid.db do ops/dual_camera_ai.py ghi lúc chạy — cùng loại rủi ro.
+ops/*.db
+ops/*.db-wal
+ops/*.db-shm
+
 # Visual brainstorm companion artifacts
 .superpowers/
 

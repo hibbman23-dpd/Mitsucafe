@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chấm công · Kissaten</title>
+<link rel="manifest" href="/manifest.json">
+<style>
+  :root { --bg:#12100e; --fg:#f5efe6; --dim:#8b8378; --ok:#3f9d5a; --bad:#c0392b; --card:#1e1a17; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom); }
+  #offline { display:none; background:var(--bad); color:#fff; padding:12px;
+             text-align:center; font-weight:700; border-radius:8px; margin:8px 0; }
+  #offline.on { display:block; }
+  header { display:flex; justify-content:space-between; align-items:center;
+           padding:12px 4px; font-size:14px; color:var(--dim); }
+  #chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .chip { background:var(--card); padding:4px 10px; border-radius:99px; font-size:13px; }
+  #grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
+  .who { background:var(--card); border:0; color:var(--fg); font-size:19px; font-weight:600;
+         padding:26px 8px; border-radius:14px; }
+  #pinpad { display:none; }
+  #pinpad.on { display:block; }
+  #dots { text-align:center; font-size:34px; letter-spacing:14px; height:44px; }
+  #keys { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  #keys button { background:var(--card); border:0; color:var(--fg); font-size:26px;
+                 padding:20px 0; border-radius:14px; }
+  #result { display:none; text-align:center; padding:44px 12px; font-size:26px; font-weight:700; }
+  #result.on { display:block; }
+  #result.ok { color:var(--ok); }
+  #unclosedChoice { display:none; }
+  #unclosedChoice.on { display:block; }
+  .choicebtn { background:var(--card); border:0; color:var(--fg); font-size:17px; font-weight:600;
+               padding:18px 14px; border-radius:14px; margin:4px; width:100%; }
+  #owner { display:none; }
+  #owner.on { display:block; }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  th,td { padding:9px 6px; text-align:left; border-bottom:1px solid #2a2521; }
+  tr.unclosed td { color:#ff8a7a; }
+  .linkbtn { background:none; border:0; color:var(--dim); text-decoration:underline; font-size:13px; }
+  .form-card { background:var(--card); padding:12px; border-radius:10px; margin-top:10px; }
+  .form-card p { margin:0 0 8px; }
+  .form-card label { display:inline-block; margin-right:10px; font-size:14px; color:var(--dim); }
+  .form-card input, .form-card select {
+    background:var(--bg); border:1px solid #2a2521; color:var(--fg); border-radius:8px;
+    padding:7px 8px; font-size:15px; margin-top:3px;
+  }
+  .form-err { color:#ff8a7a; min-height:1.2em; font-size:14px; }
+</style>
+</head>
+<body>
+  <div id="offline">Mất kết nối máy quán — kiểm tra Wifi</div>
+  <header>
+    <span id="incount">Đang trong ca: —</span>
+    <button class="linkbtn" id="ownerbtn">Chủ quán</button>
+  </header>
+  <div id="chips"></div>
+
+  <div id="grid"></div>
+
+  <div id="pinpad">
+    <p id="pinwho" style="text-align:center;color:var(--dim)"></p>
+    <div id="dots"></div>
+    <div id="keys"></div>
+    <p style="text-align:center"><button class="linkbtn" id="cancel">Huỷ</button></p>
+  </div>
+
+  <div id="unclosedChoice">
+    <p id="unclosedMsg" style="text-align:center;color:var(--dim)"></p>
+    <p style="text-align:center">
+      <button class="choicebtn" id="unclosedCloseLate">Ra ca hôm qua</button>
+      <button class="choicebtn" id="unclosedNewShift">Vào ca mới</button>
+    </p>
+    <p style="text-align:center"><button class="linkbtn" id="unclosedCancel">Huỷ</button></p>
+    <p id="unclosedCountdown" style="text-align:center;color:var(--dim);font-size:13px"></p>
+  </div>
+
+  <div id="result"></div>
+
+  <div id="owner">
+    <p>
+      <select id="period">
+        <option value="today">Hôm nay</option>
+        <option value="week">Tuần này</option>
+        <option value="month" selected>Tháng này</option>
+      </select>
+      <button class="linkbtn" id="ownerout">Thoát</button>
+    </p>
+    <table><thead><tr><th>Tên</th><th>Ca</th><th>Giờ</th></tr></thead>
+      <tbody id="reportbody"></tbody></table>
+    <h4>Ca chưa đóng</h4>
+    <table><tbody id="unclosedbody"></tbody></table>
+
+    <div id="fixForm" class="form-card" style="display:none">
+      <p><b>Sửa ca:</b> <span id="fixWho"></span></p>
+      <p><label>Ngày ra<br><input type="date" id="fixDate"></label>
+         <label>Giờ ra<br><input type="time" id="fixTime"></label></p>
+      <p><label>Lý do<br><input type="text" id="fixNote" placeholder="vd: quên bấm ra"></label></p>
+      <p class="form-err" id="fixError"></p>
+      <p><button class="linkbtn" id="fixSave">Lưu</button>
+         <button class="linkbtn" id="fixCancel">Huỷ</button></p>
+    </div>
+
+    <h4>Thêm ca tay</h4>
+    <div id="manualForm" class="form-card">
+      <p><label>Nhân viên<br><select id="manualStaff"></select></label></p>
+      <p><label>Ngày vào<br><input type="date" id="manualDateIn"></label>
+         <label>Ngày ra<br><input type="date" id="manualDateOut"></label></p>
+      <p><label>Giờ vào<br><input type="time" id="manualIn"></label>
+         <label>Giờ ra<br><input type="time" id="manualOut"></label></p>
+      <p><label>Ghi chú<br><input type="text" id="manualNote" placeholder="vd: mất mạng, chấm công tay"></label></p>
+      <p class="form-err" id="manualError"></p>
+      <p><button class="linkbtn" id="manualSave">Thêm ca</button></p>
+    </div>
+  </div>
+
+<script src="/cham-cong.js"></script>
+</body>
+</html>

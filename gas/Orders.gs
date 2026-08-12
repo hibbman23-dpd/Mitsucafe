@@ -82,9 +82,35 @@ function validateOrderPayload(p) {
     var mods = it.modifiers || {};
     var unit = 0;
 
-    if (it.price && Number(it.price) > 0) {
-      // Nếu client đã gửi giá đơn vị (ví dụ KDS POS đã tính đúng promo/size), giữ nguyên giá client
-      unit = Number(it.price);
+    // STRICT_MENU_PRICING (CONFIG, mặc định 'off'):
+    //   off → giữ giá client như cũ, chỉ GHI LOG khi lệch giá MENU.
+    //   on  → giá MENU thắng, giá client bị bỏ qua.
+    //
+    // Comment cũ ở đầu hàm nói "KHÔNG bao giờ tin it.price từ client (DevTools
+    // sửa payload = mua giá 1đ)", nhưng nhánh đầu tiên lại tin giá client vô
+    // điều kiện — lỗ đó vẫn mở. Trang đặt món là link công khai qua QR.
+    //
+    // Không bật thẳng được: sheet MENU từng lệch số hiệu SKU so với menu web
+    // (repo DR050 = Trà Mitsu, sheet DR050 = Trà sữa truyền thống), bật lúc
+    // sheet còn lệch = tính sai giá hàng loạt ngay lập tức. Trình tự bắt buộc:
+    // chạy ops/push_menu_to_sheet.py --write TRƯỚC, đối chiếu log lệch giá,
+    // rồi mới đặt STRICT_MENU_PRICING = on.
+    var _strict = String(getConfig('STRICT_MENU_PRICING') || '').trim().toLowerCase() === 'on';
+    var _clientPrice = Number(it.price) || 0;
+
+    if (_clientPrice > 0 && !_strict) {
+      unit = _clientPrice;
+      if (menuItem) {
+        var _base = (mods.size === 'L' && menuItem.price_l)
+          ? Number(menuItem.price_l) : Number(menuItem.price_m);
+        // Chỉ soi khi giá client THẤP hơn — cao hơn thường là do topping cộng thêm.
+        if (_base > 0 && _clientPrice < _base) {
+          _logAudit('CLIENT_PRICE_BELOW_MENU',
+                    'SKU ' + it.sku + ' (' + (it.name || '') + '): client gửi ' +
+                    _clientPrice + ' < giá MENU ' + _base +
+                    '. Đang nhận giá client vì STRICT_MENU_PRICING chưa bật.');
+        }
+      }
     } else if (menuItem) {
       unit = (mods.size === 'L' && menuItem.price_l) ? Number(menuItem.price_l) : Number(menuItem.price_m);
 
@@ -104,8 +130,13 @@ function validateOrderPayload(p) {
         });
       }
     } else {
-      // Fallback: Nếu SKU không có trong MENU sheet (hoặc là SKU mới chưa sync), dùng giá client gửi
-      unit = Number(it.price) || 0;
+      // SKU không có trong MENU sheet (món mới chưa sync, hoặc payload bịa).
+      if (_strict) {
+        // Bật strict mà vẫn nhận giá client cho SKU lạ thì lỗ giá 1đ vẫn mở
+        // nguyên: kẻ tấn công chỉ cần bịa một mã không tồn tại. Từ chối đơn.
+        throw new Error('SKU không có trong MENU: ' + it.sku);
+      }
+      unit = _clientPrice;
       _logAudit('UNRESOLVED_SKU_FALLBACK', 'Món ' + it.sku + ' (' + (it.name || '') + ') không có trong MENU tab. Dùng giá fallback: ' + unit);
     }
 
@@ -192,22 +223,59 @@ function appendOrderToSheet(order) {
 
 /**
  * Idempotency: tìm order_id đã tạo với cùng idempotency_key (chống đơn trùng khi
- * client retry do mạng yếu). Quét cột idempotency_key (index 28 / cột AC).
- * Trả order_id nếu trùng, '' nếu chưa có. Gọi trong doPost (đã giữ lock → an toàn race).
+ * client retry do mạng yếu). Trả order_id nếu trùng, '' nếu chưa có. Gọi trong
+ * doPost (đã giữ lock → an toàn race). Giữ nguyên contract cho caller cũ
+ * (vd ingestPreMintedOrder) — chỉ cần order_id, không cần short_code.
  */
 function findOrderIdByIdempotencyKey(key) {
-  if (!key) return '';
+  var found = findOrderByIdempotencyKey(key);
+  return found ? found.order_id : '';
+}
+
+/**
+ * Như findOrderIdByIdempotencyKey nhưng trả thêm short_code — cần cho response
+ * đường dedup (client retry phải thấy lại đúng mã đơn của lần gửi đầu).
+ *
+ * Bound 500 dòng gần nhất — giống generateOrderId (Orders.gs) — tránh quét toàn
+ * bộ lịch sử khi ORDERS phình to theo thời gian sống của quán. Đường KHÔNG khớp
+ * (phổ biến — mọi đơn không phải retry) chỉ đọc 1 cột idempotency_key trên 500
+ * dòng đó — KHÔNG đọc getLastRows(sheet, 500) (toàn bộ 29 cột, gồm items_json —
+ * một blob JSON mỗi đơn) vì điều đó kéo cả lịch sử món vào script mỗi lần submit
+ * dù không cần. Chỉ khi khớp (hiếm — chỉ đường retry) mới đọc thêm 1 dòng để lấy
+ * order_id + short_code.
+ */
+function findOrderByIdempotencyKey(key) {
+  if (!key) return null;
   var sheet = _ordersSheet();
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return '';
-  var col = ORDERS_HEADERS.indexOf('idempotency_key') + 1; // 1-based
-  var keys = sheet.getRange(2, col, lastRow - 1, 1).getValues();
+  if (lastRow < 2) return null;
+
+  // Chỉ số cột lấy từ ORDERS_HEADERS, KHÔNG tra tên trên dòng tiêu đề thật của
+  // sheet: appendOrderToSheet ghi bằng appendRow với mảng 29 phần tử theo đúng
+  // thứ tự ORDERS_HEADERS, nên hằng số này mới là nguồn sự thật của vị trí cột.
+  // Tra tên sống sẽ hỏng khi ô tiêu đề chưa được seed — cột thêm sau thì appendRow
+  // vẫn ghi tràn sang mà không điền tên, indexOf ra -1 và dedup im lặng không chạy.
+  var idIdx = ORDERS_HEADERS.indexOf('order_id');
+  var keyIdx = ORDERS_HEADERS.indexOf('idempotency_key');
+  var scIdx = ORDERS_HEADERS.indexOf('short_code');
+  if (idIdx === -1 || keyIdx === -1) return null;
+
+  var startRow = Math.max(2, lastRow - 499); // bound 500 dòng gần nhất
+  var numRows = lastRow - startRow + 1;
+  var keys = sheet.getRange(startRow, keyIdx + 1, numRows, 1).getValues();
+
   for (var i = 0; i < keys.length; i++) {
     if (String(keys[i][0]) === String(key)) {
-      return String(sheet.getRange(i + 2, 1, 1, 1).getValue());
+      var rowIndex = startRow + i;
+      var lastCol = scIdx !== -1 ? Math.max(idIdx, scIdx) + 1 : idIdx + 1;
+      var rowVals = sheet.getRange(rowIndex, 1, 1, lastCol).getValues()[0];
+      return {
+        order_id: String(rowVals[idIdx]),
+        short_code: scIdx !== -1 ? String(rowVals[scIdx] || '') : ''
+      };
     }
   }
-  return '';
+  return null;
 }
 
 function generateOrderId() {
@@ -250,8 +318,16 @@ function _seedWatermarkFromMax(dateStr, letter) {
   var sheet = _ordersSheet();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return 0;
-  var ids  = sheet.getRange(2, 1, lastRow - 1, 1).getValues();          // col A order_id
-  var codes = sheet.getRange(2, 27, lastRow - 1, 1).getValues();        // col AA short_code (idx 26 → col 27)
+  // Vị trí cột lấy từ ORDERS_HEADERS — appendOrderToSheet ghi theo vị trí nên hằng
+  // số này là nguồn sự thật. Bản cũ hardcode cột 27 kèm chú thích sai: short_code
+  // là index 25 → cột 26, còn cột 27 là delivery_type. Regex '^Q(\d+)$' đem so với
+  // 'dine_in' nên không bao giờ khớp và hàm luôn trả 0 — mất đường phục hồi
+  // watermark, ScriptProperties bay giữa ngày là mã đơn reset về 1 và hai khách
+  // cùng được gọi 'Q03'.
+  var idCol = ORDERS_HEADERS.indexOf('order_id') + 1;
+  var scCol = ORDERS_HEADERS.indexOf('short_code') + 1;
+  var ids  = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
+  var codes = sheet.getRange(2, scCol, lastRow - 1, 1).getValues();
   var prefix = 'ORD-' + dateStr + '-';
   var max = 0;
   for (var i = 0; i < ids.length; i++) {
@@ -478,7 +554,7 @@ function _rowToOrder(row) {
     location_id: row[5],
     table_id: row[6],
     staff_id: row[7],
-    customer_id: row[8],
+    customer_id: normalizeCustomerId(row[8]),   // Sheets lưu 0343726787 thành SỐ, mất số 0 đầu
     items: row[9] ? JSON.parse(row[9]) : [],
     subtotal: row[10],
     total: row[11],
@@ -663,7 +739,7 @@ function getTodayOrders() {
       short_code:     row[25] || '',
       timestamp:      Utilities.formatDate(new Date(row[2]), 'Asia/Ho_Chi_Minh', 'HH:mm'),
       created_iso:    row[2] ? new Date(row[2]).toISOString() : '',
-      customer_id:    row[8],
+      customer_id:    normalizeCustomerId(row[8]),   // xem chú thích ở _rowToOrder
       customer_name:  row[24] || '',
       table_id:       row[6] || '',
       total:          row[11],
@@ -742,7 +818,7 @@ function getCustomerInfo(phone) {
     var row = data[i];
     if (normalizeCustomerId(row[0]) === normPhone || normalizeCustomerId(row[2]) === normPhone) {
       return {
-        customer_id: row[0] || normPhone,
+        customer_id: normalizeCustomerId(row[0]) || normPhone,
         name: row[1] || '',
         phone: row[2] || phone,
         zalo_id: row[3] || '',
@@ -1217,4 +1293,24 @@ function swapOrderItem(payload) {
   }
 
   return { ok: false, error: 'Không tìm thấy đơn hàng: ' + orderId };
+}
+
+var REJECT_REASON_VI = {
+  out_of_stock: 'hết món',
+  after_hours:  'ngoài giờ',
+  fake:         'đơn ảo'
+};
+
+/**
+ * Nối lý do từ chối vào cột notes (index 23 → col 24). updateOrderStatus chỉ đổi
+ * cột status, chủ quán mở Sheets sẽ thấy CANCELLED mà không biết vì sao.
+ * Idempotent: gọi lại cùng lý do không nối thêm lần nữa (syncer có thể retry).
+ */
+function _appendRejectReasonToNotes(orderId, reason) {
+  var row = _findOrderRow(orderId);
+  if (!row) return;
+  var tag = '[Từ chối: ' + (REJECT_REASON_VI[reason] || reason) + ']';
+  var cur = String(row.data[23] || '');
+  if (cur.indexOf(tag) !== -1) return;
+  _ordersSheet().getRange(row.rowIndex, 24).setValue(cur ? cur + ' ' + tag : tag);
 }

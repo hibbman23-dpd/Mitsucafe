@@ -690,6 +690,12 @@ var POST_ROUTES = {
       } finally { lock.releaseLock(); }
     }
   },
+  'pending_online_orders': {
+    auth: AUTH.REPORT,
+    handler: function(p) {
+      return { ok: true, orders: _getPendingOnlineOrders() };
+    }
+  },
   'ingest_order': {
     auth: AUTH.REPORT,
     handler: function(p) {
@@ -709,6 +715,7 @@ var POST_ROUTES = {
       lock.waitLock(15000);
       try {
         updateOrderStatus(p.order_id, p.status);
+        if (p.reject_reason) _appendRejectReasonToNotes(p.order_id, p.reject_reason);
         return { ok: true, order_id: p.order_id, status: p.status };
       } finally { lock.releaseLock(); }
     }
@@ -736,6 +743,26 @@ var POST_ROUTES = {
         return swapOrderItem(payload);
       } finally { lock.releaseLock(); }
     }
+  },
+  'attendance_upsert': {
+    auth: AUTH.STAFF,
+    handler: function(p) { return attendanceUpsert(p.payload || p); }
+  },
+  'attendance_alert': {
+    auth: AUTH.STAFF,
+    handler: function(p) { return attendanceAlert(p.payload || p); }
+  },
+  'attendance_staff': {
+    auth: AUTH.STAFF,
+    handler: function(p) { return attendanceStaff(); }
+  },
+  'menu_sync': {
+    auth: AUTH.ADMIN,
+    handler: function(p) { return menuSyncFromRepo(p.payload || p); }
+  },
+  'so_ban_hang': {
+    auth: AUTH.ADMIN,
+    handler: function(p) { return buildSoBanHang(p.payload || p); }
   }
 };
 
@@ -796,9 +823,10 @@ function doPost(e) {
     // Default POST fallback: Đặt hàng (submit order)
     var _idemKey = (payload.metadata && payload.metadata.idempotency_key) || payload.idempotency_key || '';
     if (_idemKey) {
-      var _existing = findOrderIdByIdempotencyKey(_idemKey);
+      var _existing = findOrderByIdempotencyKey(_idemKey);
       if (_existing) {
-        return _jsonResponse({ ok: true, order_id: _existing, deduped: true });
+        // Đường retry — client cần thấy lại đúng mã đơn của lần gửi đầu, không phải blank.
+        return _jsonResponse({ ok: true, order_id: _existing.order_id, short_code: _existing.short_code, deduped: true });
       }
     }
 
@@ -941,11 +969,18 @@ function _getPendingPrintOrders() {
   var result = [];
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var status    = row[12];  // col M = status
     var printedAt = row[22];  // col W = printed_at
     var ts        = row[2];   // col C = timestamp
     var paymentStatus = row[19]; // col T = payment_status
-    if (status !== 'DELIVERED' && paymentStatus !== 'PAID') continue;
+    // Bill CHỈ in cho đơn ĐÃ THU TIỀN. (col M = status không còn tham gia điều kiện.) Điều kiện cũ là
+    // `status !== 'DELIVERED' && paymentStatus !== 'PAID'` — chỉ bỏ qua khi CẢ HAI
+    // sai, nên đơn đã giao mà CHƯA thu vẫn lọt và poller in bill cho nó.
+    // 09/08/2026: 18 đơn DELIVERED + PENDING bị in ra 18 bill lúc 23:07, trong khi
+    // quầy đã in bill local lúc thu tiền rồi — phiếu thừa, chủ quán phải vứt.
+    // Đơn thu qua đường local đã có printed_at (mark_paid gửi receipt_printed_local
+    // => markOrderPaid skipReceipt + set printed_at) nên vẫn không in lần hai;
+    // nhánh này giờ chỉ còn là lưới an toàn cho đơn được thu ngoài luồng local.
+    if (paymentStatus !== 'PAID') continue;
     if (printedAt) continue;  // đã in
     var orderDate = ts ? new Date(ts) : null;
     if (!orderDate || orderDate < cutoff) continue;
@@ -960,7 +995,7 @@ function _rowToOrderFull(row) {
     order_id:      row[0],
     timestamp:     row[2],
     table_id:      row[6],
-    customer_id:   row[8],
+    customer_id:   normalizeCustomerId(row[8]),   // xem chú thích ở _rowToOrder (Orders.gs)
     customer_name: row[24] || '',
     items:         row[9] ? JSON.parse(row[9]) : [],
     subtotal:      row[10],
@@ -976,6 +1011,60 @@ function _rowToOrderFull(row) {
       delivery_type: row[26] || '',
     },
   };
+}
+
+/**
+ * Order object cho KDS inbox. KHÔNG tái dùng _rowToOrderFull: hàm đó mặc định
+ * payment.status='PAID' khi ô trống — đúng cho receipt builder (chỉ chạy lúc
+ * DELIVERED) nhưng sai chết người cho đơn online chưa thu tiền.
+ */
+function _rowToOnlineOrder(row) {
+  return {
+    order_id:         row[0],
+    created_at:       row[2] ? new Date(row[2]).toISOString() : '',
+    channel:          row[3] || '',
+    table_id:         row[6] || '',
+    customer_id:      normalizeCustomerId(row[8]),   // xem chú thích ở _rowToOrder (Orders.gs)
+    items:            row[9] ? JSON.parse(row[9]) : [],
+    total:            Number(row[11]) || 0,
+    payment_status:   row[19] || 'PENDING',
+    label_printed_at: row[20] || '',
+    notes:            row[23] || '',
+    customer_name:    row[24] || '',
+    short_code:       row[25] || '',
+    delivery_type:    row[26] || 'pickup'
+  };
+}
+
+/**
+ * Đơn online chưa vào KDS: channel != 'staff', status NEW, confirmed_at rỗng,
+ * tạo trong ngày hôm nay theo giờ ICT.
+ *
+ * Cutoff là NGÀY chứ không phải 4 giờ như _getPendingLabelOrders: khách đặt
+ * 5:30 sáng mà 9:45 nhân viên mới mở KDS thì mốc 4 giờ làm mất đơn vĩnh viễn.
+ */
+function _getPendingOnlineOrders() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ORDERS');
+  if (!sheet) return [];
+  var data = getLastRows(sheet, 300);
+  var todayIct = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  var result = [];
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0]) continue;
+    // Denylist có chủ đích, KHÔNG đổi thành allowlist kênh online: allowlist thì một
+    // kênh mới ai đó quên thêm sẽ tự động rớt khỏi KDS mà không ai biết — nguy hiểm hơn
+    // lỗ hổng đang vá. 'pos' = quầy tự order (normalize_order_payload trong gateway.py),
+    // 'kds' = ghi nội bộ từ bếp; cả hai không phải đơn khách online, phải loại khỏi mailbox.
+    if (['staff', 'pos', 'kds'].indexOf(String(row[3])) !== -1) continue;  // col D = channel
+    if (String(row[12]) !== 'NEW') continue;    // col M = status
+    if (row[13]) continue;                      // col N = confirmed_at
+    var ts = row[2];                            // col C = timestamp
+    if (!ts) continue;
+    if (Utilities.formatDate(new Date(ts), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd') !== todayIct) continue;
+    result.push(_rowToOnlineOrder(row));
+  }
+  return result;
 }
 
 function _safeJsonParse(s) {

@@ -3655,3 +3655,39 @@ function migrateForRoiAgent() {
   }
   Logger.log('migrateForRoiAgent() done.');
 }
+
+/**
+ * Migration (2026-08-11) — ép cột số điện thoại về định dạng VĂN BẢN.
+ *
+ * Sheets tự coi '0343726787' là SỐ và nuốt số 0 đầu, đọc ra thành 343726787.
+ * Đơn online sáng 11/08 dính đúng lỗi này: customer_id trong bill_meta của máy
+ * quán là 343726787, nên mọi thứ tra theo số điện thoại (báo Zalo, tem tích
+ * điểm, RFM) đều trỏ sai người.
+ *
+ * Chạy 1 lần. Idempotent, KHÔNG đụng dữ liệu — chỉ đổi định dạng ô nên các
+ * dòng ghi TỪ ĐÂY TRỞ ĐI giữ nguyên số 0. Dòng cũ đã mất số 0 thì không cứu
+ * được bằng định dạng; phía đọc đã có normalizeCustomerId() bù lại (9 chữ số
+ * không bắt đầu bằng 0 -> thêm 0).
+ */
+function migratePhoneColumnsToText() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  function forceText(sheetName, headerName) {
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) { Logger.log(sheetName + ': không có tab — bỏ qua.'); return; }
+    var lastCol = sheet.getLastColumn();
+    if (lastCol === 0) { Logger.log(sheetName + ': tab rỗng — bỏ qua.'); return; }
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var idx = headers.indexOf(headerName);
+    if (idx === -1) { Logger.log(sheetName + ': không thấy cột ' + headerName + ' — bỏ qua.'); return; }
+    // Cả cột (trừ dòng tiêu đề) để dòng thêm mới sau này cũng thừa hưởng.
+    var rows = Math.max(sheet.getMaxRows() - 1, 1);
+    sheet.getRange(2, idx + 1, rows, 1).setNumberFormat('@');
+    Logger.log(sheetName + '.' + headerName + ' (cột ' + (idx + 1) + ') -> văn bản thuần.');
+  }
+
+  forceText('ORDERS', 'customer_id');
+  forceText('CUSTOMERS', 'customer_id');
+  forceText('CUSTOMERS', 'phone');
+  Logger.log('migratePhoneColumnsToText() done.');
+}

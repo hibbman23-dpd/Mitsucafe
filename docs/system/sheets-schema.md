@@ -37,6 +37,21 @@ notes
 ```
 staff_id | name | role | pin | active | hourly_rate | shift_start | shift_end
 ```
+> ⚠️ Cột `pin` PHẢI để định dạng **TEXT** (Format → Number → Plain text), không phải Number:
+> Sheets tự cắt số 0 ở đầu (`0345` → `345`), hash PIN không còn khớp và nhân viên đó bị khoá
+> khỏi máy chấm công không rõ lý do. Chi tiết: `docs/system/attendance.md`.
+
+## Tab: ATTENDANCE
+```
+punch_id | staff_id | staff_name | date |
+clock_in_at | clock_out_at | status (OPEN|CLOSED|UNCLOSED|AWAIT_OWNER) | minutes_worked |
+source (staff|owner_manual) | edited_by | edited_at | edit_note | created_at
+```
+> Nguồn ghi là `print-server/attendance.db` (SQLite) trên Mac Mini; tab này là bản sao,
+> upsert theo `punch_id` (`gas/Attendance.gs` → `attendanceUpsert`). `punch_id` dạng
+> `ATT-YYYYMMDD-HHMMSS-XXXXXXXX` (8 hex). SQLite còn giữ thêm `punch_in_nonce`,
+> `punch_out_nonce`, `synced_at` — nội bộ, cố tình KHÔNG đẩy lên đây. Chi tiết vận hành đầy
+> đủ: `docs/system/attendance.md`.
 
 ## Tab: PROMOTIONS (Campaign-based — không phải daily)
 ```
