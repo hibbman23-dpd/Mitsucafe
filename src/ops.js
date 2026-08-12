@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker "mitsu-ops" — phục vụ RIÊNG các trang điều khiển
- * (dashboard / kds / camera) trên hostname riêng mitsu-ops.<acct>.workers.dev,
+ * (dashboard / kds / camera / chấm công) trên hostname riêng mitsu-ops.<acct>.workers.dev,
  * đặt sau Cloudflare Access (bật toàn-domain ở Zero Trust dashboard cho worker này).
  *
  * Dùng CHUNG thư mục assets web/ với worker chính (không nhân đôi file).

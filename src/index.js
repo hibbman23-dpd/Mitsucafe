@@ -2,7 +2,7 @@
  * Cloudflare Worker "mitsucafe" — phục vụ các trang CÔNG KHAI (web/) + lớp bảo mật.
  *
  * Công khai: landing (mitsu.html), đặt hàng khách (index.html), signage.
- * Trang điều khiển nội bộ (dashboard / kds / camera) KHÔNG phục vụ ở đây —
+ * Trang điều khiển nội bộ (dashboard / kds / camera / chấm công) KHÔNG phục vụ ở đây —
  *   worker này trả 404 cho chúng; chúng chỉ sống trên worker "mitsu-ops"
  *   (hostname riêng, sau Cloudflare Access). Mọi cập nhật trang nội bộ → mitsu-ops.
  *
@@ -25,8 +25,10 @@ const SECURITY_HEADERS = {
 // Trang điều khiển nội bộ — CHẶN trên worker công khai (chỉ mitsu-ops phục vụ).
 // Gồm cả biến thể extensionless do assets html_handling redirect .html → /path.
 const BLOCKED_PATHS = [
-  '/dashboard.html', '/kds.html', '/camera.html',
-  '/dashboard', '/kds', '/camera',
+  '/dashboard.html', '/kds.html', '/camera.html', '/cham-cong.html',
+  '/dashboard', '/kds', '/camera', '/cham-cong',
+  // Script chỉ trang nội bộ dùng — chặn luôn để không lộ endpoint nội bộ.
+  '/cham-cong.js',
 ];
 
 // Trang công khai nhưng không muốn index (signage trên màn hình tại quán).
