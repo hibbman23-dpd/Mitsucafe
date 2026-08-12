@@ -44,6 +44,38 @@ test('applyQty does not alias nested modifiers', () => {
   assert.strictEqual(items[0].modifiers.sugar, '50%');  // original untouched
 });
 
+test('applyQty rescales an explicit subtotal', () => {
+  const items = [{ sku: 'A', qty: 2, price: 30000, subtotal: 60000 }];
+  const out = C.applyQty(items, 0, -1);
+  assert.strictEqual(out[0].qty, 1);
+  assert.strictEqual(out[0].subtotal, 30000);
+  assert.strictEqual(C.cartTotal(out), 30000);
+});
+
+test('applyCancelQty removes only the cancelled cups', () => {
+  const items = [{ sku: 'A', qty: 2, price: 30000, subtotal: 60000 }, { sku: 'B', qty: 1, price: 25000 }];
+  const out = C.applyCancelQty(items, { 0: 1 });
+  assert.strictEqual(out.length, 2);
+  assert.strictEqual(out[0].qty, 1);
+  assert.strictEqual(out[0].subtotal, 30000);
+  assert.strictEqual(C.cartTotal(out), 55000);
+  assert.strictEqual(items[0].qty, 2);                          // original untouched
+});
+
+test('applyCancelQty drops a line cancelled in full and clamps overshoot', () => {
+  const items = [{ sku: 'A', qty: 2 }, { sku: 'B', qty: 1 }];
+  assert.deepStrictEqual(C.applyCancelQty(items, { 0: 2 }).map(i => i.sku), ['B']);
+  assert.deepStrictEqual(C.applyCancelQty(items, { 0: 9, 1: 1 }), []);
+  assert.deepStrictEqual(C.applyCancelQty(items, { 0: 0 }).map(i => i.sku), ['A', 'B']);
+});
+
+test('applyCancelQty does not alias nested modifiers', () => {
+  const items = [{ sku: 'A', qty: 2, modifiers: { sugar: '50%' } }];
+  const out = C.applyCancelQty(items, { 0: 1 });
+  out[0].modifiers.sugar = '0%';
+  assert.strictEqual(items[0].modifiers.sugar, '50%');
+});
+
 test('buildPartitions does not alias nested modifiers', () => {
   const items = [{ sku: 'A', qty: 1, modifiers: { ice: 'full' } }];
   const parts = C.buildPartitions(items, ['A']);

@@ -421,6 +421,7 @@
       display: flex; align-items: center; justify-content: center; font-weight: 800;
     }
     .step-btn:active { opacity: .75; }
+    .step-btn:disabled { opacity: .3; cursor: default; }
     .qty-val { font-size: 1.1rem; font-weight: 800; min-width: 24px; text-align: center; color: #fff; }
 
     /* Order form */
@@ -2046,14 +2047,25 @@ function cancelItemPrompt(orderId) {
   if (!o) return;
   const itemsList = cupItemsOf(o);
   if (!itemsList.length) { alert('Đơn hàng không có món để hủy.'); return; }
-  pendingCancel = { orderId, selected: new Set() };
+  // qty = {chỉ số dòng: số ly hủy}. Dòng 2 ly hủy 1 ly là hợp lệ.
+  pendingCancel = { orderId, qty: {} };
   renderCancelStep1();
+}
+function cancelTotalCups() {
+  return Object.keys(pendingCancel.qty).reduce((s, k) => s + (pendingCancel.qty[k] || 0), 0);
+}
+// Tên kèm số ly bị hủy, dùng cho bước lý do + toast: "Trà sữa ×2"
+function cancelledNamesOf(itemsList) {
+  return Object.keys(pendingCancel.qty)
+    .map(Number).sort((a, b) => a - b)
+    .filter(i => itemsList[i] && pendingCancel.qty[i] > 0)
+    .map(i => `${itemsList[i].name} ×${pendingCancel.qty[i]}`);
 }
 function renderCancelStep1() {
   const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
   if (!o) { closeCancelOverlay(); return; }
   const itemsList = cupItemsOf(o);
-  const n = pendingCancel.selected.size;
+  const n = cancelTotalCups();
   const html = `
     <div class="overlay-bg" id="cancel-overlay" onclick="closeCancelOverlay(event)">
       <div class="bottom-sheet" style="max-width:480px; margin:auto; border-radius:16px;">
@@ -2063,15 +2075,26 @@ function renderCancelStep1() {
         </div>
         <div style="padding:16px; display:flex; flex-direction:column; gap:8px;">
           ${itemsList.map((it, idx) => {
-            const on = pendingCancel.selected.has(idx);
+            const max  = Number(it.qty) || 1;
+            const pick = pendingCancel.qty[idx] || 0;
+            const on   = pick > 0;
             return `
-            <button class="btn-sm" style="padding:12px 14px; text-align:left; display:flex; align-items:center; justify-content:space-between; background:${on ? 'rgba(239,83,80,0.18)' : 'rgba(255,255,255,0.05)'}; border:1px solid ${on ? '#ef5350' : 'var(--border)'}; border-radius:10px;" onclick="toggleCancelItem(${idx})">
-              <span>${on ? '☑' : '☐'} ${esc(it.name)}</span><span style="color:var(--muted);">${fmt(it.price)}</span>
-            </button>`;
+            <div style="padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:${on ? 'rgba(239,83,80,0.18)' : 'rgba(255,255,255,0.05)'}; border:1px solid ${on ? '#ef5350' : 'var(--border)'}; border-radius:10px; cursor:pointer;" onclick="toggleCancelItem(${idx})">
+              <div style="flex:1; text-align:left;">
+                <div>${on ? '☑' : '☐'} ${esc(it.name)}${max > 1 ? ` <span style="color:var(--muted);">(${max} ly)</span>` : ''}</div>
+                <div style="font-size:.75rem; color:var(--muted);">${fmt(it.price)}${on ? ` · hủy ${pick}/${max}` : ''}</div>
+              </div>
+              ${max > 1 ? `
+              <div class="stepper" onclick="event.stopPropagation()">
+                <button class="step-btn" onclick="setCancelQty(${idx}, ${pick - 1})" ${pick <= 0 ? 'disabled' : ''}>−</button>
+                <span class="qty-val">${pick}</span>
+                <button class="step-btn" onclick="setCancelQty(${idx}, ${pick + 1})" ${pick >= max ? 'disabled' : ''}>+</button>
+              </div>` : ''}
+            </div>`;
           }).join('')}
         </div>
         <div style="padding:0 16px 16px;">
-          <button class="btn-submit-order" style="width:100%; background:#ef5350;" ${n === 0 ? 'disabled' : ''} onclick="renderCancelStep2()">❌ Hủy ${n} món đã chọn</button>
+          <button class="btn-submit-order" style="width:100%; background:#ef5350;" ${n === 0 ? 'disabled' : ''} onclick="renderCancelStep2()">❌ Hủy ${n} ly đã chọn</button>
         </div>
       </div>
     </div>`;
@@ -2079,23 +2102,30 @@ function renderCancelStep1() {
   if (!el) { el = document.createElement('div'); el.id = 'cancel-overlay-container'; document.body.appendChild(el); }
   el.innerHTML = html;
 }
-function toggleCancelItem(idx) {
-  if (pendingCancel.selected.has(idx)) pendingCancel.selected.delete(idx);
-  else pendingCancel.selected.add(idx);
+function cancelLineMax(idx) {
+  const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
+  const it = o ? cupItemsOf(o)[idx] : null;
+  return it ? (Number(it.qty) || 1) : 0;
+}
+function setCancelQty(idx, v) {
+  const n = Math.min(Math.max(v, 0), cancelLineMax(idx));
+  if (n <= 0) delete pendingCancel.qty[idx]; else pendingCancel.qty[idx] = n;
   renderCancelStep1();
 }
+// Tap thân dòng = chọn/bỏ cả dòng (dòng 1 ly giữ nguyên thao tác cũ).
+function toggleCancelItem(idx) {
+  setCancelQty(idx, pendingCancel.qty[idx] ? 0 : cancelLineMax(idx));
+}
 function renderCancelStep2() {
-  if (!pendingCancel.selected.size) return;
+  if (!cancelTotalCups()) return;
   const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
   if (!o) { closeCancelOverlay(); return; }
-  const itemsList = cupItemsOf(o);
-  const names = Array.from(pendingCancel.selected).sort((a, b) => a - b)
-    .map(i => itemsList[i] && itemsList[i].name).filter(Boolean);
+  const names = cancelledNamesOf(cupItemsOf(o));
   const html = `
     <div class="overlay-bg" id="cancel-overlay" onclick="closeCancelOverlay(event)">
       <div class="bottom-sheet" style="max-width:460px; margin:auto; border-radius:16px;">
         <div class="sheet-head">
-          <div class="sheet-title">❌ Lý do hủy ${names.length} món</div>
+          <div class="sheet-title">❌ Lý do hủy ${cancelTotalCups()} ly</div>
           <button class="btn-close" onclick="closeCancelOverlay()">✕</button>
         </div>
         <div style="padding:16px; display:flex; flex-direction:column; gap:10px;">
@@ -2127,7 +2157,7 @@ async function executeCancelItem(e) {
   const btn = e && e.target;
   if (btn) btn.disabled = true;
   try {
-    if (!pendingCancel || !pendingCancel.selected.size) return;
+    if (!pendingCancel || !cancelTotalCups()) return;
     const o = allOrders.find(x => x.order_id === pendingCancel.orderId);
     if (!o) { toast('Đơn không còn trong danh sách — đã tải lại'); await loadOrders(); return; }
     const reasonInput = document.getElementById('cancel-reason-input');
@@ -2136,9 +2166,9 @@ async function executeCancelItem(e) {
     const pin = verifyManagerPin();
     if (!pin) return;
     const itemsList = cupItemsOf(o);
-    const cancelledNames = Array.from(pendingCancel.selected)
-      .map(i => itemsList[i] && itemsList[i].name).filter(Boolean);
-    const newItems = itemsList.filter((_, i) => !pendingCancel.selected.has(i));
+    const cancelledNames = cancelledNamesOf(itemsList);
+    const cancelledCups = cancelTotalCups();
+    const newItems = checkout.applyCancelQty(itemsList, pendingCancel.qty);
     const r = await api().patchItems(o.order_id, newItems, o.version, pin, reason);
     if (checkout.isStale(r.status)) {
       await loadOrders();
@@ -2150,7 +2180,7 @@ async function executeCancelItem(e) {
       o.items_summary = formatItemsSummary(o.items);
       setLocalOverride(o.order_id, { items: r.body.order.items, total: r.body.order.total, version: r.body.order.version });
       closeCancelOverlay();
-      toast(`Đã hủy ${cancelledNames.length} món: ${cancelledNames.join(', ')}`);
+      toast(`Đã hủy ${cancelledCups} ly: ${cancelledNames.join(', ')}`);
       renderOrders();
     } else {
       alert('Lỗi hủy món: ' + ((r.body && r.body.error) || 'không rõ'));
